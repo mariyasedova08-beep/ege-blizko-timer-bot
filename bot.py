@@ -61,7 +61,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Мои команды:\n"
         "/ege — сколько дней до ЕГЭ\n"
         "/weeks — сколько недель до ЕГЭ\n"
-        "/chatid — показать ID этого чата"
+        "/chatid — показать ID этого чата\n"
+        "/test — отправить тестовый отсчёт в группу курса"
     )
 
 
@@ -97,6 +98,30 @@ async def chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = os.getenv("CHAT_ID")
+
+    if not chat_id:
+        await update.message.reply_text("CHAT_ID пока не настроен.")
+        return
+
+    target_chat_id = int(chat_id)
+
+    await context.bot.send_message(
+        chat_id=target_chat_id,
+        text=(
+            "🧪 <b>ТЕСТ ТАЙМЕРА</b>\n\n"
+            + get_countdown_text()
+        ),
+        parse_mode="HTML"
+    )
+
+    if update.effective_chat.id != target_chat_id:
+        await update.message.reply_text(
+            "✅ Тестовое сообщение отправлено в группу курса."
+        )
+
+
 async def daily_countdown(context: ContextTypes.DEFAULT_TYPE):
     chat_id = os.getenv("CHAT_ID")
 
@@ -122,6 +147,7 @@ def main():
     application.add_handler(CommandHandler("ege", ege))
     application.add_handler(CommandHandler("weeks", weeks))
     application.add_handler(CommandHandler("chatid", chatid))
+    application.add_handler(CommandHandler("test", test))
 
     # Ежедневное сообщение в 09:00 по Москве
     application.job_queue.run_daily(
