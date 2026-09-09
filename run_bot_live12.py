@@ -37,4 +37,5 @@ live10.sheetsstatus_command = sheetsstatus_with_rotate
 
 
 if __name__ == "__main__":
-    live11.main()
+    live11.ensure_sheets_sync_settings()
+    live10.main()
