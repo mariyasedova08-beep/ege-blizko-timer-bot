@@ -9,16 +9,34 @@ from telegram.ext import (
     ContextTypes,
 )
 
+from phrases import DAILY_PHRASES
+
 # Дата ЕГЭ по химии
 EXAM_DATE = date(2027, 6, 1)
+
+# 264 уникальные фразы идут с 10.09.2026 по 31.05.2027 включительно
+PHRASE_START_DATE = date(2026, 9, 10)
 
 # Часовой пояс
 TIMEZONE = ZoneInfo("Europe/Moscow")
 
 
+def today_moscow():
+    return datetime.now(TIMEZONE).date()
+
+
 def days_left():
-    today = datetime.now(TIMEZONE).date()
-    return (EXAM_DATE - today).days
+    return (EXAM_DATE - today_moscow()).days
+
+
+def get_daily_phrase(for_date=None):
+    current_date = for_date or today_moscow()
+    index = (current_date - PHRASE_START_DATE).days
+
+    if 0 <= index < len(DAILY_PHRASES):
+        return DAILY_PHRASES[index]
+
+    return "Каждый день — ещё один маленький шаг к сотке."
 
 
 def get_countdown_text():
@@ -29,7 +47,7 @@ def get_countdown_text():
             "🧪 <b>ЕГЭ близко</b>\n\n"
             f"До ЕГЭ по химии осталось\n"
             f"<b>{days} дней</b> 💗\n\n"
-            "Каждый день — ещё один маленький шаг к сотке."
+            f"{get_daily_phrase()}"
         )
 
     if days == 1:
@@ -37,14 +55,13 @@ def get_countdown_text():
             "🧪 <b>ЕГЭ близко</b>\n\n"
             "До ЕГЭ по химии остался\n"
             "<b>1 день</b> 💗\n\n"
-            "Сегодня ничего не пытаемся выучить заново. "
-            "Повторяем главное и бережём себя."
+            f"{get_daily_phrase()}"
         )
 
     if days == 0:
         return (
             "🧪 <b>ЕГЭ близко</b>\n\n"
-            "<b>ЕГЭ ПО ХИМИИ — СЕГОДНЯ!</b> 💗\n\n"
+            "<b>ЕГЭ ПО ХИМИИИ — СЕГОДНЯ!</b> 💗\n\n"
             "Вы уже сделали огромную работу. "
             "Теперь спокойно показываем всё, что умеем."
         )
