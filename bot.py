@@ -55,6 +55,14 @@ def get_countdown_text():
     )
 
 
+def get_homework_reminder_text():
+    return (
+        "📝 <b>Время домашки</b> 💗\n\n"
+        "Не откладываем на потом — проверьте, что сегодняшняя домашняя работа сделана и отправлена в CoreApp.\n\n"
+        "Спокойно, системно и по чуть-чуть каждый день — так и приходят к сильному результату 🧪"
+    )
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привет! Я таймер курса «ЕГЭ близко» 🧪\n\n"
@@ -135,6 +143,19 @@ async def daily_countdown(context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def daily_homework_reminder(context: ContextTypes.DEFAULT_TYPE):
+    chat_id = os.getenv("CHAT_ID")
+
+    if not chat_id:
+        return
+
+    await context.bot.send_message(
+        chat_id=int(chat_id),
+        text=get_homework_reminder_text(),
+        parse_mode="HTML"
+    )
+
+
 def main():
     token = os.getenv("BOT_TOKEN")
 
@@ -153,6 +174,14 @@ def main():
     application.job_queue.run_daily(
         daily_countdown,
         time=datetime.strptime("09:00", "%H:%M").time().replace(
+            tzinfo=TIMEZONE
+        ),
+    )
+
+    # Ежедневное напоминание о домашней работе в 19:00 по Москве
+    application.job_queue.run_daily(
+        daily_homework_reminder,
+        time=datetime.strptime("19:00", "%H:%M").time().replace(
             tzinfo=TIMEZONE
         ),
     )
