@@ -1,5 +1,10 @@
+import json
 import os
+import sqlite3
+import threading
 from datetime import datetime, date
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
 from telegram import Update
@@ -19,6 +24,10 @@ PHRASE_START_DATE = date(2026, 9, 10)
 
 # Часовой пояс
 TIMEZONE = ZoneInfo("Europe/Moscow")
+
+# Временное локальное хранилище событий CoreApp.
+# Для первого этапа интеграции этого достаточно; позже перенесём в постоянную БД.
+COREAPP_DB_PATH = os.getenv("COREAPP_DB_PATH", "/tmp/coreapp_webhooks.db")
 
 
 def today_moscow():
@@ -45,7 +54,7 @@ def get_countdown_text():
     if days > 1:
         return (
             "🧪 <b>ЕГЭ близко</b>\n\n"
-            f"До ЕГЭ по химии осталось\n"
+            "До ЕГЭ по химии осталось\n"
             f"<b>{days} дней</b> 💗\n\n"
             f"{get_daily_phrase()}"
         )
@@ -61,7 +70,7 @@ def get_countdown_text():
     if days == 0:
         return (
             "🧪 <b>ЕГЭ близко</b>\n\n"
-            "<b>ЕГЭ ПО ХИМИИИ — СЕГОДНЯ!</b> 💗\n\n"
+            "<b>ЕГЭ ПО ХИМИИ — СЕГОДНЯ!</b> 💗\n\n"
             "Вы уже сделали огромную работу. "
             "Теперь спокойно показываем всё, что умеем."
         )
@@ -85,6 +94,143 @@ def get_target_thread_id():
     return int(thread_id) if thread_id else None
 
 
+def init_coreapp_db():
+    with sqlite3.connect(COREAPP_DB_PATH) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS homework_submissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                received_at TEXT NOT NULL,
+                user_id TEXT,
+                user_email TEXT,
+                user_name TEXT,
+                course_id TEXT,
+                lesson_id TEXT,
+                lesson_name TEXT,
+                correct_count TEXT,
+                total_count TEXT,
+                raw_json TEXT NOT NULL
+            )
+            """
+        )
+        conn.commit()
+
+
+def save_coreapp_submission(payload):
+    with sqlite3.connect(COREAPP_DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO homework_submissions (
+                received_at,
+                user_id,
+                user_email,
+                user_name,
+                course_id,
+                lesson_id,
+                lesson_name,
+                correct_count,
+                total_count,
+                raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                datetime.now(TIMEZONE).isoformat(),
+                str(payload.get("user_id", "")),
+                str(payload.get("user_email", "")),
+                str(payload.get("user_name", "")),
+                str(payload.get("course_id", "")),
+                str(payload.get("lesson_id", "")),
+                str(payload.get("lesson_name", "")),
+                str(payload.get("correct_count", "")),
+                str(payload.get("total_count", "")),
+                json.dumps(payload, ensure_ascii=False),
+            ),
+        )
+        conn.commit()
+
+
+def get_recent_coreapp_submissions(limit=5):
+    with sqlite3.connect(COREAPP_DB_PATH) as conn:
+        rows = conn.execute(
+            """
+            SELECT received_at, user_name, user_email, lesson_name
+            FROM homework_submissions
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return rows
+
+
+class CoreAppWebhookHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        print("CoreApp HTTP:", format % args)
+
+    def _send_json(self, status_code, payload):
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/health":
+            self._send_json(200, {"ok": True, "service": "ege-blizko-timer-bot"})
+            return
+
+        self._send_json(404, {"ok": False, "error": "not_found"})
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+
+        if parsed.path != "/coreapp/homework-submitted":
+            self._send_json(404, {"ok": False, "error": "not_found"})
+            return
+
+        expected_secret = os.getenv("COREAPP_WEBHOOK_SECRET", "")
+        supplied_secret = parse_qs(parsed.query).get("secret", [""])[0]
+
+        if not expected_secret or supplied_secret != expected_secret:
+            self._send_json(401, {"ok": False, "error": "unauthorized"})
+            return
+
+        try:
+            content_length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(content_length).decode("utf-8")
+            payload = json.loads(raw_body or "{}")
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            self._send_json(400, {"ok": False, "error": "invalid_json"})
+            return
+
+        try:
+            save_coreapp_submission(payload)
+        except Exception as exc:
+            print("CoreApp save error:", repr(exc))
+            self._send_json(500, {"ok": False, "error": "storage_error"})
+            return
+
+        print(
+            "CoreApp homework submitted:",
+            payload.get("user_name"),
+            payload.get("user_email"),
+            payload.get("lesson_name"),
+        )
+        self._send_json(200, {"ok": True})
+
+
+def start_http_server():
+    init_coreapp_db()
+    port = int(os.getenv("PORT", "8080"))
+    server = ThreadingHTTPServer(("0.0.0.0", port), CoreAppWebhookHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    print(f"HTTP-сервер CoreApp запущен на порту {port}")
+    return server
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привет! Я таймер курса «ЕГЭ близко» 🧪\n\n"
@@ -93,6 +239,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/weeks — сколько недель до ЕГЭ\n"
         "/chatid — показать ID этого чата\n"
         "/threadid — показать ID текущей темы\n"
+        "/corestatus — проверить события CoreApp\n"
         "/test — отправить тестовый отсчёт в группу курса"
     )
 
@@ -116,7 +263,7 @@ async def weeks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "🧪 <b>ЕГЭ близко</b>\n\n"
-        f"До ЕГЭ осталось примерно\n"
+        "До ЕГЭ осталось примерно\n"
         f"<b>{weeks_count} недель и {remainder} дней</b> 💗",
         parse_mode="HTML"
     )
@@ -142,6 +289,24 @@ async def threadid(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"ID этой темы:\n<code>{current_thread_id}</code>",
         parse_mode="HTML"
     )
+
+
+async def corestatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = get_recent_coreapp_submissions(5)
+
+    if not rows:
+        await update.message.reply_text(
+            "CoreApp подключён, но событий о сданной домашней работе пока не получено."
+        )
+        return
+
+    lines = ["✅ Последние события CoreApp:"]
+    for received_at, user_name, user_email, lesson_name in rows:
+        who = user_name or user_email or "ученик"
+        lesson = lesson_name or "домашняя работа"
+        lines.append(f"• {who} — {lesson}")
+
+    await update.message.reply_text("\n".join(lines))
 
 
 async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -204,6 +369,8 @@ def main():
     if not token:
         raise RuntimeError("Переменная BOT_TOKEN не установлена")
 
+    start_http_server()
+
     application = Application.builder().token(token).build()
 
     application.add_handler(CommandHandler("start", start))
@@ -211,6 +378,7 @@ def main():
     application.add_handler(CommandHandler("weeks", weeks))
     application.add_handler(CommandHandler("chatid", chatid))
     application.add_handler(CommandHandler("threadid", threadid))
+    application.add_handler(CommandHandler("corestatus", corestatus))
     application.add_handler(CommandHandler("test", test))
 
     # Ежедневное сообщение в 09:00 по Москве
