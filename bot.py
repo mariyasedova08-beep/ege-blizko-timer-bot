@@ -3,7 +3,7 @@ import json
 import os
 import sqlite3
 import threading
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
@@ -25,6 +25,13 @@ PHRASE_START_DATE = date(2026, 9, 10)
 TIMEZONE = ZoneInfo("Europe/Moscow")
 COREAPP_DB_PATH = os.getenv("COREAPP_DB_PATH", "/tmp/coreapp_webhooks.db")
 
+# Годовой курс: 108 уроков по понедельникам, средам и субботам.
+# Первый урок — 07.09.2026. На 09.09.2026 по плану идёт урок №2.
+COURSE_START_DATE = date(2026, 9, 7)
+TOTAL_LESSONS = 108
+LESSON_WEEKDAYS = {0, 2, 5}  # понедельник, среда, суббота
+PROGRESS_SEGMENTS = 12
+
 
 def today_moscow():
     return datetime.now(TIMEZONE).date()
@@ -42,29 +49,92 @@ def get_daily_phrase(for_date=None):
     return "Каждый день — ещё один маленький шаг к сотке."
 
 
+def get_course_lesson_number(for_date=None):
+    current_date = for_date or today_moscow()
+    if current_date < COURSE_START_DATE:
+        return 0
+
+    count = 0
+    cursor = COURSE_START_DATE
+    while cursor <= current_date and count < TOTAL_LESSONS:
+        if cursor.weekday() in LESSON_WEEKDAYS:
+            count += 1
+        cursor += timedelta(days=1)
+    return min(count, TOTAL_LESSONS)
+
+
+def get_course_progress_text(for_date=None):
+    current_date = for_date or today_moscow()
+    lesson_number = get_course_lesson_number(current_date)
+    progress = lesson_number / TOTAL_LESSONS if TOTAL_LESSONS else 0
+    percent = progress * 100
+
+    if lesson_number == 0:
+        filled = 0
+    elif lesson_number >= TOTAL_LESSONS:
+        filled = PROGRESS_SEGMENTS
+    else:
+        # На старте оставляем хотя бы одно розовое сердечко,
+        # а точное значение всегда показываем цифрами рядом.
+        filled = max(1, round(progress * PROGRESS_SEGMENTS))
+
+    empty = PROGRESS_SEGMENTS - filled
+    bar = "🩷" * filled + "🤍" * empty
+    percent_text = f"{percent:.1f}".replace(".", ",")
+
+    today_is_lesson = (
+        current_date >= COURSE_START_DATE
+        and current_date.weekday() in LESSON_WEEKDAYS
+        and lesson_number <= TOTAL_LESSONS
+    )
+
+    lines = [
+        "💗 <b>Прогресс курса</b>",
+        bar,
+        f"<b>{lesson_number} / {TOTAL_LESSONS} уроков</b> · {percent_text}%",
+    ]
+
+    if today_is_lesson and 0 < lesson_number <= TOTAL_LESSONS:
+        lines.append(f"Сегодня — урок №{lesson_number} 🧪")
+
+    return "\n".join(lines)
+
+
 def get_countdown_text():
     days = days_left()
+    progress_text = get_course_progress_text()
+
     if days > 1:
         return (
             "🧪 <b>ЕГЭ близко</b>\n\n"
             "До ЕГЭ по химии осталось\n"
             f"<b>{days} дней</b> 💗\n\n"
+            f"{progress_text}\n\n"
             f"{get_daily_phrase()}"
         )
+
     if days == 1:
         return (
             "🧪 <b>ЕГЭ близко</b>\n\n"
             "До ЕГЭ по химии остался\n"
             "<b>1 день</b> 💗\n\n"
+            f"{progress_text}\n\n"
             f"{get_daily_phrase()}"
         )
+
     if days == 0:
         return (
             "🧪 <b>ЕГЭ близко</b>\n\n"
             "<b>ЕГЭ ПО ХИМИИ — СЕГОДНЯ!</b> 💗\n\n"
+            f"{progress_text}\n\n"
             "Вы уже сделали огромную работу. Теперь спокойно показываем всё, что умеем."
         )
-    return "🧪 <b>ЕГЭ близко</b>\n\nЕГЭ по химии уже позади 💗"
+
+    return (
+        "🧪 <b>ЕГЭ близко</b>\n\n"
+        f"{progress_text}\n\n"
+        "ЕГЭ по химии уже позади 💗"
+    )
 
 
 def get_homework_reminder_text():
@@ -430,6 +500,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Мои команды:\n"
         "/ege — сколько дней до ЕГЭ\n"
         "/weeks — сколько недель до ЕГЭ\n"
+        "/progress — прогресс годового курса\n"
         "/chatid — показать ID этого чата\n"
         "/threadid — показать ID текущей темы\n"
         "/myid — показать ваш Telegram ID\n"
@@ -457,6 +528,10 @@ async def weeks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"<b>{weeks_count} недель и {remainder} дней</b> 💗",
         parse_mode="HTML",
     )
+
+
+async def progress(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(get_course_progress_text(), parse_mode="HTML")
 
 
 async def chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -618,6 +693,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ege", ege))
     application.add_handler(CommandHandler("weeks", weeks))
+    application.add_handler(CommandHandler("progress", progress))
     application.add_handler(CommandHandler("chatid", chatid))
     application.add_handler(CommandHandler("threadid", threadid))
     application.add_handler(CommandHandler("myid", myid))
