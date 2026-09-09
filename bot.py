@@ -178,12 +178,14 @@ def main():
         ),
     )
 
-    # Ежедневное напоминание о домашней работе в 19:00 по Москве
+    # Напоминание о домашней работе: воскресенье, вторник и суббота в 19:00 по Москве
+    # В python-telegram-bot: 0 = воскресенье, 2 = вторник, 6 = суббота
     application.job_queue.run_daily(
         daily_homework_reminder,
         time=datetime.strptime("19:00", "%H:%M").time().replace(
             tzinfo=TIMEZONE
         ),
+        days=(0, 2, 6),
     )
 
     print("Бот запущен")
