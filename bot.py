@@ -63,6 +63,11 @@ def get_homework_reminder_text():
     )
 
 
+def get_target_thread_id():
+    thread_id = os.getenv("MESSAGE_THREAD_ID")
+    return int(thread_id) if thread_id else None
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привет! Я таймер курса «ЕГЭ близко» 🧪\n\n"
@@ -70,6 +75,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/ege — сколько дней до ЕГЭ\n"
         "/weeks — сколько недель до ЕГЭ\n"
         "/chatid — показать ID этого чата\n"
+        "/threadid — показать ID текущей темы\n"
         "/test — отправить тестовый отсчёт в группу курса"
     )
 
@@ -106,6 +112,21 @@ async def chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def threadid(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    current_thread_id = update.effective_message.message_thread_id
+
+    if current_thread_id is None:
+        await update.message.reply_text(
+            "У этого сообщения нет ID темы. Отправьте /threadid внутри нужной темы форума."
+        )
+        return
+
+    await update.message.reply_text(
+        f"ID этой темы:\n<code>{current_thread_id}</code>",
+        parse_mode="HTML"
+    )
+
+
 async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = os.getenv("CHAT_ID")
 
@@ -114,9 +135,11 @@ async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     target_chat_id = int(chat_id)
+    target_thread_id = get_target_thread_id()
 
     await context.bot.send_message(
         chat_id=target_chat_id,
+        message_thread_id=target_thread_id,
         text=(
             "🧪 <b>ТЕСТ ТАЙМЕРА</b>\n\n"
             + get_countdown_text()
@@ -138,6 +161,7 @@ async def daily_countdown(context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         chat_id=int(chat_id),
+        message_thread_id=get_target_thread_id(),
         text=get_countdown_text(),
         parse_mode="HTML"
     )
@@ -151,6 +175,7 @@ async def daily_homework_reminder(context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         chat_id=int(chat_id),
+        message_thread_id=get_target_thread_id(),
         text=get_homework_reminder_text(),
         parse_mode="HTML"
     )
@@ -168,6 +193,7 @@ def main():
     application.add_handler(CommandHandler("ege", ege))
     application.add_handler(CommandHandler("weeks", weeks))
     application.add_handler(CommandHandler("chatid", chatid))
+    application.add_handler(CommandHandler("threadid", threadid))
     application.add_handler(CommandHandler("test", test))
 
     # Ежедневное сообщение в 09:00 по Москве
