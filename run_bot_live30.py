@@ -9,11 +9,11 @@ live27 = live28.live27
 live25 = live28.live25
 live24 = live28.live24
 live7 = live28.live7
-live3 = live25.live24.live23.live22.live21.live20.live19.live18.live17.live15.live10.live7.live6.live4.live3
+live3 = live24.live23.live3
 run_bot = live28.run_bot
 bot = live28.bot
 
-AUTO_ATTENDANCE_AFTER_MINUTES = 120
+AUTO_ATTENDANCE_AFTER_MINUTES = 90
 
 
 def ensure_auto_attendance_table():
@@ -41,6 +41,15 @@ def _draft_exists(lesson_number):
     return bool(row)
 
 
+def _attendance_finalized(lesson_number):
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT finalized FROM attendance_sessions WHERE lesson_number = ? LIMIT 1",
+            (lesson_number,),
+        ).fetchone()
+    return bool(row and row[0])
+
+
 def _lesson_event_dt(lesson_date):
     info = live25._lesson_info_for_date(lesson_date)
     if not info:
@@ -59,10 +68,12 @@ def _lesson_event_dt(lesson_date):
 
 
 def _create_attendance_draft(lesson_number):
-    """Prefill attendance from the latest lesson poll without finalizing it."""
+    """Prefill attendance from the lesson poll without finalizing it."""
     live3.ensure_attendance_session(lesson_number)
-    now = datetime.now(bot.TIMEZONE).isoformat()
+    if _attendance_finalized(lesson_number):
+        return "finalized"
 
+    now = datetime.now(bot.TIMEZONE).isoformat()
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
         poll_row = conn.execute(
             """
@@ -90,7 +101,7 @@ def _create_attendance_draft(lesson_number):
 
         yes_count = 0
         no_count = 0
-        for telegram_user_id, option_id, student_id in answers:
+        for _telegram_user_id, option_id, student_id in answers:
             if student_id is None:
                 continue
             option_id = int(option_id)
@@ -147,12 +158,11 @@ async def auto_attendance_tick(context):
         return
 
     draft_at = event_dt + timedelta(minutes=AUTO_ATTENDANCE_AFTER_MINUTES)
-    # Tick идёт каждые 30 секунд; после наступления времени создаём только один черновик.
-    if now < draft_at or _draft_exists(lesson_number):
+    if now < draft_at or _draft_exists(lesson_number) or _attendance_finalized(lesson_number):
         return
 
     result = _create_attendance_draft(lesson_number)
-    if result is None:
+    if result is None or result == "finalized":
         return
 
     yes_count, no_count = result
@@ -164,7 +174,8 @@ async def auto_attendance_tick(context):
                 text=(
                     f"🎓 Черновик посещаемости урока №{lesson_number} готов.\n\n"
                     f"По опросу: ✅ будут — {yes_count}, ❌ не будут — {no_count}.\n"
-                    "Открой «Кабинет Маши» → «Посещение», поправь тех, кто фактически не пришёл, и нажми «💾 Сохранить»."
+                    "Я уже перенёс ответы в посещаемость. Открой «Кабинет Маши» → «Посещение», "
+                    "исправь тех, кто фактически не пришёл или пришёл вопреки ответу, и нажми «💾 Сохранить»."
                 ),
             )
         except Exception as exc:
@@ -177,7 +188,10 @@ _original_attendance_text = live3.attendance_text
 def attendance_text_with_draft(lesson_number, finalized, records, student_count):
     text = _original_attendance_text(lesson_number, finalized, records, student_count)
     if not finalized and _draft_exists(lesson_number):
-        text += "\n\n🤖 Черновик создан автоматически из опроса. Проверь фактическое присутствие и нажми «💾 Сохранить»."
+        text += (
+            "\n\n🤖 Черновик создан автоматически из опроса. "
+            "Проверь фактическое присутствие и нажми «💾 Сохранить»."
+        )
     return text
 
 
