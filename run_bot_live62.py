@@ -128,8 +128,10 @@ if __name__ == "__main__":
     live51.ensure_course_schedule_table()
     live56.log_probnik_cabinet_audit()
 
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        asyncio.run(send_oxides_intro_now())
+        loop.run_until_complete(send_oxides_intro_now())
     except Exception as exc:
         print("Oxides intro announcement error:", type(exc).__name__, flush=True)
 
