@@ -1,0 +1,1 @@
+Production entrypoint switched to run_bot_live60.py for the oxides trainer release.
