@@ -93,7 +93,7 @@ async def combined_tick_with_oxides_intro(context):
         if not _intro_already_sent():
             if await send_oxides_intro(context):
                 _mark_intro_sent()
-                print("Oxides intro announcement sent")
+                print("Oxides intro announcement sent", flush=True)
 
 
 live7.friday_trivial_tick = combined_tick_with_oxides_intro
@@ -125,8 +125,10 @@ if __name__ == "__main__":
     live50.seed_molar_mass_task()
     live51.ensure_course_schedule_table()
     live56.log_probnik_cabinet_audit()
-    print("Oxides one-time intro ready")
-    print(f"Oxides trainer ready: questions={len(live60.OXIDES_BANK)} monday_reminder=11:00")
-    print("Safe /test oxides route ready")
-    print("CoreApp live sync receiver v2 ready")
+    print("Oxides one-time intro ready", flush=True)
+    print(f"Oxides trainer ready: questions={len(live60.OXIDES_BANK)} monday_reminder=11:00", flush=True)
+    print("Safe /test oxides route ready", flush=True)
+    print("CoreApp live sync receiver v2 ready", flush=True)
     live24.main()
+
+# live62 entrypoint: one-time intro is idempotent via oxides_weekly_deliveries.
