@@ -50,17 +50,13 @@ def _task_list_markup_actionable():
     rows = []
     for task_id, task_text, _start_date, _reminder_time in tasks:
         label = str(task_text or "Задача")
-        if len(label) > 24:
-            label = label[:21] + "…"
+        if len(label) > 30:
+            label = label[:27] + "…"
         rows.append([
             live7.InlineKeyboardButton(
                 f"✅ {label}",
                 callback_data=f"cab:tasklistdone:{int(task_id)}",
-            ),
-            live7.InlineKeyboardButton(
-                "🧪 Тест",
-                callback_data=f"cab:taskpreview:{int(task_id)}",
-            ),
+            )
         ])
     rows.append([live7.InlineKeyboardButton("← В кабинет", callback_data="cab:back")])
     return live7.InlineKeyboardMarkup(rows), tasks
@@ -81,22 +77,13 @@ def _task_list_text(tasks):
         )
     lines.extend([
         "",
-        "✅ Нажми на задачу, чтобы отметить её выполненной — она сразу исчезнет из списка.",
-        "🧪 «Тест» только показывает пример напоминания и ничего не закрывает.",
+        "✅ Нажми на задачу, когда выполнишь её — она сразу исчезнет из списка.",
     ])
     return "\n".join(lines)
 
 
-def _preview_done_markup_clear():
-    return live7.InlineKeyboardMarkup([
-        [live7.InlineKeyboardButton("🧪 Проверить тестовую кнопку", callback_data="cab:taskpreviewdone")]
-    ])
-
-
-# Старый список показывал только «Тест», а галочка внутри теста намеренно не закрывала задачу.
-# Оставляем тест отдельно, а в самом списке даём настоящую кнопку завершения.
+# В списке задач больше нет тестовых кнопок: только реальное завершение задачи.
 live36._task_list_markup = _task_list_markup_actionable
-live36._preview_done_markup = _preview_done_markup_clear
 
 _previous_cabinet_callback = live23.cabinet_callback
 
@@ -127,10 +114,10 @@ async def cabinet_callback_with_actionable_tasks(update, context):
         now = datetime.now(bot.TIMEZONE)
         with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
             row = conn.execute(
-                "SELECT task_text, completed_at FROM admin_tasks WHERE id = ? LIMIT 1",
+                "SELECT completed_at FROM admin_tasks WHERE id = ? LIMIT 1",
                 (task_id,),
             ).fetchone()
-            if row and not row[1]:
+            if row and not row[0]:
                 conn.execute(
                     "UPDATE admin_tasks SET completed_at = ? WHERE id = ?",
                     (now.isoformat(), task_id),
@@ -146,13 +133,10 @@ async def cabinet_callback_with_actionable_tasks(update, context):
         )
         return
 
-    if data == "cab:taskpreviewdone":
-        await query.answer("Тест работает ✅")
-        await query.edit_message_text(
-            "🧪 <b>Тест кнопки пройден.</b>\n\n"
-            "Настоящая задача не закрыта. Чтобы закрыть её, вернись в «🗒 Задачи» и нажми зелёную кнопку ✅ с названием задачи.",
-            parse_mode="HTML",
-        )
+    # Старые сообщения с тестовыми кнопками могут ещё оставаться в истории чата.
+    # Они больше ничего не тестируют и не меняют задачи.
+    if data.startswith("cab:taskpreview:") or data == "cab:taskpreviewdone":
+        await query.answer("Тестовые кнопки отключены. Открой «🗒 Задачи» заново.", show_alert=True)
         return
 
     await _previous_cabinet_callback(update, context)
@@ -187,7 +171,7 @@ if __name__ == "__main__":
     live50.seed_molar_mass_task()
     live51.ensure_course_schedule_table()
     live56.log_probnik_cabinet_audit()
-    print("Actionable admin task list ready", flush=True)
+    print("Admin task list without test buttons ready", flush=True)
     print("Schedule-based homework cabinet ready", flush=True)
     print(f"Oxides trainer ready: questions={len(live60.OXIDES_BANK)} monday_reminder=11:00", flush=True)
     print("Safe /test oxides route ready", flush=True)
