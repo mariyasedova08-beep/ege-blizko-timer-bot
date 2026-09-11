@@ -50,9 +50,23 @@ async def safe_test_command_with_oxides(update, context):
     await _previous_safe_test_command(update, context)
 
 
-# run_bot_live55 подменяет callback /test именно в момент регистрации CommandHandler.
-# Он берёт live55.safe_test_command по имени, поэтому обновляем этот callback здесь.
+# live55 защищает /test от случайной отправки таймера в группу. Новые тесты,
+# добавленные после live55, нужно включать в тот же безопасный роутер.
 live55.safe_test_command = safe_test_command_with_oxides
+
+# Регистрируем /test через исходный CommandHandler напрямую, чтобы поздние
+# тесты не потерялись в старом списке безопасных тестов live55.
+_BaseCommandHandler = live55._PreviousCommandHandler
+
+
+def _safe_command_handler_v2(command, callback, *args, **kwargs):
+    commands = {command} if isinstance(command, str) else set(command or [])
+    if "test" in commands:
+        callback = safe_test_command_with_oxides
+    return _BaseCommandHandler(command, callback, *args, **kwargs)
+
+
+bot.CommandHandler = _safe_command_handler_v2
 
 
 if __name__ == "__main__":
