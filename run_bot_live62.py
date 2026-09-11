@@ -1,7 +1,9 @@
+import asyncio
+import os
 import sqlite3
 from datetime import datetime
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
 import run_bot_live61
 
@@ -29,7 +31,6 @@ live31 = live61.live31
 live24 = live61.live24
 live17 = live61.live17
 bot = live61.bot
-live7 = live34.live7
 
 OXIDES_INTRO_KEY = "intro-oxides-2026-09-11"
 
@@ -51,52 +52,53 @@ def _mark_intro_sent():
         conn.commit()
 
 
-async def send_oxides_intro(context):
-    chat_id = bot.os.getenv("CHAT_ID")
-    if not chat_id:
+async def send_oxides_intro_now():
+    if _intro_already_sent():
+        print("Oxides intro announcement already sent", flush=True)
+        return True
+
+    token = os.getenv("BOT_TOKEN")
+    chat_id = os.getenv("CHAT_ID")
+    if not token or not chat_id:
+        print("Oxides intro announcement skipped: missing config", flush=True)
         return False
-    me = await context.bot.get_me()
+
+    tg_bot = Bot(token=token)
+    me = await tg_bot.get_me()
     if not me.username:
+        print("Oxides intro announcement skipped: no bot username", flush=True)
         return False
 
     text = (
-        "🧪 <b>Ребята, у нас новый тренажёр — «Классификация оксидов»!</b> 💗\n\n"
-        "Я добавила его в ваши <b>личные кабинеты</b> → раздел «Тренажёры».\n\n"
-        "Внутри <b>50 разных вопросов</b> на основные, амфотерные, кислотные и несолеобразующие оксиды. "
-        "Можно выбрать 10, 20 или пройти сразу все 50 вопросов.\n\n"
-        "Если ошибётесь, бот сохранит вопрос в «Мои ошибки», и его можно будет отдельно отработать ещё раз.\n\n"
-        "Предлагаю начать с 10 вопросов и проверить, насколько хорошо уже получается классификация 👇"
+        "🧪 <b>Ребята, у вас появился новый тренажёр — «Классификация оксидов» 💗</b>\n\n"
+        "Он уже добавлен в ваши личные кабинеты: <b>👤 Мой кабинет → 🧪 Тренажёры</b>.\n\n"
+        "Внутри <b>50 вопросов</b> по классификации оксидов:\n"
+        "• основные\n"
+        "• амфотерные\n"
+        "• кислотные\n"
+        "• несолеобразующие\n\n"
+        "Можно выбрать режим на <b>10, 20 или все 50 вопросов</b>. Ошибки сохраняются, поэтому потом их можно отдельно повторить.\n\n"
+        "Предлагаю сегодня пройти хотя бы <b>10 вопросов</b> и проверить, насколько уверенно вы различаете типы оксидов 👇"
     )
     markup = InlineKeyboardMarkup([[
         InlineKeyboardButton(
-            "🧪 Пройти тренажёр",
+            "🧪 Пройти тренажёр «Оксиды»",
             url=f"https://t.me/{me.username}?start=oxides",
         )
     ]])
-    await context.bot.send_message(
-        chat_id=int(chat_id),
-        message_thread_id=bot.get_target_thread_id(),
-        text=text,
-        parse_mode="HTML",
-        reply_markup=markup,
-    )
+    kwargs = {
+        "chat_id": int(chat_id),
+        "text": text,
+        "parse_mode": "HTML",
+        "reply_markup": markup,
+    }
+    thread_id = bot.get_target_thread_id()
+    if thread_id:
+        kwargs["message_thread_id"] = thread_id
+    message = await tg_bot.send_message(**kwargs)
+    _mark_intro_sent()
+    print(f"Oxides intro announcement sent message_id={message.message_id}", flush=True)
     return True
-
-
-_previous_tick = live7.friday_trivial_tick
-
-
-async def combined_tick_with_oxides_intro(context):
-    try:
-        await _previous_tick(context)
-    finally:
-        if not _intro_already_sent():
-            if await send_oxides_intro(context):
-                _mark_intro_sent()
-                print("Oxides intro announcement sent", flush=True)
-
-
-live7.friday_trivial_tick = combined_tick_with_oxides_intro
 
 
 if __name__ == "__main__":
@@ -125,10 +127,13 @@ if __name__ == "__main__":
     live50.seed_molar_mass_task()
     live51.ensure_course_schedule_table()
     live56.log_probnik_cabinet_audit()
-    print("Oxides one-time intro ready", flush=True)
+
+    try:
+        asyncio.run(send_oxides_intro_now())
+    except Exception as exc:
+        print("Oxides intro announcement error:", type(exc).__name__, flush=True)
+
     print(f"Oxides trainer ready: questions={len(live60.OXIDES_BANK)} monday_reminder=11:00", flush=True)
     print("Safe /test oxides route ready", flush=True)
     print("CoreApp live sync receiver v2 ready", flush=True)
     live24.main()
-
-# live62 entrypoint: one-time intro is idempotent via oxides_weekly_deliveries.
