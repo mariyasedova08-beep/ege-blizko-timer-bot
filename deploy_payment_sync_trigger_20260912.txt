@@ -1,1 +1,1 @@
-Payment sync completed and audited. Trigger payment-link audit for unresolved Telegram recipients before 28.09.2026 launch.
+Payment sync completed and audited. Trigger exact email fallback for unresolved payment Telegram recipients and extended audit before 28.09.2026 launch.
