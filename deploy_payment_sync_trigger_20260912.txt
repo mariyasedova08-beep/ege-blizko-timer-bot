@@ -1,1 +1,1 @@
-Payment sync completed and audited. Final clean production deployment: stable payment aliases + scheduled delivery, 12/12 Telegram recipients matched.
+Payment sync completed and audited. Final clean production deployment: stable payment aliases + scheduled delivery, 12/12 Telegram recipients matched. Student personal cabinet now includes a Payment button with private payment status.
