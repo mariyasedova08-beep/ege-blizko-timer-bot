@@ -1,1 +1,1 @@
-Payment sync completed and audited. Trigger payment-delivery production deployment with safe Telegram mapping and 28.09.2026 launch.
+Payment sync completed and audited. Trigger payment-link audit for unresolved Telegram recipients before 28.09.2026 launch.
