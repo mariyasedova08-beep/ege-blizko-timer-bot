@@ -2,6 +2,8 @@
 from telegram.ext import ApplicationBuilder
 
 import payment_delivery
+import payment_delivery_ui
+import payment_schedule
 
 _original_build = ApplicationBuilder.build
 _installed = False
@@ -9,6 +11,7 @@ _installed = False
 
 def _build_with_payment_delivery(self):
     application = _original_build(self)
+    payment_delivery_ui.patch(payment_schedule)
     payment_delivery.register_jobs(application)
     return application
 
