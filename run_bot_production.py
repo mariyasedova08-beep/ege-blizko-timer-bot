@@ -33,6 +33,7 @@ def main():
 
     import individual_trainer_daily
     import instagram_return_system
+    import instagram_daily_reminder
 
     live90.live79.live71.ensure_molar_access_tables()
     live90.live79.live70.ensure_health_tables()
@@ -83,6 +84,7 @@ def main():
     individual_trainer_daily.individual_daily_trainer_tick = individual_tick_1600_window
 
     instagram_return_system.install()
+    instagram_daily_reminder.install()
 
     live90.live79.live71.complete_molar_mass_task()
     live90.live79.live74.ensure_notification_catchup_tables()
@@ -114,6 +116,7 @@ def main():
     print("Individual students daily trainer reminder: every day 16:00", flush=True)
     print("Individual students trainer stats available in admin cabinet", flush=True)
     print("Instagram 90-day return system available in admin cabinet", flush=True)
+    print("Instagram daily plan reminder: every day 11:00", flush=True)
     print("Schedule-based homework cabinet ready", flush=True)
     print(f"Oxides trainer ready: questions={len(live90.live79.live60.OXIDES_BANK)} monday_reminder=11:00", flush=True)
     print(f"Nonmetals trainer ready: questions={len(nonmetals_trainer.NONMETALS_BANK)}", flush=True)
