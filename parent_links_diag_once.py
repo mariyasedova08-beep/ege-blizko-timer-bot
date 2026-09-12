@@ -26,27 +26,20 @@ with sqlite3.connect(DB) as c:
             'active=' + str(r['active']), 'linked_at=' + str(r['linked_at'])
         ]), flush=True)
 
-    stepa_rows = c.execute('''
+    sid = 11
+    s = c.execute('''
         SELECT id,
                COALESCE(NULLIF(display_name,''), NULLIF(user_name,''), user_email, 'Ученик') AS student_name,
                telegram_user_id
-        FROM students
-        WHERE active=1 AND (
-            lower(COALESCE(display_name,'')) LIKE '%степ%'
-            OR lower(COALESCE(user_name,'')) LIKE '%степ%'
-            OR lower(COALESCE(user_email,'')) LIKE '%степ%'
-            OR lower(COALESCE(display_name,'')) LIKE '%смольянинов%'
-            OR lower(COALESCE(user_name,'')) LIKE '%смольянинов%'
-        )
-        ORDER BY id
-    ''').fetchall()
-    print('PARENT_DIAG stepa_candidates=' + str(len(stepa_rows)), flush=True)
-    for s in stepa_rows:
+        FROM students WHERE id=?
+    ''',(sid,)).fetchone()
+    print('PARENT_DIAG_STEPA exact=' + ('found' if s else 'missing'), flush=True)
+    if s:
         print(f"PARENT_DIAG_STEPA student_id={s['id']}|name={s['student_name']}|student_tg={s['telegram_user_id']}", flush=True)
         links = c.execute('''
             SELECT parent_telegram_user_id,parent_name,parent_username,active,linked_at
             FROM parent_links WHERE student_id=? ORDER BY linked_at
-        ''',(s['id'],)).fetchall()
+        ''',(sid,)).fetchall()
         print(f"PARENT_DIAG_STEPA links={len(links)}", flush=True)
         for r in links:
             print('PARENT_DIAG_STEPA_LINK ' + '|'.join([
@@ -60,7 +53,7 @@ with sqlite3.connect(DB) as c:
             SELECT created_at,expires_at,used_at,used_by,
                    CASE WHEN used_at IS NULL THEN 1 ELSE 0 END AS unused
             FROM parent_invites WHERE student_id=? ORDER BY created_at DESC
-        ''',(s['id'],)).fetchall()
+        ''',(sid,)).fetchall()
         print(f"PARENT_DIAG_STEPA invites={len(inv)}", flush=True)
         for r in inv:
             print('PARENT_DIAG_STEPA_INVITE ' + '|'.join([
