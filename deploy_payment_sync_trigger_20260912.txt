@@ -1,1 +1,1 @@
-Trigger production deployment after payment sync start-command update.
+Payment sync completed and audited. Trigger clean production deployment with permanent alias-only start command.
