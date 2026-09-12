@@ -8,6 +8,7 @@ import payment_delivery_hook  # noqa: F401
 import payment_student_ui  # noqa: F401
 import parent_cabinet  # noqa: F401
 import parent_schema_compat  # noqa: F401
+import parent_self_link_guard  # noqa: F401
 import parent_admin_ui  # noqa: F401
 import parent_test_ui  # noqa: F401
 import parent_invite_campaign  # noqa: F401
