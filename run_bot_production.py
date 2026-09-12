@@ -3,6 +3,8 @@
 Keeps all existing runtime patches, verifies the teacher survey before adding
 post-verification features, then starts the same live90 application stack.
 """
+from datetime import datetime, time
+
 import payment_name_aliases  # noqa: F401
 import payment_delivery_hook  # noqa: F401
 import payment_student_ui  # noqa: F401
@@ -65,6 +67,20 @@ def main():
     live90.live79.live66.seed_zlata_accounting_task()
     live90.live79.live67.ensure_individual_students_table()
     individual_trainer_daily.install()
+
+    # Do not catch up a missed daily reminder late in the evening after a restart.
+    # The existing scheduler runs repeatedly, so a short window is enough to make
+    # delivery restart-safe while preserving the requested 16:00 timing.
+    original_individual_tick = individual_trainer_daily.individual_daily_trainer_tick
+
+    async def individual_tick_1600_window(context):
+        now = datetime.now(live90.bot.TIMEZONE)
+        if not (time(16, 0) <= now.time() < time(16, 10)):
+            return
+        await original_individual_tick(context)
+
+    individual_trainer_daily.individual_daily_trainer_tick = individual_tick_1600_window
+
     live90.live79.live71.complete_molar_mass_task()
     live90.live79.live74.ensure_notification_catchup_tables()
     live90.live79.live77.ensure_lesson_feedback_tables()
