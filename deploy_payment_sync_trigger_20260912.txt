@@ -1,1 +1,1 @@
-Payment sync completed and audited. Trigger clean production deployment with permanent alias-only start command.
+Payment sync completed and audited. Trigger payment-delivery production deployment with safe Telegram mapping and 28.09.2026 launch.
