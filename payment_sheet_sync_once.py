@@ -8,7 +8,6 @@ import sqlite3
 
 import payment_name_aliases  # noqa: F401 - patches run_bot_live85._name_key
 import run_bot_live85 as payments
-import payment_schedule
 
 bot = payments.bot
 MIGRATION_KEY = "google_sheet_2026_09_12_alias_v1"
@@ -35,15 +34,15 @@ SNAPSHOT = [
 
 
 def _students():
-    result = []
-    for name, monthly_amount, coverage in SNAPSHOT:
-        result.append({
+    return [
+        {
             "source_key": payments._name_key(name),
             "display_name": name,
             "monthly_amount": monthly_amount,
             "coverage": dict(coverage),
-        })
-    return result
+        }
+        for name, monthly_amount, coverage in SNAPSHOT
+    ]
 
 
 def _ensure_migration_table(conn):
@@ -67,10 +66,9 @@ def apply_once():
         print("PAYMENT_SYNC_ONCE already_applied", flush=True)
         return
 
-    count, coverage_count = payments.save_payment_snapshot(_students(), "Google Sheets: Доход / 11 КЛАСС")
-    payment_schedule.install(payments, bot, None)
-    payment_schedule.ensure_payment_plans()
-
+    count, coverage_count = payments.save_payment_snapshot(
+        _students(), "Google Sheets: Доход / 11 КЛАСС"
+    )
     now = payments.datetime.now(bot.TIMEZONE).isoformat()
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
         _ensure_migration_table(conn)
