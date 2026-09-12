@@ -1,0 +1,2 @@
+Redeploy marker: restore production entrypoint run_bot_live79.py with /health after temporary privacy-safe CoreApp audit.
+No application logic or data changes.
