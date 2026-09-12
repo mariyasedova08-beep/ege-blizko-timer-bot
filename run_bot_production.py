@@ -32,6 +32,7 @@ def main():
     nonmetals_trainer.install()
 
     import individual_trainer_daily
+    import instagram_return_system
 
     live90.live79.live71.ensure_molar_access_tables()
     live90.live79.live70.ensure_health_tables()
@@ -81,6 +82,8 @@ def main():
 
     individual_trainer_daily.individual_daily_trainer_tick = individual_tick_1600_window
 
+    instagram_return_system.install()
+
     live90.live79.live71.complete_molar_mass_task()
     live90.live79.live74.ensure_notification_catchup_tables()
     live90.live79.live77.ensure_lesson_feedback_tables()
@@ -103,13 +106,14 @@ def main():
     print("Admin task views auto-refresh after completion", flush=True)
     print("Today dashboard ready", flush=True)
     print("Molar mass calculator ready for admin and tutor", flush=True)
-    print("Health monitoring and Telegram admin alerts enabled", flush=True)
+    print("Health monitoring and Telegram admin error alerts enabled", flush=True)
     print("Probnik group reminders enabled: Thu/Fri + Friday poll + Sat morning", flush=True)
     print("Probnik personal no-response DMs enabled: 1.5h before probnik", flush=True)
     print("Probnik attention/parent escalation remains paused", flush=True)
     print("Individual students trainer-only mode ready", flush=True)
     print("Individual students daily trainer reminder: every day 16:00", flush=True)
     print("Individual students trainer stats available in admin cabinet", flush=True)
+    print("Instagram 90-day return system available in admin cabinet", flush=True)
     print("Schedule-based homework cabinet ready", flush=True)
     print(f"Oxides trainer ready: questions={len(live90.live79.live60.OXIDES_BANK)} monday_reminder=11:00", flush=True)
     print(f"Nonmetals trainer ready: questions={len(nonmetals_trainer.NONMETALS_BANK)}", flush=True)
