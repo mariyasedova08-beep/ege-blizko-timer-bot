@@ -1,6 +1,7 @@
 """Attach payment delivery jobs to the Telegram application without editing legacy main()."""
 from telegram.ext import ApplicationBuilder
 
+import payment_button_announce
 import payment_delivery
 import payment_delivery_ui
 import payment_schedule
@@ -13,6 +14,7 @@ def _build_with_payment_delivery(self):
     application = _original_build(self)
     payment_delivery_ui.patch(payment_schedule)
     payment_delivery.register_jobs(application)
+    payment_button_announce.register(application)
     return application
 
 
