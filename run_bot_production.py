@@ -21,6 +21,10 @@ def main():
     # This check intentionally runs before nonmetals wraps survey-adjacent routers.
     live90.verify_teacher_survey_wiring()
 
+    # Compatibility alias: live60 already exposes the live15 module used by the
+    # existing metals/oxides metrics, while live79 does not export it directly.
+    live90.live79.live15 = live90.live79.live60.live15
+
     import nonmetals_trainer
     nonmetals_trainer.install()
 
