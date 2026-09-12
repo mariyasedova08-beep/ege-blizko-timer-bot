@@ -29,6 +29,8 @@ def main():
     import nonmetals_trainer
     nonmetals_trainer.install()
 
+    import individual_trainer_daily
+
     live90.live79.live71.ensure_molar_access_tables()
     live90.live79.live70.ensure_health_tables()
     live90.live79.live59.ensure_coreapp_webhook_audit_table()
@@ -62,6 +64,7 @@ def main():
     live90.live79.live51.ensure_course_schedule_table()
     live90.live79.live66.seed_zlata_accounting_task()
     live90.live79.live67.ensure_individual_students_table()
+    individual_trainer_daily.install()
     live90.live79.live71.complete_molar_mass_task()
     live90.live79.live74.ensure_notification_catchup_tables()
     live90.live79.live77.ensure_lesson_feedback_tables()
@@ -89,6 +92,8 @@ def main():
     print("Probnik personal no-response DMs enabled: 1.5h before probnik", flush=True)
     print("Probnik attention/parent escalation remains paused", flush=True)
     print("Individual students trainer-only mode ready", flush=True)
+    print("Individual students daily trainer reminder: every day 16:00", flush=True)
+    print("Individual students trainer stats available in admin cabinet", flush=True)
     print("Schedule-based homework cabinet ready", flush=True)
     print(f"Oxides trainer ready: questions={len(live90.live79.live60.OXIDES_BANK)} monday_reminder=11:00", flush=True)
     print(f"Nonmetals trainer ready: questions={len(nonmetals_trainer.NONMETALS_BANK)}", flush=True)
