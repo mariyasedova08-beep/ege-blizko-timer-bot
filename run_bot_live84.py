@@ -21,9 +21,27 @@ TEACHER_PRODUCT_TASKS = (
         "10:00",
     ),
     (
+        "teacher-product-survey-30-50-2026-09-15",
+        "Добрать опрос преподавателей минимум до 30 завершённых анкет, цель — 50, и обновить статистику по главным болям",
+        date(2026, 9, 15),
+        "10:00",
+    ),
+    (
+        "teacher-product-schedule-mvp-2026-09-16",
+        "Спроектировать модуль «Расписание и переносы» как ядро продукта: создание занятий, перенос, отмена, свободные окна и уведомления ученикам",
+        date(2026, 9, 16),
+        "10:00",
+    ),
+    (
         "teacher-product-mvp-scope-2026-09-17",
         "Утвердить состав MVP универсального бота: курсы, группы, расписание, ученики, ДЗ, посещаемость, напоминания, отчёты и задачи",
         date(2026, 9, 17),
+        "10:00",
+    ),
+    (
+        "teacher-product-notification-modes-2026-09-18",
+        "Спроектировать режимы сообщений ученикам: автоматически по правилам / сначала черновик / только вручную / полностью выключено",
+        date(2026, 9, 18),
         "10:00",
     ),
     (
@@ -33,9 +51,33 @@ TEACHER_PRODUCT_TASKS = (
         "10:00",
     ),
     (
+        "teacher-product-results-dashboard-2026-09-20",
+        "Собрать макет единого экрана результатов преподавателя: ученики, ДЗ, пробники, посещаемость, тренажёры и кому сейчас нужно внимание",
+        date(2026, 9, 20),
+        "10:00",
+    ),
+    (
         "teacher-product-recruit-pilots-2026-09-21",
         "Пригласить 3 преподавателей в закрытый пилот универсального бота",
         date(2026, 9, 21),
+        "10:00",
+    ),
+    (
+        "teacher-product-price-test-2026-09-22",
+        "Проверить ценовую гипотезу на преподавателях: базовый тариф 490 ₽ и тариф с автоматизациями 790–990 ₽ в месяц",
+        date(2026, 9, 22),
+        "10:00",
+    ),
+    (
+        "teacher-product-onboarding-2026-09-24",
+        "Продумать онбординг нового преподавателя так, чтобы базовую настройку бота можно было пройти за 10–15 минут",
+        date(2026, 9, 24),
+        "10:00",
+    ),
+    (
+        "teacher-product-positioning-offer-2026-09-26",
+        "Собрать оффер продукта вокруг позиционирования «Персональный администратор преподавателя в Telegram»: ты преподаёшь — бот занимается организацией",
+        date(2026, 9, 26),
         "10:00",
     ),
 )
@@ -55,6 +97,16 @@ def seed_teacher_product_tasks():
                 """,
                 (task_key, task_text, start_date.isoformat(), reminder_time, now),
             )
+        # The target-audience task was completed on 12 Sep: the ICP was built
+        # from the teacher survey and saved as the working product portrait.
+        conn.execute(
+            """
+            UPDATE admin_tasks
+            SET completed_at = COALESCE(completed_at, ?)
+            WHERE task_key = ?
+            """,
+            (now, "teacher-product-target-audience-2026-09-12"),
+        )
         conn.commit()
 
 
@@ -96,7 +148,7 @@ if __name__ == "__main__":
     live79.live78.seed_priority_tasks()
     seed_teacher_product_tasks()
     live79.live56.log_probnik_cabinet_audit()
-    print("Teacher product first five tasks seeded", flush=True)
+    print("Teacher product survey-driven tasks seeded", flush=True)
     print("Admin tasks separated: active / completed / content / technical", flush=True)
     print("Admin current-task table shows first seven tasks", flush=True)
     print("Completed admin tasks stay completed after restart", flush=True)
