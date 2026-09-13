@@ -18,6 +18,7 @@ import parent_forward_to_student  # noqa: F401
 import parent_home_button  # noqa: F401
 
 import run_bot_live90 as live90
+import run_bot_live91 as live91  # noqa: F401
 
 
 def main():
