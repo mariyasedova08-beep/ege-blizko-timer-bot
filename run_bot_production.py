@@ -132,6 +132,7 @@ def main():
 
     import run_bot_live91  # noqa: F401
     import run_bot_live94  # noqa: F401
+    import tutor_dashboard  # noqa: F401
 
     live90.live79.live24.main()
 
