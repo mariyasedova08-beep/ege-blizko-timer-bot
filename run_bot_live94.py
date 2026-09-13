@@ -17,6 +17,29 @@ live23 = live90.live23
 STUDENT_CABINET_BUTTON = "👤 Мой кабинет"
 
 
+current = getattr(live7, "STUDENT_KEYBOARD", None)
+rows = [list(row) for row in getattr(current, "keyboard", ())] if current else []
+rows = [
+    row
+    for row in rows
+    if STUDENT_CABINET_BUTTON not in row
+    and "👨‍👩‍👧 Личный кабинет" not in row
+]
+live7.STUDENT_KEYBOARD = ReplyKeyboardMarkup(
+    [[STUDENT_CABINET_BUTTON]] + rows,
+    resize_keyboard=True,
+    is_persistent=True,
+)
+
+
+async def _show_student_menu_keyboard(update):
+    """Restore Telegram's persistent student keyboard when entering the cabinet."""
+    await update.effective_message.reply_text(
+        "Меню ученика 👇",
+        reply_markup=live7.STUDENT_KEYBOARD,
+    )
+
+
 _previous_start_router = live7.start_router
 
 
@@ -26,6 +49,7 @@ async def start_router_with_student_cabinet(update, context):
         if not args or args[0] in {"cabinet", "my", "lk"}:
             student = student_cabinet._student_by_telegram(update.effective_user.id)
             if student:
+                await _show_student_menu_keyboard(update)
                 await student_cabinet.show_student_cabinet(update, context, student=student)
                 return
     return await _previous_start_router(update, context)
@@ -75,27 +99,13 @@ async def cabinet_command_with_student_cabinet(update, context):
     if not bot.user_is_admin(update):
         student = student_cabinet._student_by_telegram(update.effective_user.id)
         if student:
+            await _show_student_menu_keyboard(update)
             await student_cabinet.show_student_cabinet(update, context, student=student)
             return
     return await _previous_cabinet_command(update, context)
 
 
 live23.cabinet_command = cabinet_command_with_student_cabinet
-
-
-current = getattr(live7, "STUDENT_KEYBOARD", None)
-rows = [list(row) for row in getattr(current, "keyboard", ())] if current else []
-rows = [
-    row
-    for row in rows
-    if STUDENT_CABINET_BUTTON not in row
-    and "👨‍👩‍👧 Личный кабинет" not in row
-]
-live7.STUDENT_KEYBOARD = ReplyKeyboardMarkup(
-    [[STUDENT_CABINET_BUTTON]] + rows,
-    resize_keyboard=True,
-    is_persistent=True,
-)
 
 
 def _button_text(button):
