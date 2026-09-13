@@ -131,7 +131,7 @@ def main():
     print("CoreApp live sync receiver v2 ready", flush=True)
 
     import run_bot_live91  # noqa: F401
-    import run_bot_live92  # noqa: F401
+    import run_bot_live93  # noqa: F401
 
     live90.live79.live24.main()
 
