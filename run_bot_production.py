@@ -134,6 +134,7 @@ def main():
 
     import run_bot_live91  # noqa: F401
     import run_bot_live94  # noqa: F401
+    import run_bot_live95  # noqa: F401
     import tutor_dashboard  # noqa: F401
     import tutor_seed_20260914  # noqa: F401
 
