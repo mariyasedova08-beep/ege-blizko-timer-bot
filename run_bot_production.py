@@ -18,7 +18,6 @@ import parent_forward_to_student  # noqa: F401
 import parent_home_button  # noqa: F401
 
 import run_bot_live90 as live90
-import run_bot_live91 as live91  # noqa: F401
 
 
 def main():
@@ -130,6 +129,8 @@ def main():
     print(f"Oxides trainer ready: questions={len(live90.live79.live60.OXIDES_BANK)} monday_reminder=11:00", flush=True)
     print(f"Nonmetals trainer ready: questions={len(nonmetals_trainer.NONMETALS_BANK)}", flush=True)
     print("CoreApp live sync receiver v2 ready", flush=True)
+
+    import run_bot_live91  # noqa: F401
 
     live90.live79.live24.main()
 
