@@ -33,6 +33,7 @@ def main():
 
     import individual_trainer_daily
     import instagram_return_system
+    import instagram_current_stage_patch  # noqa: F401
     import instagram_daily_reminder
     import student_keyboard_cleanup
     import homework_deadline_logic
@@ -122,6 +123,7 @@ def main():
     print("Individual students daily trainer reminder: every day 16:00", flush=True)
     print("Individual students trainer stats available in admin cabinet", flush=True)
     print("Instagram 90-day return system available in admin cabinet", flush=True)
+    print("Instagram current-stage positioning: profile first, content from next day", flush=True)
     print("Instagram daily plan reminder: every day 11:00", flush=True)
     print("Student stale parent keyboard cleanup enabled", flush=True)
     print("Homework deadlines: Sun->Sun, Mon->Wed, Wed->Mon", flush=True)
