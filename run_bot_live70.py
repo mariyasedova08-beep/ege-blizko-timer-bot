@@ -121,8 +121,9 @@ async def _heartbeat(context):
 async def _error_handler(update, context):
     error = getattr(context, "error", None)
     error_name = type(error).__name__ if error is not None else "UnknownError"
+    error_detail = repr(error) if error is not None else "None"
     now = datetime.now(bot.TIMEZONE)
-    print(f"BOT ERROR CAPTURED: {error_name}", flush=True)
+    print(f"BOT ERROR CAPTURED: {error_name}: {error_detail}", flush=True)
 
     if not _should_alert_error(error_name, now):
         return
