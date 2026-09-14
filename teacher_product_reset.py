@@ -19,6 +19,8 @@ def delete_teacher_data(uid):
     with base.db() as conn:
         # Delete dependent rows first. Every table below belongs directly to one teacher.
         teacher_tables = [
+            "student_payment_history",
+            "student_payment_plans",
             "lesson_reminder_sent",
             "teacher_reminder_settings",
             "schedule_moves",
@@ -51,7 +53,7 @@ async def reset_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text(
         "✅ Твои данные в ПРЕПОДМИН удалены полностью.\n\n"
-        "Профиль преподавателя, индивидуальные ученики, группы, расписание, переносы и настройки напоминаний очищены.\n"
+        "Профиль преподавателя, ученики, группы, расписание, переносы, напоминания и оплаты очищены.\n"
         "Нажми /start — начнём настройку заново."
     )
 
