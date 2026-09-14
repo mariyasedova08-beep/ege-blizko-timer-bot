@@ -92,7 +92,6 @@ def main():
     # Install last: it must wrap the final periodic tick and replace the legacy
     # generic homework job before live24.main registers scheduled jobs.
     homework_deadline_logic.install()
-    import liza_homework_diag_once  # noqa: F401
 
     live90.live79.live71.complete_molar_mass_task()
     live90.live79.live74.ensure_notification_catchup_tables()
