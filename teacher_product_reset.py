@@ -17,8 +17,8 @@ def delete_teacher_data(uid):
     uid = int(uid)
     deleted = {}
     with base.db() as conn:
-        # Delete dependent rows first. Every table below belongs directly to one teacher.
         teacher_tables = [
+            "teacher_tasks",
             "student_payment_history",
             "student_payment_plans",
             "lesson_reminder_sent",
@@ -53,13 +53,12 @@ async def reset_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text(
         "✅ Твои данные в ПРЕПОДМИН удалены полностью.\n\n"
-        "Профиль преподавателя, ученики, группы, расписание, переносы, напоминания и оплаты очищены.\n"
+        "Профиль преподавателя, ученики, группы, расписание, переносы, напоминания, оплаты и задачи очищены.\n"
         "Нажми /start — начнём настройку заново."
     )
 
 
 def build_app():
     app = reminders.build_app()
-    # group=0 means the reset command is handled before conversation text handlers.
     app.add_handler(CommandHandler("reset_me", reset_me), group=0)
     return app
