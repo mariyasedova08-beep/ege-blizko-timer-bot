@@ -155,6 +155,24 @@ def _group_today(uid, today):
     return events
 
 
+def _tasks_today(uid, today):
+    with base.db() as conn:
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='teacher_tasks'"
+        ).fetchone()
+        if not exists:
+            return []
+        return conn.execute(
+            """
+            SELECT id,title,due_time
+            FROM teacher_tasks
+            WHERE teacher_telegram_user_id=? AND completed=0 AND due_date=?
+            ORDER BY CASE WHEN due_time IS NULL THEN 1 ELSE 0 END,due_time,id
+            """,
+            (int(uid), today.isoformat()),
+        ).fetchall()
+
+
 def _payment_line(uid, student_id, today):
     with base.db() as conn:
         plan = conn.execute(
@@ -228,35 +246,46 @@ async def today_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     today = datetime.now(schedule.tz(uid)).date()
     events = _individual_today(uid, today) + _group_today(uid, today)
     events.sort(key=lambda e: (e["time"], e["kind"], e["name"].lower()))
+    tasks = _tasks_today(uid, today)
 
     header = f"📍 Сегодня • {today.strftime('%d.%m.%Y')}"
-    if not events:
+    if not events and not tasks:
         await update.message.reply_text(
-            header + "\n\nСегодня занятий нет 🎉",
+            header + "\n\nСегодня занятий и задач нет 🎉",
             reply_markup=base.MAIN_KB,
         )
         return
 
-    lines = [header, f"Занятий: {len(events)}"]
-    summary = _summary(uid, events, today)
-    if summary:
-        lines.append(summary)
+    lines = [header]
+    if events:
+        lines.append(f"Занятий: {len(events)}")
+        summary = _summary(uid, events, today)
+        if summary:
+            lines.append(summary)
 
-    for event in events:
-        moved = " ↪️" if event["moved"] else ""
-        if event["kind"] == "individual":
-            lines.append(
-                f"\n🕒 {event['time']} • 👤 {event['name']}{moved}\n"
-                f"{_payment_line(uid, event['student_id'], today)}"
-            )
-        else:
-            lines.append(
-                f"\n🕒 {event['time']} • 👥 {event['name']}{moved}\n"
-                "💳 оплата участников появится после подключения состава группы"
-            )
+        for event in events:
+            moved = " ↪️" if event["moved"] else ""
+            if event["kind"] == "individual":
+                lines.append(
+                    f"\n🕒 {event['time']} • 👤 {event['name']}{moved}\n"
+                    f"{_payment_line(uid, event['student_id'], today)}"
+                )
+            else:
+                lines.append(
+                    f"\n🕒 {event['time']} • 👥 {event['name']}{moved}\n"
+                    "💳 оплата участников появится после подключения состава группы"
+                )
 
-    if any(e["moved"] for e in events):
-        lines.append("\n↪️ — занятие было перенесено")
+        if any(e["moved"] for e in events):
+            lines.append("\n↪️ — занятие было перенесено")
+    else:
+        lines.append("Занятий сегодня нет")
+
+    if tasks:
+        lines.append(f"\n✅ Задачи: {len(tasks)}")
+        for task in tasks:
+            when = task["due_time"] or "без времени"
+            lines.append(f"• {when} — {task['title']}")
 
     await update.message.reply_text("\n".join(lines), reply_markup=base.MAIN_KB)
 
