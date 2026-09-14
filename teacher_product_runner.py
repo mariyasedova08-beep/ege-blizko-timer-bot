@@ -8,6 +8,7 @@ import teacher_product_payments as payments
 import teacher_product_today as today
 import teacher_product_tasks as tasks
 import teacher_product_voice_beta as voice_beta
+import teacher_product_openai_diag as openai_diag
 
 
 def main():
@@ -23,6 +24,7 @@ def main():
         print("TEACHER_PRODUCT_BOT_TOKEN is missing; health server stays available", flush=True)
         threading.Event().wait()
         return
+    openai_diag.run()
     voice_beta.build_app().run_polling(drop_pending_updates=False)
 
 
