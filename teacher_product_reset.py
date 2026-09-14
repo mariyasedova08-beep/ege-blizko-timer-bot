@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
 import teacher_product_mvp as base
-import teacher_product_multiday as multiday
+import teacher_product_reminders as reminders
 
 
 def _table_exists(conn, table_name):
@@ -19,6 +19,8 @@ def delete_teacher_data(uid):
     with base.db() as conn:
         # Delete dependent rows first. Every table below belongs directly to one teacher.
         teacher_tables = [
+            "lesson_reminder_sent",
+            "teacher_reminder_settings",
             "schedule_moves",
             "schedule_slots",
             "group_schedule_moves",
@@ -49,14 +51,13 @@ async def reset_me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     await update.message.reply_text(
         "✅ Твои данные в ПРЕПОДМИН удалены полностью.\n\n"
-        "Профиль преподавателя, индивидуальные ученики, группы, расписание и переносы очищены.\n"
+        "Профиль преподавателя, индивидуальные ученики, группы, расписание, переносы и настройки напоминаний очищены.\n"
         "Нажми /start — начнём настройку заново."
     )
 
 
 def build_app():
-    multiday.apply()
-    app = multiday.groups.build_app()
+    app = reminders.build_app()
     # group=0 means the reset command is handled before conversation text handlers.
     app.add_handler(CommandHandler("reset_me", reset_me), group=0)
     return app
