@@ -7,6 +7,7 @@ import teacher_product_reminders as reminders
 import teacher_product_payments as payments
 import teacher_product_today as today
 import teacher_product_tasks as tasks
+import teacher_product_voice_beta as voice_beta
 
 
 def main():
@@ -17,12 +18,12 @@ def main():
     payments.ensure_tables()
     tasks.ensure_tables()
     threading.Thread(target=base.start_health_server, daemon=True).start()
-    print("Teacher Product MVP ready: schedule + reminders + payments + today + tasks + voice-ready", flush=True)
+    print("Teacher Product MVP ready: schedule + reminders + payments + today + tasks + private voice beta", flush=True)
     if not base.BOT_TOKEN:
         print("TEACHER_PRODUCT_BOT_TOKEN is missing; health server stays available", flush=True)
         threading.Event().wait()
         return
-    tasks.build_app().run_polling(drop_pending_updates=False)
+    voice_beta.build_app().run_polling(drop_pending_updates=False)
 
 
 if __name__ == "__main__":
