@@ -19,6 +19,7 @@ def delete_teacher_data(uid):
     with base.db() as conn:
         teacher_tables = [
             "teacher_tasks",
+            "student_package_lesson_marks",
             "student_subscription_lesson_usage",
             "student_payment_history",
             "student_payment_plans",
