@@ -139,6 +139,10 @@ def main():
     import run_bot_live97  # noqa: F401
     import tutor_dashboard  # noqa: F401
     import tutor_seed_20260914  # noqa: F401
+    import admin_quick_tasks
+
+    # Install last so the quick-task button wraps the final cabinet/text routers.
+    admin_quick_tasks.install()
 
     live90.live79.live24.main()
 
