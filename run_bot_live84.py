@@ -82,6 +82,25 @@ TEACHER_PRODUCT_TASKS = (
     ),
 )
 
+CONTENT_IDEAS_20260915 = (
+    (
+        "content-reels-bot-implementation-2026-09-15",
+        "Рилс про внедрение ботов",
+    ),
+    (
+        "content-travel-work-dog-2026-09-15",
+        "Как я готовилась к путешествию с работой и собакой",
+    ),
+    (
+        "content-reels-chat-sasha-2026-09-15",
+        "Рилс — переписка с Сашей",
+    ),
+    (
+        "content-post-connection-students-2026-09-15",
+        "Пост-связь на примере моих учеников",
+    ),
+)
+
 
 def seed_teacher_product_tasks():
     live79.live35.ensure_admin_tasks_table()
@@ -97,6 +116,17 @@ def seed_teacher_product_tasks():
                 """,
                 (task_key, task_text, start_date.isoformat(), reminder_time, now),
             )
+
+        for task_key, task_text in CONTENT_IDEAS_20260915:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO admin_tasks
+                    (task_key, task_text, start_date, reminder_time, created_at, task_kind)
+                VALUES (?, ?, ?, ?, ?, 'content')
+                """,
+                (task_key, task_text, date(2026, 9, 15).isoformat(), "10:00", now),
+            )
+
         # The target-audience task was completed on 12 Sep: the ICP was built
         # from the teacher survey and saved as the working product portrait.
         conn.execute(
