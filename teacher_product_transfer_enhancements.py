@@ -101,12 +101,12 @@ async def individual_move_begin(update, context):
 
 async def individual_same_date(update, context):
     q = update.callback_query
-    await q.answer()
     slot_id = int(q.data.rsplit(":", 1)[1])
     original = context.user_data.get("move_original")
     if context.user_data.get("move_slot") != slot_id or not original:
         await q.answer("Открой перенос занятия заново", show_alert=True)
         raise ApplicationHandlerStop
+    await q.answer()
     context.user_data["move_new_date"] = original
     context.user_data["move_same_date_pending"] = True
     await q.edit_message_text(f"Дата остаётся {_fmt_date(original)}.\n\nНапиши новое время, например: 19:00")
@@ -197,12 +197,12 @@ async def group_move_begin(update, context):
 
 async def group_same_date(update, context):
     q = update.callback_query
-    await q.answer()
     slot_id = int(q.data.rsplit(":", 1)[1])
     original = context.user_data.get("gm_original")
     if context.user_data.get("gm_slot") != slot_id or not original:
         await q.answer("Открой перенос занятия заново", show_alert=True)
         raise ApplicationHandlerStop
+    await q.answer()
     context.user_data["gm_new_date"] = original
     context.user_data["gm_same_date_pending"] = True
     await q.edit_message_text(f"Дата остаётся {_fmt_date(original)}.\n\nНапиши новое время, например: 19:00")
