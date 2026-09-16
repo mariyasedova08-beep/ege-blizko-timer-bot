@@ -1,7 +1,7 @@
 """Production entrypoint for EGE БЛИЗКО.
 
-Keeps all existing runtime patches, verifies the teacher survey before adding
-post-verification features, then starts the same live90 application stack.
+Keeps the existing production runtime patches while disabling the retired
+teacher-survey feature before the rest of the application wrappers are installed.
 """
 from datetime import datetime, time
 
@@ -20,9 +20,18 @@ import parent_home_button  # noqa: F401
 import run_bot_live90 as live90
 
 
+def disable_teacher_survey():
+    """Remove the retired teacher survey from all live production entry points."""
+    # run_bot_live90 installs the survey wrappers at import time. Restore the
+    # original handlers before later production modules wrap these routers.
+    live90.live23.cabinet_markup = live90._previous_cabinet_markup
+    live90.live23.cabinet_callback = live90._previous_cabinet_callback
+    live90.live7.start_router = live90._previous_start_router
+    live90.live7.student_text_router = live90._previous_text_router
+
+
 def main():
-    # This check intentionally runs before nonmetals wraps survey-adjacent routers.
-    live90.verify_teacher_survey_wiring()
+    disable_teacher_survey()
 
     # Compatibility alias: live60 already exposes the live15 module used by the
     # existing metals/oxides metrics, while live79 does not export it directly.
@@ -100,10 +109,9 @@ def main():
     live90.live84.seed_teacher_product_tasks()
     live90.live85.ensure_payment_tables()
     live90.payment_schedule.ensure_payment_plans()
-    live90.ensure_teacher_survey_tables()
     live90.live79.live56.log_probnik_cabinet_audit()
 
-    print("Teacher survey ready: 10 questions, anonymous admin summary", flush=True)
+    print("Teacher survey removed from production UI and routes", flush=True)
     print("Payment tracking ready: grade 11 Excel import, admin preview only", flush=True)
     print("Teacher product first five tasks seeded", flush=True)
     print("Admin tasks separated: active / completed / content / technical", flush=True)
