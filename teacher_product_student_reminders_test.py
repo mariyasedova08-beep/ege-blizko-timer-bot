@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from datetime import date, datetime, timedelta
 from types import SimpleNamespace
+from urllib.parse import parse_qs, urlparse
 
 import teacher_product_mvp as base
 import teacher_product_schedule as schedule
@@ -112,6 +113,14 @@ class StudentRemindersTest(unittest.TestCase):
         self.assertEqual(len(students.recipients(11, dict(kind="group", person_id=b))), 0)
         groups.archive_group(11, a)
         self.assertEqual(len(students.recipients(11, event)), 0)
+
+    def test_invitation_share_opens_telegram_with_personal_link(self):
+        share = urlparse(students._share_url(self.person))
+        fields = parse_qs(share.query)
+        self.assertEqual((share.scheme, share.netloc, share.path), ("https", "t.me", "/share/url"))
+        self.assertEqual(fields["url"], [students._invite(self.person)])
+        self.assertIn("Анна", fields["text"][0])
+        self.assertIn("Запустить", fields["text"][0])
 
 
 if __name__ == "__main__":
