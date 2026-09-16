@@ -147,6 +147,11 @@ def main():
     import individual_exam_countdown
     individual_exam_countdown.install()
 
+    # Install after the final admin wrappers: Tomorrow should wrap the current
+    # cabinet and task handlers rather than replacing any of them.
+    import admin_tomorrow
+    admin_tomorrow.install()
+
     live90.live79.live24.main()
 
 
