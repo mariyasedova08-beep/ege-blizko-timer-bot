@@ -38,6 +38,10 @@ def main():
     import student_monthly_survey
     student_monthly_survey.install()
 
+    # Separate anonymous 3-question survey on why students chose Maria.
+    import student_anonymous_why_survey
+    student_anonymous_why_survey.install()
+
     # Compatibility alias: live60 already exposes the live15 module used by the
     # existing metals/oxides metrics, while live79 does not export it directly.
     live90.live79.live15 = live90.live79.live60.live15
@@ -118,6 +122,7 @@ def main():
 
     print("Teacher survey removed from production UI and routes", flush=True)
     print("Student feedback surveys scheduled monthly: 2026-10-01 through 2027-05-01 at 17:00", flush=True)
+    print("Anonymous why-Masha student survey scheduled: 2026-09-17 20:00", flush=True)
     print("Payment tracking ready: grade 11 Excel import, admin preview only", flush=True)
     print("Teacher product first five tasks seeded", flush=True)
     print("Admin tasks separated: active / completed / content / technical", flush=True)
