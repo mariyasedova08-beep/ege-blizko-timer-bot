@@ -144,6 +144,9 @@ def main():
     # Install last so the quick-task button wraps the final cabinet/text routers.
     admin_quick_tasks.install()
 
+    import individual_exam_countdown
+    individual_exam_countdown.install()
+
     live90.live79.live24.main()
 
 
