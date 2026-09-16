@@ -34,9 +34,9 @@ def main():
     disable_teacher_survey()
 
     # Student feedback campaign is separate from the retired teacher survey.
-    # It stores identified student answers and sends the invitation on 01.10.
-    import student_october_survey
-    student_october_survey.install()
+    # Same six identified questions are sent on the first of each month Oct-May.
+    import student_monthly_survey
+    student_monthly_survey.install()
 
     # Compatibility alias: live60 already exposes the live15 module used by the
     # existing metals/oxides metrics, while live79 does not export it directly.
@@ -117,7 +117,7 @@ def main():
     live90.live79.live56.log_probnik_cabinet_audit()
 
     print("Teacher survey removed from production UI and routes", flush=True)
-    print("Student feedback survey scheduled: 2026-10-01 17:00", flush=True)
+    print("Student feedback surveys scheduled monthly: 2026-10-01 through 2027-05-01 at 17:00", flush=True)
     print("Payment tracking ready: grade 11 Excel import, admin preview only", flush=True)
     print("Teacher product first five tasks seeded", flush=True)
     print("Admin tasks separated: active / completed / content / technical", flush=True)
