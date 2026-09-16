@@ -2,6 +2,7 @@
 
 import secrets
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (ApplicationHandlerStop, CallbackQueryHandler, CommandHandler,
@@ -113,6 +114,20 @@ def _invite(row):
     return "https://t.me/prepodmin_bot?start=join_" + row["invite_token"]
 
 
+def _share_url(row):
+    return "https://t.me/share/url?" + urlencode({
+        "url": _invite(row),
+        "text": f"{row['name']}, присоединяйся к ПРЕПОДМИН, чтобы получать напоминания об уроках и подтверждать участие. Открой ссылку и нажми «Запустить».",
+    })
+
+
+def _invitation_buttons(row, back_label, back_callback):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📨 Отправить ученику", url=_share_url(row))],
+        [InlineKeyboardButton(back_label, callback_data=back_callback)],
+    ])
+
+
 async def menu(update, context):
     q = update.callback_query
     await q.answer()
@@ -169,8 +184,9 @@ async def person(update, context):
     else:
         state = "привязан" if row["telegram_user_id"] else "пока не привязан"
         await q.edit_message_text(f"{row['name']} — {state}.\n\nЛичная ссылка для ученика:\n{_invite(row)}\n\n"
-                                  "Ученик должен сам открыть ссылку и нажать Start.",
-                                  reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("↩️ Назад", callback_data="srem:individual")]]))
+                                  "Нажми «Отправить ученику», выбери его чат и отправь приглашение. "
+                                  "После перехода по ссылке ученику нужно нажать «Запустить».",
+                                  reply_markup=_invitation_buttons(row, "↩️ Назад", "srem:individual"))
     raise ApplicationHandlerStop
 
 
@@ -207,8 +223,9 @@ async def member(update, context):
         await q.edit_message_text("Участник не найден.")
     else:
         await q.edit_message_text(f"{row['name']}\n\nЛичная ссылка:\n{_invite(row)}\n\n"
-                                  "Ученик должен сам открыть ссылку и нажать Start.",
-                                  reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("↩️ К группе", callback_data=f"srem:group:{row['group_id']}")]]))
+                                  "Нажми «Отправить ученику», выбери его чат и отправь приглашение. "
+                                  "После перехода по ссылке ученику нужно нажать «Запустить».",
+                                  reply_markup=_invitation_buttons(row, "↩️ К группе", f"srem:group:{row['group_id']}"))
     raise ApplicationHandlerStop
 
 
@@ -246,7 +263,11 @@ async def add_name(update, context):
         return ConversationHandler.END
     row = add_member(update.effective_user.id, gid, name)
     if row:
-        await update.message.reply_text(f"✅ {name} добавлен(а). Отправь личную ссылку:\n{_invite(row)}")
+        await update.message.reply_text(
+            f"✅ {name} добавлен(а). Нажми «Отправить ученику», выбери его чат и отправь приглашение.\n\n"
+            f"Личная ссылка: {_invite(row)}",
+            reply_markup=_invitation_buttons(row, "↩️ К группе", f"srem:group:{gid}"),
+        )
     else:
         await update.message.reply_text("Группа не найдена.")
     return ConversationHandler.END
