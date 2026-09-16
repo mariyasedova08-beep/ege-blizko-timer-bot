@@ -52,6 +52,10 @@ def ensure_tables():
         )
         conn.commit()
 
+    # Student delivery is opt-in and has its own settings and deduplication.
+    import teacher_product_student_reminders as student_reminders
+    student_reminders.ensure_tables()
+
 
 def ensure_settings(uid):
     now = datetime.utcnow().isoformat()
@@ -112,6 +116,12 @@ def reminder_keyboard(uid):
                 callback_data=f"rem:toggle:{minutes}",
             )
         ])
+    import teacher_product_student_reminders as student_reminders
+    buttons.append([InlineKeyboardButton(
+        ("✅" if student_reminders.enabled(uid) else "▫️") + " Ученикам: за 24 часа и за 1 час",
+        callback_data="srem:toggle",
+    )])
+    buttons.append([InlineKeyboardButton("👥 Привязать учеников / ответы", callback_data="srem:people")])
     return InlineKeyboardMarkup(buttons)
 
 
@@ -128,6 +138,8 @@ def reminder_text(uid):
         "Если занятие перенесено, напоминание придёт уже на новую дату и время.\n\n"
         "Сейчас включены:\n"
         f"{status}\n\n"
+        "Напоминания ученикам включаются отдельно преподавателем. "
+        "Ученик получает сообщение только после привязки к боту и может подтвердить участие.\n\n"
         "Нажми на вариант ниже, чтобы включить или выключить его."
     )
 
@@ -156,6 +168,7 @@ def _event_dt(uid, d, time_text):
 def _individual_events(uid, now, horizon_hours=25):
     horizon = now + timedelta(hours=horizon_hours)
     today = now.date()
+    search_start = today - timedelta(days=8)
     search_end = today + timedelta(days=8)
     slots = schedule.slots(uid)
     if not slots:
@@ -167,15 +180,15 @@ def _individual_events(uid, now, horizon_hours=25):
             SELECT schedule_slot_id, original_date, new_date, new_time
             FROM schedule_moves
             WHERE teacher_telegram_user_id=?
-              AND original_date>=? AND original_date<=?
+              AND ((original_date>=? AND original_date<=?) OR (new_date>=? AND new_date<=?))
             """,
-            (int(uid), today.isoformat(), search_end.isoformat()),
+            (int(uid), search_start.isoformat(), search_end.isoformat(), today.isoformat(), search_end.isoformat()),
         ).fetchall()
     moves = {(int(r["schedule_slot_id"]), r["original_date"]): r for r in move_rows}
 
     out = []
     for s in slots:
-        d = today
+        d = search_start
         while d <= search_end:
             if d.weekday() == int(s["weekday"]):
                 key = (int(s["id"]), d.isoformat())
@@ -195,18 +208,28 @@ def _individual_events(uid, now, horizon_hours=25):
                     out.append({
                         "kind": "individual",
                         "slot_id": int(s["id"]),
+                        "person_id": int(s["student_id"]),
                         "occurrence_key": occurrence_key,
                         "name": s["student_name"],
                         "event_dt": event_dt,
                         "moved": moved,
                     })
             d += timedelta(days=1)
+        for (slot_id, original), move in moves.items():
+            if slot_id != s["id"] or search_start.isoformat() <= original <= search_end.isoformat():
+                continue
+            event_dt = _event_dt(uid, date.fromisoformat(move["new_date"]), move["new_time"])
+            if now <= event_dt <= horizon:
+                out.append({"kind": "individual", "slot_id": s["id"], "person_id": s["student_id"],
+                            "occurrence_key": original, "name": s["student_name"],
+                            "event_dt": event_dt, "moved": True})
     return out
 
 
 def _group_events(uid, now, horizon_hours=25):
     horizon = now + timedelta(hours=horizon_hours)
     today = now.date()
+    search_start = today - timedelta(days=8)
     search_end = today + timedelta(days=8)
     slots = groups.group_slots(uid)
     if not slots:
@@ -218,15 +241,15 @@ def _group_events(uid, now, horizon_hours=25):
             SELECT schedule_slot_id, original_date, new_date, new_time
             FROM group_schedule_moves
             WHERE teacher_telegram_user_id=?
-              AND original_date>=? AND original_date<=?
+              AND ((original_date>=? AND original_date<=?) OR (new_date>=? AND new_date<=?))
             """,
-            (int(uid), today.isoformat(), search_end.isoformat()),
+            (int(uid), search_start.isoformat(), search_end.isoformat(), today.isoformat(), search_end.isoformat()),
         ).fetchall()
     moves = {(int(r["schedule_slot_id"]), r["original_date"]): r for r in move_rows}
 
     out = []
     for s in slots:
-        d = today
+        d = search_start
         while d <= search_end:
             if d.weekday() == int(s["weekday"]):
                 key = (int(s["id"]), d.isoformat())
@@ -246,12 +269,21 @@ def _group_events(uid, now, horizon_hours=25):
                     out.append({
                         "kind": "group",
                         "slot_id": int(s["id"]),
+                        "person_id": int(s["group_id"]),
                         "occurrence_key": occurrence_key,
                         "name": s["group_name"],
                         "event_dt": event_dt,
                         "moved": moved,
                     })
             d += timedelta(days=1)
+        for (slot_id, original), move in moves.items():
+            if slot_id != s["id"] or search_start.isoformat() <= original <= search_end.isoformat():
+                continue
+            event_dt = _event_dt(uid, date.fromisoformat(move["new_date"]), move["new_time"])
+            if now <= event_dt <= horizon:
+                out.append({"kind": "group", "slot_id": s["id"], "person_id": s["group_id"],
+                            "occurrence_key": original, "name": s["group_name"],
+                            "event_dt": event_dt, "moved": True})
     return out
 
 
@@ -314,12 +346,14 @@ def _format_reminder(event, offset):
 
 async def check_reminders(context: ContextTypes.DEFAULT_TYPE):
     ensure_tables()
+    import teacher_product_student_reminders as student_reminders
     with base.db() as conn:
         rows = conn.execute(
             """
-            SELECT rs.*
-            FROM teacher_reminder_settings rs
-            JOIN teachers t ON t.telegram_user_id=rs.teacher_telegram_user_id
+            SELECT t.telegram_user_id AS teacher_telegram_user_id, rs.minutes_1440,
+                   rs.minutes_120, rs.minutes_60, rs.minutes_15
+            FROM teachers t
+            LEFT JOIN teacher_reminder_settings rs ON rs.teacher_telegram_user_id=t.telegram_user_id
             WHERE t.onboarding_completed_at IS NOT NULL
             """
         ).fetchall()
@@ -330,8 +364,11 @@ async def check_reminders(context: ContextTypes.DEFAULT_TYPE):
         events = _individual_events(uid, now) + _group_events(uid, now)
         if not events:
             continue
+        if student_reminders.enabled(uid):
+            for event in events:
+                await student_reminders.deliver(context, uid, event, now)
         for offset in OFFSETS:
-            if not bool(settings[setting_column(offset)]):
+            if not bool(settings[setting_column(offset)] or 0):
                 continue
             for event in events:
                 target = event["event_dt"] - timedelta(minutes=offset)
