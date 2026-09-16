@@ -12,6 +12,7 @@ import teacher_product_openai_diag as openai_diag
 import teacher_product_subscriptions as subscriptions
 import teacher_product_today_actions as today_actions
 import teacher_product_student_reminders as student_reminders
+import teacher_product_transfer_button as transfer_button
 
 
 def main():
@@ -32,6 +33,7 @@ def main():
         return
     openai_diag.run()
     app = voice_beta.build_app()
+    transfer_button.install(app)
     student_reminders.install(app)
     subscriptions.install(app)
     today_actions.install(app)
