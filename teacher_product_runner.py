@@ -10,9 +10,6 @@ import teacher_product_tomorrow as tomorrow
 import teacher_product_slots as availability_slots
 import teacher_product_slots_clarity as slots_clarity
 import teacher_product_learning as learning
-import teacher_product_homework_attendance as homework_attendance
-import teacher_product_homework_schema_fix as homework_schema_fix
-import teacher_product_homework_attendance_today as homework_attendance_today
 import teacher_product_tasks as tasks
 import teacher_product_voice_beta as voice_beta
 import teacher_product_openai_diag as openai_diag
@@ -24,9 +21,6 @@ import teacher_product_transfer_enhancements as transfer_enhancements
 
 
 def main():
-    # Patch the module-level schema function before any homework/attendance call.
-    homework_attendance.ensure_tables = homework_schema_fix.ensure_tables
-
     base.ensure_tables()
     schedule.ensure_tables()
     groups.ensure_tables()
@@ -38,7 +32,6 @@ def main():
     tasks.ensure_tables()
     availability_slots.ensure_tables()
     learning.ensure_tables()
-    homework_attendance.ensure_tables()
     threading.Thread(target=base.start_health_server, daemon=True).start()
     print("Teacher Product MVP ready: schedule + reminders + payments + subscriptions + today-actions + tomorrow + availability-slots + homework + attendance + tasks + private voice beta", flush=True)
     if not base.BOT_TOKEN:
@@ -57,8 +50,6 @@ def main():
     availability_slots.install(app)
     slots_clarity.install()
     learning.install(app)
-    homework_attendance.install(app)
-    homework_attendance_today.install(app)
     app.run_polling(drop_pending_updates=False)
 
 
