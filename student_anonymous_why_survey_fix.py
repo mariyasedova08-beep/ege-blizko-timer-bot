@@ -1,22 +1,27 @@
-"""Routing, recovery and one-time resend for the 2026-09-17 anonymous survey.
+"""Hard routing/recovery for the 2026-09-17 anonymous EGE BLIZKO survey.
 
-The monthly survey and anonymous survey originally registered broad text
-handlers in the same PTB handler group (-31). PTB runs only the first matching
-handler in a group, so the monthly handler swallowed anonymous free-text answers.
-This module gives the anonymous in-progress survey its own earlier group,
-re-prompts already-started students once after the fix, and performs one explicit
-one-time resend to all active students requested by Maria on 2026-09-17.
+The bot has many broad text/callback handlers. The anonymous survey must win
+before all of them while a student is answering. This module installs dedicated
+handlers in a very early PTB group, keeps completed answers intact, and performs
+one repair pass for all active linked students after deployment.
 """
 from datetime import datetime
 import sqlite3
 
-from telegram.ext import ApplicationBuilder, MessageHandler, filters
+from telegram.ext import (
+    ApplicationBuilder,
+    ApplicationHandlerStop,
+    CallbackQueryHandler,
+    MessageHandler,
+    filters,
+)
 
 import student_anonymous_why_survey as survey
 
 _original_build = None
 _installed = False
-RESEND_BATCH = "anonymous_why_all_resend_2026_09_17_after_fix_v1"
+ROUTING_GROUP = -10000
+REPAIR_BATCH = "anonymous_why_repair_2026_09_17_v2"
 
 
 def ensure_tables():
@@ -24,17 +29,10 @@ def ensure_tables():
     with sqlite3.connect(survey.bot.COREAPP_DB_PATH) as conn:
         conn.executescript(
             """
-            CREATE TABLE IF NOT EXISTS anonymous_why_recovery_sent (
-                survey_key TEXT NOT NULL,
-                telegram_user_id INTEGER NOT NULL,
-                sent_at TEXT NOT NULL,
-                PRIMARY KEY(survey_key, telegram_user_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS anonymous_why_resend_batches (
+            CREATE TABLE IF NOT EXISTS anonymous_why_repair_batches (
                 batch_key TEXT NOT NULL,
                 telegram_user_id INTEGER NOT NULL,
-                status TEXT NOT NULL CHECK(status IN ('sent','failed')),
+                status TEXT NOT NULL CHECK(status IN ('sent','failed','skipped')),
                 attempted_at TEXT NOT NULL,
                 error TEXT,
                 PRIMARY KEY(batch_key, telegram_user_id)
@@ -44,57 +42,24 @@ def ensure_tables():
         conn.commit()
 
 
-def _pending_recovery():
-    ensure_tables()
+def _repair_done(user_id):
     with sqlite3.connect(survey.bot.COREAPP_DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        return conn.execute(
-            """
-            SELECT p.telegram_user_id, p.current_index
-            FROM anonymous_why_progress p
-            LEFT JOIN anonymous_why_recovery_sent r
-              ON r.survey_key=p.survey_key
-             AND r.telegram_user_id=p.telegram_user_id
-            WHERE p.survey_key=?
-              AND r.telegram_user_id IS NULL
-            ORDER BY p.telegram_user_id
-            """,
-            (survey.SURVEY_KEY,),
-        ).fetchall()
+        return bool(conn.execute(
+            "SELECT 1 FROM anonymous_why_repair_batches WHERE batch_key=? AND telegram_user_id=?",
+            (REPAIR_BATCH, int(user_id)),
+        ).fetchone())
 
 
-def _mark_recovery_sent(user_id):
+def _mark_repair(user_id, status, error=None):
     with sqlite3.connect(survey.bot.COREAPP_DB_PATH) as conn:
         conn.execute(
             """
-            INSERT OR IGNORE INTO anonymous_why_recovery_sent
-                (survey_key,telegram_user_id,sent_at)
-            VALUES (?,?,?)
-            """,
-            (survey.SURVEY_KEY, int(user_id), datetime.now(survey.bot.TIMEZONE).isoformat()),
-        )
-        conn.commit()
-
-
-def _resend_already_attempted(user_id):
-    with sqlite3.connect(survey.bot.COREAPP_DB_PATH) as conn:
-        row = conn.execute(
-            "SELECT 1 FROM anonymous_why_resend_batches WHERE batch_key=? AND telegram_user_id=?",
-            (RESEND_BATCH, int(user_id)),
-        ).fetchone()
-    return bool(row)
-
-
-def _mark_resend(user_id, status, error=None):
-    with sqlite3.connect(survey.bot.COREAPP_DB_PATH) as conn:
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO anonymous_why_resend_batches
+            INSERT OR REPLACE INTO anonymous_why_repair_batches
                 (batch_key,telegram_user_id,status,attempted_at,error)
             VALUES (?,?,?,?,?)
             """,
             (
-                RESEND_BATCH,
+                REPAIR_BATCH,
                 int(user_id),
                 status,
                 datetime.now(survey.bot.TIMEZONE).isoformat(),
@@ -104,108 +69,149 @@ def _mark_resend(user_id, status, error=None):
         conn.commit()
 
 
-async def recovery_tick(context):
-    # Recovery is only for the one-time survey day. Do not revive it later.
-    if datetime.now(survey.bot.TIMEZONE).date() != survey.SURVEY_DATE:
+def _state_counts():
+    with sqlite3.connect(survey.bot.COREAPP_DB_PATH) as conn:
+        progress = conn.execute(
+            """
+            SELECT current_index, count(*)
+            FROM anonymous_why_progress
+            WHERE survey_key=?
+            GROUP BY current_index
+            ORDER BY current_index
+            """,
+            (survey.SURVEY_KEY,),
+        ).fetchall()
+        completed = conn.execute(
+            "SELECT count(*) FROM anonymous_why_completions WHERE survey_key=?",
+            (survey.SURVEY_KEY,),
+        ).fetchone()[0]
+        responses = conn.execute(
+            "SELECT count(*) FROM anonymous_why_responses",
+        ).fetchone()[0]
+    return {int(i): int(n) for i, n in progress}, int(completed), int(responses)
+
+
+async def priority_callback(update, context):
+    query = update.callback_query
+    if not query or query.data != "anonwhy:start":
         return
+    print("Anonymous survey event: start button", flush=True)
+    await survey.student_callback(update, context)
 
-    sent = 0
-    failed = 0
-    for row in _pending_recovery():
-        uid = int(row["telegram_user_id"])
-        index = int(row["current_index"])
-        if index < 0 or index >= len(survey.QUESTIONS):
-            continue
 
-        if index == 0:
-            prefix = (
-                "💗 В опросе был технический сбой: твой первый текстовый ответ мог не сохраниться. "
-                "Я всё исправила. Пожалуйста, ответь на этот вопрос ещё раз — дальше опрос продолжится автоматически.\n\n"
+async def priority_text(update, context):
+    if not update.message or not update.message.text or update.effective_chat.type != "private":
+        return
+    uid = int(update.effective_user.id)
+    before = survey._progress(uid)
+    if not before:
+        return
+    before_index = int(before["current_index"])
+    try:
+        await survey.student_text(update, context)
+    except ApplicationHandlerStop:
+        after = survey._progress(uid)
+        if after:
+            print(
+                f"Anonymous survey event: answer handled index={before_index} next={int(after['current_index'])}",
+                flush=True,
             )
         else:
-            prefix = (
-                "💗 Опрос снова работает. Продолжим с того места, где ты остановился(ась).\n\n"
+            print(
+                f"Anonymous survey event: answer handled index={before_index} completed=yes",
+                flush=True,
             )
-        try:
-            await context.bot.send_message(uid, prefix + survey.QUESTIONS[index])
-            _mark_recovery_sent(uid)
-            sent += 1
-        except Exception:
-            failed += 1
-
-    if sent or failed:
-        print(
-            f"Anonymous survey recovery: sent={sent} failed={failed}",
-            flush=True,
-        )
+        raise
 
 
-async def resend_all_tick(context):
-    """Resend the original survey invitation once to every active linked student."""
+async def repair_tick(context):
+    """One safe repair pass: continue unfinished; invite not-started; skip completed."""
     ensure_tables()
-    sent = 0
+    sent_continue = 0
+    sent_invite = 0
+    skipped_completed = 0
     failed = 0
-    skipped = 0
 
     for uid in survey._recipients():
-        if _resend_already_attempted(uid):
-            skipped += 1
+        uid = int(uid)
+        if _repair_done(uid):
             continue
+        if survey._completed(uid):
+            _mark_repair(uid, "skipped")
+            skipped_completed += 1
+            continue
+
+        progress = survey._progress(uid)
         try:
-            await context.bot.send_message(
-                chat_id=int(uid),
-                text=(
-                    "💗 Отправляю опрос ещё раз — сейчас он работает корректно.\n\n"
-                    + survey._intro_text()
-                ),
-                reply_markup=survey._intro_markup(),
-            )
-            _mark_resend(uid, "sent")
-            sent += 1
+            if progress:
+                index = int(progress["current_index"])
+                if index < 0 or index >= len(survey.QUESTIONS):
+                    index = 0
+                    survey._advance(uid, 0)
+                await context.bot.send_message(
+                    chat_id=uid,
+                    text=(
+                        "💗 Я ещё раз починила опрос. Теперь ответ обрабатывается раньше всех остальных функций бота.\n\n"
+                        "Просто ответь текстом на вопрос ниже — следующий вопрос придёт автоматически.\n\n"
+                        + survey.QUESTIONS[index]
+                    ),
+                )
+                sent_continue += 1
+            else:
+                await context.bot.send_message(
+                    chat_id=uid,
+                    text=(
+                        "💗 Опрос полностью починен. Пожалуйста, попробуй ещё раз — для Маши это действительно важно.\n\n"
+                        + survey._intro_text()
+                    ),
+                    reply_markup=survey._intro_markup(),
+                )
+                sent_invite += 1
+            _mark_repair(uid, "sent")
         except Exception as exc:
-            _mark_resend(uid, "failed", repr(exc)[:500])
+            _mark_repair(uid, "failed", repr(exc)[:500])
             failed += 1
 
+    progress, completed, responses = _state_counts()
     print(
-        f"Anonymous survey resend all: sent={sent} failed={failed} skipped={skipped}",
+        "Anonymous survey repair v2: "
+        f"continue={sent_continue} invite={sent_invite} completed_skipped={skipped_completed} failed={failed} "
+        f"progress={progress} completed={completed} anonymous_responses={responses}",
         flush=True,
     )
 
     admin_id = survey.bot.get_admin_id()
-    if admin_id and (sent or failed):
+    if admin_id:
         try:
             await context.bot.send_message(
                 chat_id=int(admin_id),
                 text=(
-                    "🕵️ Повторная рассылка анонимного опроса\n"
-                    f"✅ Отправлено: {sent}\n"
-                    f"⚠️ Не доставлено: {failed}"
+                    "🛠 Анонимный опрос: повторное исправление\n"
+                    f"Продолжить опрос отправлено: {sent_continue}\n"
+                    f"Новая кнопка отправлена: {sent_invite}\n"
+                    f"Уже завершили, не трогала: {skipped_completed}\n"
+                    f"Ошибок: {failed}"
                 ),
             )
         except Exception:
             pass
 
 
-def _build_with_fixed_anonymous_routing(self):
+def _build_with_priority_survey(self):
     application = _original_build(self)
-    # Dedicated group. It runs before the monthly survey (-31). When there is no
-    # active anonymous progress, survey.student_text returns normally and later
-    # groups continue processing the message as before.
     application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, survey.student_text),
-        group=-32,
+        CallbackQueryHandler(priority_callback, pattern=r"^anonwhy:start$"),
+        group=ROUTING_GROUP,
+    )
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, priority_text),
+        group=ROUTING_GROUP,
     )
     if application.job_queue is not None:
-        application.job_queue.run_repeating(
-            recovery_tick,
-            interval=60,
-            first=5,
-            name="anonymous_why_masha_2026_09_17_recovery",
-        )
         application.job_queue.run_once(
-            resend_all_tick,
-            when=8,
-            name="anonymous_why_masha_2026_09_17_resend_all_v1",
+            repair_tick,
+            when=7,
+            name="anonymous_why_masha_2026_09_17_repair_v2",
         )
     return application
 
@@ -216,9 +222,9 @@ def install():
         return
     ensure_tables()
     _original_build = ApplicationBuilder.build
-    ApplicationBuilder.build = _build_with_fixed_anonymous_routing
+    ApplicationBuilder.build = _build_with_priority_survey
     _installed = True
     print(
-        "Anonymous survey routing fix ready: anonymous_text_group=-32 monthly_text_group=-31 recovery=enabled resend_all=enabled",
+        f"Anonymous survey hard routing ready: group={ROUTING_GROUP} repair_v2=enabled",
         flush=True,
     )
