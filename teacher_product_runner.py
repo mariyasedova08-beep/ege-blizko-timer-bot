@@ -10,6 +10,7 @@ import teacher_product_tomorrow as tomorrow
 import teacher_product_slots as availability_slots
 import teacher_product_slots_clarity as slots_clarity
 import teacher_product_learning as learning
+import teacher_product_group_members as group_members
 import teacher_product_tasks as tasks
 import teacher_product_voice_beta as voice_beta
 import teacher_product_openai_diag as openai_diag
@@ -33,7 +34,7 @@ def main():
     availability_slots.ensure_tables()
     learning.ensure_tables()
     threading.Thread(target=base.start_health_server, daemon=True).start()
-    print("Teacher Product MVP ready: schedule + reminders + payments + subscriptions + today-actions + tomorrow + availability-slots + homework + attendance + tasks + private voice beta", flush=True)
+    print("Teacher Product MVP ready: schedule + reminders + payments + subscriptions + today-actions + tomorrow + availability-slots + homework + attendance + group-members + tasks + private voice beta", flush=True)
     if not base.BOT_TOKEN:
         print("TEACHER_PRODUCT_BOT_TOKEN is missing; health server stays available", flush=True)
         threading.Event().wait()
@@ -50,6 +51,7 @@ def main():
     availability_slots.install(app)
     slots_clarity.install()
     learning.install(app)
+    group_members.install(app)
     app.run_polling(drop_pending_updates=False)
 
 
