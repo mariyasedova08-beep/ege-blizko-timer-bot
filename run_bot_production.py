@@ -171,6 +171,12 @@ def main():
     import admin_tomorrow
     admin_tomorrow.install()
 
+    # The monthly and one-time anonymous surveys both used group -31 for broad
+    # text handlers. Install this last so anonymous answers are routed first and
+    # students who already started during the bug are prompted once to continue.
+    import student_anonymous_why_survey_fix
+    student_anonymous_why_survey_fix.install()
+
     live90.live79.live24.main()
 
 
