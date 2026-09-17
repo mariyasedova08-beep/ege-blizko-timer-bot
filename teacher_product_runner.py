@@ -8,6 +8,7 @@ import teacher_product_payments as payments
 import teacher_product_today as today
 import teacher_product_tomorrow as tomorrow
 import teacher_product_slots as availability_slots
+import teacher_product_slots_clarity as slots_clarity
 import teacher_product_tasks as tasks
 import teacher_product_voice_beta as voice_beta
 import teacher_product_openai_diag as openai_diag
@@ -45,6 +46,7 @@ def main():
     today_actions.install(app)
     tomorrow.install(app)
     availability_slots.install(app)
+    slots_clarity.install()
     app.run_polling(drop_pending_updates=False)
 
 
