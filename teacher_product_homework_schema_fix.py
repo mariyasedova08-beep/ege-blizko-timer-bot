@@ -1,66 +1,109 @@
-"""SQLite-safe schema installer for PREPODMIN homework/attendance."""
+"""SQLite-safe schema installer and migration for PREPODMIN homework/attendance."""
 
 import teacher_product_mvp as base
 import teacher_product_student_reminders as student_reminders
 
 
+def _columns(conn, table):
+    return {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def _add_missing(conn, table, definitions):
+    existing = _columns(conn, table)
+    for name, ddl in definitions.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
+
+
 def ensure_tables():
     student_reminders.ensure_tables()
     with base.db() as conn:
-        conn.executescript(
+        # Create a minimal compatible table if it does not exist, then migrate any
+        # older table with the same name by adding only the missing columns.
+        conn.execute(
             """
             CREATE TABLE IF NOT EXISTS teacher_attendance (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                teacher_telegram_user_id INTEGER NOT NULL,
-                lesson_kind TEXT NOT NULL CHECK(lesson_kind IN ('individual','group')),
-                schedule_slot_id INTEGER NOT NULL,
-                lesson_date TEXT NOT NULL,
-                student_id INTEGER,
-                person_id INTEGER,
-                person_name TEXT NOT NULL,
-                status TEXT NOT NULL CHECK(status IN ('present','absent','cancelled')),
-                marked_at TEXT NOT NULL
-            );
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_teacher_attendance_occurrence
+                id INTEGER PRIMARY KEY AUTOINCREMENT
+            )
+            """
+        )
+        _add_missing(conn, "teacher_attendance", {
+            "teacher_telegram_user_id": "INTEGER",
+            "lesson_kind": "TEXT",
+            "schedule_slot_id": "INTEGER",
+            "lesson_date": "TEXT",
+            "student_id": "INTEGER",
+            "person_id": "INTEGER",
+            "person_name": "TEXT",
+            "status": "TEXT",
+            "marked_at": "TEXT",
+        })
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS teacher_homework (
+                id INTEGER PRIMARY KEY AUTOINCREMENT
+            )
+            """
+        )
+        _add_missing(conn, "teacher_homework", {
+            "teacher_telegram_user_id": "INTEGER",
+            "target_kind": "TEXT",
+            "student_id": "INTEGER",
+            "group_id": "INTEGER",
+            "target_name": "TEXT",
+            "homework_text": "TEXT",
+            "due_date": "TEXT",
+            "created_at": "TEXT",
+            "active": "INTEGER DEFAULT 1",
+        })
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS teacher_homework_recipients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT
+            )
+            """
+        )
+        _add_missing(conn, "teacher_homework_recipients", {
+            "homework_id": "INTEGER",
+            "teacher_telegram_user_id": "INTEGER",
+            "student_id": "INTEGER",
+            "person_id": "INTEGER",
+            "person_name": "TEXT",
+            "telegram_user_id": "INTEGER",
+            "status": "TEXT DEFAULT 'assigned'",
+            "completed_at": "TEXT",
+        })
+
+        # Non-unique indexes keep migration safe even if an older experimental
+        # table already contains duplicate rows. Runtime code prevents new
+        # duplicate attendance marks itself.
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_teacher_attendance_occurrence_v2
             ON teacher_attendance(
                 teacher_telegram_user_id,lesson_kind,schedule_slot_id,lesson_date,
-                COALESCE(student_id,-1),COALESCE(person_id,-1)
-            );
+                student_id,person_id
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_teacher_attendance_teacher_date
-            ON teacher_attendance(teacher_telegram_user_id,lesson_date,status);
-
-            CREATE TABLE IF NOT EXISTS teacher_homework (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                teacher_telegram_user_id INTEGER NOT NULL,
-                target_kind TEXT NOT NULL CHECK(target_kind IN ('individual','group')),
-                student_id INTEGER,
-                group_id INTEGER,
-                target_name TEXT NOT NULL,
-                homework_text TEXT NOT NULL,
-                due_date TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                active INTEGER NOT NULL DEFAULT 1
-            );
+            ON teacher_attendance(teacher_telegram_user_id,lesson_date,status)
+            """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_teacher_homework_teacher_due
-            ON teacher_homework(teacher_telegram_user_id,active,due_date);
-
-            CREATE TABLE IF NOT EXISTS teacher_homework_recipients (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                homework_id INTEGER NOT NULL,
-                teacher_telegram_user_id INTEGER NOT NULL,
-                student_id INTEGER,
-                person_id INTEGER,
-                person_name TEXT NOT NULL,
-                telegram_user_id INTEGER,
-                status TEXT NOT NULL DEFAULT 'assigned' CHECK(status IN ('assigned','done')),
-                completed_at TEXT
-            );
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_teacher_homework_recipient_unique
-            ON teacher_homework_recipients(
-                homework_id,COALESCE(student_id,-1),COALESCE(person_id,-1)
-            );
+            ON teacher_homework(teacher_telegram_user_id,active,due_date)
+            """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_teacher_homework_recipients_hw
-            ON teacher_homework_recipients(homework_id,status);
+            ON teacher_homework_recipients(homework_id,status)
             """
         )
         conn.commit()
