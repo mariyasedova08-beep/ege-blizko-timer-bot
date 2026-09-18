@@ -24,6 +24,7 @@ import teacher_product_schedule as schedule
 import teacher_product_groups as groups
 import teacher_product_today as today
 import teacher_product_student_reminders as student_reminders
+import teacher_product_student_messaging as messaging
 
 HW_KIND, HW_TARGET, HW_TEXT, HW_DUE = range(610, 614)
 
@@ -620,35 +621,45 @@ def _homework_student_text(assignment, prefix="📚 Новое домашнее 
 
 
 async def _send_assignment(context, assignment):
-    delivered = 0
+    sent = 0
+    failed = 0
+    total = 0
     for st in _status_rows(assignment):
         recipient = _subject_recipient(
             assignment, st["subject_kind"], st["subject_id"]
         )
         if not recipient:
             continue
-        try:
-            await context.bot.send_message(
-                int(recipient["telegram_user_id"]),
-                _homework_student_text(assignment),
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(
-                        "✅ Я сделал(а)",
-                        callback_data=_student_done_callback(
-                            assignment["id"], st["subject_kind"], st["subject_id"]
-                        ),
-                    )
-                ]]),
+        total += 1
+        markup = InlineKeyboardMarkup([[
+            InlineKeyboardButton(
+                "✅ Я сделал(а)",
+                callback_data=_student_done_callback(
+                    assignment["id"], st["subject_kind"], st["subject_id"]
+                ),
             )
-            delivered += 1
-        except Exception as exc:
-            print(
-                f"Homework delivery failed assignment={assignment['id']} "
-                f"subject={st['subject_kind']}:{st['subject_id']} "
-                f"{type(exc).__name__}: {exc}",
-                flush=True,
-            )
-    return delivered
+        ]])
+        result = await messaging.dispatch(
+            context,
+            int(assignment["teacher_telegram_user_id"]),
+            int(recipient["telegram_user_id"]),
+            _homework_student_text(assignment),
+            recipient_name=recipient["name"],
+            category="homework",
+            source_key=(
+                f"homework:new:{assignment['id']}:"
+                f"{st['subject_kind']}:{st['subject_id']}"
+            ),
+            reply_markup=markup,
+        )
+        sent += int(result == "sent")
+        failed += int(result == "failed")
+        print(
+            f"Homework delivery routed assignment={assignment['id']} "
+            f"subject={st['subject_kind']}:{st['subject_id']} status={result}",
+            flush=True,
+        )
+    return sent, failed, total
 
 
 def _create_assignment(uid, kind, target_id, text, due):
@@ -853,7 +864,7 @@ async def homework_due(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Не удалось сохранить ДЗ. Открой раздел «📚 Домашнее» и попробуй ещё раз.")
         return ConversationHandler.END
     assignment = _create_assignment(uid, kind, target_id, hw_text, due)
-    delivered = await _send_assignment(context, assignment)
+    sent, failed, total_linked = await _send_assignment(context, assignment)
     context.user_data.pop("edu_hw_kind", None)
     context.user_data.pop("edu_hw_target", None)
     context.user_data.pop("edu_hw_text", None)
@@ -863,7 +874,7 @@ async def homework_due(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{_target_name(uid, kind, target_id)}\n"
         f"Срок: {due.strftime('%d.%m')}\n"
         f"Учитывается учеников: {len(statuses)}\n"
-        f"Отправлено в Telegram: {delivered}\n\n"
+        f"{messaging.delivery_summary(uid, total_linked, sent, failed, singular=(kind == 'individual'))}\n\n"
         f"Если ученик ещё не привязан к ПРЕПОДМИН, ДЗ всё равно останется в твоём учёте.",
         reply_markup=base.MAIN_KB,
     )
@@ -1100,28 +1111,37 @@ async def _deliver_homework_reminder(context, assignment, status_row, key, prefi
     )
     if not recipient:
         return
-    try:
-        await context.bot.send_message(
-            int(recipient["telegram_user_id"]),
-            _homework_student_text(assignment, prefix=prefix),
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(
-                    "✅ Я сделал(а)",
-                    callback_data=_student_done_callback(
-                        assignment["id"], status_row["subject_kind"], status_row["subject_id"]
-                    ),
-                )
-            ]]),
+    markup = InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            "✅ Я сделал(а)",
+            callback_data=_student_done_callback(
+                assignment["id"], status_row["subject_kind"], status_row["subject_id"]
+            ),
         )
+    ]])
+    result = await messaging.dispatch(
+        context,
+        int(assignment["teacher_telegram_user_id"]),
+        int(recipient["telegram_user_id"]),
+        _homework_student_text(assignment, prefix=prefix),
+        recipient_name=recipient["name"],
+        category="homework_reminder",
+        source_key=(
+            f"homework:reminder:{assignment['id']}:"
+            f"{status_row['subject_kind']}:{status_row['subject_id']}:{key}"
+        ),
+        reply_markup=markup,
+    )
+    if result != "failed":
         _mark_reminder_sent(
             assignment["id"], status_row["subject_kind"], status_row["subject_id"], key
         )
-    except Exception as exc:
-        print(
-            f"Homework reminder failed assignment={assignment['id']} "
-            f"{type(exc).__name__}: {exc}",
-            flush=True,
-        )
+    print(
+        f"Homework reminder routed assignment={assignment['id']} "
+        f"subject={status_row['subject_kind']}:{status_row['subject_id']} "
+        f"status={result}",
+        flush=True,
+    )
 
 
 async def homework_reminder_tick(context: ContextTypes.DEFAULT_TYPE):
