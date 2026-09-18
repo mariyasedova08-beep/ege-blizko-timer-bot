@@ -28,6 +28,20 @@ run_bot = live48.run_bot
 COURSE_NAME = "Годовой курс подготовки к ЕГЭ по Химии"
 
 
+def _log_student_cabinet_schema_diag():
+    """Log column names only; never log student rows or values."""
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        for table in ("students", "trivial_sessions", "acid_sessions", "metals_sessions"):
+            try:
+                columns = [row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+                print(f"STUDENT_CABINET_SCHEMA {table} columns={','.join(columns)}", flush=True)
+            except Exception as exc:
+                print(f"STUDENT_CABINET_SCHEMA {table} error={type(exc).__name__}", flush=True)
+
+
+_log_student_cabinet_schema_diag()
+
+
 def _student_by_telegram(telegram_id):
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
         return conn.execute(
