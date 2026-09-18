@@ -9,6 +9,7 @@ import teacher_product_mvp as base
 import teacher_product_schedule as schedule
 import teacher_product_groups as groups
 import teacher_product_student_reminders as student_reminders
+import teacher_product_student_messaging as messaging
 
 _PATCHED = False
 
@@ -27,16 +28,10 @@ def _same_date_markup(kind, slot_id, original):
     ]])
 
 
-def _delivery_summary(kind, sent, failed, total):
-    if total == 0:
-        return (
-            "📨 Уведомление не отправлено: Telegram ученика ещё не привязан."
-            if kind == "individual"
-            else "📨 Уведомления не отправлены: в группе пока нет привязанных Telegram."
-        )
-    if failed == 0:
-        return "📨 Ученик уведомлён." if kind == "individual" else f"📨 Уведомления отправлены: {sent}."
-    return f"⚠️ Уведомления: отправлено {sent}, не доставлено {failed}."
+def _delivery_summary(uid, kind, sent, failed, total):
+    return messaging.delivery_summary(
+        uid, total, sent, failed, singular=(kind == "individual")
+    )
 
 
 async def _notify_transfer(context, uid, kind, slot_id, original, old_time, new_date, new_time):
@@ -65,13 +60,23 @@ async def _notify_transfer(context, uid, kind, slot_id, original, old_time, new_
         ]
         if group_name:
             lines.insert(2, f"Группа: {group_name}")
-        try:
-            await context.bot.send_message(person["telegram_user_id"], "\n".join(lines))
-            sent += 1
-            print(f"Transfer notification sent person={person['id']}", flush=True)
-        except Exception as exc:
-            failed += 1
-            print(f"Transfer notification failed person={person['id']}: {type(exc).__name__}", flush=True)
+        result = await messaging.dispatch(
+            context,
+            uid,
+            int(person["telegram_user_id"]),
+            "\n".join(lines),
+            recipient_name=person["name"],
+            category="transfer",
+            source_key=(
+                f"transfer:{kind}:{slot_id}:{original}:{new_date}:{new_time}:{person['id']}"
+            ),
+        )
+        sent += int(result == "sent")
+        failed += int(result == "failed")
+        print(
+            f"Transfer notification routed person={person['id']} status={result}",
+            flush=True,
+        )
     return sent, failed, len(people)
 
 
@@ -165,7 +170,7 @@ async def individual_move_time(update, context):
     )
     await update.message.reply_text(
         f"✅ Перенос сохранён.\n{name}: {_fmt_date(original)} {old_time} → {_fmt_date(new_date)} {t}.\n\n"
-        f"{_delivery_summary('individual', sent, failed, total)}",
+        f"{_delivery_summary(update.effective_user.id, 'individual', sent, failed, total)}",
         reply_markup=base.MAIN_KB,
     )
     return ConversationHandler.END
@@ -261,7 +266,7 @@ async def group_move_time(update, context):
     )
     await update.message.reply_text(
         f"✅ Перенос группы сохранён.\n{name}: {_fmt_date(original)} {old_time} → {_fmt_date(new_date)} {t}.\n\n"
-        f"{_delivery_summary('group', sent, failed, total)}",
+        f"{_delivery_summary(update.effective_user.id, 'group', sent, failed, total)}",
         reply_markup=base.MAIN_KB,
     )
     return ConversationHandler.END
