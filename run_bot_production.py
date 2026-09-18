@@ -49,6 +49,12 @@ def main():
     import nonmetals_trainer
     nonmetals_trainer.install()
 
+    import oxide_properties_trainer
+    oxide_properties_trainer.install()
+
+    # Personal 7-day launch campaign: 01–07.10 at 16:00 Moscow.
+    import oxide_properties_campaign  # noqa: F401
+
     import individual_trainer_daily
     import instagram_return_system
     import instagram_current_stage_patch  # noqa: F401
@@ -149,6 +155,11 @@ def main():
     print("Schedule-based homework cabinet ready", flush=True)
     print(f"Oxides trainer ready: questions={len(live90.live79.live60.OXIDES_BANK)} monday_reminder=11:00", flush=True)
     print(f"Nonmetals trainer ready: questions={len(nonmetals_trainer.NONMETALS_BANK)}", flush=True)
+    print(
+        f"Oxide properties trainer ready: questions={len(oxide_properties_trainer.OXIDE_PROPERTIES_BANK)}; "
+        "dm=2026-10-01..07 16:00 Moscow",
+        flush=True,
+    )
     print("CoreApp live sync receiver v2 ready", flush=True)
 
     import run_bot_live91  # noqa: F401
