@@ -154,7 +154,15 @@ def _student_home_text(student):
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
         att_present, att_total = live41._weekly_attendance(conn, int(student[0]), now)
         hw_done, hw_total = live41._weekly_homework(conn, student, now)
-        sessions, questions, correct = live41._weekly_trainer_stats(conn, int(student[5]), now)
+        try:
+            sessions, questions, correct = live41._weekly_trainer_stats(conn, int(student[5]), now)
+        except sqlite3.OperationalError as exc:
+            # Legacy trainer tables can survive on the persistent volume with an
+            # older schema. Do not let trainer statistics break the whole cabinet.
+            if "no such column: telegram_user_id" not in str(exc):
+                raise
+            sessions, questions, correct = 0, 0, 0
+            print("Student cabinet: trainer stats skipped because legacy table has no telegram_user_id")
     latest = _latest_probnik(student)
     probnik = "пока нет результата"
     if latest:
