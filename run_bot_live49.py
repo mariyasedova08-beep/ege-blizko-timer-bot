@@ -78,14 +78,23 @@ def _student_by_id(student_id):
 
 def _parent_student_ids(telegram_id):
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(parent_links)").fetchall()}
+        if "parent_telegram_user_id" in columns:
+            parent_column = "parent_telegram_user_id"
+            order_column = "linked_at" if "linked_at" in columns else "student_id"
+        elif "telegram_user_id" in columns:
+            parent_column = "telegram_user_id"
+            order_column = "id" if "id" in columns else "student_id"
+        else:
+            return []
         return [
             int(r[0])
             for r in conn.execute(
-                """
+                f"""
                 SELECT student_id
                 FROM parent_links
-                WHERE telegram_user_id = ? AND active = 1
-                ORDER BY id
+                WHERE {parent_column} = ? AND active = 1
+                ORDER BY {order_column}
                 """,
                 (int(telegram_id),),
             ).fetchall()
