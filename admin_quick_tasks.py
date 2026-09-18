@@ -513,7 +513,10 @@ live79._task_rows = task_rows_no_date_first
 
 def table_text_with_no_date(kind, title):
     all_rows = live79._task_rows(kind)
-    rows = all_rows[: live79.TASK_PAGE_SIZE]
+
+    # Content is a capture inbox: Maria needs to see and complete every idea
+    # from the same screen. Other task sections keep the compact first-page view.
+    rows = all_rows if kind == "content" else all_rows[: live79.TASK_PAGE_SIZE]
     if not rows:
         return f"<b>{title}</b>\n\n✅ Здесь пока пусто.", rows
 
@@ -530,7 +533,9 @@ def table_text_with_no_date(kind, title):
 
     extra = len(all_rows) - len(rows)
     text = f"<b>{title}</b>\n\n<pre>{html.escape(chr(10).join(table))}</pre>"
-    if extra > 0:
+    if kind == "content":
+        text += f"\nПоказаны все активные идеи: {len(rows)}."
+    elif extra > 0:
         text += f"\nЕщё задач: {extra}. Сейчас показываю первые {live79.TASK_PAGE_SIZE}."
     text += "\n\nНажми кнопку с номером выполненной задачи — она сразу перейдёт в «✅ Выполненные»."
     return text, rows
