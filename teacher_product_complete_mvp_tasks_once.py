@@ -4,19 +4,10 @@ from datetime import datetime
 import teacher_product_mvp as base
 import teacher_product_tasks as tasks
 
-TARGETS = (
-    (
-        "Спроектировать модуль «Расписание и переносы» как ядро продукта:",
-        "2026-09-16",
-    ),
-    (
-        "Утвердить состав MVP универсального бота:",
-        "2026-09-17",
-    ),
-    (
-        "Спроектировать режимы сообщений ученикам:",
-        "2026-09-18",
-    ),
+TARGET_PHRASES = (
+    "Расписание и переносы",
+    "состав MVP универсального бота",
+    "режимы сообщений ученикам",
 )
 
 
@@ -26,16 +17,18 @@ def run():
     completed = 0
     matched = []
     with base.db() as conn:
-        for title_prefix, due_date in TARGETS:
+        for phrase in TARGET_PHRASES:
             rows = conn.execute(
                 """
-                SELECT id,teacher_telegram_user_id,title,due_date,due_time
+                SELECT id,teacher_telegram_user_id,title,due_date,due_time,source_text
                 FROM teacher_tasks
                 WHERE completed=0
-                  AND title LIKE ?
-                  AND due_date=?
+                  AND (
+                        lower(title) LIKE lower(?)
+                     OR lower(coalesce(source_text,'')) LIKE lower(?)
+                  )
                 """,
-                (title_prefix + "%", due_date),
+                (f"%{phrase}%", f"%{phrase}%"),
             ).fetchall()
             for row in rows:
                 conn.execute(
