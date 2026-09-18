@@ -68,6 +68,13 @@ async def text_router_with_student_cabinet(update, context):
         and update.message.text
         and update.message.text.strip() == STUDENT_CABINET_BUTTON
     ):
+        if bot.user_is_admin(update):
+            await update.effective_message.reply_text(
+                "Твой кабинет 👇",
+                reply_markup=live23.ADMIN_KEYBOARD,
+            )
+            await live23.show_cabinet(update, context)
+            return
         student = student_cabinet._student_by_telegram(update.effective_user.id)
         if student:
             await student_cabinet.show_student_cabinet(update, context, student=student)
