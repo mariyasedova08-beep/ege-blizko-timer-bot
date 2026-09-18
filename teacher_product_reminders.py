@@ -122,6 +122,7 @@ def reminder_keyboard(uid):
         callback_data="srem:toggle",
     )])
     buttons.append([InlineKeyboardButton("👥 Привязать учеников / ответы", callback_data="srem:people")])
+    buttons.append([InlineKeyboardButton("💬 Режим сообщений ученикам", callback_data="smsg:settings")])
     return InlineKeyboardMarkup(buttons)
 
 
@@ -132,14 +133,17 @@ def reminder_text(uid):
         status = "\n".join(f"• {x}" for x in enabled)
     else:
         status = "• выключены"
+    import teacher_product_student_messaging as messaging
     return (
         "🔔 Напоминания о занятиях\n\n"
         "ПРЕПОДМИН берёт занятия прямо из твоего расписания. "
         "Если занятие перенесено, напоминание придёт уже на новую дату и время.\n\n"
         "Сейчас включены:\n"
         f"{status}\n\n"
-        "Напоминания ученикам включаются отдельно преподавателем. "
-        "Ученик получает сообщение только после привязки к боту и может подтвердить участие.\n\n"
+        f"💬 Глобальный режим сообщений: {messaging.MODES[messaging.get_mode(uid)][0]}\n\n"
+        "Напоминания ученикам включаются отдельно как правило расписания, "
+        "а способ отправки определяется глобальным режимом сообщений. "
+        "Ученик получает сообщение только после привязки к боту.\n\n"
         "Нажми на вариант ниже, чтобы включить или выключить его."
     )
 
