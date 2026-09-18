@@ -137,7 +137,27 @@ def seed_teacher_product_tasks():
             """,
             (now, "teacher-product-target-audience-2026-09-12"),
         )
+
+        # Product decisions/features completed by 18 Sep 2026.
+        completed_product_keys = (
+            "teacher-product-schedule-mvp-2026-09-16",
+            "teacher-product-mvp-scope-2026-09-17",
+            "teacher-product-notification-modes-2026-09-18",
+        )
+        placeholders = ",".join("?" for _ in completed_product_keys)
+        conn.execute(
+            f"""
+            UPDATE admin_tasks
+            SET completed_at = COALESCE(completed_at, ?)
+            WHERE task_key IN ({placeholders})
+            """,
+            (now, *completed_product_keys),
+        )
         conn.commit()
+        print(
+            "Teacher product completed tasks synced: schedule-mvp + mvp-scope + notification-modes",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":
