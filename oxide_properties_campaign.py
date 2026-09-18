@@ -198,7 +198,42 @@ async def send_personal_reminders(context, day):
     )
 
 
+ADMIN_TEST_KEY = "admin-test-2026-09-18"
+
+
+async def send_admin_test_once(context):
+    admin_id = bot.get_admin_id()
+    if not admin_id:
+        return
+    if _sent(ADMIN_TEST_KEY, int(admin_id)):
+        return
+    try:
+        markup = await _markup(context)
+        await context.bot.send_message(
+            chat_id=int(admin_id),
+            text=(
+                "🧪 <b>ТЕСТ — «Свойства оксидов»</b>\n\n"
+                "Это тестовое сообщение видишь только ты.\n"
+                "Нажми кнопку ниже — откроется настоящий тренажёр на 80 вопросов."
+            ),
+            parse_mode="HTML",
+            reply_markup=markup,
+        )
+        _mark_sent(ADMIN_TEST_KEY, int(admin_id))
+        print(
+            f"OXIDE_PROPERTIES_ADMIN_TEST sent=1 user={int(admin_id)}",
+            flush=True,
+        )
+    except Exception as exc:
+        print(
+            f"OXIDE_PROPERTIES_ADMIN_TEST failed error={type(exc).__name__}",
+            flush=True,
+        )
+
+
 async def campaign_tick(context):
+    await send_admin_test_once(context)
+
     now = datetime.now(bot.TIMEZONE)
     today = now.date()
     current = now.time().replace(tzinfo=None)
