@@ -1,4 +1,5 @@
 import sqlite3
+import traceback
 from datetime import datetime, timedelta
 
 import run_bot_live69
@@ -132,6 +133,11 @@ async def _error_handler(update, context):
         return
 
     print(f"BOT ERROR CAPTURED: {error_name}: {error_detail}", flush=True)
+    if error is not None:
+        trace = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+        print("BOT ERROR TRACEBACK START", flush=True)
+        print(trace, flush=True)
+        print("BOT ERROR TRACEBACK END", flush=True)
 
     if not _should_alert_error(error_name, now):
         return
