@@ -31,7 +31,11 @@ COURSE_NAME = "Годовой курс подготовки к ЕГЭ по Хи�
 def _log_student_cabinet_schema_diag():
     """Log column names only; never log student rows or values."""
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
-        for table in ("students", "trivial_sessions", "acid_sessions", "metals_sessions"):
+        for table in (
+            "students", "trivial_sessions", "acid_sessions", "metals_sessions",
+            "student_survey_sessions", "student_survey_answers", "student_survey_deliveries",
+            "anonymous_why_progress", "anonymous_why_completions", "anonymous_why_deliveries"
+        ):
             try:
                 columns = [row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
                 print(f"STUDENT_CABINET_SCHEMA {table} columns={','.join(columns)}", flush=True)
