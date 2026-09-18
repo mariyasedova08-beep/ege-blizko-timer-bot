@@ -54,6 +54,8 @@ def main():
 
     # Personal 7-day launch campaign: 01–07.10 at 16:00 Moscow.
     import oxide_properties_campaign  # noqa: F401
+    import oxide_properties_admin_test
+    oxide_properties_admin_test.send_once()
 
     import individual_trainer_daily
     import instagram_return_system
