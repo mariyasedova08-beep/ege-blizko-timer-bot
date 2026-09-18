@@ -10,6 +10,7 @@ from datetime import date, datetime, timedelta
 import re
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
+from telegram.error import BadRequest
 from telegram.ext import (
     ApplicationHandlerStop,
     CallbackQueryHandler,
@@ -164,6 +165,16 @@ def _status_icon(status):
     return "✅" if status == "present" else "❌" if status == "absent" else "▫️"
 
 
+async def _safe_edit(q, text, reply_markup=None):
+    try:
+        await q.edit_message_text(text, reply_markup=reply_markup)
+        return True
+    except BadRequest as exc:
+        if "Message is not modified" in str(exc):
+            return False
+        raise
+
+
 def _event_from_key(uid, kind, slot_id, day):
     for event in _events(uid, day):
         if event["kind"] == kind and int(event["slot_id"]) == int(slot_id):
@@ -252,7 +263,8 @@ async def attendance_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         await q.answer("Не удалось определить дату.", show_alert=True)
         raise ApplicationHandlerStop
-    await q.edit_message_text(
+    await _safe_edit(
+        q,
         _attendance_day_text(uid, day),
         reply_markup=_attendance_day_markup(uid, day),
     )
@@ -347,15 +359,15 @@ async def attendance_event(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.edit_message_text("Занятие не найдено. Возможно, расписание уже изменилось.")
         raise ApplicationHandlerStop
     text, kb = _attendance_event_view(uid, event, day)
-    await q.edit_message_text(text, reply_markup=kb)
+    await _safe_edit(q, text, reply_markup=kb)
     raise ApplicationHandlerStop
 
 
 async def attendance_set(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
     uid = int(q.from_user.id)
     if not base.teacher(uid):
+        await q.answer()
         raise ApplicationHandlerStop
     try:
         _, _, _, kind, slot_text, compact, subject_kind, subject_text, status = q.data.split(":")
@@ -366,22 +378,28 @@ async def attendance_set(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.answer("Не удалось сохранить отметку.", show_alert=True)
         raise ApplicationHandlerStop
     if status not in {"present", "absent"}:
+        await q.answer()
         raise ApplicationHandlerStop
     event = _event_from_key(uid, kind, slot_id, day)
     if not event:
         await q.answer("Занятие больше не найдено.", show_alert=True)
         raise ApplicationHandlerStop
+    current = _attendance_status(uid, kind, slot_id, day, subject_kind, subject_id)
+    if current == status:
+        await q.answer("Уже отмечено ✅" if status == "present" else "Уже отмечен пропуск ❌")
+        raise ApplicationHandlerStop
     _set_attendance(uid, kind, slot_id, day, subject_kind, subject_id, status)
+    await q.answer("Сохранено")
     text, kb = _attendance_event_view(uid, event, day)
-    await q.edit_message_text(text, reply_markup=kb)
+    await _safe_edit(q, text, reply_markup=kb)
     raise ApplicationHandlerStop
 
 
 async def attendance_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
-    await q.answer()
     uid = int(q.from_user.id)
     if not base.teacher(uid):
+        await q.answer()
         raise ApplicationHandlerStop
     try:
         _, _, _, slot_text, compact, gid_text = q.data.split(":")
@@ -395,10 +413,18 @@ async def attendance_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not event or int(event["group_id"]) != gid:
         await q.answer("Занятие больше не найдено.", show_alert=True)
         raise ApplicationHandlerStop
-    for m in _members(uid, gid):
-        _set_attendance(uid, "group", slot_id, day, "group_member", m["id"], "present")
+    members = _members(uid, gid)
+    changed = False
+    for m in members:
+        if _attendance_status(uid, "group", slot_id, day, "group_member", m["id"]) != "present":
+            _set_attendance(uid, "group", slot_id, day, "group_member", m["id"], "present")
+            changed = True
+    if not changed:
+        await q.answer("Все уже отмечены ✅")
+        raise ApplicationHandlerStop
+    await q.answer("Все отмечены ✅")
     text, kb = _attendance_event_view(uid, event, day)
-    await q.edit_message_text(text, reply_markup=kb)
+    await _safe_edit(q, text, reply_markup=kb)
     raise ApplicationHandlerStop
 
 
@@ -428,7 +454,7 @@ async def attendance_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_status = "absent" if current == "present" else "present"
     _set_attendance(uid, "group", slot_id, day, "group_member", pid, new_status)
     text, kb = _attendance_event_view(uid, event, day)
-    await q.edit_message_text(text, reply_markup=kb)
+    await _safe_edit(q, text, reply_markup=kb)
     raise ApplicationHandlerStop
 
 
