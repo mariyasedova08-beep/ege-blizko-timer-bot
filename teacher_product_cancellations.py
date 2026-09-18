@@ -187,6 +187,11 @@ def _upcoming_occurrences(uid, kind=None, days=45):
     now = datetime.now(schedule.tz(uid))
     start_day = now.date()
     end_day = start_day + timedelta(days=int(days))
+    end_dt = datetime.combine(
+        end_day,
+        datetime.max.time().replace(microsecond=0),
+        tzinfo=schedule.tz(uid),
+    )
     result = []
     seen = set()
 
@@ -194,10 +199,6 @@ def _upcoming_occurrences(uid, kind=None, days=45):
     for current_kind in kinds:
         slot_rows = schedule.slots(uid) if current_kind == "individual" else groups.group_slots(uid)
         moves = _move_rows(uid, current_kind, start_day, end_day)
-        moves_by_key = {
-            (int(r["schedule_slot_id"]), str(r["original_date"])): r
-            for r in moves
-        }
 
         for slot_row in slot_rows:
             d = start_day
@@ -214,11 +215,7 @@ def _upcoming_occurrences(uid, kind=None, days=45):
                             tzinfo=schedule.tz(uid),
                         )
                         if (
-                            now <= event_dt <= datetime.combine(
-                                end_day,
-                                datetime.max.time().replace(microsecond=0),
-                                tzinfo=schedule.tz(uid),
-                            )
+                            now <= event_dt <= end_dt
                             and not is_cancelled(
                                 uid, current_kind, event["slot_id"], event["occurrence_key"]
                             )
@@ -227,8 +224,8 @@ def _upcoming_occurrences(uid, kind=None, days=45):
                             seen.add(key)
                 d += timedelta(days=1)
 
-        # A lesson can be moved into the visible window from an older/farther
-        # occurrence which is not part of the regular-date scan above.
+        # Include lessons moved into the visible window from an older/farther
+        # occurrence that wasn't scanned as a regular date above.
         for move in moves:
             key = (
                 current_kind,
@@ -253,11 +250,7 @@ def _upcoming_occurrences(uid, kind=None, days=45):
                 )
             except Exception:
                 continue
-            if not (now <= event_dt <= datetime.combine(
-                end_day,
-                datetime.max.time().replace(microsecond=0),
-                tzinfo=schedule.tz(uid),
-            )):
+            if not (now <= event_dt <= end_dt):
                 continue
             if is_cancelled(uid, current_kind, event["slot_id"], event["occurrence_key"]):
                 continue
@@ -417,31 +410,27 @@ def patch_runtime():
 
 def _main_keyboard_with_cancel():
     rows = [list(row) for row in base.MAIN_KB.keyboard]
-    # Keep transfer and cancellation beside each other. The learning module
-    # rebuilds MAIN_KB later than the old transfer-button module, so restore the
-    # direct transfer entry here too.
     rows = [
-        [button for button in row if button.text not in {"↪️ Перенести занятие", "❌ Отменить занятие"}]
+        [
+            button
+            for button in row
+            if button.text not in {"↪️ Перенести занятие", "❌ Отменить занятие"}
+        ]
         for row in rows
     ]
     rows = [row for row in rows if row]
     schedule_row = next(
         (
-            i for i, row in enumerate(rows)
+            i
+            for i, row in enumerate(rows)
             if any(button.text == "📅 Расписание" for button in row)
         ),
         2,
     )
     rows.insert(
         schedule_row + 1,
-        [
-            InlineKeyboardButton("↪️ Перенести занятие", callback_data="noop-transfer-label"),
-            InlineKeyboardButton("❌ Отменить занятие", callback_data="noop-cancel-label"),
-        ],
+        ["↪️ Перенести занятие", "❌ Отменить занятие"],
     )
-    # ReplyKeyboardMarkup needs plain KeyboardButton-compatible strings/buttons,
-    # not callback buttons. Rebuild this row as text labels.
-    rows[schedule_row + 1] = ["↪️ Перенести занятие", "❌ Отменить занятие"]
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
 
@@ -458,16 +447,16 @@ def _kind_from_callback(value):
 
 
 def _event_label(event):
-    base_label = (
+    label = (
         f"{_kind_icon(event['kind'])} {event['name']} • "
         f"{event['actual_date'].strftime('%d.%m')} {event['actual_time']}"
     )
     if event["moved"]:
-        base_label += (
+        label += (
             f" ↪️ с {event['original_date'].strftime('%d.%m')} "
             f"{event['original_time']}"
         )
-    return base_label[:120]
+    return label[:120]
 
 
 def _cancel_keyboard(uid):
@@ -494,16 +483,12 @@ async def cancellation_menu(update, context):
     events, markup = _cancel_keyboard(uid)
     if not events:
         await update.message.reply_text(
-            "❌ Отмена занятия
-
-На ближайшие 45 дней занятий для отмены нет.",
+            "❌ Отмена занятия\n\nНа ближайшие 45 дней занятий для отмены нет.",
             reply_markup=base.MAIN_KB,
         )
         raise ApplicationHandlerStop
     await update.message.reply_text(
-        "❌ Отменить одно занятие
-
-"
+        "❌ Отменить одно занятие\n\n"
         "Выбери конкретный урок. Регулярное расписание не изменится.",
         reply_markup=markup,
     )
@@ -623,6 +608,7 @@ async def cancellation_apply(update, context):
     already = is_cancelled(q.from_user.id, kind, slot_id, occurrence_key)
     if not already:
         _save_cancel(q.from_user.id, event)
+
     sent, failed, total = (0, 0, 0)
     if not already:
         sent, failed, total = await _notify_students(
@@ -668,9 +654,7 @@ async def cancellation_back(update, context):
         await q.edit_message_text("На ближайшие 45 дней занятий для отмены нет.")
         raise ApplicationHandlerStop
     await q.edit_message_text(
-        "❌ Отменить одно занятие
-
-"
+        "❌ Отменить одно занятие\n\n"
         "Выбери конкретный урок. Регулярное расписание не изменится.",
         reply_markup=markup,
     )
