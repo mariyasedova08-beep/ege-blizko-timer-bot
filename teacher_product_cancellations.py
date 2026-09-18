@@ -16,6 +16,7 @@ import teacher_product_groups as groups
 import teacher_product_today as today
 import teacher_product_reminders as reminders
 import teacher_product_student_reminders as student_reminders
+import teacher_product_student_messaging as messaging
 
 _installed = False
 _patched = False
@@ -568,19 +569,24 @@ async def _notify_students(context, uid, event):
         if event["moved"]:
             lines.append("↪️ Это было перенесённое занятие.")
         lines += ["", "Следующее регулярное занятие остаётся по расписанию."]
-        try:
-            await context.bot.send_message(
-                chat_id=int(person["telegram_user_id"]),
-                text="\n".join(lines),
-            )
-            sent += 1
-        except Exception as exc:
-            failed += 1
-            print(
-                f"Cancellation notification failed person={person['id']}: "
-                f"{type(exc).__name__}",
-                flush=True,
-            )
+        result = await messaging.dispatch(
+            context,
+            uid,
+            int(person["telegram_user_id"]),
+            "\n".join(lines),
+            recipient_name=person["name"],
+            category="cancellation",
+            source_key=(
+                f"cancel:{event['kind']}:{event['slot_id']}:"
+                f"{event['occurrence_key']}:{person['id']}"
+            ),
+        )
+        sent += int(result == "sent")
+        failed += int(result == "failed")
+        print(
+            f"Cancellation notification routed person={person['id']} status={result}",
+            flush=True,
+        )
     return sent, failed, len(recipients)
 
 
@@ -615,16 +621,13 @@ async def cancellation_apply(update, context):
             context, q.from_user.id, event
         )
 
-    if total == 0:
-        delivery = "📨 Telegram учеников не привязан — уведомления отправлять некому."
-    elif failed == 0:
-        delivery = (
-            "📨 Ученик уведомлён."
-            if event["kind"] == "individual"
-            else f"📨 Ученики уведомлены: {sent}."
-        )
-    else:
-        delivery = f"⚠️ Уведомления: отправлено {sent}, не доставлено {failed}."
+    delivery = messaging.delivery_summary(
+        q.from_user.id,
+        total,
+        sent,
+        failed,
+        singular=(event["kind"] == "individual"),
+    )
 
     status = "ℹ️ Это занятие уже было отменено." if already else "✅ Занятие отменено."
     await q.edit_message_text(
