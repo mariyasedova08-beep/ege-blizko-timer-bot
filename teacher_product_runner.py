@@ -17,6 +17,7 @@ import teacher_product_openai_diag as openai_diag
 import teacher_product_subscriptions as subscriptions
 import teacher_product_today_actions as today_actions
 import teacher_product_student_reminders as student_reminders
+import teacher_product_student_messaging as student_messaging
 import teacher_product_transfer_button as transfer_button
 import teacher_product_transfer_enhancements as transfer_enhancements
 import teacher_product_cancellations as cancellations
@@ -30,6 +31,7 @@ def main():
     groups.ensure_tables()
     reminders.ensure_tables()
     student_reminders.ensure_tables()
+    student_messaging.ensure_tables()
     payments.ensure_tables()
     subscriptions.ensure_tables()
     today_actions.ensure_tables()
@@ -40,7 +42,7 @@ def main():
     courses.ensure_tables()
     reports.ensure_tables()
     threading.Thread(target=base.start_health_server, daemon=True).start()
-    print("Teacher Product MVP ready: schedule + reminders + payments + subscriptions + today-actions + tomorrow + availability-slots + homework + attendance + group-members + tasks + private voice beta", flush=True)
+    print("Teacher Product MVP ready: schedule + reminders + payments + subscriptions + today-actions + tomorrow + availability-slots + homework + attendance + group-members + courses + reports + student-messaging + tasks + private voice beta", flush=True)
     if not base.BOT_TOKEN:
         print("TEACHER_PRODUCT_BOT_TOKEN is missing; health server stays available", flush=True)
         threading.Event().wait()
@@ -61,6 +63,7 @@ def main():
     cancellations.install(app)
     courses.install(app)
     reports.install(app)
+    student_messaging.install(app)
     app.run_polling(drop_pending_updates=False)
 
 
