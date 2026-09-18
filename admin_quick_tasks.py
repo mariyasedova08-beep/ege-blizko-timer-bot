@@ -562,7 +562,7 @@ def install():
         conn.commit()
 
     live23.ADMIN_KEYBOARD = ReplyKeyboardMarkup(
-        [["👩‍🏫 Кабинет Маши", "➕ Быстрая задача"]],
+        [["👤 Мой кабинет", "➕ Быстрая задача"]],
         resize_keyboard=True,
         is_persistent=True,
     )
