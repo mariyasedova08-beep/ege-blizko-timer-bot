@@ -11,6 +11,7 @@ from telegram.ext import (ApplicationHandlerStop, CallbackQueryHandler, CommandH
 import teacher_product_mvp as base
 import teacher_product_schedule as schedule
 import teacher_product_groups as groups
+import teacher_product_student_messaging as messaging
 
 ADD_MEMBER = 130
 OFFSETS = (1440, 60)
@@ -329,6 +330,8 @@ def reply_for(person_id, event):
 
 
 async def deliver(context, uid, event, now):
+    if messaging.get_mode(uid) == "off":
+        return
     starts_at = event["event_dt"].isoformat()
     for offset in OFFSETS:
         elapsed = (now - (event["event_dt"] - timedelta(minutes=offset))).total_seconds()
@@ -359,16 +362,33 @@ async def deliver(context, uid, event, now):
                 message_id = cur.lastrowid if cur.rowcount else None
             if not message_id:
                 continue
-            try:
-                await context.bot.send_message(person["telegram_user_id"], text,
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton("✅ Буду", callback_data=f"srem:reply:{message_id}:yes"),
-                        InlineKeyboardButton("❌ Не смогу", callback_data=f"srem:reply:{message_id}:no")
-                    ]]))
-            except Exception as exc:
+            markup = InlineKeyboardMarkup([[
+                InlineKeyboardButton("✅ Буду", callback_data=f"srem:reply:{message_id}:yes"),
+                InlineKeyboardButton("❌ Не смогу", callback_data=f"srem:reply:{message_id}:no")
+            ]])
+            result = await messaging.dispatch(
+                context,
+                uid,
+                int(person["telegram_user_id"]),
+                text,
+                recipient_name=person["name"],
+                category="lesson_reminder",
+                source_key=(
+                    f"lesson:reminder:{person['id']}:{event['kind']}:"
+                    f"{event['slot_id']}:{event['occurrence_key']}:"
+                    f"{starts_at}:{offset}"
+                ),
+                reply_markup=markup,
+                expires_at=event["event_dt"],
+            )
+            if result == "failed":
                 with base.db() as conn:
                     conn.execute("DELETE FROM student_lesson_messages WHERE id=?", (message_id,))
-                print(f"Student reminder delivery failed person={person['id']}: {type(exc).__name__}", flush=True)
+                    conn.commit()
+            print(
+                f"Student lesson reminder routed person={person['id']} status={result}",
+                flush=True,
+            )
 
 
 def current_start(person, message):
