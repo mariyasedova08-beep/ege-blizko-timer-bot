@@ -34,6 +34,12 @@ h1{font-size:31px;line-height:1.03;margin:9px 0 7px;letter-spacing:-.035em}.sub{
 .probnik-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.score-big{font-size:34px;font-weight:950;letter-spacing:-.04em}.score-caption{font-size:10px;color:var(--muted);margin-top:2px}.weakline{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.weakpill{font-size:10px;background:#FFF0F4;color:#9F3151;padding:6px 8px;border-radius:999px}
 .student-card{background:var(--paper);border:1px solid var(--line);border-radius:21px;padding:15px;margin-bottom:10px;box-shadow:0 7px 22px rgba(54,34,44,.04)}
 .student-card-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.student-name{font-size:16px;font-weight:900}.student-score{font-size:28px;font-weight:950;line-height:1}.student-meta{font-size:10px;color:var(--muted);margin-top:4px}
+.analytics-card{cursor:pointer;background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:15px;margin-bottom:10px;box-shadow:0 7px 22px rgba(54,34,44,.04)}.analytics-card:active{transform:scale(.995);background:#fff9fc}
+.metric-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}.metricbox{background:var(--milk);border-radius:15px;padding:10px;min-height:67px}.metricbox b{display:block;font-size:18px;line-height:1.1}.metricbox span{display:block;font-size:9px;color:var(--muted);margin-top:4px;line-height:1.25}
+.trend{font-size:10px;font-weight:850;margin-left:5px}.trend.up{color:var(--green)}.trend.down{color:var(--red)}.trend.flat{color:var(--muted)}
+.chartbox{background:var(--paper);border:1px solid var(--line);border-radius:21px;padding:14px;margin-bottom:10px;box-shadow:0 7px 22px rgba(54,34,44,.04)}.chart-title{font-size:15px;font-weight:900}.chart-sub{font-size:10px;color:var(--muted);margin-top:3px}.spark{width:100%;height:120px;margin-top:11px;display:block}.axisnote{display:flex;justify-content:space-between;gap:8px;font-size:9px;color:var(--muted);margin-top:5px}
+.timeline{display:flex;gap:7px;overflow-x:auto;padding:10px 1px 2px}.timeline-item{min-width:74px;border-radius:14px;padding:9px;background:var(--soft)}.timeline-item.good{background:#EAF7EF}.timeline-item.bad{background:#FFF0F4}.timeline-item b{font-size:12px}.timeline-item span{display:block;font-size:9px;color:var(--muted);margin-top:3px}
+.section-note{font-size:10px;color:var(--muted);line-height:1.4;margin:7px 2px 11px}
 .mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}.mini{background:var(--milk);border-radius:14px;padding:9px}.mini b{display:block;font-size:14px}.mini span{font-size:9px;color:var(--muted)}
 .history{display:flex;gap:7px;overflow-x:auto;padding-top:12px}.history-chip{min-width:88px;background:var(--soft);border-radius:13px;padding:8px}.history-chip b{font-size:13px}.history-chip span{display:block;font-size:9px;color:var(--muted);margin-top:3px}
 .final-card{background:linear-gradient(145deg,#FFFDFC,#F8E8F0);border:1px solid var(--line);border-radius:21px;padding:15px;margin-bottom:10px;box-shadow:0 7px 22px rgba(54,34,44,.04)}.final-title{font-size:14px;font-weight:900;line-height:1.35}.final-progress{height:8px;background:#fff;border-radius:999px;overflow:hidden;margin-top:11px}.final-progress i{display:block;height:100%;background:var(--hot);border-radius:999px}.statusline{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.statuspill{font-size:10px;padding:6px 8px;border-radius:999px;background:var(--soft)}.statuspill.ok{background:#EAF7EF;color:var(--green)}.statuspill.bad{background:#FFF0F4;color:#A72A51}
@@ -62,7 +68,30 @@ window.addEventListener('error',function(e){reportClientError('window.error',e.e
 window.addEventListener('unhandledrejection',function(e){reportClientError('unhandledrejection',e.reason);});
 async function api(view){var r=await fetch('/admin-app/api?ts='+Date.now(),{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({launch:launch,view:view})});if(!r.ok)throw new Error('api '+r.status);return await r.json();}
 async function action(payload){payload.launch=launch;var r=await fetch('/admin-app/action?ts='+Date.now(),{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify(payload)});var p={};try{p=await r.json();}catch(_){}if(!r.ok||!p.ok)throw new Error(p.error||('action '+r.status));return p;}
-function screenHeader(title,sub){return '<div class="screen-head">'+(current==='home'?'':'<button class="back" onclick="openView(\'home\')">‹</button>')+'<div><h2>'+esc(title)+'</h2>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+'</div></div>';}
+function screenHeader(title,sub){var back=(current.indexOf('student:')===0?'students':'home');return '<div class="screen-head">'+(current==='home'?'':'<button class="back" onclick="openView(\''+back+'\')">‹</button>')+'<div><h2>'+esc(title)+'</h2>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+'</div></div>';}
+
+function fmtPct(v){return v==null?'—':Math.round(Number(v))+'%';}
+function trendHtml(v,suffix){
+ if(v==null)return '<span class="trend flat">—</span>';
+ var n=Number(v),cls=n>0?'up':n<0?'down':'flat',arrow=n>0?'↑':n<0?'↓':'→';
+ var abs=Math.abs(Math.round(n*10)/10);
+ return '<span class="trend '+cls+'">'+arrow+' '+abs+(suffix||'')+'</span>';
+}
+function sparkline(points){
+ var vals=(points||[]).filter(function(x){return x!=null&&isFinite(Number(x));}).map(Number);
+ if(!vals.length)return '<div class="empty">Пока недостаточно данных для графика</div>';
+ if(vals.length===1)return '<div class="empty">Есть один результат: '+fmtScore(vals[0])+'</div>';
+ var w=320,h=110,p=12,min=Math.min.apply(null,vals),max=Math.max.apply(null,vals);
+ if(min===max){min-=5;max+=5;}
+ var coords=vals.map(function(v,i){
+   var x=p+(w-2*p)*(i/(vals.length-1));
+   var y=h-p-(h-2*p)*((v-min)/(max-min));
+   return [x,y];
+ });
+ var pts=coords.map(function(a){return a[0].toFixed(1)+','+a[1].toFixed(1);}).join(' ');
+ var circles=coords.map(function(a,i){return '<circle cx="'+a[0].toFixed(1)+'" cy="'+a[1].toFixed(1)+'" r="3.5" fill="#F00087"/>';}).join('');
+ return '<svg class="spark" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none"><line x1="'+p+'" y1="'+(h-p)+'" x2="'+(w-p)+'" y2="'+(h-p)+'" stroke="#E9E2DE" stroke-width="1"/><polyline points="'+pts+'" fill="none" stroke="#F00087" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'+circles+'</svg>';
+}
 function eventRows(items){var rows='';(items||[]).forEach(function(e){var title=e.type==='lesson'?'Урок'+(e.lesson_number?' №'+e.lesson_number:''):e.type==='probnik'?'Пробник':'Событие';rows+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(title)+'</div><div class="row-sub">'+esc(e.topic||'')+'</div></div></div>';});return rows;}
 function taskRows(items,returnView){var rows='';(items||[]).forEach(function(t){var when=t.no_date?'без даты':esc(t.date)+(t.time?' · '+esc(t.time):'');var ico=t.kind==='content'?'💡':t.kind==='tech'?'🛠':'📋';rows+='<div class="row taskrow" onclick="completeTask('+t.id+',\''+returnView+'\')"><div class="check">✓</div><div class="row-main"><div class="row-title '+(t.overdue?'alert':'')+'">'+esc(t.text)+'</div><div class="row-sub">'+when+' · нажми, чтобы закрыть</div></div><span class="badge">'+ico+'</span></div>';});return rows;}
 async function completeTask(id,view){try{if(tg&&tg.HapticFeedback){try{tg.HapticFeedback.impactOccurred('light');}catch(_){}}await action({action:'task_done',task_id:id});await openView(view||'tasks');}catch(e){await reportClientError('task_done:'+id,e);}}
@@ -81,7 +110,64 @@ out+='<div class="section"><div class="section-title"><strong>Быстрые р�
 document.getElementById('app').innerHTML=out;}
 function renderDay(d,title){document.getElementById('app').innerHTML=screenHeader(title,d.weekday+' · '+d.date)+'<div class="section"><div class="section-title"><strong>Расписание</strong></div><div class="list">'+(eventRows(d.events)||'<div class="empty">Событий нет</div>')+'</div></div><div class="section"><div class="section-title"><strong>Задачи</strong></div><div class="list">'+(taskRows(d.tasks,current)||'<div class="empty">Задач нет 🎉</div>')+'</div></div>';}
 function renderTasks(d){document.getElementById('app').innerHTML=screenHeader('Задачи','нажми на задачу — она закроется')+'<div class="list">'+(taskRows(d.items,'tasks')||'<div class="empty">Активных задач нет 🎉</div>')+'</div>';}
-function renderStudents(d){var rows='';(d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub">'+esc(x.email||'')+'</div></div><span class="badge '+(x.linked?'ok':'')+'">'+(x.linked?'Telegram ✓':'не привязан')+'</span></div>';});document.getElementById('app').innerHTML=screenHeader('Ученики',d.total+' учеников · '+d.linked+' привязаны')+'<div class="list">'+(rows||'<div class="empty">Учеников нет</div>')+'</div>';}
+function renderStudents(d){
+ var out=screenHeader('Ученики',d.total+' учеников · нажми на карточку для динамики');
+ out+='<div class="section-note">Здесь нет рейтинга детей — только реальные показатели и изменение результатов.</div>';
+ (d.items||[]).forEach(function(x){
+   var prob=x.probnik_latest==null?'—':fmtScore(x.probnik_latest);
+   var hw=fmtPct(x.homework_percent),att=fmtPct(x.attendance_percent);
+   var tr=x.trainer_accuracy_14d==null?'—':fmtPct(x.trainer_accuracy_14d);
+   out+='<div class="analytics-card" onclick="openView(\'student:'+x.id+'\')">';
+   out+='<div class="student-card-top"><div><div class="student-name">'+esc(x.name)+'</div><div class="student-meta">'+(x.linked?'Telegram подключён':'Telegram не привязан')+'</div></div><span class="badge '+(x.homework_missing?'bad':'ok')+'">'+(x.homework_missing?('долгов '+x.homework_missing):'без долгов')+'</span></div>';
+   out+='<div class="metric-grid">';
+   out+='<div class="metricbox"><b>'+prob+trendHtml(x.probnik_trend,' б.')+'</b><span>последний пробник · '+x.probnik_count+' работ</span></div>';
+   out+='<div class="metricbox"><b>'+hw+trendHtml(x.homework_trend,' п.п.')+'</b><span>обычные ДЗ · '+x.homework_done+'/'+x.homework_total+'</span></div>';
+   out+='<div class="metricbox"><b>'+att+trendHtml(x.attendance_trend,' п.п.')+'</b><span>посещаемость · '+x.attendance_present+'/'+x.attendance_total+'</span></div>';
+   out+='<div class="metricbox"><b>'+tr+trendHtml(x.trainer_trend,' п.п.')+'</b><span>тренажёры за 14 дней · '+x.trainer_sessions_14d+' сесс.</span></div>';
+   out+='</div>';
+   out+='<div class="row-sub" style="margin-top:10px">📚 Итоговые ДЗ: '+x.final_done+'/'+x.final_total+' · открыть динамику →</div>';
+   out+='</div>';
+ });
+ if(!(d.items||[]).length)out+='<div class="list"><div class="empty">Учеников нет</div></div>';
+ document.getElementById('app').innerHTML=out;
+}
+function renderStudentDetail(d){
+ if(!d){document.getElementById('app').innerHTML='<div class="error">Ученик не найден.</div>';return;}
+ var out=screenHeader(d.name,'индивидуальная динамика');
+ out+='<div class="grid">';
+ out+='<div class="card pink"><div class="icon">📝</div><div class="num">'+(d.probnik_latest==null?'—':fmtScore(d.probnik_latest))+'</div><div class="label">последний пробник</div><div class="hint">средний '+(d.probnik_average==null?'—':fmtScore(d.probnik_average))+'</div></div>';
+ out+='<div class="card"><div class="icon">🏠</div><div class="num">'+fmtPct(d.homework_percent)+'</div><div class="label">обычные ДЗ</div><div class="hint">'+d.homework_missing+' долгов</div></div>';
+ out+='<div class="card pink"><div class="icon">🎓</div><div class="num">'+fmtPct(d.attendance_percent)+'</div><div class="label">посещаемость</div><div class="hint">'+d.attendance_present+'/'+d.attendance_total+' уроков</div></div>';
+ out+='<div class="card"><div class="icon">📚</div><div class="num">'+d.final_done+'/'+d.final_total+'</div><div class="label">итоговые ДЗ</div><div class="hint">'+fmtPct(d.final_percent)+'</div></div>';
+ out+='</div>';
+
+ var ph=(d.probnik&&d.probnik.history)?d.probnik.history.slice().reverse():[];
+ var pvals=ph.map(function(x){return x.score;});
+ out+='<div class="section"><div class="section-title"><strong>Динамика пробников</strong><span>'+trendHtml(d.probnik_trend,' б.')+'</span></div><div class="chartbox"><div class="chart-title">'+(ph.length?'Баллы по работам':'Пока нет серии результатов')+'</div>'+sparkline(pvals);
+ if(ph.length){out+='<div class="history">';ph.forEach(function(x){out+='<div class="history-chip"><b>'+fmtScore(x.score)+'</b><span>'+esc(x.date)+'</span><span>'+esc(x.event)+'</span></div>';});out+='</div>';}
+ out+='</div></div>';
+
+ var hh=d.homework_history||[];
+ out+='<div class="section"><div class="section-title"><strong>Домашние работы</strong><span>'+trendHtml(d.homework_trend,' п.п.')+'</span></div><div class="chartbox"><div class="chart-title">'+d.homework_done+' из '+d.homework_total+' обязательных закрыто</div><div class="chart-sub">'+d.homework_missing+' текущих долгов</div><div class="timeline">';
+ hh.forEach(function(x){var cls=x.done?'good':x.overdue?'bad':'';out+='<div class="timeline-item '+cls+'"><b>'+(x.done?'✅':'⏳')+' №'+x.lesson+'</b><span>срок '+esc(x.due_date.slice(8,10)+'.'+x.due_date.slice(5,7))+'</span></div>';});
+ out+='</div></div></div>';
+
+ var ah=d.attendance_history||[];
+ out+='<div class="section"><div class="section-title"><strong>Посещаемость</strong><span>'+trendHtml(d.attendance_trend,' п.п.')+'</span></div><div class="chartbox"><div class="chart-title">'+d.attendance_present+' из '+d.attendance_total+' посещено</div><div class="timeline">';
+ ah.slice(-12).forEach(function(x){var good=x.status==='present';out+='<div class="timeline-item '+(good?'good':'bad')+'"><b>'+(good?'✅':'❌')+' №'+x.lesson+'</b><span>'+esc((x.date||'').slice(8,10)+'.'+(x.date||'').slice(5,7))+'</span></div>';});
+ out+='</div></div></div>';
+
+ var tr=d.trainers||{},recent=tr.recent||{},prev=tr.previous||{};
+ out+='<div class="section"><div class="section-title"><strong>Тренажёры</strong><span>'+trendHtml(tr.trend,' п.п.')+'</span></div><div class="stat"><div class="statbox"><b>'+recent.sessions+'</b><span>сессий за последние 14 дней</span></div><div class="statbox"><b>'+(recent.accuracy==null?'—':recent.accuracy+'%')+'</b><span>точность за 14 дней</span></div></div><div class="section-note">Предыдущие 14 дней: '+prev.sessions+' сесс. · '+(prev.accuracy==null?'нет данных':prev.accuracy+'% точность')+'</div></div>';
+
+ var fh=d.final_homework||{},fi=fh.items||[];
+ out+='<div class="section"><div class="section-title"><strong>Итоговые домашние работы</strong><span>'+fh.done+'/'+fh.total+'</span></div><div class="chartbox"><div class="final-progress"><i style="width:'+(fh.percent||0)+'%"></i></div><div class="statusline">';
+ fi.forEach(function(x){out+='<span class="statuspill '+(x.done?'ok':'bad')+'">'+(x.done?'✅ ':'⏳ ')+esc(x.title)+'</span>';});
+ out+='</div></div></div>';
+
+ if(d.probnik&&d.probnik.weak_tasks&&d.probnik.weak_tasks.length){var wk='';d.probnik.weak_tasks.forEach(function(w){wk+='<span class="weakpill">№'+w.task+' · '+w.misses+'× с нулём</span>';});out+='<div class="section"><div class="section-title"><strong>Слабые задания по пробникам</strong></div><div class="weakline">'+wk+'</div></div>';}
+ document.getElementById('app').innerHTML=out;
+}
 function renderAttention(d){var rows='';(d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub">'+esc((x.reasons||[]).join(' · '))+'</div></div><span class="badge bad">!</span></div>';});document.getElementById('app').innerHTML=screenHeader('Зона внимания','актуальные сигналы')+'<div class="list">'+(rows||'<div class="empty">Сейчас всё спокойно 💗</div>')+'</div>';}
 function renderPayments(d){var rows='';(d.students||[]).forEach(function(x){var st=x.current_paid===null?'вне периода':x.current_paid?'оплачено':'не оплачено';if(x.missing_past)st+=' · долг '+x.missing_past;rows+='<div class="row"><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub">'+esc(st)+(x.paid_through?' · оплачено по '+esc(x.paid_through):'')+'</div></div><span class="badge '+(x.current_paid?'ok':x.current_paid===false?'bad':'')+'">'+(x.monthly_amount?Math.round(x.monthly_amount).toLocaleString('ru-RU')+' ₽':'—')+'</span></div>';});document.getElementById('app').innerHTML=screenHeader('Оплаты',d.period||'текущий курс')+'<div class="stat"><div class="statbox"><b>'+d.due_now+'</b><span>не оплачено за текущий период</span></div><div class="statbox"><b>'+d.debt_count+'</b><span>есть долг за прошлые периоды</span></div></div><div class="section"><div class="list">'+(rows||'<div class="empty">Данные оплат пока не загружены</div>')+'</div></div>';}
 function fmtScore(v){if(v==null)return '—';var n=Number(v);return Number.isInteger(n)?String(n):String(Math.round(n*10)/10).replace('.',',');}
@@ -128,7 +214,7 @@ function renderFinalHomework(d){
  document.getElementById('app').innerHTML=out;
 }
 function renderRecordings(d){var rows='';(d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title">Урок №'+x.lesson_number+'</div><div class="row-sub">'+esc((x.updated_at||'').slice(0,16).replace('T',' '))+'</div><a class="link" href="'+esc(x.url)+'" target="_blank">Открыть ↗</a></div></div>';});document.getElementById('app').innerHTML=screenHeader('Записи уроков','сохранённые ссылки')+'<div class="list">'+(rows||'<div class="empty">Записей пока нет</div>')+'</div>';}
-function render(view,d){if(view==='home')renderHome(d);else if(view==='today')renderDay(d,'Сегодня');else if(view==='tomorrow')renderDay(d,'Завтра');else if(view==='tasks')renderTasks(d);else if(view==='students')renderStudents(d);else if(view==='attention')renderAttention(d);else if(view==='payments')renderPayments(d);else if(view==='recordings')renderRecordings(d);else if(view==='probniki')renderProbniki(d);else if(view==='final_homework')renderFinalHomework(d);}
+function render(view,d){if(view==='home')renderHome(d);else if(view==='today')renderDay(d,'Сегодня');else if(view==='tomorrow')renderDay(d,'Завтра');else if(view==='tasks')renderTasks(d);else if(view==='students')renderStudents(d);else if(view.indexOf('student:')===0)renderStudentDetail(d);else if(view==='attention')renderAttention(d);else if(view==='payments')renderPayments(d);else if(view==='recordings')renderRecordings(d);else if(view==='probniki')renderProbniki(d);else if(view==='final_homework')renderFinalHomework(d);}
 async function openView(v){current=v;setNav(['home','today','tasks','students'].indexOf(v)>=0?v:'');document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(v);render(p.view,p.data);try{window.scrollTo(0,0);}catch(_){}}catch(e){await reportClientError('open:'+v,e);document.getElementById('app').innerHTML='<div class="error">Раздел не загрузился. Закрой приложение и открой снова.</div>';}}
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&launch)openView(current);});
 async function boot(){if(!launch){document.getElementById('app').innerHTML='<div class="error">Открой приложение через личную кнопку внутри ЕГЭ БЛИЗКО.</div>';return;}await openView('home');}
