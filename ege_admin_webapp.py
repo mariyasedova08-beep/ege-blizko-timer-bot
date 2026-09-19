@@ -21,6 +21,7 @@ import run_bot_live10 as live10
 import lesson_recordings
 import homework_deadline_logic as deadlines
 import kulek_rewards
+import kulechek_mascot
 
 bot = live90.bot
 live79 = live90.live79
@@ -35,7 +36,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20260919-11"
+WEBAPP_BUILD = "20260919-11-1"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 _INSTALLED = False
 
@@ -1228,6 +1229,16 @@ def _action(payload):
 
 def _http_get(self):
     parsed = urlparse(self.path)
+    if parsed.path == "/kulechek-mascot.jpg":
+        body = kulechek_mascot.image_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "public, max-age=86400")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body)
+        return
     if parsed.path == "/admin-app":
         try:
             body = HTML_PATH.read_bytes()
