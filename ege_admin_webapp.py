@@ -18,7 +18,6 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,
 
 import run_bot_live90 as live90
 import run_bot_live10 as live10
-import admin_quick_tasks
 import lesson_recordings
 import homework_deadline_logic as deadlines
 import kulek_rewards
@@ -36,7 +35,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20260919-8"
+WEBAPP_BUILD = "20260919-9"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 _INSTALLED = False
 
@@ -1145,7 +1144,6 @@ def _home():
     tomorrow = today + timedelta(days=1)
     students = _student_rows()
     attention = _attention_rows()
-    tasks = _tasks_payload(60)
     payments = _payments_payload()
     recordings = _recordings_payload()
     probniki = _probnik_payload()
@@ -1165,7 +1163,6 @@ def _home():
         },
         "counts": {
             "today": len(_events(today)),
-            "tasks": len(tasks),
             "attention": len(attention),
             "students": len(students),
             "linked": sum(1 for s in students if s["linked"]),
@@ -1181,7 +1178,6 @@ def _home():
         },
         "today_events": _events(today),
         "tomorrow_events": _events(tomorrow),
-        "tasks": tasks[:6],
         "attention": attention[:4],
         "probniki": {
             "latest": probniki["latest"],
@@ -1208,19 +1204,10 @@ def _home():
 
 def _day_view(offset):
     day = datetime.now(bot.TIMEZONE).date() + timedelta(days=int(offset))
-    tasks = []
-    for item in _tasks_payload(100):
-        if item["no_date"]:
-            if offset == 0:
-                tasks.append(item)
-            continue
-        if item["date"] <= day.isoformat():
-            tasks.append(item)
     return {
         "date": day.strftime("%d.%m.%Y"),
         "weekday": ("Пн","Вт","Ср","Чт","Пт","Сб","Вс")[day.weekday()],
         "events": _events(day),
-        "tasks": tasks[:40],
     }
 
 
@@ -1231,8 +1218,6 @@ def _view(name):
         return _day_view(0)
     if name == "tomorrow":
         return _day_view(1)
-    if name == "tasks":
-        return {"items": _tasks_payload(120)}
     if name == "students":
         data = _student_analytics_payload()
         return {
@@ -1263,33 +1248,6 @@ def _view(name):
 
 def _action(payload):
     action_name = str(payload.get("action") or "")
-
-    if action_name == "task_done":
-        try:
-            task_id = int(payload.get("task_id"))
-        except Exception:
-            return {"ok": False, "error": "bad_task_id"}
-
-        with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
-            row = conn.execute(
-                "SELECT task_text,completed_at FROM admin_tasks WHERE id=? LIMIT 1",
-                (task_id,),
-            ).fetchone()
-            if not row:
-                return {"ok": False, "error": "not_found"}
-            if row[1]:
-                return {"ok": True, "already_done": True, "task_id": task_id}
-            conn.execute(
-                """
-                UPDATE admin_tasks
-                SET completed_at=?
-                WHERE id=? AND completed_at IS NULL
-                """,
-                (datetime.now(bot.TIMEZONE).isoformat(), task_id),
-            )
-            conn.commit()
-        print(f"EGE admin WebApp task completed task_id={task_id}", flush=True)
-        return {"ok": True, "task_id": task_id, "title": str(row[0] or "")}
 
     if action_name == "kulek_draw":
         month = str(payload.get("month") or kulek_rewards._month_key())
@@ -1465,7 +1423,7 @@ async def _open_final_homework_bot(message):
 async def _open_app_message(message):
     await message.reply_text(
         "💗 <b>ЕГЭ БЛИЗКО</b>\n\n"
-        "Твоя красивая админская главная: расписание, задачи, ученики, "
+        "Твоя красивая админская главная: расписание, ученики, "
         "зона внимания, оплаты и записи уроков — в одном месте.",
         parse_mode="HTML",
         reply_markup=_launcher_markup(),
