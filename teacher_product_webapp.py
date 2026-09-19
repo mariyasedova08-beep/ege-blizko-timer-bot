@@ -30,7 +30,7 @@ WEBAPP_URL = os.getenv(
     f"https://{PUBLIC_DOMAIN}/webapp" if PUBLIC_DOMAIN else "",
 ).strip()
 MAX_AUTH_AGE = 24 * 60 * 60
-WEBAPP_BUILD = "20260919-4"
+WEBAPP_BUILD = "20260919-5"
 HTML_PATH = Path(__file__).with_name("teacher_product_webapp.html")
 _INSTALLED = False
 
@@ -140,6 +140,7 @@ def _dashboard(uid):
         ],
         "tasks": [
             {
+                "id": int(r["id"]),
                 "title": r["title"],
                 "due_date": r["due_date"],
                 "due_time": r["due_time"] or "",
@@ -322,6 +323,7 @@ def _tasks_view(uid):
         "title": "Задачи",
         "items": [
             {
+                "id": int(r["id"]),
                 "title": r["title"],
                 "due_date": r["due_date"],
                 "due_time": r["due_time"] or "",
@@ -330,6 +332,52 @@ def _tasks_view(uid):
             }
             for r in rows
         ],
+    }
+
+
+def _teacher_action(uid, payload):
+    action_name = str(payload.get("action") or "")
+    if action_name != "task_done":
+        return {"ok": False, "error": "unknown_action"}
+
+    try:
+        task_id = int(payload.get("task_id"))
+    except Exception:
+        return {"ok": False, "error": "bad_task_id"}
+
+    now = datetime.utcnow().isoformat()
+    with base.db() as conn:
+        row = conn.execute(
+            """
+            SELECT id,title,completed
+            FROM teacher_tasks
+            WHERE id=? AND teacher_telegram_user_id=?
+            """,
+            (task_id, int(uid)),
+        ).fetchone()
+        if not row:
+            return {"ok": False, "error": "not_found"}
+        if int(row["completed"] or 0):
+            return {"ok": True, "already_done": True, "task_id": task_id}
+
+        conn.execute(
+            """
+            UPDATE teacher_tasks
+            SET completed=1,completed_at=?
+            WHERE id=? AND teacher_telegram_user_id=? AND completed=0
+            """,
+            (now, task_id, int(uid)),
+        )
+        conn.commit()
+
+    print(
+        f"PREPODMIN WebApp task completed uid={int(uid)} task_id={task_id}",
+        flush=True,
+    )
+    return {
+        "ok": True,
+        "task_id": task_id,
+        "title": row["title"],
     }
 
 
@@ -508,7 +556,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
-        if path not in {"/api/dashboard", "/api/student", "/api/student/action", "/api/client-error"}:
+        if path not in {"/api/dashboard", "/api/teacher/action", "/api/student", "/api/student/action", "/api/client-error"}:
             self._send(404, _json_bytes({"ok": False, "error": "not_found"}))
             return
         try:
@@ -529,13 +577,21 @@ class WebAppHandler(BaseHTTPRequestHandler):
                 return
 
             uid = _validate_init_data(payload.get("initData", ""))
-            if path == "/api/dashboard":
+            if path in {"/api/dashboard", "/api/teacher/action"}:
                 if not uid:
                     uid = _validate_launch_token(payload.get("launch", ""))
                 if not uid:
-                    print("PREPODMIN WebApp auth failed path=/api/dashboard", flush=True)
+                    print(f"PREPODMIN WebApp auth failed path={path}", flush=True)
                     self._send(401, _json_bytes({"ok": False, "error": "unauthorized"}))
                     return
+
+            if path == "/api/teacher/action":
+                data = _teacher_action(uid, payload)
+                status = 200 if data.get("ok") else 400
+                self._send(status, _json_bytes(data))
+                return
+
+            if path == "/api/dashboard":
                 view_name = str(payload.get("view") or "home")
                 print(f"PREPODMIN WebApp request path=teacher view={view_name} uid={uid}", flush=True)
                 data = _view(uid, view_name)
