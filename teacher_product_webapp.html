@@ -65,7 +65,7 @@ async function api(view){
  if(!r.ok)throw new Error('api '+r.status);
  return await r.json();
 }
-function head(title,sub){
+function screenHeader(title,sub){
  return '<div class="screen-head">'+(currentView==='home'?'':'<button class="backbtn" onclick="openView(\'home\')">‹</button>')+'<div><h2>'+esc(title)+'</h2>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+'</div></div>';
 }
 function metric(icon,num,label,hint,pink,view){
@@ -95,10 +95,10 @@ function renderStudents(d){
  var s='',g='';
  (d.students||[]).forEach(function(x){s+='<div class="row"><div class="avatar" style="width:38px;height:38px;border-radius:13px;font-size:15px">👤</div><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub">'+esc(x.contact||'индивидуальный ученик')+'</div></div></div>';});
  (d.groups||[]).forEach(function(x){g+='<div class="row"><div class="avatar" style="width:38px;height:38px;border-radius:13px;font-size:15px">👥</div><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub">группа</div></div></div>';});
- document.getElementById('app').innerHTML=head('Ученики и группы',(d.students||[]).length+' учеников · '+(d.groups||[]).length+' групп')+'<div class="section"><div class="section-title"><strong>Ученики</strong></div><div class="list">'+(s||'<div class="empty">Индивидуальных учеников пока нет</div>')+'</div></div><div class="section"><div class="section-title"><strong>Группы</strong></div><div class="list">'+(g||'<div class="empty">Групп пока нет</div>')+'</div></div>';
+ document.getElementById('app').innerHTML=screenHeader('Ученики и группы',(d.students||[]).length+' учеников · '+(d.groups||[]).length+' групп')+'<div class="section"><div class="section-title"><strong>Ученики</strong></div><div class="list">'+(s||'<div class="empty">Индивидуальных учеников пока нет</div>')+'</div></div><div class="section"><div class="section-title"><strong>Группы</strong></div><div class="list">'+(g||'<div class="empty">Групп пока нет</div>')+'</div></div>';
 }
 function renderSchedule(d){
- var out=head('Расписание','ближайшие 7 дней');
+ var out=screenHeader('Расписание','ближайшие 7 дней');
  (d.days||[]).forEach(function(day){
   var rows='';
   (day.events||[]).forEach(function(e){rows+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+'</div></div></div>';});
@@ -109,39 +109,39 @@ function renderSchedule(d){
 function renderHomework(d){
  var rows='';
  (d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.text)+'</div><div class="row-sub">'+esc(x.target)+' · до '+esc(x.due)+'</div></div><span class="badge">'+x.done+'/'+x.total+'</span></div>';});
- document.getElementById('app').innerHTML=head('Домашние задания','текущие задания и долги')+'<div class="list">'+(rows||'<div class="empty">Активных ДЗ нет</div>')+'</div>';
+ document.getElementById('app').innerHTML=screenHeader('Домашние задания','текущие задания и долги')+'<div class="list">'+(rows||'<div class="empty">Активных ДЗ нет</div>')+'</div>';
 }
 function renderPayments(d){
  var rows='';
  (d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub"><span class="state '+esc(x.level)+'">'+esc(x.status)+'</span></div></div><div class="money">'+money(x.amount)+'</div></div>';});
- document.getElementById('app').innerHTML=head('Оплаты','индивидуальные ученики')+'<div class="list">'+(rows||'<div class="empty">Учеников пока нет</div>')+'</div>';
+ document.getElementById('app').innerHTML=screenHeader('Оплаты','индивидуальные ученики')+'<div class="list">'+(rows||'<div class="empty">Учеников пока нет</div>')+'</div>';
 }
 function renderAttention(d){
  var rows='';
  (d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub">'+esc(x.scope)+' · '+esc((x.reasons||[]).join(', '))+'</div></div><span class="badge">!</span></div>';});
- document.getElementById('app').innerHTML=head('Зона внимания','только реальные сигналы')+'<div class="list">'+(rows||'<div class="empty">Сейчас явных сигналов нет 🎉</div>')+'</div>';
+ document.getElementById('app').innerHTML=screenHeader('Зона внимания','только реальные сигналы')+'<div class="list">'+(rows||'<div class="empty">Сейчас явных сигналов нет 🎉</div>')+'</div>';
 }
 function renderTasks(d){
  var rows='';
  (d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.title)+'</div><div class="row-sub">'+esc(x.due_date)+(x.due_time?' · '+esc(x.due_time):'')+'</div></div><span class="badge">'+(x.kind==='content'?'💡':x.kind==='tech'?'🛠':'📋')+'</span></div>';});
- document.getElementById('app').innerHTML=head('Задачи','все активные')+'<div class="list">'+(rows||'<div class="empty">Активных задач нет</div>')+'</div>';
+ document.getElementById('app').innerHTML=screenHeader('Задачи','все активные')+'<div class="list">'+(rows||'<div class="empty">Активных задач нет</div>')+'</div>';
 }
 function renderAttendance(d){
  var pct=d.percent==null?'—':d.percent+'%';
- document.getElementById('app').innerHTML=head('Посещаемость',d.period)+'<div class="bigstat"><div class="statcard"><b>'+pct+'</b><span>средняя посещаемость</span></div><div class="statcard"><b>'+d.absent+'</b><span>пропусков</span></div><div class="statcard"><b>'+d.present+'</b><span>отмечено присутствий</span></div></div>';
+ document.getElementById('app').innerHTML=screenHeader('Посещаемость',d.period)+'<div class="bigstat"><div class="statcard"><b>'+pct+'</b><span>средняя посещаемость</span></div><div class="statcard"><b>'+d.absent+'</b><span>пропусков</span></div><div class="statcard"><b>'+d.present+'</b><span>отмечено присутствий</span></div></div>';
 }
 function renderReports(d){
  var att=d.attendance==null?'—':d.attendance+'%',hw=d.homework==null?'—':d.homework+'%';
- document.getElementById('app').innerHTML=head('Отчёты',d.period)+'<div class="bigstat"><div class="statcard"><b>'+d.learners+'</b><span>активных учеников</span></div><div class="statcard"><b>'+att+'</b><span>посещаемость</span></div><div class="statcard"><b>'+hw+'</b><span>выполнение ДЗ</span></div><div class="statcard"><b>'+d.overdue_homework+'</b><span>просроченных ДЗ</span></div><div class="statcard"><b>'+d.payment_issues+'</b><span>проблем с оплатой</span></div><div class="statcard"><b>'+d.attention+'</b><span>в зоне внимания</span></div></div>';
+ document.getElementById('app').innerHTML=screenHeader('Отчёты',d.period)+'<div class="bigstat"><div class="statcard"><b>'+d.learners+'</b><span>активных учеников</span></div><div class="statcard"><b>'+att+'</b><span>посещаемость</span></div><div class="statcard"><b>'+hw+'</b><span>выполнение ДЗ</span></div><div class="statcard"><b>'+d.overdue_homework+'</b><span>просроченных ДЗ</span></div><div class="statcard"><b>'+d.payment_issues+'</b><span>проблем с оплатой</span></div><div class="statcard"><b>'+d.attention+'</b><span>в зоне внимания</span></div></div>';
 }
 function renderSlots(d){
  var rows='',blocks='';
  (d.busy||[]).forEach(function(x){rows+='<div class="row"><div class="time">'+esc(x.time)+'</div><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub">занято</div></div></div>';});
  (d.blocks||[]).forEach(function(x){blocks+='<div class="row"><div class="time">'+esc(x.start)+'–'+esc(x.end)+'</div><div class="row-main"><div class="row-title">'+esc(x.label)+'</div><div class="row-sub">закрыто вручную</div></div></div>';});
- document.getElementById('app').innerHTML=head('Свободные окна',d.date)+'<div class="section"><div class="section-title"><strong>Занято сегодня</strong></div><div class="list">'+(rows||'<div class="empty">Занятий сегодня нет</div>')+'</div></div><div class="section"><div class="section-title"><strong>Закрытые периоды</strong></div><div class="list">'+(blocks||'<div class="empty">Ручных блокировок нет</div>')+'</div></div>';
+ document.getElementById('app').innerHTML=screenHeader('Свободные окна',d.date)+'<div class="section"><div class="section-title"><strong>Занято сегодня</strong></div><div class="list">'+(rows||'<div class="empty">Занятий сегодня нет</div>')+'</div></div><div class="section"><div class="section-title"><strong>Закрытые периоды</strong></div><div class="list">'+(blocks||'<div class="empty">Ручных блокировок нет</div>')+'</div></div>';
 }
 function renderFallback(view,d){
- var out=head((d&&d.title)||'Раздел','данные загружены');
+ var out=screenHeader((d&&d.title)||'Раздел','данные загружены');
  out+='<div class="list">';
  if(d&&Array.isArray(d.items)&&d.items.length){
   d.items.forEach(function(x){
