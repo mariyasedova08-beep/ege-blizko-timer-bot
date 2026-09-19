@@ -45,8 +45,11 @@ var tg=(window.Telegram&&Telegram.WebApp)?Telegram.WebApp:null;if(tg){tg.ready()
 var launch=(new URLSearchParams(location.search)).get('launch')||'',linkId=null,current='home';
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
 function setNav(v){['home','homework','schedule','profile'].forEach(function(x){var e=document.getElementById('nav-'+x);if(e)e.classList.toggle('active',x===v);});}
-async function api(view){var r=await fetch('/api/student',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData:(tg&&tg.initData)||'',launch:launch,view:view,link_id:linkId})});if(!r.ok)throw new Error('api');var p=await r.json();if(p.link_id)linkId=p.link_id;return p;}
-async function action(payload){payload.initData=(tg&&tg.initData)||'';payload.launch=launch;payload.link_id=linkId;var r=await fetch('/api/student/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw new Error('action');return await r.json();}
+async function reportClientError(where,e){try{await fetch('/api/client-error',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({role:'student',where:where,message:String((e&&e.message)||e||'unknown')})});}catch(_){}}
+window.addEventListener('error',function(e){reportClientError('window.error',e.error||e.message);});
+window.addEventListener('unhandledrejection',function(e){reportClientError('unhandledrejection',e.reason);});
+async function api(view){var r=await fetch('/api/student?ts='+Date.now(),{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({initData:(tg&&tg.initData)||'',launch:launch,view:view,link_id:linkId})});if(!r.ok)throw new Error('api '+r.status);var p=await r.json();if(p.link_id)linkId=p.link_id;return p;}
+async function action(payload){payload.initData=(tg&&tg.initData)||'';payload.launch=launch;payload.link_id=linkId;var r=await fetch('/api/student/action?ts='+Date.now(),{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify(payload)});if(!r.ok)throw new Error('action '+r.status);return await r.json();}
 function head(title,sub){return '<div class="screen-head">'+(current==='home'?'':'<button class="back" onclick="openView(\'home\')">‹</button>')+'<div><h2>'+esc(title)+'</h2>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+'</div></div>';}
 function lessonHero(n){if(!n)return '<div class="hero"><div class="kicker">Ближайшее занятие</div><div class="time">Пока нет</div><div class="meta">Когда преподаватель добавит занятие, оно появится здесь.</div></div>';
 var r=n.reply==='yes'?'✅ Ты будешь':n.reply==='no'?'❌ Ты не сможешь':'Ответь преподавателю';
@@ -60,9 +63,17 @@ function renderProfile(d){var p=d.profile,pay=d.payment;document.getElementById(
 function renderAttendance(d){document.getElementById('app').innerHTML=head('Посещаемость','последние 30 дней')+'<div class="stat"><div class="statbox"><b>'+(d.percent==null?'—':d.percent+'%')+'</b><span>посещаемость</span></div><div class="statbox"><b>'+d.present+'</b><span>был(а)</span></div><div class="statbox"><b>'+d.absent+'</b><span>пропусков</span></div></div>';}
 function renderPayment(d){document.getElementById('app').innerHTML=head('Оплата','актуальный статус')+'<div class="hero"><div class="kicker">Статус</div><div class="time" style="font-size:22px">'+esc(d.short)+'</div><div class="meta">'+esc(d.full)+'</div></div>';}
 function render(view,d){if(view==='home')renderHome(d);else if(view==='homework')renderHomework(d);else if(view==='schedule')renderSchedule(d);else if(view==='profile')renderProfile(d);else if(view==='attendance')renderAttendance(d);else if(view==='payment')renderPayment(d);}
-async function openView(v){current=v;setNav(['home','homework','schedule','profile'].indexOf(v)>=0?v:'');document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(v);render(p.view,p.data);window.scrollTo(0,0);}catch(e){document.getElementById('app').innerHTML='<div class="error">Не удалось открыть раздел. Закрой кабинет и открой ещё раз.</div>';}}
-async function doneHw(a,k,s){try{await action({action:'homework_done',assignment_id:a,subject_kind:k,subject_id:s});await openView('homework');}catch(e){}}
-async function replyLesson(r,k,s,o){try{await action({action:'lesson_reply',response:r,kind:k,slot_id:s,occurrence_key:o});await openView(current);}catch(e){}}
+async function refreshView(silent){
+ try{
+  var p=await api(current);
+  render(p.view,p.data);
+ }catch(e){if(!silent){await reportClientError('refresh:'+current,e);document.getElementById('app').innerHTML='<div class="error">Не удалось обновить кабинет. Попробуй открыть его ещё раз.</div>';}}
+}
+async function openView(v){current=v;setNav(['home','homework','schedule','profile'].indexOf(v)>=0?v:'');document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(v);render(p.view,p.data);try{window.scrollTo(0,0);}catch(_){}}catch(e){await reportClientError('open:'+v,e);document.getElementById('app').innerHTML='<div class="error">Не удалось открыть раздел. Нажми «Главная» или открой кабинет снова.</div>';}}
+async function doneHw(a,k,s){try{var x=await action({action:'homework_done',assignment_id:a,subject_kind:k,subject_id:s});if(!x.ok)throw new Error(x.error||'not saved');await refreshView(false);}catch(e){await reportClientError('homework_done',e);}}
+async function replyLesson(r,k,s,o){try{var x=await action({action:'lesson_reply',response:r,kind:k,slot_id:s,occurrence_key:o});if(!x.ok)throw new Error(x.error||'not saved');await refreshView(false);}catch(e){await reportClientError('lesson_reply',e);}}
+document.addEventListener('visibilitychange',function(){if(!document.hidden)refreshView(true);});
+setInterval(function(){if(!document.hidden)refreshView(true);},15000);
 async function boot(){if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="error">Открой кабинет через кнопку «💗 Мой кабинет» в ПРЕПОДМИН.</div>';return;}await openView('home');}
 boot();
 </script>
