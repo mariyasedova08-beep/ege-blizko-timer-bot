@@ -18,6 +18,7 @@ import re
 import secrets
 import sqlite3
 from datetime import date, datetime, time, timedelta
+from pathlib import Path
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
@@ -27,7 +28,6 @@ import homework_deadline_logic as deadlines
 import payment_schedule
 import payment_name_aliases
 import ege_admin_webapp as admin_app
-import kulechek_mascot
 
 bot = live90.bot
 live79 = live90.live79
@@ -35,6 +35,7 @@ live34 = live79.live34
 live56 = live79.live56
 
 BUTTON = "🐶 Кулёчки"
+MASCOT_PATH = Path(__file__).with_name("kulechek_mascot.jpg")
 _INSTALLED = False
 _CACHE = {}
 
@@ -56,10 +57,11 @@ MONTH_NAMES = {
 async def _send_mascot_photo(context, chat_id):
     """Show Maria's approved Kulechek visual when the Kulechki section opens."""
     try:
-        await context.bot.send_photo(
-            chat_id=int(chat_id),
-            photo=kulechek_mascot.image_file(),
-        )
+        with MASCOT_PATH.open("rb") as photo:
+            await context.bot.send_photo(
+                chat_id=int(chat_id),
+                photo=photo,
+            )
     except Exception as exc:
         print(f"Kulechek mascot send failed: {type(exc).__name__}: {exc}", flush=True)
 
