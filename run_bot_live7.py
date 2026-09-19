@@ -300,7 +300,7 @@ async def show_trivial_menu(update, context, edit=False):
         [InlineKeyboardButton("🎲 Смешанный", callback_data="triv:start:mixed")],
         [InlineKeyboardButton("⌨️ Ввод вручную", callback_data="triv:start:manual")],
         [InlineKeyboardButton("❌ Мои ошибки", callback_data="triv:start:mistakes")],
-        [InlineKeyboardButton("📊 Статистика", callback_data="triv:stats"), InlineKeyboardButton("🏆 Рейтинг", callback_data="triv:top")],
+        [InlineKeyboardButton("📊 Статистика", callback_data="triv:stats")],
     ])
     if edit and update.callback_query:
         await update.callback_query.edit_message_text(text, reply_markup=keyboard)
@@ -492,10 +492,8 @@ async def trivial_callback(update, context):
         )
         return
     if data == "triv:top":
-        await query.edit_message_text(
-            top_text(),
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("← В меню", callback_data="triv:menu")]]),
-        )
+        # Old messages may still contain this callback. The ranking is retired.
+        await show_trivial_menu(update, context, edit=True)
         return
     if data.startswith("triv:start:"):
         mode = data.split(":", 2)[2]
@@ -738,7 +736,6 @@ def main():
     application.add_handler(bot.CommandHandler("trivial10", trivial_command))
     application.add_handler(bot.CommandHandler("trivialmistakes", trivial_command))
     application.add_handler(bot.CommandHandler("trivialstats", trivial_stats_command))
-    application.add_handler(bot.CommandHandler("trivialtop", trivial_top_command))
     application.add_handler(bot.CommandHandler("trivialannounce", trivial_announce_command))
     application.add_handler(bot.CommandHandler("trivialtime", set_trivial_time))
     application.add_handler(bot.CommandHandler("trivialfriday", trivial_friday_status))
