@@ -803,6 +803,14 @@ def install():
                 raw_keys = sorted(str(k) for k in payload.keys())
             except Exception:
                 pass
+        with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+            course_ids = [
+                str(row[0] or "")
+                for row in conn.execute(
+                    "SELECT DISTINCT course_id FROM students WHERE active=1 AND coalesce(course_id,'')!=''"
+                ).fetchall()
+            ]
+        print("EGE CORE COURSE IDS " + repr(course_ids), flush=True)
         print(
             "EGE HOMEWORK TYPE DIAG names="
             + repr([(str(n or ""), str(i or ""), int(cnt or 0)) for n,i,cnt in hw_names])
