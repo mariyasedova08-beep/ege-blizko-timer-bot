@@ -38,9 +38,9 @@ def main():
     import student_monthly_survey
     student_monthly_survey.install()
 
-    # Separate anonymous 3-question survey on why students chose Maria.
-    import student_anonymous_why_survey
-    student_anonymous_why_survey.install()
+    # Retired anonymous survey: keep Maria's archive/results only.
+    import student_anonymous_why_admin_only
+    student_anonymous_why_admin_only.install()
 
     # Compatibility alias: live60 already exposes the live15 module used by the
     # existing metals/oxides metrics, while live79 does not export it directly.
@@ -128,7 +128,7 @@ def main():
 
     print("Teacher survey removed from production UI and routes", flush=True)
     print("Student feedback surveys scheduled monthly: 2026-10-01 through 2027-05-01 at 17:00", flush=True)
-    print("Anonymous why-Masha student survey scheduled: 2026-09-17 20:00", flush=True)
+    print("Anonymous why-Masha survey: admin archive only; student input disabled", flush=True)
     print("Payment tracking ready: grade 11 Excel import, admin preview only", flush=True)
     print("Teacher product first five tasks seeded", flush=True)
     print("Admin tasks separated: active / completed / content / technical", flush=True)
@@ -181,12 +181,6 @@ def main():
     # cabinet and task handlers rather than replacing any of them.
     import admin_tomorrow
     admin_tomorrow.install()
-
-    # The monthly and one-time anonymous surveys both used group -31 for broad
-    # text handlers. Install this last so anonymous answers are routed first and
-    # students who already started during the bug are prompted once to continue.
-    import student_anonymous_why_survey_fix
-    student_anonymous_why_survey_fix.install()
 
     # Install last: preserve all final cabinet/task wrappers and add
     # teacher-only editing + student read-only lesson recordings.
