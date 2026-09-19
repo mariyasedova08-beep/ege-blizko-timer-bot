@@ -1393,8 +1393,9 @@ def _admin_keyboard():
         for row in rows
     ]
     rows = [row for row in rows if row]
+    # Main reply keyboard stays compact. Final homework lives inside
+    # "👤 Мой кабинет", not as a separate root-level button.
     rows.insert(0, [KeyboardButton("💗 ЕГЭ БЛИЗКО")])
-    rows.insert(1, [KeyboardButton("📚 Итоговые ДЗ")])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, is_persistent=True)
 
 
@@ -1550,8 +1551,8 @@ async def _push_admin_launch_once(context):
         await context.bot.send_message(
             chat_id=int(admin_id),
             text=(
-                "📚 Добавила «Итоговые ДЗ» прямо в меню бота.\n"
-                "Теперь статистику можно смотреть и без приложения."
+                "💗 Обновила меню ЕГЭ БЛИЗКО.\n"
+                "«📚 Итоговые ДЗ» и «🐶 Кулёчки» теперь находятся внутри «👤 Мой кабинет»."
             ),
             reply_markup=live23.ADMIN_KEYBOARD,
         )
