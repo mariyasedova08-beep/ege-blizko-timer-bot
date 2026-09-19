@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>ПРЕПОДМИН — ученик</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--milk:#F8F5F2;--ink:#171719;--soft:#F4D9E6;--hot:#F00087;--paper:#FFFDFC;--line:#E9E2DE;--muted:#7B7478;--red:#D84C6F;--green:#2F8A55;--shadow:0 12px 34px rgba(54,34,44,.08)}
+*{box-sizing:border-box}html,body{margin:0;background:var(--milk);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+body{min-height:100vh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.app{max-width:680px;margin:0 auto;padding:18px 15px 96px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin:7px 2px 16px}
+.tag{display:inline-flex;background:var(--soft);padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800}
+h1{font-size:30px;line-height:1.05;margin:10px 0 7px;letter-spacing:-.03em}.sub{font-size:13px;color:var(--muted);line-height:1.4}
+.avatar{width:52px;height:52px;border-radius:18px;background:linear-gradient(145deg,var(--soft),#fff);display:grid;place-items:center;font-size:24px;box-shadow:var(--shadow)}
+.hero{background:linear-gradient(145deg,#FFF9FC,var(--soft));border:1px solid var(--line);border-radius:24px;padding:17px;box-shadow:var(--shadow);margin-bottom:12px}
+.hero .kicker{font-size:11px;color:var(--muted);font-weight:700}.hero .time{font-size:28px;font-weight:900;margin:5px 0}.hero .name{font-size:15px;font-weight:800}.hero .meta{font-size:12px;color:var(--muted);margin-top:5px}
+.reply{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.reply button,.primary{border:0;border-radius:15px;padding:12px;font:inherit;font-weight:800}.yes{background:#EAF7EF;color:#286D46}.no{background:#FFF0F4;color:#A72A51}.primary{background:var(--hot);color:white;width:100%}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:18px}
+.card{border:1px solid var(--line);background:var(--paper);border-radius:20px;padding:14px;min-height:108px;text-align:left;font:inherit;color:inherit;box-shadow:0 7px 22px rgba(54,34,44,.05)}.card.pink{background:linear-gradient(145deg,#FFF9FC,var(--soft))}
+.card .icon{font-size:20px;margin-bottom:13px}.card .num{font-size:25px;font-weight:900}.card .label{font-size:12px;font-weight:800;margin-top:2px}.card .hint{font-size:10px;color:var(--muted);margin-top:5px;line-height:1.3}
+.section{margin:18px 0 8px}.section-title{display:flex;justify-content:space-between;align-items:center;margin:0 2px 9px}.section-title strong{font-size:17px}.section-title span{font-size:11px;color:var(--muted)}
+.list{background:var(--paper);border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 7px 22px rgba(54,34,44,.04)}
+.row{display:flex;gap:11px;align-items:center;padding:13px 14px;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.row-main{min-width:0;flex:1}.row-title{font-size:14px;font-weight:800}.row-sub{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.35}.badge{font-size:10px;padding:5px 7px;border-radius:999px;background:var(--soft);white-space:nowrap}.badge.done{background:#EAF7EF;color:#286D46}.badge.bad{background:#FFF0F4;color:#A72A51}
+.hwbtn{border:0;background:var(--soft);border-radius:12px;padding:8px 10px;font:inherit;font-size:11px;font-weight:800}.empty{padding:22px;text-align:center;color:var(--muted);font-size:13px}
+.screen-head{display:flex;align-items:center;gap:10px;margin:5px 0 17px}.back{border:0;background:var(--soft);width:38px;height:38px;border-radius:14px;font-size:20px}.screen-head h2{margin:0;font-size:25px}.small{font-size:11px;color:var(--muted);margin-top:3px}
+.stat{display:grid;grid-template-columns:1fr 1fr;gap:9px}.statbox{background:var(--paper);border:1px solid var(--line);border-radius:19px;padding:15px}.statbox b{font-size:26px;display:block}.statbox span{font-size:11px;color:var(--muted)}
+.change{border-left:3px solid var(--hot)}
+.bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(248,245,242,.95);backdrop-filter:blur(15px);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:6}.nav{max-width:680px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:3px}.nav button{border:0;background:transparent;color:#8A8286;font:inherit;font-size:10px;padding:5px 2px}.nav .active{color:var(--hot);font-weight:900}.nav i{font-style:normal;display:block;font-size:19px;margin-bottom:3px}
+.loading{padding:56px 20px;text-align:center;color:var(--muted)}.error{padding:14px;background:#FFF0F4;color:#8F2645;border-radius:17px}.brand{text-align:center;color:#9A9296;font-size:10px;letter-spacing:.16em;margin-top:22px}
+</style>
+</head>
+<body>
+<div class="app" id="app"><div class="loading">Открываю кабинет…</div></div>
+<div class="bottom"><div class="nav">
+<button id="nav-home" class="active" onclick="openView('home')"><i>⌂</i>Главная</button>
+<button id="nav-homework" onclick="openView('homework')"><i>🏠</i>ДЗ</button>
+<button id="nav-schedule" onclick="openView('schedule')"><i>📅</i>Расписание</button>
+<button id="nav-profile" onclick="openView('profile')"><i>👤</i>Профиль</button>
+</div></div>
+<script>
+var tg=(window.Telegram&&Telegram.WebApp)?Telegram.WebApp:null;if(tg){tg.ready();tg.expand();}
+var launch=(new URLSearchParams(location.search)).get('launch')||'',linkId=null,current='home';
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
+function setNav(v){['home','homework','schedule','profile'].forEach(function(x){var e=document.getElementById('nav-'+x);if(e)e.classList.toggle('active',x===v);});}
+async function api(view){var r=await fetch('/api/student',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData:(tg&&tg.initData)||'',launch:launch,view:view,link_id:linkId})});if(!r.ok)throw new Error('api');var p=await r.json();if(p.link_id)linkId=p.link_id;return p;}
+async function action(payload){payload.initData=(tg&&tg.initData)||'';payload.launch=launch;payload.link_id=linkId;var r=await fetch('/api/student/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw new Error('action');return await r.json();}
+function head(title,sub){return '<div class="screen-head">'+(current==='home'?'':'<button class="back" onclick="openView(\\'home\\')">‹</button>')+'<div><h2>'+esc(title)+'</h2>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+'</div></div>';}
+function lessonHero(n){if(!n)return '<div class="hero"><div class="kicker">Ближайшее занятие</div><div class="time">Пока нет</div><div class="meta">Когда преподаватель добавит занятие, оно появится здесь.</div></div>';
+var r=n.reply==='yes'?'✅ Ты будешь':n.reply==='no'?'❌ Ты не сможешь':'Ответь преподавателю';
+return '<div class="hero"><div class="kicker">Ближайшее занятие</div><div class="time">'+esc(n.date)+' · '+esc(n.time)+'</div><div class="name">'+esc(n.label)+(n.moved?' ↪️':'')+'</div><div class="meta">'+esc(r)+'</div><div class="reply"><button class="yes" onclick="replyLesson(\\'yes\\',\\''+esc(n.kind)+'\\','+n.slot_id+',\\''+esc(n.occurrence_key)+'\\')">✅ Буду</button><button class="no" onclick="replyLesson(\\'no\\',\\''+esc(n.kind)+'\\','+n.slot_id+',\\''+esc(n.occurrence_key)+'\\')">❌ Не смогу</button></div></div>';}
+function renderHome(d){var out='<div class="top"><div><span class="tag">мой кабинет</span><h1>Привет, '+esc(d.student.name)+' 💗</h1><div class="sub">'+esc(d.teacher.name)+(d.teacher.subject?' · '+esc(d.teacher.subject):'')+'</div></div><div class="avatar">🎓</div></div>';out+=lessonHero(d.next_lesson);out+='<div class="grid"><button class="card pink" onclick="openView(\\'homework\\')"><div class="icon">🏠</div><div class="num">'+d.counts.homework+'</div><div class="label">ДЗ</div><div class="hint">'+d.counts.homework_overdue+' просрочено</div></button><button class="card" onclick="openView(\\'attendance\\')"><div class="icon">✅</div><div class="num">'+(d.attendance.percent==null?'—':d.attendance.percent+'%')+'</div><div class="label">Посещаемость</div><div class="hint">за 30 дней</div></button><button class="card" onclick="openView(\\'payment\\')"><div class="icon">💳</div><div class="num" style="font-size:18px">'+esc(d.payment.short)+'</div><div class="label">Оплата</div><div class="hint">'+esc(d.payment.hint)+'</div></button><button class="card pink" onclick="openView(\\'schedule\\')"><div class="icon">📅</div><div class="num">'+d.counts.upcoming+'</div><div class="label">Занятий впереди</div><div class="hint">ближайшие 14 дней</div></button></div>';
+var hw='';(d.homework||[]).slice(0,3).forEach(function(x){hw+='<div class="row"><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.text)+'</div><div class="row-sub">до '+esc(x.due)+'</div></div><span class="badge '+(x.status==='done'?'done':x.overdue?'bad':'')+'">'+(x.status==='done'?'готово':'сделать')+'</span></div>';});out+='<div class="section"><div class="section-title"><strong>Домашнее</strong><span onclick="openView(\\'homework\\')">всё →</span></div><div class="list">'+(hw||'<div class="empty">Активного ДЗ нет 🎉</div>')+'</div></div>';
+var ch='';(d.changes||[]).slice(0,4).forEach(function(x){ch+='<div class="row change"><div class="row-main"><div class="row-title">'+esc(x.title)+'</div><div class="row-sub">'+esc(x.text)+'</div></div></div>';});if(ch)out+='<div class="section"><div class="section-title"><strong>Изменения</strong></div><div class="list">'+ch+'</div></div>';out+='<div class="brand">ПРЕПОДМИН · всё важное рядом</div>';document.getElementById('app').innerHTML=out;}
+function renderHomework(d){var rows='';(d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.text)+'</div><div class="row-sub">'+esc(x.target)+' · до '+esc(x.due)+'</div></div>'+(x.status==='done'?'<span class="badge done">✅ готово</span>':'<button class="hwbtn" onclick="doneHw('+x.assignment_id+',\\''+x.subject_kind+'\\','+x.subject_id+')">✅ Я сделал(а)</button>')+'</div>';});document.getElementById('app').innerHTML=head('Домашнее','твои текущие задания')+'<div class="list">'+(rows||'<div class="empty">Активного ДЗ нет 🎉</div>')+'</div>';}
+function renderSchedule(d){var out=head('Расписание','ближайшие 14 дней');(d.days||[]).forEach(function(day){var rows='';(day.events||[]).forEach(function(e){rows+='<div class="row"><div class="row-main"><div class="row-title">'+esc(e.time)+' · '+esc(e.label)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+(e.reply==='yes'?'✅ буду':e.reply==='no'?'❌ не смогу':'ответ не выбран')+'</div></div><div class="reply" style="width:150px;margin:0;grid-template-columns:1fr 1fr"><button class="yes" onclick="replyLesson(\\'yes\\',\\''+e.kind+'\\','+e.slot_id+',\\''+e.occurrence_key+'\\')">✅</button><button class="no" onclick="replyLesson(\\'no\\',\\''+e.kind+'\\','+e.slot_id+',\\''+e.occurrence_key+'\\')">❌</button></div></div>';});out+='<div class="section"><div class="section-title"><strong>'+esc(day.label)+'</strong></div><div class="list">'+(rows||'<div class="empty">Нет занятий</div>')+'</div></div>';});document.getElementById('app').innerHTML=out;}
+function renderProfile(d){var p=d.profile,pay=d.payment;document.getElementById('app').innerHTML=head('Профиль','твои данные в ПРЕПОДМИН')+'<div class="list"><div class="row"><div class="row-main"><div class="row-title">'+esc(p.name)+'</div><div class="row-sub">'+esc(p.scope)+'</div></div></div><div class="row"><div class="row-main"><div class="row-title">Преподаватель</div><div class="row-sub">'+esc(p.teacher)+(p.subject?' · '+esc(p.subject):'')+'</div></div></div><div class="row"><div class="row-main"><div class="row-title">Оплата</div><div class="row-sub">'+esc(pay.full)+'</div></div></div></div>';}
+function renderAttendance(d){document.getElementById('app').innerHTML=head('Посещаемость','последние 30 дней')+'<div class="stat"><div class="statbox"><b>'+(d.percent==null?'—':d.percent+'%')+'</b><span>посещаемость</span></div><div class="statbox"><b>'+d.present+'</b><span>был(а)</span></div><div class="statbox"><b>'+d.absent+'</b><span>пропусков</span></div></div>';}
+function renderPayment(d){document.getElementById('app').innerHTML=head('Оплата','актуальный статус')+'<div class="hero"><div class="kicker">Статус</div><div class="time" style="font-size:22px">'+esc(d.short)+'</div><div class="meta">'+esc(d.full)+'</div></div>';}
+function render(view,d){if(view==='home')renderHome(d);else if(view==='homework')renderHomework(d);else if(view==='schedule')renderSchedule(d);else if(view==='profile')renderProfile(d);else if(view==='attendance')renderAttendance(d);else if(view==='payment')renderPayment(d);}
+async function openView(v){current=v;setNav(['home','homework','schedule','profile'].indexOf(v)>=0?v:'');document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(v);render(p.view,p.data);window.scrollTo(0,0);}catch(e){document.getElementById('app').innerHTML='<div class="error">Не удалось открыть раздел. Закрой кабинет и открой ещё раз.</div>';}}
+async function doneHw(a,k,s){try{await action({action:'homework_done',assignment_id:a,subject_kind:k,subject_id:s});await openView('homework');}catch(e){}}
+async function replyLesson(r,k,s,o){try{await action({action:'lesson_reply',response:r,kind:k,slot_id:s,occurrence_key:o});await openView(current);}catch(e){}}
+async function boot(){if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="error">Открой кабинет через кнопку «💗 Мой кабинет» в ПРЕПОДМИН.</div>';return;}await openView('home');}
+boot();
+</script>
+</body>
+</html>
