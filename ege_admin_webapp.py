@@ -789,43 +789,6 @@ def install():
             flush=True,
         )
 
-        # Focused diagnostic for Eva: compare roster names with raw probnik names.
-        students = live34._student_rows()
-        eva_students = [
-            (int(row[0]), live34._shown_name(row), str(row[2] or ""))
-            for row in students
-            if "ева" in live34._norm_name(live34._shown_name(row))
-            or "eva" in live34._norm_name(live34._shown_name(row))
-            or "ева" in live34._norm_name(row[2])
-            or "eva" in live34._norm_name(row[2])
-        ]
-        with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
-            raw_probnik_names = conn.execute(
-                """
-                SELECT DISTINCT student_name
-                FROM probnik_results
-                ORDER BY student_name
-                """
-            ).fetchall()
-        eva_results = [
-            str(row[0] or "")
-            for row in raw_probnik_names
-            if "ева" in live34._norm_name(row[0])
-            or "eva" in live34._norm_name(row[0])
-        ]
-        eva_matches = []
-        for result_name in eva_results:
-            matched = live56.unique_probnik_student_match(result_name, students)
-            eva_matches.append(
-                {
-                    "result": result_name,
-                    "matched": live34._shown_name(matched) if matched else None,
-                }
-            )
-        print(
-            f"EGE EVA DIAG students={eva_students} results={eva_results} matches={eva_matches}",
-            flush=True,
-        )
     except Exception as exc:
         print(
             f"EGE admin WebApp probnik check failed: {type(exc).__name__}: {exc}\n"
