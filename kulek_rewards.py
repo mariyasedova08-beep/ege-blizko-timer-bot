@@ -1237,12 +1237,18 @@ def _breakthrough_text(month_key):
 def _patch_admin_keyboard():
     current = getattr(live79.live23, "ADMIN_KEYBOARD", None)
     rows = [list(row) for row in getattr(current, "keyboard", ())] if current else []
+
+    # Keep the root reply keyboard compact: Kulechki and Final HW are available
+    # from the teacher's "👤 Мой кабинет" inline menu only.
+    hidden_root_buttons = {BUTTON, "📚 Итоговые ДЗ"}
     rows = [
-        [button for button in row if getattr(button, "text", button) != BUTTON]
+        [
+            button for button in row
+            if getattr(button, "text", button) not in hidden_root_buttons
+        ]
         for row in rows
     ]
     rows = [row for row in rows if row]
-    rows.insert(2 if len(rows) >= 2 else len(rows), [KeyboardButton(BUTTON)])
     live79.live23.ADMIN_KEYBOARD = ReplyKeyboardMarkup(
         rows, resize_keyboard=True, is_persistent=True
     )
