@@ -188,6 +188,11 @@ def main():
     import student_anonymous_why_survey_fix
     student_anonymous_why_survey_fix.install()
 
+    # Install last: preserve all final cabinet/task wrappers and add
+    # teacher-only editing + student read-only lesson recordings.
+    import lesson_recordings
+    lesson_recordings.install()
+
     live90.live79.live24.main()
 
 
