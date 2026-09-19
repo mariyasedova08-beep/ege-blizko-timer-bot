@@ -4,6 +4,7 @@ import hmac
 import json
 import os
 import time
+import traceback
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -520,9 +521,11 @@ class WebAppHandler(BaseHTTPRequestHandler):
                 if not uid:
                     uid = _validate_launch_token(payload.get("launch", ""))
                 if not uid:
+                    print("PREPODMIN WebApp auth failed path=/api/dashboard", flush=True)
                     self._send(401, _json_bytes({"ok": False, "error": "unauthorized"}))
                     return
                 view_name = str(payload.get("view") or "home")
+                print(f"PREPODMIN WebApp request path=teacher view={view_name} uid={uid}", flush=True)
                 data = _view(uid, view_name)
                 if not data:
                     self._send(403, _json_bytes({"ok": False, "error": "not_available"}))
@@ -533,13 +536,16 @@ class WebAppHandler(BaseHTTPRequestHandler):
             if not uid:
                 uid = student_webapp.validate_launch_token(payload.get("launch", ""))
             if not uid:
+                print(f"PREPODMIN WebApp auth failed path={path}", flush=True)
                 self._send(401, _json_bytes({"ok": False, "error": "unauthorized"}))
                 return
 
             if path == "/api/student":
+                view_name = str(payload.get("view") or "home")
+                print(f"PREPODMIN WebApp request path=student view={view_name} uid={uid} link={payload.get('link_id')}", flush=True)
                 data = student_webapp.view(
                     uid,
-                    str(payload.get("view") or "home"),
+                    view_name,
                     payload.get("link_id"),
                 )
             else:
@@ -549,7 +555,11 @@ class WebAppHandler(BaseHTTPRequestHandler):
                 return
             self._send(200, _json_bytes(data))
         except Exception as exc:
-            print(f"PREPODMIN WebApp api error: {type(exc).__name__}: {exc}", flush=True)
+            print(
+                f"PREPODMIN WebApp api error path={path}: {type(exc).__name__}: {exc}\n"
+                + traceback.format_exc(),
+                flush=True,
+            )
             self._send(400, _json_bytes({"ok": False, "error": "bad_request"}))
 
     def log_message(self, fmt, *args):
