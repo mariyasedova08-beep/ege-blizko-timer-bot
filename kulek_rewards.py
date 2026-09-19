@@ -26,6 +26,7 @@ import run_bot_live49 as student_cabinet
 import homework_deadline_logic as deadlines
 import payment_schedule
 import payment_name_aliases
+import ege_admin_webapp as admin_app
 
 bot = live90.bot
 live79 = live90.live79
@@ -1120,7 +1121,7 @@ def admin_text(month_key=None):
 def _admin_markup(month_key=None):
     key = _month_key(month_key)
     rows = [
-        [InlineKeyboardButton("👩‍🏫 Выдать за практику", callback_data="cab:kulek:practice")],
+        [InlineKeyboardButton("➕ Выдать за прошлый урок", callback_data="cab:kulek:practice")],
         [InlineKeyboardButton("🚀 Прорыв месяца", callback_data=f"cab:kulek:breakthrough:{key}")],
     ]
     if key < _month_key():
@@ -1368,6 +1369,36 @@ async def monthly_close_tick(context):
             )
 
 
+def _patch_admin_cabinet_buttons():
+    previous_markup = live79.live23.cabinet_markup
+
+    def markup():
+        base = previous_markup()
+        rows = [list(row) for row in base.inline_keyboard]
+        rows = [
+            [
+                button for button in row
+                if getattr(button, "callback_data", "") not in {"cab:finalhw", "cab:kulek"}
+            ]
+            for row in rows
+        ]
+        rows = [row for row in rows if row]
+
+        # Keep the beautiful-app launcher at the top when it is present, then
+        # place the two everyday teacher controls immediately under it.
+        insert_at = 1 if rows else 0
+        rows.insert(
+            insert_at,
+            [
+                InlineKeyboardButton("📚 Итоговые ДЗ", callback_data="cab:finalhw"),
+                InlineKeyboardButton("🐶 Кулёчки", callback_data="cab:kulek"),
+            ],
+        )
+        return InlineKeyboardMarkup(rows)
+
+    live79.live23.cabinet_markup = markup
+
+
 def install():
     global _INSTALLED
     if _INSTALLED:
@@ -1375,6 +1406,7 @@ def install():
     _INSTALLED = True
     ensure_tables()
     _patch_admin_keyboard()
+    _patch_admin_cabinet_buttons()
     _patch_student_cabinet()
 
     # Admin bot text button.
@@ -1404,6 +1436,25 @@ def install():
     async def cabinet_callback(update, context):
         query = update.callback_query
         data = str(query.data or "") if query else ""
+        if data == "cab:finalhw":
+            if not live79.live23._admin_private(update):
+                await query.answer("Только для преподавателя")
+                return
+            await query.answer()
+            text = admin_app._final_homework_bot_text()
+            # This report can grow as more final works appear, so split safely.
+            rest = str(text or "")
+            while rest:
+                if len(rest) <= 3800:
+                    await query.message.reply_text(rest, parse_mode="HTML")
+                    break
+                split_at = rest.rfind("\n", 0, 3800)
+                if split_at < 1:
+                    split_at = 3800
+                await query.message.reply_text(rest[:split_at], parse_mode="HTML")
+                rest = rest[split_at:].lstrip("\n")
+            return
+
         if not data.startswith("cab:kulek"):
             await previous_cabinet_callback(update, context)
             return
@@ -1421,8 +1472,9 @@ def install():
         if data == "cab:kulek:practice":
             await query.answer()
             await query.edit_message_text(
-                "👩‍🏫 <b>Практический урок</b>\n\n"
-                "Выбери урок. После этого отмечай 🐶 тем детям, чью работу хочешь поощрить.",
+                "🐶 <b>Кулёчки за прошлый урок</b>\n\n"
+                "Выбери уже прошедший практический урок. После этого просто нажми "
+                "на тех детей, которым хочешь выдать Кулёчка. Повторное нажатие снимет награду.",
                 parse_mode="HTML",
                 reply_markup=_recent_lessons_markup(),
             )
@@ -1437,8 +1489,9 @@ def install():
             month_key, lesson_date = mark_practical_lesson(lesson)
             await query.answer("Практический урок отмечен")
             await query.edit_message_text(
-                f"👩‍🏫 <b>Урок №{lesson} · {lesson_date:%d.%m}</b>\n\n"
-                "Нажми на ребёнка, чтобы выдать/снять Кулёчка 🐶.",
+                f"🐶 <b>Урок №{lesson} · {lesson_date:%d.%m}</b>\n\n"
+                "Нажми на ребёнка — Кулёчек сразу сохранится. "
+                "Если нажмёшь повторно, Кулёчек снимется.",
                 parse_mode="HTML",
                 reply_markup=_practice_students_markup(lesson),
             )
@@ -1457,8 +1510,9 @@ def install():
             dates = tuple(deadlines._course_dates())
             lesson_date = dates[lesson - 1]
             await query.edit_message_text(
-                f"👩‍🏫 <b>Урок №{lesson} · {lesson_date:%d.%m}</b>\n\n"
-                "Нажми на ребёнка, чтобы выдать/снять Кулёчка 🐶.",
+                f"🐶 <b>Урок №{lesson} · {lesson_date:%d.%m}</b>\n\n"
+                "Нажми на ребёнка — Кулёчек сразу сохранится. "
+                "Если нажмёшь повторно, Кулёчек снимется.",
                 parse_mode="HTML",
                 reply_markup=_practice_students_markup(lesson),
             )
