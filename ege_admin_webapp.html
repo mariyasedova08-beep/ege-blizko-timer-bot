@@ -161,9 +161,15 @@ function renderStudentDetail(d){
  out+='<div class="section"><div class="section-title"><strong>Тренажёры</strong><span>'+trendHtml(tr.trend,' п.п.')+'</span></div><div class="stat"><div class="statbox"><b>'+recent.sessions+'</b><span>сессий за последние 14 дней</span></div><div class="statbox"><b>'+(recent.accuracy==null?'—':recent.accuracy+'%')+'</b><span>точность за 14 дней</span></div></div><div class="section-note">Предыдущие 14 дней: '+prev.sessions+' сесс. · '+(prev.accuracy==null?'нет данных':prev.accuracy+'% точность')+'</div></div>';
 
  var fh=d.final_homework||{},fi=fh.items||[];
- out+='<div class="section"><div class="section-title"><strong>Итоговые домашние работы</strong><span>'+fh.done+'/'+fh.total+'</span></div><div class="chartbox"><div class="final-progress"><i style="width:'+(fh.percent||0)+'%"></i></div><div class="statusline">';
- fi.forEach(function(x){out+='<span class="statuspill '+(x.done?'ok':'bad')+'">'+(x.done?'✅ ':'⏳ ')+esc(x.title)+'</span>';});
- out+='</div></div></div>';
+ out+='<div class="section"><div class="section-title"><strong>Итоговые домашние работы</strong><span>'+fh.done+'/'+fh.total+' закрыто</span></div>';
+ fi.forEach(function(x){
+   var cp=Number(x.completion_percent||0);
+   out+='<div class="chartbox"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div class="chart-title">'+esc(x.label||('Итоговая №'+x.index))+'</div><div class="chart-sub">'+esc(x.title||'')+'</div></div><div class="student-score">'+cp+'%</div></div><div class="final-progress"><i style="width:'+Math.max(0,Math.min(100,cp))+'%"></i></div>';
+   if(x.result_percent!=null){out+='<div class="row-sub" style="margin-top:7px">Результат работы: '+fmtScore(x.result_percent)+'%</div>';}
+   out+='</div>';
+ });
+ if(!fi.length){out+='<div class="list"><div class="empty">Итоговых работ пока нет</div></div>';}
+ out+='</div>';
 
  if(d.probnik&&d.probnik.weak_tasks&&d.probnik.weak_tasks.length){var wk='';d.probnik.weak_tasks.forEach(function(w){wk+='<span class="weakpill">№'+w.task+' · '+w.misses+'× с нулём</span>';});out+='<div class="section"><div class="section-title"><strong>Слабые задания по пробникам</strong></div><div class="weakline">'+wk+'</div></div>';}
  document.getElementById('app').innerHTML=out;
@@ -194,21 +200,46 @@ function renderProbniki(d){
  document.getElementById('app').innerHTML=out;
 }
 function renderFinalHomework(d){
- var out=screenHeader('Итоговые ДЗ','отдельная статистика из структуры курса CORE');
- out+='<div class="stat"><div class="statbox"><b>'+d.catalog_count+'</b><span>итоговых работ в курсе</span></div><div class="statbox"><b>'+d.started_count+'</b><span>уже есть сдачи</span></div></div>';
- out+='<div class="section"><div class="section-title"><strong>По работам</strong><span>'+d.students_total+' учеников</span></div>';
- if(!(d.works||[]).length){out+='<div class="list"><div class="empty">В структуре курса итоговые работы не найдены.</div></div>';}
+ var out=screenHeader('Итоговые ДЗ','каждая работа отдельно · процент по каждому ребёнку');
+ out+='<div class="stat"><div class="statbox"><b>'+d.catalog_count+'</b><span>итоговых работ в курсе</span></div><div class="statbox"><b>'+d.students_total+'</b><span>учеников</span></div></div>';
+
+ out+='<div class="section"><div class="section-title"><strong>По каждой работе</strong><span>процент закрытия группы</span></div>';
+ if(!(d.works||[]).length){
+   out+='<div class="list"><div class="empty">В структуре курса итоговые работы не найдены.</div></div>';
+ }
  (d.works||[]).forEach(function(w){
-   var pct=w.total?Math.round(100*w.done/w.total):0;
-   var miss='';(w.missing_names||[]).slice(0,8).forEach(function(n){miss+='<span class="statuspill bad">'+esc(n)+'</span>';});
-   out+='<div class="final-card"><div class="final-title">'+esc(w.title)+'</div><div class="row-sub" style="margin-top:6px">'+w.done+' из '+w.total+' выполнили'+(w.average_accuracy==null?'':' · средняя точность '+fmtScore(w.average_accuracy)+'%')+'</div><div class="final-progress"><i style="width:'+pct+'%"></i></div><div class="statusline"><span class="statuspill ok">✅ '+w.done+'</span><span class="statuspill bad">⏳ '+w.missing+'</span>'+(miss?miss:'')+'</div></div>';
+   var pct=Number(w.group_completion_percent||0);
+   out+='<div class="final-card">';
+   out+='<div class="student-card-top"><div><div class="final-title">'+esc(w.label||('Итоговая №'+w.index))+'</div><div class="student-meta">'+esc(w.title||'')+'</div></div><div><div class="student-score">'+pct+'%</div><div class="score-caption">закрыта по группе</div></div></div>';
+   out+='<div class="final-progress"><i style="width:'+Math.max(0,Math.min(100,pct))+'%"></i></div>';
+   out+='<div class="row-sub" style="margin-top:7px">✅ '+w.done+' из '+w.total+' учеников закрыли работу</div>';
+   if(w.average_accuracy!=null){
+     out+='<div class="row-sub">Средний результат среди сдавших: '+fmtScore(w.average_accuracy)+'%</div>';
+   }
+   out+='<div class="section-note" style="margin-top:12px;margin-bottom:6px">По каждому ребёнку</div>';
+   out+='<div class="statusline">';
+   (w.student_progress||[]).forEach(function(s){
+      var cp=Number(s.completion_percent||0);
+      var cls=cp>=100?'ok':cp>0?'':'bad';
+      var extra=s.result_percent==null?'':' · результат '+fmtScore(s.result_percent)+'%';
+      out+='<span class="statuspill '+cls+'">'+esc(s.name)+' · <b>'+cp+'%</b>'+extra+'</span>';
+   });
+   out+='</div></div>';
  });
  out+='</div>';
- out+='<div class="section"><div class="section-title"><strong>По ученикам</strong></div>';
+
+ out+='<div class="section"><div class="section-title"><strong>По ученикам</strong><span>каждая итоговая отдельно</span></div>';
  (d.students||[]).forEach(function(s){
-   var pct=s.total?s.percent:0;
-   var chips='';(s.items||[]).forEach(function(i){chips+='<span class="statuspill '+(i.done?'ok':'bad')+'">'+(i.done?'✅ ':'⏳ ')+esc(i.title)+'</span>';});
-   out+='<div class="student-card"><div class="student-card-top"><div><div class="student-name">'+esc(s.name)+'</div><div class="student-meta">'+s.done+' из '+s.total+' итоговых работ</div></div><div><div class="student-score">'+pct+'%</div><div class="score-caption">выполнено</div></div></div><div class="final-progress"><i style="width:'+pct+'%"></i></div><div class="statusline">'+chips+'</div></div>';
+   out+='<div class="student-card"><div class="student-card-top"><div><div class="student-name">'+esc(s.name)+'</div><div class="student-meta">'+s.done+' из '+s.total+' итоговых закрыто</div></div><div><div class="student-score">'+s.percent+'%</div><div class="score-caption">всего закрыто</div></div></div>';
+   (s.items||[]).forEach(function(i){
+      var cp=Number(i.completion_percent||0);
+      out+='<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><div class="row-title">'+esc(i.label||('Итоговая №'+i.index))+'</div><div class="row-sub">'+esc(i.title||'')+'</div></div><div class="row-title">'+cp+'%</div></div><div class="final-progress"><i style="width:'+Math.max(0,Math.min(100,cp))+'%"></i></div>';
+      if(i.result_percent!=null){
+        out+='<div class="row-sub" style="margin-top:4px">Результат: '+fmtScore(i.result_percent)+'%</div>';
+      }
+      out+='</div>';
+   });
+   out+='</div>';
  });
  out+='</div>';
  document.getElementById('app').innerHTML=out;
