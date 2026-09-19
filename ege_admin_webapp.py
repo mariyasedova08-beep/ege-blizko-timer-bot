@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
 
 import run_bot_live90 as live90
+import run_bot_live10 as live10
 import admin_quick_tasks
 import lesson_recordings
 
@@ -251,7 +252,7 @@ def _task_scores(tasks_json):
 
 def _probnik_payload():
     """Beautiful per-student probnik statistics using the canonical matching logic."""
-    live79.live10.ensure_probnik_tables()
+    live10.ensure_probnik_tables()
     students = live34._student_rows()
 
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
