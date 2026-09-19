@@ -1406,7 +1406,6 @@ def _patch_student_cabinet():
             if not student:
                 await query.edit_message_text("Сначала нужно привязать Telegram к ученику через /link.")
                 return
-            await _send_mascot_photo(context, update.effective_chat.id)
             await query.edit_message_text(
                 student_text(int(student[0])),
                 parse_mode="HTML",
@@ -1476,7 +1475,6 @@ async def monthly_close_tick(context):
         if _delivered(key, "student", int(telegram_id)):
             continue
         try:
-            await _send_mascot_photo(context, int(telegram_id))
             await context.bot.send_message(
                 chat_id=int(telegram_id),
                 text=student_text(sid, key),
