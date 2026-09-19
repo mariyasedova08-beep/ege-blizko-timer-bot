@@ -211,6 +211,78 @@ async def feedback_text_router(update, context):
     raise ApplicationHandlerStop
 
 
+async def _push_feedback_button(context):
+    migration_key = "tester-feedback-button-v1"
+    with base.db() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS teacher_feedback_migrations(
+                teacher_telegram_user_id INTEGER NOT NULL,
+                migration_key TEXT NOT NULL,
+                sent_at TEXT NOT NULL,
+                PRIMARY KEY(teacher_telegram_user_id,migration_key)
+            )
+            """
+        )
+        teachers = conn.execute(
+            """
+            SELECT telegram_user_id
+            FROM teachers
+            WHERE onboarding_completed_at IS NOT NULL
+            ORDER BY telegram_user_id
+            """
+        ).fetchall()
+        sent_ids = {
+            int(row[0]) for row in conn.execute(
+                """
+                SELECT teacher_telegram_user_id
+                FROM teacher_feedback_migrations
+                WHERE migration_key=?
+                """,
+                (migration_key,),
+            ).fetchall()
+        }
+
+    sent = skipped = failed = 0
+    for row in teachers:
+        uid = int(row["telegram_user_id"])
+        if uid in sent_ids:
+            skipped += 1
+            continue
+        try:
+            await context.bot.send_message(
+                chat_id=uid,
+                text=(
+                    "💬 Добавила связь с разработчиками.\n\n"
+                    "Если во время теста что-то не работает или появится идея — "
+                    "нажми «💬 Разработчикам» в меню."
+                ),
+                reply_markup=base.MAIN_KB,
+            )
+            with base.db() as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO teacher_feedback_migrations(
+                        teacher_telegram_user_id,migration_key,sent_at
+                    ) VALUES(?,?,?)
+                    """,
+                    (uid, migration_key, datetime.utcnow().isoformat()),
+                )
+                conn.commit()
+            sent += 1
+        except Exception as exc:
+            failed += 1
+            print(
+                f"PREPODMIN feedback keyboard push failed uid={uid} error={type(exc).__name__}",
+                flush=True,
+            )
+
+    print(
+        f"PREPODMIN feedback keyboard push: sent={sent} skipped={skipped} failed={failed}",
+        flush=True,
+    )
+
+
 def install(app):
     global _INSTALLED
     if _INSTALLED:
@@ -232,6 +304,13 @@ def install(app):
         MessageHandler(filters.TEXT & ~filters.COMMAND, feedback_text_router),
         group=-91,
     )
+
+    if app.job_queue is not None:
+        app.job_queue.run_once(
+            _push_feedback_button,
+            when=3,
+            name="prepodmin_feedback_keyboard_push_v1",
+        )
 
     print(
         "PREPODMIN pilot feedback ready: bug + idea + developer forwarding",
