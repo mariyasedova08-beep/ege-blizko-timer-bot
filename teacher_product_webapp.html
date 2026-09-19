@@ -25,6 +25,7 @@ h1{font-size:32px;line-height:1.02;margin:10px 0 7px;letter-spacing:-.035em}.sub
 .section{margin:20px 0 8px}.section-title{display:flex;align-items:center;justify-content:space-between;margin:0 2px 10px}.section-title strong{font-size:18px}.section-title span{font-size:12px;color:var(--muted)}
 .list{background:var(--paper);border:1px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:0 7px 22px rgba(54,34,44,.04)}
 .row{display:flex;gap:12px;align-items:center;padding:13px 14px;border-bottom:1px solid var(--line)}.row:last-child{border-bottom:0}.time{min-width:48px;font-weight:850;font-size:14px}
+.taskrow{cursor:pointer;transition:transform .08s ease,background .12s ease}.taskrow:active{transform:scale(.99);background:var(--soft)}.check{width:28px;height:28px;border-radius:10px;background:var(--soft);display:grid;place-items:center;font-size:13px;font-weight:900;flex:0 0 28px}
 .row-main{min-width:0;flex:1}.row-title{font-size:14px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.row-sub{font-size:11px;color:var(--muted);margin-top:3px}
 .badge{font-size:10px;background:var(--soft);padding:5px 7px;border-radius:999px}.alert{color:var(--red)}.empty{padding:22px;text-align:center;color:var(--muted);font-size:13px}
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.action{border:1px solid var(--line);background:var(--paper);border-radius:18px;padding:13px 8px;min-height:86px;font:inherit;color:var(--ink);font-size:11px;font-weight:750;text-align:center;box-shadow:0 6px 18px rgba(54,34,44,.04)}.action:active{transform:scale(.98);background:var(--soft)}.action .aicon{display:block;font-size:22px;margin-bottom:8px}
@@ -65,6 +66,24 @@ async function api(view){
  if(!r.ok)throw new Error('api '+r.status);
  return await r.json();
 }
+async function teacherAction(payload){
+ payload.initData=(tg&&tg.initData)||'';
+ payload.launch=launch;
+ var r=await fetch('/api/teacher/action?ts='+Date.now(),{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify(payload)});
+ var data={};
+ try{data=await r.json();}catch(_){}
+ if(!r.ok||!data.ok)throw new Error(data.error||('action '+r.status));
+ return data;
+}
+async function completeTask(taskId,returnView){
+ try{
+  if(tg&&tg.HapticFeedback){try{tg.HapticFeedback.impactOccurred('light');}catch(_){}}
+  await teacherAction({action:'task_done',task_id:taskId});
+  await openView(returnView||'tasks');
+ }catch(e){
+  await reportClientError('task_done:'+taskId,e);
+ }
+}
 function screenHeader(title,sub){
  return '<div class="screen-head">'+(currentView==='home'?'':'<button class="backbtn" onclick="openView(\'home\')">‹</button>')+'<div><h2>'+esc(title)+'</h2>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+'</div></div>';
 }
@@ -74,7 +93,7 @@ function metric(icon,num,label,hint,pink,view){
 function renderHome(d){
  var c=d.counts||{},events='',taskRows='',attention='';
  (d.events||[]).forEach(function(e){events+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+'</div></div></div>';});
- (d.tasks||[]).forEach(function(t){taskRows+='<div class="row"><div class="row-main"><div class="row-title '+(t.overdue?'alert':'')+'">'+esc(t.title)+'</div><div class="row-sub">'+(t.overdue?'Просрочено':'Сегодня')+(t.due_time?' · '+esc(t.due_time):'')+'</div></div><span class="badge">'+(t.overdue?'!':'✓')+'</span></div>';});
+ (d.tasks||[]).forEach(function(t){taskRows+='<div class="row taskrow" onclick="completeTask('+t.id+',\'home\')"><div class="check">✓</div><div class="row-main"><div class="row-title '+(t.overdue?'alert':'')+'">'+esc(t.title)+'</div><div class="row-sub">'+(t.overdue?'Просрочено':'Сегодня')+(t.due_time?' · '+esc(t.due_time):'')+' · нажми, чтобы закрыть</div></div><span class="badge">'+(t.overdue?'!':'✓')+'</span></div>';});
  (d.attention||[]).forEach(function(a){attention+='<div class="row"><div class="row-main"><div class="row-title">'+esc(a.name)+'</div><div class="row-sub">'+esc(a.scope)+' · '+esc((a.reasons||[]).join(', '))+'</div></div></div>';});
  var out='<div class="top"><div><span class="eyebrow">личный администратор</span><h1>Привет, '+esc(d.teacher.name)+' 💗</h1><div class="sub">'+esc(d.teacher.subject||'Преподавание')+' · всё важное на одном экране</div></div><div class="avatar">🎓</div></div>';
  out+='<div class="status"><div class="status-head"><div class="status-title">Сегодня</div><div class="date">'+esc(d.weekday)+' · '+esc(d.date)+'</div></div><div class="grid">';
@@ -123,8 +142,11 @@ function renderAttention(d){
 }
 function renderTasks(d){
  var rows='';
- (d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.title)+'</div><div class="row-sub">'+esc(x.due_date)+(x.due_time?' · '+esc(x.due_time):'')+'</div></div><span class="badge">'+(x.kind==='content'?'💡':x.kind==='tech'?'🛠':'📋')+'</span></div>';});
- document.getElementById('app').innerHTML=screenHeader('Задачи','все активные')+'<div class="list">'+(rows||'<div class="empty">Активных задач нет</div>')+'</div>';
+ (d.items||[]).forEach(function(x){
+  var when=x.due_date?esc(x.due_date)+(x.due_time?' · '+esc(x.due_time):''):'без даты';
+  rows+='<div class="row taskrow" onclick="completeTask('+x.id+',\'tasks\')"><div class="check">✓</div><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.title)+'</div><div class="row-sub">'+when+' · нажми, чтобы закрыть</div></div><span class="badge">'+(x.kind==='content'?'💡':x.kind==='tech'?'🛠':'📋')+'</span></div>';
+ });
+ document.getElementById('app').innerHTML=screenHeader('Задачи','нажми на задачу — она закроется')+'<div class="list">'+(rows||'<div class="empty">Активных задач нет 🎉</div>')+'</div>';
 }
 function renderAttendance(d){
  var pct=d.percent==null?'—':d.percent+'%';
