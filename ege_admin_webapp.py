@@ -20,6 +20,7 @@ import run_bot_live90 as live90
 import run_bot_live10 as live10
 import admin_quick_tasks
 import lesson_recordings
+import homework_deadline_logic as deadlines
 
 bot = live90.bot
 live79 = live90.live79
@@ -34,7 +35,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20260919-4"
+WEBAPP_BUILD = "20260919-5"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 _INSTALLED = False
 
@@ -667,6 +668,341 @@ def _final_homework_payload():
     }
 
 
+_STUDENT_ANALYTICS_CACHE = {"at": 0.0, "data": None}
+
+
+def _pct(done, total):
+    return round(100 * done / total) if total else None
+
+
+def _trend_delta(values, window=3):
+    vals = [float(v) for v in values if v is not None]
+    if len(vals) < 2:
+        return None
+    if len(vals) >= window * 2:
+        prev = vals[-window * 2:-window]
+        recent = vals[-window:]
+        return round(sum(recent) / len(recent) - sum(prev) / len(prev), 1)
+    return round(vals[-1] - vals[0], 1)
+
+
+def _homework_assignments_snapshot():
+    """One shared Core homework snapshot for all students."""
+    today = datetime.now(bot.TIMEZONE).date()
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        rows = conn.execute(
+            """
+            SELECT received_at,user_id,lower(user_email),lesson_id,lesson_name
+            FROM homework_submissions
+            """
+        ).fetchall()
+
+    assignments = []
+    dates = tuple(deadlines._course_dates())
+    for source_no, source_date in enumerate(dates, 1):
+        if source_date > today:
+            break
+        due = deadlines.due_lesson_for_source(source_date)
+        if not due:
+            continue
+        due_date, due_no = due
+        chosen = [
+            row for row in rows
+            if deadlines._explicit_match(
+                row[3], row[4], due_no, source_no, source_date
+            )
+        ]
+        if not chosen:
+            continue
+        assignments.append(
+            {
+                "source_no": int(source_no),
+                "source_date": source_date,
+                "due_no": int(due_no),
+                "due_date": due_date,
+                "done_ids": {
+                    str(row[1] or "").strip() for row in chosen if row[1]
+                },
+                "done_emails": {
+                    live79.live31._norm(row[2]) for row in chosen if row[2]
+                },
+            }
+        )
+    return assignments
+
+
+def _attendance_by_student():
+    result = {}
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        rows = conn.execute(
+            """
+            SELECT ar.student_id,s.lesson_number,s.lesson_date,ar.status
+            FROM attendance_records ar
+            JOIN attendance_sessions s ON s.lesson_number=ar.lesson_number
+            WHERE s.finalized=1
+            ORDER BY s.lesson_date,s.lesson_number
+            """
+        ).fetchall()
+    for student_id, lesson_number, lesson_date, status in rows:
+        result.setdefault(int(student_id), []).append(
+            {
+                "lesson": int(lesson_number),
+                "date": str(lesson_date or ""),
+                "status": str(status or ""),
+            }
+        )
+    return result
+
+
+def _trainer_rows_for_student(telegram_id):
+    if telegram_id is None:
+        return []
+    uid = int(telegram_id)
+    rows = []
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        tables = [
+            str(row[0])
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%_sessions'"
+            ).fetchall()
+        ]
+        for table in tables:
+            if not re.fullmatch(r"[A-Za-z0-9_]+", table):
+                continue
+            columns = {
+                str(row[1])
+                for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            needed = {"telegram_user_id", "total", "correct", "finished_at"}
+            if not needed.issubset(columns):
+                continue
+            try:
+                data = conn.execute(
+                    f"""
+                    SELECT total,correct,finished_at
+                    FROM {table}
+                    WHERE telegram_user_id=? AND finished_at IS NOT NULL
+                    ORDER BY finished_at
+                    """,
+                    (uid,),
+                ).fetchall()
+            except Exception:
+                continue
+            title = table.removesuffix("_sessions").replace("_", " ")
+            for total, correct, finished_at in data:
+                rows.append(
+                    {
+                        "trainer": title,
+                        "total": int(total or 0),
+                        "correct": int(correct or 0),
+                        "finished_at": str(finished_at or ""),
+                    }
+                )
+    rows.sort(key=lambda x: x["finished_at"])
+    return rows
+
+
+def _student_analytics_payload(force=False):
+    now_ts = time.time()
+    if (
+        not force
+        and _STUDENT_ANALYTICS_CACHE["data"] is not None
+        and now_ts - float(_STUDENT_ANALYTICS_CACHE["at"] or 0) < 30
+    ):
+        return _STUDENT_ANALYTICS_CACHE["data"]
+
+    students = live34._student_rows()
+    probnik = _probnik_payload()
+    prob_by_id = {
+        int(item["student_id"]): item for item in probnik["students"]
+    }
+    final_hw = _final_homework_payload()
+    final_by_id = {
+        int(item["student_id"]): item for item in final_hw["students"]
+    }
+    homework_assignments = _homework_assignments_snapshot()
+    attendance = _attendance_by_student()
+    today = datetime.now(bot.TIMEZONE).date()
+
+    cards = []
+    details = {}
+
+    for student in students:
+        sid = int(student[0])
+        name = live34._shown_name(student)
+        email = str(student[3] or "")
+        core_id = str(student[4] or "").strip()
+        telegram_id = student[5]
+        email_norm = live79.live31._norm(email)
+
+        # Homework timeline and completion dynamics.
+        hw_history = []
+        for assignment in homework_assignments:
+            done = bool(
+                (core_id and core_id in assignment["done_ids"])
+                or (email_norm and email_norm in assignment["done_emails"])
+            )
+            due_date = assignment["due_date"]
+            hw_history.append(
+                {
+                    "lesson": assignment["source_no"],
+                    "source_date": assignment["source_date"].isoformat(),
+                    "due_date": due_date.isoformat(),
+                    "done": done,
+                    "overdue": bool(not done and due_date < today),
+                    "due_today": bool(not done and due_date == today),
+                }
+            )
+        due_hw = [x for x in hw_history if x["due_date"] <= today.isoformat()]
+        hw_done = sum(1 for x in due_hw if x["done"])
+        hw_total = len(due_hw)
+        hw_missing = sum(1 for x in due_hw if not x["done"])
+        hw_binary = [100 if x["done"] else 0 for x in due_hw]
+        hw_trend = _trend_delta(hw_binary, window=3)
+
+        # Attendance dynamics.
+        att_history = attendance.get(sid, [])
+        att_present = sum(1 for x in att_history if x["status"] == "present")
+        att_total = len(att_history)
+        att_binary = [
+            100 if x["status"] == "present" else 0 for x in att_history
+        ]
+        att_trend = _trend_delta(att_binary, window=3)
+
+        # Trainer activity and 14d vs previous 14d accuracy dynamics.
+        trainer_rows = _trainer_rows_for_student(telegram_id)
+        now = datetime.now(bot.TIMEZONE)
+        recent_start = now - timedelta(days=14)
+        prev_start = now - timedelta(days=28)
+
+        def _trainer_bucket(start, end):
+            total = correct = sessions = 0
+            for row in trainer_rows:
+                try:
+                    dt = datetime.fromisoformat(row["finished_at"])
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=bot.TIMEZONE)
+                except Exception:
+                    continue
+                if start <= dt < end:
+                    sessions += 1
+                    total += int(row["total"] or 0)
+                    correct += int(row["correct"] or 0)
+            return {
+                "sessions": sessions,
+                "total": total,
+                "correct": correct,
+                "accuracy": round(100 * correct / total) if total else None,
+            }
+
+        trainers_recent = _trainer_bucket(recent_start, now + timedelta(seconds=1))
+        trainers_prev = _trainer_bucket(prev_start, recent_start)
+        trainer_trend = None
+        if (
+            trainers_recent["accuracy"] is not None
+            and trainers_prev["accuracy"] is not None
+        ):
+            trainer_trend = (
+                trainers_recent["accuracy"] - trainers_prev["accuracy"]
+            )
+
+        p = prob_by_id.get(
+            sid,
+            {
+                "results_count": 0,
+                "latest_score": None,
+                "average": None,
+                "delta": None,
+                "history": [],
+                "weak_tasks": [],
+                "latest_event": "",
+                "latest_date": "",
+            },
+        )
+        # For the card, latest-vs-previous is more useful than first-vs-latest.
+        p_hist_chrono = list(reversed(p.get("history") or []))
+        probnik_trend = None
+        if len(p_hist_chrono) >= 2:
+            a = p_hist_chrono[-2].get("score")
+            b = p_hist_chrono[-1].get("score")
+            if a is not None and b is not None:
+                probnik_trend = round(float(b) - float(a), 1)
+
+        final = final_by_id.get(
+            sid,
+            {
+                "done": 0,
+                "total": final_hw["catalog_count"],
+                "missing": final_hw["catalog_count"],
+                "percent": 0,
+                "items": [],
+            },
+        )
+
+        card = {
+            "id": sid,
+            "name": name,
+            "email": email,
+            "linked": telegram_id is not None,
+            "probnik_latest": p.get("latest_score"),
+            "probnik_average": p.get("average"),
+            "probnik_count": int(p.get("results_count") or 0),
+            "probnik_trend": probnik_trend,
+            "homework_done": hw_done,
+            "homework_total": hw_total,
+            "homework_percent": _pct(hw_done, hw_total),
+            "homework_missing": hw_missing,
+            "homework_trend": hw_trend,
+            "attendance_present": att_present,
+            "attendance_total": att_total,
+            "attendance_percent": _pct(att_present, att_total),
+            "attendance_trend": att_trend,
+            "trainer_sessions_14d": trainers_recent["sessions"],
+            "trainer_accuracy_14d": trainers_recent["accuracy"],
+            "trainer_trend": trainer_trend,
+            "final_done": int(final.get("done") or 0),
+            "final_total": int(final.get("total") or 0),
+            "final_percent": final.get("percent"),
+        }
+        cards.append(card)
+
+        details[sid] = {
+            **card,
+            "probnik": p,
+            "homework_history": hw_history,
+            "attendance_history": att_history,
+            "trainers": {
+                "recent": trainers_recent,
+                "previous": trainers_prev,
+                "trend": trainer_trend,
+                "history": trainer_rows[-20:],
+            },
+            "final_homework": final,
+        }
+
+    # Keep alphabetical ordering; analytics should inform, not rank children.
+    cards.sort(key=lambda x: x["name"].casefold())
+    payload = {
+        "items": cards,
+        "total": len(cards),
+        "linked": sum(1 for x in cards if x["linked"]),
+        "details": details,
+        "generated_at": datetime.now(bot.TIMEZONE).isoformat(),
+    }
+    _STUDENT_ANALYTICS_CACHE["at"] = now_ts
+    _STUDENT_ANALYTICS_CACHE["data"] = payload
+    return payload
+
+
+def _student_detail_payload(student_id):
+    try:
+        sid = int(student_id)
+    except Exception:
+        return None
+    data = _student_analytics_payload()
+    return data["details"].get(sid)
+
+
 def _recordings_payload():
     lesson_recordings.ensure_tables()
     rows = lesson_recordings._saved_rows()
@@ -762,12 +1098,16 @@ def _view(name):
     if name == "tasks":
         return {"items": _tasks_payload(120)}
     if name == "students":
-        rows = _student_rows()
+        data = _student_analytics_payload()
         return {
-            "items": rows,
-            "total": len(rows),
-            "linked": sum(1 for x in rows if x["linked"]),
+            "items": data["items"],
+            "total": data["total"],
+            "linked": data["linked"],
+            "generated_at": data["generated_at"],
         }
+    if name.startswith("student:"):
+        detail = _student_detail_payload(name.split(":", 1)[1])
+        return detail
     if name == "attention":
         return {"items": _attention_rows()}
     if name == "payments":
