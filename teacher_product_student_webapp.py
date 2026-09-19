@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
-from telegram.ext import MessageHandler, filters
+from telegram.ext import ApplicationHandlerStop, MessageHandler, filters
 
 import teacher_product_mvp as base
 import teacher_product_schedule as schedule
@@ -533,20 +533,43 @@ def _launch_markup(uid):
 
 async def open_student_webapp(update, context):
     uid = int(update.effective_user.id)
+    print(
+        f"PREPODMIN student cabinet tap received teacher={bool(base.teacher(uid))}",
+        flush=True,
+    )
     if base.teacher(uid):
-        return
+        await update.message.reply_text(
+            "💗 Это кнопка ученического кабинета.\n\n"
+            "Твой преподавательский кабинет открывается через «💗 Главная ПРЕПОДМИН».",
+            reply_markup=base.MAIN_KB,
+        )
+        raise ApplicationHandlerStop
+
     link = _link(uid)
     if not link:
         await update.message.reply_text(
-            "Твой Telegram пока не привязан к ученику. Попроси преподавателя прислать ссылку подключения."
+            "Твой Telegram пока не привязан к ученику. Попроси преподавателя прислать ссылку подключения.",
+            reply_markup=STUDENT_KB,
         )
-        return
+        raise ApplicationHandlerStop
+
     await update.message.reply_text(
         "💗 <b>Мой кабинет</b>\n\n"
         "Здесь твоё расписание, ДЗ, посещаемость, оплата и изменения занятий.",
         parse_mode="HTML",
         reply_markup=_launch_markup(uid),
     )
+    print("PREPODMIN student cabinet launcher sent=1", flush=True)
+    raise ApplicationHandlerStop
+
+
+async def student_cabinet_button_router(update, context):
+    if not update.message or not update.message.text:
+        return
+    text = update.message.text.strip().replace("\ufe0f", "")
+    if text not in {"💗 Мой кабинет", "Мой кабинет"}:
+        return
+    await open_student_webapp(update, context)
 
 
 async def _push_student_cabinet(context):
@@ -619,9 +642,11 @@ def install(app):
     if _INSTALLED:
         return
     _INSTALLED = True
+    # Earliest text route: the cabinet button must never be swallowed by
+    # onboarding/conversation handlers on mobile Telegram.
     app.add_handler(
-        MessageHandler(filters.Regex(r"^💗 Мой кабинет$"), open_student_webapp),
-        group=-42,
+        MessageHandler(filters.TEXT & ~filters.COMMAND, student_cabinet_button_router),
+        group=-100,
     )
     if app.job_queue is not None:
         app.job_queue.run_once(
