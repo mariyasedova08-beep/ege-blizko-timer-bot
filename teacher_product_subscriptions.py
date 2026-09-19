@@ -96,17 +96,20 @@ def _apply_requested_balance_repairs():
         if done:
             return
 
-        rows = conn.execute(
+        candidates = conn.execute(
             """
             SELECT p.teacher_telegram_user_id,p.student_id,p.lessons_total,
-                   p.lessons_remaining
+                   p.lessons_remaining,s.name
             FROM student_payment_plans p
             JOIN students s ON s.id=p.student_id
              AND s.teacher_telegram_user_id=p.teacher_telegram_user_id
             WHERE p.payment_type='package' AND p.active=1 AND s.active=1
-              AND lower(trim(s.name))='алина'
             """
         ).fetchall()
+        rows = [
+            row for row in candidates
+            if "алин" in str(row["name"] or "").strip().casefold()
+        ]
 
         if len(rows) == 1:
             row = rows[0]
