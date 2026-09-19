@@ -746,6 +746,23 @@ def install():
     live7.student_text_router = _text_router
     live7.start_router = _start_router
 
+    try:
+        check = _probnik_payload()
+        print(
+            "EGE admin WebApp probnik check: "
+            f"students={check['overall']['students_total']} "
+            f"with_results={check['overall']['students_with_results']} "
+            f"results={check['overall']['results_total']} "
+            f"unmatched={check['overall']['unmatched_results']}",
+            flush=True,
+        )
+    except Exception as exc:
+        print(
+            f"EGE admin WebApp probnik check failed: {type(exc).__name__}: {exc}\n"
+            + traceback.format_exc(),
+            flush=True,
+        )
+
     print(
         f"EGE admin WebApp ready: admin-only url={WEBAPP_URL or 'missing'}",
         flush=True,
