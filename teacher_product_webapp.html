@@ -29,6 +29,10 @@ h1{font-size:32px;line-height:1.02;margin:10px 0 7px;letter-spacing:-.035em}.sub
 .badge{font-size:10px;background:var(--soft);padding:5px 7px;border-radius:999px}.alert{color:var(--red)}.empty{padding:22px;text-align:center;color:var(--muted);font-size:13px}
 .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.action{border:1px solid var(--line);background:var(--paper);border-radius:18px;padding:13px 8px;min-height:86px;font:inherit;color:var(--ink);font-size:11px;font-weight:750;text-align:center;box-shadow:0 6px 18px rgba(54,34,44,.04)}.action:active{transform:scale(.98);background:var(--soft)}.action .aicon{display:block;font-size:22px;margin-bottom:8px}
 .brand{margin-top:22px;text-align:center;color:#9B9397;font-size:10px;letter-spacing:.18em;text-transform:uppercase}.loading{padding:56px 20px;text-align:center;color:var(--muted)}.error{margin-top:12px;padding:14px;border-radius:18px;background:#FFF0F4;color:#8F2645;font-size:13px}
+.screen-head{display:flex;align-items:center;gap:10px;margin:4px 0 18px}.backbtn{border:0;background:var(--soft);width:38px;height:38px;border-radius:14px;font-size:20px;color:var(--ink)}.screen-head h2{margin:0;font-size:25px;letter-spacing:-.03em}.screen-head .small{font-size:12px;color:var(--muted);margin-top:3px}
+.day{margin-bottom:12px}.dayhead{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--soft);border-radius:16px 16px 0 0;font-weight:800}.day .list{border-radius:0 0 18px 18px}
+.money{font-weight:850;white-space:nowrap}.state{font-size:11px;padding:5px 8px;border-radius:999px;background:var(--milk)}.state.bad{background:#FFE8EF;color:#A72851}.state.warn{background:#FFF0D8;color:#9A6311}.state.ok{background:#EAF7EF;color:#2E7D4E}
+.bigstat{display:grid;grid-template-columns:1fr 1fr;gap:10px}.statcard{background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:16px}.statcard b{font-size:28px;display:block;margin-bottom:4px}.statcard span{font-size:12px;color:var(--muted)}
 .bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(248,245,242,.94);backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:9px 12px calc(9px + env(safe-area-inset-bottom));z-index:5}.nav{max-width:680px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.nav button{border:0;background:transparent;font:inherit;color:#8A8286;font-size:10px;padding:5px 2px}.nav .active{color:var(--hot);font-weight:800}.nav i{font-style:normal;display:block;font-size:19px;margin-bottom:3px}
 @media(min-width:560px){.app{padding-left:24px;padding-right:24px}.grid{grid-template-columns:repeat(4,1fr)}.metric{min-height:128px}}
 </style>
@@ -36,53 +40,111 @@ h1{font-size:32px;line-height:1.02;margin:10px 0 7px;letter-spacing:-.035em}.sub
 <body>
 <div class="app" id="app"><div class="loading">Открываю ПРЕПОДМИН…</div></div>
 <div class="bottom"><div class="nav">
-<button class="active"><i>⌂</i>Главная</button>
-<button onclick="act('students')"><i>👥</i>Ученики</button>
-<button onclick="act('schedule')"><i>📅</i>Расписание</button>
-<button onclick="act('reports')"><i>📊</i>Отчёты</button>
+<button id="nav-home" class="active" onclick="openView('home')"><i>⌂</i>Главная</button>
+<button id="nav-students" onclick="openView('students')"><i>👥</i>Ученики</button>
+<button id="nav-schedule" onclick="openView('schedule')"><i>📅</i>Расписание</button>
+<button id="nav-reports" onclick="openView('reports')"><i>📊</i>Отчёты</button>
 </div></div>
 <script>
 var tg=(window.Telegram&&Telegram.WebApp)?Telegram.WebApp:null;
 if(tg){tg.ready();tg.expand();}
+var launch=(new URLSearchParams(window.location.search)).get('launch')||'';
+var currentView='home';
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
-function act(a){if(!tg)return;tg.sendData(JSON.stringify({action:a}));tg.close();}
-function metric(icon,num,label,hint,pink,action){
-  return '<button class="metric '+(pink?'pink':'')+'" onclick="act(\''+action+'\')"><span class="dot"></span><div class="icon">'+icon+'</div><div class="num">'+num+'</div><div class="label">'+label+'</div><div class="hint">'+hint+'</div></button>';
+function money(n){return n?String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' ₽':'—';}
+function setNav(v){['home','students','schedule','reports'].forEach(function(x){var e=document.getElementById('nav-'+x);if(e)e.classList.toggle('active',x===v);});}
+async function api(view){
+ var r=await fetch('/api/dashboard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData:(tg&&tg.initData)||'',launch:launch,view:view})});
+ if(!r.ok)throw new Error('api');
+ return await r.json();
 }
-function render(d){
+function head(title,sub){
+ return '<div class="screen-head">'+(currentView==='home'?'':'<button class="backbtn" onclick="openView(\'home\')">‹</button>')+'<div><h2>'+esc(title)+'</h2>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+'</div></div>';
+}
+function metric(icon,num,label,hint,pink,view){
+ return '<button class="metric '+(pink?'pink':'')+'" onclick="openView(\''+view+'\')"><span class="dot"></span><div class="icon">'+icon+'</div><div class="num">'+num+'</div><div class="label">'+label+'</div><div class="hint">'+hint+'</div></button>';
+}
+function renderHome(d){
  var c=d.counts||{},events='',taskRows='',attention='';
  (d.events||[]).forEach(function(e){events+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+'</div></div></div>';});
  (d.tasks||[]).forEach(function(t){taskRows+='<div class="row"><div class="row-main"><div class="row-title '+(t.overdue?'alert':'')+'">'+esc(t.title)+'</div><div class="row-sub">'+(t.overdue?'Просрочено':'Сегодня')+(t.due_time?' · '+esc(t.due_time):'')+'</div></div><span class="badge">'+(t.overdue?'!':'✓')+'</span></div>';});
  (d.attention||[]).forEach(function(a){attention+='<div class="row"><div class="row-main"><div class="row-title">'+esc(a.name)+'</div><div class="row-sub">'+esc(a.scope)+' · '+esc((a.reasons||[]).join(', '))+'</div></div></div>';});
- var out='';
- out+='<div class="top"><div><span class="eyebrow">личный администратор</span><h1>Привет, '+esc(d.teacher.name)+' 💗</h1><div class="sub">'+esc(d.teacher.subject||'Преподавание')+' · всё важное на одном экране</div></div><div class="avatar">🎓</div></div>';
+ var out='<div class="top"><div><span class="eyebrow">личный администратор</span><h1>Привет, '+esc(d.teacher.name)+' 💗</h1><div class="sub">'+esc(d.teacher.subject||'Преподавание')+' · всё важное на одном экране</div></div><div class="avatar">🎓</div></div>';
  out+='<div class="status"><div class="status-head"><div class="status-title">Сегодня</div><div class="date">'+esc(d.weekday)+' · '+esc(d.date)+'</div></div><div class="grid">';
  out+=metric('📚',c.lessons||0,'занятий','расписание на день',true,'schedule');
  out+=metric('🏠',c.homework||0,'ДЗ требуют внимания',(c.homework_overdue||0)+' просрочено',false,'homework');
  out+=metric('💳',c.payments||0,'по оплатам','срок сегодня или просрочен',false,'payments');
  out+=metric('🚨',c.attention||0,'в зоне внимания','нужна проверка',true,'attention');
  out+='</div></div>';
- out+='<div class="section"><div class="section-title"><strong>Ближайшие занятия</strong><span>'+(c.lessons||0)+' сегодня</span></div><div class="list">'+(events||'<div class="empty">Сегодня занятий нет 🎉</div>')+'</div></div>';
- out+='<div class="section"><div class="section-title"><strong>Задачи</strong><span onclick="act(\'tasks\')">открыть все →</span></div><div class="list">'+(taskRows||'<div class="empty">На сегодня долгов по задачам нет</div>')+'</div></div>';
- if(attention){out+='<div class="section"><div class="section-title"><strong>Зона внимания</strong><span onclick="act(\'attention\')">подробнее →</span></div><div class="list">'+attention+'</div></div>';}
- out+='<div class="section"><div class="section-title"><strong>Быстрые действия</strong><span>в Telegram</span></div><div class="actions">';
- out+='<button class="action" onclick="act(\'schedule\')"><span class="aicon">📅</span>Расписание</button>';
- out+='<button class="action" onclick="act(\'homework\')"><span class="aicon">🏠</span>Домашнее</button>';
- out+='<button class="action" onclick="act(\'attendance\')"><span class="aicon">✅</span>Посещаемость</button>';
- out+='<button class="action" onclick="act(\'payments\')"><span class="aicon">💳</span>Оплаты</button>';
- out+='<button class="action" onclick="act(\'slots\')"><span class="aicon">🗓</span>Свободные окна</button>';
- out+='<button class="action" onclick="act(\'reports\')"><span class="aicon">📊</span>Отчёты</button>';
+ out+='<div class="section"><div class="section-title"><strong>Ближайшие занятия</strong><span onclick="openView(\'schedule\')">всё расписание →</span></div><div class="list">'+(events||'<div class="empty">Сегодня занятий нет 🎉</div>')+'</div></div>';
+ out+='<div class="section"><div class="section-title"><strong>Задачи</strong><span onclick="openView(\'tasks\')">открыть все →</span></div><div class="list">'+(taskRows||'<div class="empty">На сегодня долгов по задачам нет</div>')+'</div></div>';
+ if(attention){out+='<div class="section"><div class="section-title"><strong>Зона внимания</strong><span onclick="openView(\'attention\')">подробнее →</span></div><div class="list">'+attention+'</div></div>';}
+ out+='<div class="section"><div class="section-title"><strong>Быстрые разделы</strong><span>внутри ПРЕПОДМИН</span></div><div class="actions">';
+ [['📅','Расписание','schedule'],['🏠','Домашнее','homework'],['✅','Посещаемость','attendance'],['💳','Оплаты','payments'],['🗓','Свободные окна','slots'],['📊','Отчёты','reports']].forEach(function(a){out+='<button class="action" onclick="openView(\''+a[2]+'\')"><span class="aicon">'+a[0]+'</span>'+a[1]+'</button>';});
  out+='</div></div><div class="brand">ПРЕПОДМИН · больше времени на главное</div>';
  document.getElementById('app').innerHTML=out;
 }
+function renderStudents(d){
+ var s='',g='';
+ (d.students||[]).forEach(function(x){s+='<div class="row"><div class="avatar" style="width:38px;height:38px;border-radius:13px;font-size:15px">👤</div><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub">'+esc(x.contact||'индивидуальный ученик')+'</div></div></div>';});
+ (d.groups||[]).forEach(function(x){g+='<div class="row"><div class="avatar" style="width:38px;height:38px;border-radius:13px;font-size:15px">👥</div><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub">группа</div></div></div>';});
+ document.getElementById('app').innerHTML=head('Ученики и группы',(d.students||[]).length+' учеников · '+(d.groups||[]).length+' групп')+'<div class="section"><div class="section-title"><strong>Ученики</strong></div><div class="list">'+(s||'<div class="empty">Индивидуальных учеников пока нет</div>')+'</div></div><div class="section"><div class="section-title"><strong>Группы</strong></div><div class="list">'+(g||'<div class="empty">Групп пока нет</div>')+'</div></div>';
+}
+function renderSchedule(d){
+ var out=head('Расписание','ближайшие 7 дней');
+ (d.days||[]).forEach(function(day){
+  var rows='';
+  (day.events||[]).forEach(function(e){rows+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+'</div></div></div>';});
+  out+='<div class="day"><div class="dayhead"><span>'+esc(day.weekday)+' · '+esc(day.date)+'</span><span>'+(day.is_today?'Сегодня':'')+'</span></div><div class="list">'+(rows||'<div class="empty">Нет занятий</div>')+'</div></div>';
+ });
+ document.getElementById('app').innerHTML=out;
+}
+function renderHomework(d){
+ var rows='';
+ (d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.text)+'</div><div class="row-sub">'+esc(x.target)+' · до '+esc(x.due)+'</div></div><span class="badge">'+x.done+'/'+x.total+'</span></div>';});
+ document.getElementById('app').innerHTML=head('Домашние задания','текущие задания и долги')+'<div class="list">'+(rows||'<div class="empty">Активных ДЗ нет</div>')+'</div>';
+}
+function renderPayments(d){
+ var rows='';
+ (d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub"><span class="state '+esc(x.level)+'">'+esc(x.status)+'</span></div></div><div class="money">'+money(x.amount)+'</div></div>';});
+ document.getElementById('app').innerHTML=head('Оплаты','индивидуальные ученики')+'<div class="list">'+(rows||'<div class="empty">Учеников пока нет</div>')+'</div>';
+}
+function renderAttention(d){
+ var rows='';
+ (d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub">'+esc(x.scope)+' · '+esc((x.reasons||[]).join(', '))+'</div></div><span class="badge">!</span></div>';});
+ document.getElementById('app').innerHTML=head('Зона внимания','только реальные сигналы')+'<div class="list">'+(rows||'<div class="empty">Сейчас явных сигналов нет 🎉</div>')+'</div>';
+}
+function renderTasks(d){
+ var rows='';
+ (d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.title)+'</div><div class="row-sub">'+esc(x.due_date)+(x.due_time?' · '+esc(x.due_time):'')+'</div></div><span class="badge">'+(x.kind==='content'?'💡':x.kind==='tech'?'🛠':'📋')+'</span></div>';});
+ document.getElementById('app').innerHTML=head('Задачи','все активные')+'<div class="list">'+(rows||'<div class="empty">Активных задач нет</div>')+'</div>';
+}
+function renderAttendance(d){
+ var pct=d.percent==null?'—':d.percent+'%';
+ document.getElementById('app').innerHTML=head('Посещаемость',d.period)+'<div class="bigstat"><div class="statcard"><b>'+pct+'</b><span>средняя посещаемость</span></div><div class="statcard"><b>'+d.absent+'</b><span>пропусков</span></div><div class="statcard"><b>'+d.present+'</b><span>отмечено присутствий</span></div></div>';
+}
+function renderReports(d){
+ var att=d.attendance==null?'—':d.attendance+'%',hw=d.homework==null?'—':d.homework+'%';
+ document.getElementById('app').innerHTML=head('Отчёты',d.period)+'<div class="bigstat"><div class="statcard"><b>'+d.learners+'</b><span>активных учеников</span></div><div class="statcard"><b>'+att+'</b><span>посещаемость</span></div><div class="statcard"><b>'+hw+'</b><span>выполнение ДЗ</span></div><div class="statcard"><b>'+d.overdue_homework+'</b><span>просроченных ДЗ</span></div><div class="statcard"><b>'+d.payment_issues+'</b><span>проблем с оплатой</span></div><div class="statcard"><b>'+d.attention+'</b><span>в зоне внимания</span></div></div>';
+}
+function renderSlots(d){
+ var rows='',blocks='';
+ (d.busy||[]).forEach(function(x){rows+='<div class="row"><div class="time">'+esc(x.time)+'</div><div class="row-main"><div class="row-title">'+esc(x.name)+'</div><div class="row-sub">занято</div></div></div>';});
+ (d.blocks||[]).forEach(function(x){blocks+='<div class="row"><div class="time">'+esc(x.start)+'–'+esc(x.end)+'</div><div class="row-main"><div class="row-title">'+esc(x.label)+'</div><div class="row-sub">закрыто вручную</div></div></div>';});
+ document.getElementById('app').innerHTML=head('Свободные окна',d.date)+'<div class="section"><div class="section-title"><strong>Занято сегодня</strong></div><div class="list">'+(rows||'<div class="empty">Занятий сегодня нет</div>')+'</div></div><div class="section"><div class="section-title"><strong>Закрытые периоды</strong></div><div class="list">'+(blocks||'<div class="empty">Ручных блокировок нет</div>')+'</div></div>';
+}
+function renderView(view,d){
+ if(view==='home')renderHome(d);else if(view==='students')renderStudents(d);else if(view==='schedule')renderSchedule(d);else if(view==='homework')renderHomework(d);else if(view==='payments')renderPayments(d);else if(view==='attention')renderAttention(d);else if(view==='tasks')renderTasks(d);else if(view==='attendance')renderAttendance(d);else if(view==='reports')renderReports(d);else if(view==='slots')renderSlots(d);
+}
+async function openView(view){
+ currentView=view;setNav(['home','students','schedule','reports'].indexOf(view)>=0?view:'');
+ document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';
+ try{var p=await api(view);renderView(p.view,p.data);window.scrollTo(0,0);}
+ catch(e){document.getElementById('app').innerHTML='<div class="error">Не удалось открыть раздел. Закрой мини-приложение и открой его снова.</div>';}
+}
 async function boot(){
- var launch=(new URLSearchParams(window.location.search)).get('launch')||'';
  if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="top"><div><span class="eyebrow">ПРЕПОДМИН</span><h1>Главная 💗</h1><div class="sub">Открой этот экран через кнопку «💗 Главная ПРЕПОДМИН» внутри бота.</div></div><div class="avatar">🎓</div></div>';return;}
- try{
-  var r=await fetch('/api/dashboard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData:(tg&&tg.initData)||'',launch:launch})});
-  if(!r.ok)throw new Error('auth');
-  render(await r.json());
- }catch(e){document.getElementById('app').innerHTML='<div class="error">Не удалось загрузить данные. Закрой экран и открой его ещё раз через «💗 Главная ПРЕПОДМИН».</div>';}
+ await openView('home');
 }
 boot();
 </script>
