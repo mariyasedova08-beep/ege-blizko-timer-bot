@@ -192,6 +192,19 @@ def _homework_context(month_key, students):
             ORDER BY received_at
             """
         ).fetchall()
+        try:
+            lesson_times = {
+                int(number): str(event_time or "")
+                for number, event_time in conn.execute(
+                    """
+                    SELECT lesson_number,event_time
+                    FROM course_schedule
+                    WHERE active=1 AND event_type='lesson' AND lesson_number IS NOT NULL
+                    """
+                ).fetchall()
+            }
+        except sqlite3.OperationalError:
+            lesson_times = {}
 
     opportunities = []
     dates = tuple(deadlines._course_dates())
@@ -224,7 +237,17 @@ def _homework_context(month_key, students):
                 dt = _parse_dt(row[0])
                 if dt and (earliest is None or dt < earliest):
                     earliest = dt
-            on_time = bool(earliest and earliest.date() <= due_date)
+            due_clock = lesson_times.get(int(due_no), "")
+            try:
+                hh, mm = map(int, due_clock.split(":")[:2])
+                deadline_dt = datetime.combine(
+                    due_date, time(hh, mm), tzinfo=bot.TIMEZONE
+                )
+            except Exception:
+                deadline_dt = datetime.combine(
+                    due_date, time(23, 59, 59), tzinfo=bot.TIMEZONE
+                )
+            on_time = bool(earliest and earliest <= deadline_dt)
             per_student[sid] = {
                 "done": bool(student_rows),
                 "on_time": on_time,
@@ -235,6 +258,7 @@ def _homework_context(month_key, students):
                 "lesson": int(source_no),
                 "source_date": source_date.isoformat(),
                 "due_date": due_date.isoformat(),
+                "due_time": lesson_times.get(int(due_no), ""),
                 "students": per_student,
             }
         )
@@ -672,6 +696,8 @@ def _build_month_payload(month_key):
     return {
         "month": month_key,
         "label": month_label(month_key),
+        "previous_month": previous_month_key(month_key),
+        "current_month": _month_key(),
         "students": student_cards,
         "student_count": len(student_cards),
         "total_points": sum(x["points"] for x in student_cards),
@@ -806,6 +832,15 @@ def breakthrough_candidates(month_key=None):
             cur_pct = 100 * cur_hw["earned"] / cur_hw["total"]
             prev_pct = 100 * prev_hw["earned"] / prev_hw["total"]
             hw_delta = cur_pct - prev_pct
+        elif cur_hw["total"] >= 2:
+            items = cur_hw.get("items") or []
+            mid = max(1, len(items) // 2)
+            early = items[:mid]
+            late = items[mid:]
+            if early and late:
+                early_pct = 100 * sum(1 for x in early if x.get("on_time")) / len(early)
+                late_pct = 100 * sum(1 for x in late if x.get("on_time")) / len(late)
+                hw_delta = late_pct - early_pct
         if hw_delta is not None:
             score = max(0.0, min(100.0, hw_delta / 40.0 * 100.0))
             components.append((0.30, score))
@@ -1028,6 +1063,12 @@ def student_text(student_id, month_key=None):
         lines.extend(["", "🎁 <b>Ты выиграл(а) скидку 5% на следующий месяц!</b>"])
     if data.get("breakthrough_winner") and int(data["breakthrough_winner"]["student_id"]) == int(student_id):
         lines.extend(["", "🚀 <b>Ты — «Прорыв месяца»!</b>"])
+    if _history:
+        lines.extend(["", "📅 <b>История</b>"])
+        for item in _history[-4:]:
+            lines.append(
+                f"• {month_label(item['month'])}: {item['points']}/{item['possible']} 🐶"
+            )
     return "\n".join(lines)
 
 
