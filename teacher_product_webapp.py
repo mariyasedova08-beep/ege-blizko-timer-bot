@@ -30,6 +30,7 @@ WEBAPP_URL = os.getenv(
     f"https://{PUBLIC_DOMAIN}/webapp" if PUBLIC_DOMAIN else "",
 ).strip()
 MAX_AUTH_AGE = 24 * 60 * 60
+WEBAPP_BUILD = "20260919-2"
 HTML_PATH = Path(__file__).with_name("teacher_product_webapp.html")
 _INSTALLED = False
 
@@ -592,7 +593,7 @@ def _main_keyboard_with_webapp():
 def _launch_markup(uid):
     token = _launch_token(uid)
     sep = "&" if "?" in WEBAPP_URL else "?"
-    url = f"{WEBAPP_URL}{sep}launch={token}"
+    url = f"{WEBAPP_URL}{sep}launch={token}&v={WEBAPP_BUILD}"
     return InlineKeyboardMarkup([[
         InlineKeyboardButton(
             "💗 Открыть главную",
