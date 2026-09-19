@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qsl
 
-from telegram import KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
 from telegram.ext import ApplicationHandlerStop, MessageHandler, filters
 
 import teacher_product_mvp as base
@@ -151,6 +151,37 @@ def _dashboard(uid):
     }
 
 
+def _launch_token(uid, ttl=24 * 60 * 60):
+    expires = int(time.time()) + int(ttl)
+    payload = f"{int(uid)}.{expires}"
+    signature = hmac.new(
+        base.BOT_TOKEN.encode("utf-8"),
+        ("prepodmin-webapp:" + payload).encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"{payload}.{signature}"
+
+
+def _validate_launch_token(token):
+    try:
+        uid_text, exp_text, signature = str(token or "").split(".", 2)
+        uid = int(uid_text)
+        expires = int(exp_text)
+        if expires < int(time.time()):
+            return None
+        payload = f"{uid}.{expires}"
+        expected = hmac.new(
+            base.BOT_TOKEN.encode("utf-8"),
+            ("prepodmin-webapp:" + payload).encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(expected, signature):
+            return None
+        return uid
+    except Exception:
+        return None
+
+
 def _validate_init_data(init_data):
     if not base.BOT_TOKEN or not init_data:
         return None
@@ -223,6 +254,8 @@ class WebAppHandler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
             uid = _validate_init_data(payload.get("initData", ""))
             if not uid:
+                uid = _validate_launch_token(payload.get("launch", ""))
+            if not uid:
                 self._send(401, _json_bytes({"ok": False, "error": "unauthorized"}))
                 return
             data = _dashboard(uid)
@@ -257,14 +290,33 @@ def _main_keyboard_with_webapp():
         row for row in rows
         if not any(getattr(button, "text", button) == "💗 Главная ПРЕПОДМИН" for button in row)
     ]
-    if WEBAPP_URL:
-        rows.insert(0, [
-            KeyboardButton(
-                "💗 Главная ПРЕПОДМИН",
-                web_app=WebAppInfo(url=WEBAPP_URL),
-            )
-        ])
+    rows.insert(0, [KeyboardButton("💗 Главная ПРЕПОДМИН")])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
+
+def _launch_markup(uid):
+    token = _launch_token(uid)
+    sep = "&" if "?" in WEBAPP_URL else "?"
+    url = f"{WEBAPP_URL}{sep}launch={token}"
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            "💗 Открыть главную",
+            web_app=WebAppInfo(url=url),
+        )
+    ]])
+
+
+async def open_webapp(update, context):
+    if not base.teacher(update.effective_user.id):
+        return
+    if not WEBAPP_URL:
+        await update.message.reply_text("Главная сейчас недоступна. Попробуй чуть позже.")
+        return
+    await update.message.reply_text(
+        "💗 <b>ПРЕПОДМИН</b>\n\nОткрывай красивую главную — здесь будут реальные занятия, ДЗ, оплаты, задачи и зона внимания.",
+        parse_mode="HTML",
+        reply_markup=_launch_markup(update.effective_user.id),
+    )
 
 
 async def webapp_action(update, context):
@@ -306,6 +358,72 @@ async def webapp_action(update, context):
         return
 
 
+async def _push_keyboard_migration(context):
+    migration_key = "webapp-auth-launch-v2"
+    with base.db() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS teacher_webapp_migrations (
+                teacher_telegram_user_id INTEGER NOT NULL,
+                migration_key TEXT NOT NULL,
+                sent_at TEXT NOT NULL,
+                PRIMARY KEY(teacher_telegram_user_id,migration_key)
+            )
+            """
+        )
+        teachers = conn.execute(
+            """
+            SELECT telegram_user_id
+            FROM teachers
+            WHERE onboarding_completed_at IS NOT NULL
+            ORDER BY telegram_user_id
+            """
+        ).fetchall()
+        sent_rows = {
+            int(r[0]) for r in conn.execute(
+                "SELECT teacher_telegram_user_id FROM teacher_webapp_migrations WHERE migration_key=?",
+                (migration_key,),
+            ).fetchall()
+        }
+
+    sent = failed = skipped = 0
+    for row in teachers:
+        uid = int(row["telegram_user_id"])
+        if uid in sent_rows:
+            skipped += 1
+            continue
+        try:
+            await context.bot.send_message(
+                chat_id=uid,
+                text=(
+                    "💗 Главная ПРЕПОДМИН обновлена.\n"
+                    "Теперь открывай её через кнопку «💗 Главная ПРЕПОДМИН» снизу."
+                ),
+                reply_markup=base.MAIN_KB,
+            )
+            with base.db() as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO teacher_webapp_migrations(
+                        teacher_telegram_user_id,migration_key,sent_at
+                    ) VALUES(?,?,?)
+                    """,
+                    (uid, migration_key, datetime.utcnow().isoformat()),
+                )
+                conn.commit()
+            sent += 1
+        except Exception as exc:
+            failed += 1
+            print(
+                f"PREPODMIN WebApp keyboard migration failed uid={uid} error={type(exc).__name__}",
+                flush=True,
+            )
+    print(
+        f"PREPODMIN WebApp keyboard migration: sent={sent} skipped={skipped} failed={failed}",
+        flush=True,
+    )
+
+
 def install(app):
     global _INSTALLED
     if _INSTALLED:
@@ -313,10 +431,20 @@ def install(app):
     _INSTALLED = True
     base.MAIN_KB = _main_keyboard_with_webapp()
     app.add_handler(
+        MessageHandler(filters.Regex(r"^💗 Главная ПРЕПОДМИН$"), open_webapp),
+        group=-41,
+    )
+    app.add_handler(
         MessageHandler(filters.StatusUpdate.WEB_APP_DATA, webapp_action),
         group=-40,
     )
+    if app.job_queue is not None:
+        app.job_queue.run_once(
+            _push_keyboard_migration,
+            when=3,
+            name="prepodmin_webapp_keyboard_migration_v2",
+        )
     print(
-        "PREPODMIN WebApp home installed: real dashboard + Telegram quick actions",
+        "PREPODMIN WebApp home installed: authenticated launcher + real dashboard + Telegram quick actions",
         flush=True,
     )
