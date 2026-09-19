@@ -24,6 +24,7 @@ import teacher_product_cancellations as cancellations
 import teacher_product_courses as courses
 import teacher_product_reports as reports
 import teacher_product_webapp as webapp
+import teacher_product_student_webapp as student_webapp
 
 
 def main():
@@ -67,6 +68,7 @@ def main():
     reports.install(app)
     student_messaging.install(app)
     webapp.install(app)
+    student_webapp.install(app)
     app.run_polling(drop_pending_updates=False)
 
 
