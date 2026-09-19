@@ -151,6 +151,260 @@ def _dashboard(uid):
     }
 
 
+def _students_view(uid):
+    students = base.list_students(uid)
+    group_rows = groups.groups(uid)
+    return {
+        "title": "Ученики и группы",
+        "students": [
+            {"id": int(s["id"]), "name": s["name"], "contact": s["contact"] or ""}
+            for s in students
+        ],
+        "groups": [
+            {"id": int(g["id"]), "name": g["name"]}
+            for g in group_rows
+        ],
+    }
+
+
+def _schedule_view(uid):
+    now = datetime.now(schedule.tz(uid))
+    days = []
+    for offset in range(7):
+        day = now.date() + __import__("datetime").timedelta(days=offset)
+        events = today._individual_today(uid, day) + today._group_today(uid, day)
+        events.sort(key=lambda e: (str(e["time"]), e["kind"], str(e["name"]).lower()))
+        days.append({
+            "date": day.strftime("%d.%m"),
+            "weekday": ("Пн","Вт","Ср","Чт","Пт","Сб","Вс")[day.weekday()],
+            "is_today": offset == 0,
+            "events": [
+                {
+                    "time": e["time"],
+                    "name": e["name"],
+                    "kind": "Группа" if e["kind"] == "group" else "Ученик",
+                    "moved": bool(e.get("moved")),
+                }
+                for e in events
+            ],
+        })
+    return {"title": "Расписание", "days": days}
+
+
+def _homework_view(uid):
+    now = datetime.now(schedule.tz(uid)).date()
+    with base.db() as conn:
+        rows = conn.execute(
+            """
+            SELECT h.id,h.homework_text,h.due_date,h.target_kind,h.target_id,
+                   COUNT(*) AS total,
+                   SUM(CASE WHEN hs.status='done' THEN 1 ELSE 0 END) AS done
+            FROM teacher_homework h
+            LEFT JOIN teacher_homework_status hs ON hs.assignment_id=h.id
+            WHERE h.teacher_telegram_user_id=? AND h.active=1
+            GROUP BY h.id,h.homework_text,h.due_date,h.target_kind,h.target_id
+            ORDER BY h.due_date,h.id
+            LIMIT 60
+            """,
+            (int(uid),),
+        ).fetchall()
+        group_map = {
+            int(r["id"]): r["name"]
+            for r in conn.execute(
+                "SELECT id,name FROM teacher_groups WHERE teacher_telegram_user_id=?",
+                (int(uid),),
+            ).fetchall()
+        }
+        student_map = {
+            int(r["id"]): r["name"]
+            for r in conn.execute(
+                "SELECT id,name FROM students WHERE teacher_telegram_user_id=?",
+                (int(uid),),
+            ).fetchall()
+        }
+    items = []
+    for r in rows:
+        target = (
+            group_map.get(int(r["target_id"]), "Группа")
+            if r["target_kind"] == "group"
+            else student_map.get(int(r["target_id"]), "Ученик")
+        )
+        due = r["due_date"]
+        items.append({
+            "text": r["homework_text"],
+            "due": due,
+            "target": target,
+            "done": int(r["done"] or 0),
+            "total": int(r["total"] or 0),
+            "overdue": due < now.isoformat() and int(r["done"] or 0) < int(r["total"] or 0),
+        })
+    return {"title": "Домашние задания", "items": items}
+
+
+def _payments_view(uid):
+    now = datetime.now(schedule.tz(uid)).date()
+    with base.db() as conn:
+        rows = conn.execute(
+            """
+            SELECT s.name,p.payment_type,p.amount_rub,p.next_due_date,p.active,
+                   p.lessons_total,p.lessons_remaining
+            FROM students s
+            LEFT JOIN student_payment_plans p
+              ON p.student_id=s.id
+             AND p.teacher_telegram_user_id=s.teacher_telegram_user_id
+            WHERE s.teacher_telegram_user_id=? AND s.active=1
+            ORDER BY CASE WHEN p.next_due_date IS NULL THEN 1 ELSE 0 END,
+                     p.next_due_date,lower(s.name)
+            """,
+            (int(uid),),
+        ).fetchall()
+    items = []
+    for r in rows:
+        status = "Не настроено"
+        level = "muted"
+        if r["payment_type"] and int(r["active"] or 0):
+            if r["payment_type"] == "package":
+                left = int(r["lessons_remaining"] or 0)
+                total = int(r["lessons_total"] or 0)
+                status = f"Осталось {left}/{total} занятий"
+                level = "bad" if left <= 0 else "ok"
+            else:
+                due = r["next_due_date"]
+                if due:
+                    if due < now.isoformat():
+                        status = "Просрочено"
+                        level = "bad"
+                    elif due == now.isoformat():
+                        status = "Оплата сегодня"
+                        level = "warn"
+                    else:
+                        status = "До " + datetime.fromisoformat(due).strftime("%d.%m")
+                        level = "ok"
+        items.append({
+            "name": r["name"],
+            "amount": int(r["amount_rub"] or 0),
+            "status": status,
+            "level": level,
+        })
+    return {"title": "Оплаты", "items": items}
+
+
+def _attention_view(uid):
+    rows = reports.attention_rows(uid)
+    return {
+        "title": "Зона внимания",
+        "items": [
+            {"name": name, "scope": scope, "reasons": reasons}
+            for name, scope, reasons, _cb in rows
+        ],
+    }
+
+
+def _tasks_view(uid):
+    today_date = datetime.now(schedule.tz(uid)).date()
+    with base.db() as conn:
+        rows = conn.execute(
+            """
+            SELECT id,title,due_date,due_time,task_kind
+            FROM teacher_tasks
+            WHERE teacher_telegram_user_id=? AND completed=0
+            ORDER BY due_date,
+                     CASE WHEN due_time IS NULL THEN 1 ELSE 0 END,
+                     due_time,id
+            LIMIT 80
+            """,
+            (int(uid),),
+        ).fetchall()
+    return {
+        "title": "Задачи",
+        "items": [
+            {
+                "title": r["title"],
+                "due_date": r["due_date"],
+                "due_time": r["due_time"] or "",
+                "kind": r["task_kind"] or "work",
+                "overdue": r["due_date"] < today_date.isoformat(),
+            }
+            for r in rows
+        ],
+    }
+
+
+def _attendance_view(uid):
+    start, end = reports._range(uid, 30)
+    indiv, members = reports._all_subjects(uid)
+    a = reports._aggregate(uid, indiv, members, start, end)
+    total = a["present"] + a["absent"]
+    pct = None if not total else round(100 * a["present"] / total)
+    return {
+        "title": "Посещаемость",
+        "period": f"{start.strftime('%d.%m')}–{end.strftime('%d.%m')}",
+        "present": a["present"],
+        "absent": a["absent"],
+        "percent": pct,
+    }
+
+
+def _reports_view(uid):
+    start, end = reports._range(uid, 30)
+    indiv, members = reports._all_subjects(uid)
+    a = reports._aggregate(uid, indiv, members, start, end)
+    attendance_total = a["present"] + a["absent"]
+    return {
+        "title": "Отчёты",
+        "period": f"{start.strftime('%d.%m')}–{end.strftime('%d.%m')}",
+        "learners": a["learners"],
+        "attendance": None if not attendance_total else round(100 * a["present"] / attendance_total),
+        "homework": None if not a["hw_total"] else round(100 * a["done"] / a["hw_total"]),
+        "overdue_homework": a["overdue"],
+        "payment_issues": a["payment_issues"],
+        "attention": len(reports.attention_rows(uid)),
+    }
+
+
+def _slots_view(uid):
+    now = datetime.now(schedule.tz(uid))
+    day = now.date()
+    events = today._individual_today(uid, day) + today._group_today(uid, day)
+    events.sort(key=lambda e: str(e["time"]))
+    with base.db() as conn:
+        blocks = conn.execute(
+            """
+            SELECT start_time,end_time,label
+            FROM teacher_slot_blocks
+            WHERE teacher_telegram_user_id=? AND block_date=?
+            ORDER BY start_time
+            """,
+            (int(uid), day.isoformat()),
+        ).fetchall()
+    return {
+        "title": "Свободные окна",
+        "date": day.strftime("%d.%m.%Y"),
+        "busy": [{"time": e["time"], "name": e["name"]} for e in events],
+        "blocks": [
+            {"start": r["start_time"], "end": r["end_time"], "label": r["label"] or "Закрыто"}
+            for r in blocks
+        ],
+    }
+
+
+def _view(uid, name):
+    builders = {
+        "home": _dashboard,
+        "students": _students_view,
+        "schedule": _schedule_view,
+        "homework": _homework_view,
+        "payments": _payments_view,
+        "attention": _attention_view,
+        "tasks": _tasks_view,
+        "attendance": _attendance_view,
+        "reports": _reports_view,
+        "slots": _slots_view,
+    }
+    builder = builders.get(name)
+    return builder(uid) if builder else None
+
+
 def _launch_token(uid, ttl=24 * 60 * 60):
     expires = int(time.time()) + int(ttl)
     payload = f"{int(uid)}.{expires}"
@@ -258,11 +512,12 @@ class WebAppHandler(BaseHTTPRequestHandler):
             if not uid:
                 self._send(401, _json_bytes({"ok": False, "error": "unauthorized"}))
                 return
-            data = _dashboard(uid)
+            view_name = str(payload.get("view") or "home")
+            data = _view(uid, view_name)
             if not data:
-                self._send(403, _json_bytes({"ok": False, "error": "not_onboarded"}))
+                self._send(403, _json_bytes({"ok": False, "error": "not_available"}))
                 return
-            self._send(200, _json_bytes(data))
+            self._send(200, _json_bytes({"view": view_name, "data": data}))
         except Exception as exc:
             print(f"PREPODMIN WebApp api error: {type(exc).__name__}: {exc}", flush=True)
             self._send(400, _json_bytes({"ok": False, "error": "bad_request"}))
