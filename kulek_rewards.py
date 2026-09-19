@@ -1136,13 +1136,58 @@ def _admin_markup(month_key=None):
     return InlineKeyboardMarkup(rows)
 
 
+def _attendance_snapshot(lesson_number):
+    """Read saved attendance for one lesson without changing attendance state."""
+    live79.live31.live30.live3.ensure_attendance_tables()
+    students = _student_rows()
+    active_ids = {int(student[0]) for student in students}
+
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        session = conn.execute(
+            "SELECT finalized FROM attendance_sessions WHERE lesson_number=?",
+            (int(lesson_number),),
+        ).fetchone()
+        rows = conn.execute(
+            """
+            SELECT student_id,status
+            FROM attendance_records
+            WHERE lesson_number=?
+            """,
+            (int(lesson_number),),
+        ).fetchall()
+
+    records = {
+        int(student_id): str(status)
+        for student_id, status in rows
+        if int(student_id) in active_ids
+    }
+    finalized = bool(session and session[0])
+    present = sum(1 for status in records.values() if status == "present")
+    absent = sum(1 for status in records.values() if status == "absent")
+    total = len(active_ids)
+    return {
+        "finalized": finalized,
+        "records": records,
+        "present": present,
+        "absent": absent,
+        "total": total,
+    }
+
+
+def _attendance_lesson_suffix(lesson_number):
+    attendance = _attendance_snapshot(lesson_number)
+    if attendance["finalized"]:
+        return f" · 👥 {attendance['present']}/{attendance['total']}"
+    if attendance["records"]:
+        return " · 📝 посещение не сохранено"
+    return " · ⚪ нет посещения"
+
+
 def _recent_lessons_markup():
     dates = tuple(deadlines._course_dates())
     today = datetime.now(bot.TIMEZONE).date()
 
-    # Filter past lessons first, then take the most recent ones. Previously the
-    # code took the final lessons of the whole course (mostly future dates) and
-    # only afterwards filtered the future, which could leave an empty list.
+    # Filter past lessons first, then take the most recent ones.
     past_lessons = [
         (lesson_no, lesson_date)
         for lesson_no, lesson_date in enumerate(dates, 1)
@@ -1153,7 +1198,10 @@ def _recent_lessons_markup():
     for lesson_no, lesson_date in past_lessons[-8:]:
         rows.append([
             InlineKeyboardButton(
-                f"Урок №{lesson_no} · {lesson_date:%d.%m}",
+                (
+                    f"Урок №{lesson_no} · {lesson_date:%d.%m}"
+                    f"{_attendance_lesson_suffix(lesson_no)}"
+                ),
                 callback_data=f"cab:kulek:practice:{lesson_no}",
             )
         ])
@@ -1161,8 +1209,39 @@ def _recent_lessons_markup():
     return InlineKeyboardMarkup(rows)
 
 
+def _practice_lesson_text(lesson_number, lesson_date):
+    attendance = _attendance_snapshot(lesson_number)
+    if attendance["finalized"]:
+        attendance_text = (
+            f"👥 Посещение сохранено: "
+            f"<b>{attendance['present']}/{attendance['total']}</b> были на уроке, "
+            f"<b>{attendance['absent']}</b> отсутствовали."
+        )
+        legend = "✅ был(а) · ❌ отсутствовал(а)"
+    elif attendance["records"]:
+        attendance_text = (
+            "📝 Посещаемость по этому уроку есть только в черновике и ещё не сохранена. "
+            "До сохранения я не считаю её фактическим посещением."
+        )
+        legend = "❔ посещение ещё не подтверждено"
+    else:
+        attendance_text = "⚪ По этому уроку посещаемость ещё не сохранена."
+        legend = "❔ посещение ещё не подтверждено"
+
+    return (
+        f"🐶 <b>Урок №{lesson_number} · {lesson_date:%d.%m}</b>\n\n"
+        f"{attendance_text}\n\n"
+        f"{legend}\n"
+        "🐶 Кулёчек выдан · ○ не выдан\n\n"
+        "Нажми на ребёнка — Кулёчек сразу сохранится. "
+        "Повторное нажатие снимет награду."
+    )
+
+
 def _practice_students_markup(lesson_number):
     month_key, _lesson_date = mark_practical_lesson(lesson_number)
+    attendance = _attendance_snapshot(lesson_number)
+
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
         awarded = {
             int(row[0])
@@ -1174,19 +1253,31 @@ def _practice_students_markup(lesson_number):
                 (month_key, int(lesson_number)),
             ).fetchall()
         }
+
     rows = []
     for student in _student_rows():
         sid = int(student[0])
-        icon = "🐶" if sid in awarded else "○"
+        reward_icon = "🐶" if sid in awarded else "○"
+
+        if attendance["finalized"]:
+            status = attendance["records"].get(sid)
+            if status == "present":
+                attendance_icon = "✅"
+            elif status == "absent":
+                attendance_icon = "❌"
+            else:
+                attendance_icon = "❔"
+        else:
+            attendance_icon = "❔"
+
         rows.append([
             InlineKeyboardButton(
-                f"{icon} {live34._shown_name(student)}",
+                f"{attendance_icon} {reward_icon} {live34._shown_name(student)}",
                 callback_data=f"cab:kulek:p:{int(lesson_number)}:{sid}",
             )
         ])
     rows.append([InlineKeyboardButton("✅ Готово", callback_data="cab:kulek")])
     return InlineKeyboardMarkup(rows)
-
 
 def _eligible_text(month_key):
     data = month_payload(month_key, force=True)
@@ -1502,9 +1593,7 @@ def install():
             month_key, lesson_date = mark_practical_lesson(lesson)
             await query.answer("Практический урок отмечен")
             await query.edit_message_text(
-                f"🐶 <b>Урок №{lesson} · {lesson_date:%d.%m}</b>\n\n"
-                "Нажми на ребёнка — Кулёчек сразу сохранится. "
-                "Если нажмёшь повторно, Кулёчек снимется.",
+                _practice_lesson_text(lesson, lesson_date),
                 parse_mode="HTML",
                 reply_markup=_practice_students_markup(lesson),
             )
@@ -1523,9 +1612,7 @@ def install():
             dates = tuple(deadlines._course_dates())
             lesson_date = dates[lesson - 1]
             await query.edit_message_text(
-                f"🐶 <b>Урок №{lesson} · {lesson_date:%d.%m}</b>\n\n"
-                "Нажми на ребёнка — Кулёчек сразу сохранится. "
-                "Если нажмёшь повторно, Кулёчек снимется.",
+                _practice_lesson_text(lesson, lesson_date),
                 parse_mode="HTML",
                 reply_markup=_practice_students_markup(lesson),
             )
