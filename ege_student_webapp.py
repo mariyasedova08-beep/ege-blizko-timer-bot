@@ -45,6 +45,8 @@ _previous_post = None
 _previous_markup = None
 _previous_callback = None
 _previous_show = None
+_previous_admin_markup = None
+_previous_admin_callback = None
 
 
 def _launch_token(telegram_user_id, ttl=6 * 60 * 60):
@@ -506,6 +508,103 @@ def _patch_student_cabinet():
     student_cabinet.student_cabinet_callback = callback
 
 
+
+def _patch_admin_preview():
+    """Let Maria open the exact live cabinet of any linked student."""
+    global _previous_admin_markup, _previous_admin_callback
+    live23 = live79.live23
+    _previous_admin_markup = live23.cabinet_markup
+    _previous_admin_callback = live23.cabinet_callback
+
+    def cabinet_markup():
+        base = _previous_admin_markup()
+        rows = [list(row) for row in base.inline_keyboard]
+        if not any(
+            getattr(button, "callback_data", "") == "cab:studentapp"
+            for row in rows for button in row
+        ):
+            insert_at = 1 if rows else 0
+            rows.insert(
+                insert_at,
+                [InlineKeyboardButton(
+                    "👀 Посмотреть кабинет ученика",
+                    callback_data="cab:studentapp",
+                )],
+            )
+        return InlineKeyboardMarkup(rows)
+
+    async def cabinet_callback(update, context):
+        query = update.callback_query
+        data = str(query.data or "") if query else ""
+        if not data.startswith("cab:studentapp"):
+            return await _previous_admin_callback(update, context)
+
+        if not live23._admin_private(update):
+            await query.answer("Только для преподавателя")
+            return
+
+        if data == "cab:studentapp":
+            await query.answer()
+            with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+                students = conn.execute(
+                    """
+                    SELECT id,
+                           coalesce(nullif(display_name,''),nullif(user_name,''),user_email,'Ученик'),
+                           telegram_user_id
+                    FROM students
+                    WHERE active=1 AND telegram_user_id IS NOT NULL
+                    ORDER BY 2 COLLATE NOCASE
+                    """
+                ).fetchall()
+            rows = [
+                [InlineKeyboardButton(
+                    str(name),
+                    callback_data=f"cab:studentapp:{int(student_id)}",
+                )]
+                for student_id, name, telegram_id in students
+            ]
+            rows.append([InlineKeyboardButton("← В кабинет", callback_data="cab:back")])
+            await query.edit_message_text(
+                "👀 <b>Посмотреть кабинет ученика</b>\n\n"
+                "Выбери ребёнка — откроется ровно тот же личный кабинет, "
+                "который видит он.",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(rows),
+            )
+            return
+
+        try:
+            student_id = int(data.rsplit(":", 1)[1])
+        except Exception:
+            await query.answer("Не удалось определить ученика")
+            return
+
+        student = student_cabinet._student_by_id(student_id)
+        if not student or student[5] is None:
+            await query.answer("У ученика не привязан Telegram", show_alert=True)
+            return
+
+        await query.answer()
+        await query.message.reply_text(
+            f"👀 <b>{student[1]} — личный кабинет</b>\n\n"
+            "Это живая версия с теми же данными, которые видит ученик.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton(
+                    "💗 Открыть кабинет ученика",
+                    url=_launcher_url(int(student[5])),
+                )
+            ], [
+                InlineKeyboardButton(
+                    "← Выбрать другого",
+                    callback_data="cab:studentapp",
+                )
+            ]]),
+        )
+
+    live23.cabinet_markup = cabinet_markup
+    live23.cabinet_callback = cabinet_callback
+
 def install():
     global _INSTALLED, _previous_get, _previous_post
     if _INSTALLED:
@@ -517,6 +616,7 @@ def install():
     bot.CoreAppWebhookHandler.do_GET = _http_get
     bot.CoreAppWebhookHandler.do_POST = _http_post
     _patch_student_cabinet()
+    _patch_admin_preview()
 
     ok = 0
     linked = []
