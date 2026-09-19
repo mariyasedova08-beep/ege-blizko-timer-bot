@@ -1,9 +1,11 @@
 """Private admin-only WebApp for EGE BLIZKO."""
 
 import hashlib
+import html as html_lib
 import hmac
 import json
 import os
+import re
 import sqlite3
 import time
 import traceback
@@ -32,7 +34,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20260919-3"
+WEBAPP_BUILD = "20260919-4"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 _INSTALLED = False
 
@@ -442,6 +444,212 @@ def _probnik_payload():
     }
 
 
+_CORE_COURSE_CACHE = {"fetched_at": 0.0, "items": []}
+
+
+def _core_course_ids():
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        return [
+            str(row[0] or "").strip()
+            for row in conn.execute(
+                """
+                SELECT DISTINCT course_id
+                FROM students
+                WHERE active=1 AND coalesce(course_id,'')!=''
+                """
+            ).fetchall()
+            if str(row[0] or "").strip()
+        ]
+
+
+def _final_homework_catalog(force=False):
+    now = time.time()
+    if (
+        not force
+        and _CORE_COURSE_CACHE["items"]
+        and now - float(_CORE_COURSE_CACHE["fetched_at"] or 0) < 600
+    ):
+        return list(_CORE_COURSE_CACHE["items"])
+
+    items = []
+    seen = set()
+    for course_id in _core_course_ids():
+        try:
+            req = Request(
+                f"https://coreapp.ai/app/player/course/{course_id}",
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            with urlopen(req, timeout=12) as resp:
+                body = resp.read(1000000).decode("utf-8", errors="ignore")
+        except Exception as exc:
+            print(
+                f"EGE final homework catalog fetch failed course={course_id}: "
+                f"{type(exc).__name__}: {exc}",
+                flush=True,
+            )
+            continue
+
+        # CORE renders published course lessons in anchor blocks. We keep only
+        # explicit final-homework / examination lessons, so ordinary homework
+        # never leaks into this statistic.
+        pattern = re.compile(
+            r'href="[^"]*/lesson/([0-9a-fA-F]{12,})"[^>]*>(.*?)</a>',
+            re.DOTALL,
+        )
+        for match in pattern.finditer(body):
+            lesson_id = match.group(1)
+            block = match.group(2)
+            texts = re.findall(r'>([^<>]{2,})<', block)
+            title = " ".join(
+                html_lib.unescape(t).strip()
+                for t in texts
+                if html_lib.unescape(t).strip()
+            )
+            title = re.sub(r"\s+", " ", title).strip()
+            norm = title.casefold().replace("ё", "е")
+            if "итоговая домашняя работа" not in norm:
+                continue
+            # Remove visual index/badge noise if it was captured.
+            title = re.sub(r"^\d+(?:\.\d+)?\s+", "", title)
+            title = re.sub(r"\s+Examination\s*$", "", title, flags=re.I)
+            key = (course_id, lesson_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            items.append(
+                {
+                    "course_id": course_id,
+                    "lesson_id": lesson_id,
+                    "title": title or "Итоговая домашняя работа",
+                }
+            )
+
+    _CORE_COURSE_CACHE["fetched_at"] = now
+    _CORE_COURSE_CACHE["items"] = list(items)
+    return items
+
+
+def _final_homework_payload():
+    catalog = _final_homework_catalog()
+    students = live34._student_rows()
+
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        submissions = conn.execute(
+            """
+            SELECT user_id,lower(user_email),lesson_id,lesson_name,
+                   correct_count,total_count,received_at
+            FROM homework_submissions
+            """
+        ).fetchall()
+
+    student_by_id = {int(row[0]): row for row in students}
+    identity_by_student = {
+        int(row[0]): (
+            str(row[4] or "").strip(),
+            str(row[3] or "").strip().casefold(),
+        )
+        for row in students
+    }
+
+    works = []
+    student_done = {int(row[0]): set() for row in students}
+
+    for item in catalog:
+        lesson_id = str(item["lesson_id"])
+        title_norm = re.sub(r"\s+", " ", str(item["title"]).casefold().replace("ё", "е")).strip()
+        relevant = []
+        for row in submissions:
+            uid, email, sub_lesson_id, sub_name, correct, total, received_at = row
+            sub_id = str(sub_lesson_id or "").strip()
+            sub_norm = re.sub(
+                r"\s+", " ", str(sub_name or "").casefold().replace("ё", "е")
+            ).strip()
+            if sub_id == lesson_id or (
+                title_norm
+                and sub_norm
+                and (sub_norm == title_norm or title_norm in sub_norm or sub_norm in title_norm)
+            ):
+                relevant.append(row)
+
+        done_student_ids = set()
+        scores = []
+        latest_at = ""
+        for uid, email, _sub_lesson_id, _sub_name, correct, total, received_at in relevant:
+            uid = str(uid or "").strip()
+            email_norm = str(email or "").strip().casefold()
+            for sid, (core_id, student_email) in identity_by_student.items():
+                if (core_id and uid and core_id == uid) or (
+                    student_email and email_norm and student_email == email_norm
+                ):
+                    done_student_ids.add(sid)
+                    student_done[sid].add(lesson_id)
+                    break
+            try:
+                correct_n = float(str(correct).replace(",", "."))
+                total_n = float(str(total).replace(",", "."))
+                if total_n > 0:
+                    scores.append(round(correct_n * 100 / total_n, 1))
+            except Exception:
+                pass
+            if received_at and str(received_at) > latest_at:
+                latest_at = str(received_at)
+
+        missing_ids = [
+            int(row[0]) for row in students if int(row[0]) not in done_student_ids
+        ]
+        works.append(
+            {
+                **item,
+                "done": len(done_student_ids),
+                "missing": len(missing_ids),
+                "total": len(students),
+                "started": bool(relevant),
+                "average_accuracy": (
+                    round(sum(scores) / len(scores), 1) if scores else None
+                ),
+                "missing_names": [
+                    live34._shown_name(student_by_id[sid]) for sid in missing_ids
+                ],
+                "latest_submission_at": latest_at,
+            }
+        )
+
+    per_student = []
+    total_works = len(catalog)
+    for student in students:
+        sid = int(student[0])
+        done_count = len(student_done.get(sid, set()))
+        per_student.append(
+            {
+                "student_id": sid,
+                "name": live34._shown_name(student),
+                "done": done_count,
+                "total": total_works,
+                "missing": max(0, total_works - done_count),
+                "percent": round(100 * done_count / total_works) if total_works else 0,
+                "items": [
+                    {
+                        "lesson_id": item["lesson_id"],
+                        "title": item["title"],
+                        "done": item["lesson_id"] in student_done.get(sid, set()),
+                    }
+                    for item in catalog
+                ],
+            }
+        )
+    per_student.sort(key=lambda x: (x["percent"], x["name"].casefold()))
+
+    started = [w for w in works if w["started"]]
+    return {
+        "catalog_count": len(catalog),
+        "students_total": len(students),
+        "started_count": len(started),
+        "completed_submissions": sum(w["done"] for w in works),
+        "works": works,
+        "students": per_student,
+    }
+
+
 def _recordings_payload():
     lesson_recordings.ensure_tables()
     rows = lesson_recordings._saved_rows()
@@ -464,6 +672,7 @@ def _home():
     payments = _payments_payload()
     recordings = _recordings_payload()
     probniki = _probnik_payload()
+    final_hw = _final_homework_payload()
 
     lesson_number = bot.get_course_lesson_number(today)
     percent = round(100 * lesson_number / bot.TOTAL_LESSONS) if bot.TOTAL_LESSONS else 0
@@ -486,6 +695,8 @@ def _home():
             "recordings": len(recordings),
             "probniki_students": probniki["overall"]["students_with_results"],
             "probniki_results": probniki["overall"]["results_total"],
+            "final_homework": final_hw["catalog_count"],
+            "final_homework_started": final_hw["started_count"],
         },
         "today_events": _events(today),
         "tomorrow_events": _events(tomorrow),
@@ -495,6 +706,13 @@ def _home():
             "latest": probniki["latest"],
             "overall": probniki["overall"],
             "weak_group": probniki["weak_group"],
+        },
+        "final_homework": {
+            "catalog_count": final_hw["catalog_count"],
+            "started_count": final_hw["started_count"],
+            "completed_submissions": final_hw["completed_submissions"],
+            "students_total": final_hw["students_total"],
+            "works": final_hw["works"][:3],
         },
     }
 
@@ -541,6 +759,8 @@ def _view(name):
         return {"items": _recordings_payload()}
     if name == "probniki":
         return _probnik_payload()
+    if name == "final_homework":
+        return _final_homework_payload()
     return None
 
 
@@ -780,75 +1000,20 @@ def install():
     live7.start_router = _start_router
 
     try:
-        with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
-            hw_names = conn.execute(
-                """
-                SELECT lesson_name, lesson_id, COUNT(*) AS c
-                FROM homework_submissions
-                GROUP BY lesson_name,lesson_id
-                ORDER BY MAX(id) DESC
-                LIMIT 80
-                """
-            ).fetchall()
-            raw_row = conn.execute(
-                """
-                SELECT raw_json
-                FROM homework_submissions
-                ORDER BY id DESC LIMIT 1
-                """
-            ).fetchone()
-        raw_keys = []
-        if raw_row and raw_row[0]:
-            try:
-                payload = json.loads(raw_row[0])
-                raw_keys = sorted(str(k) for k in payload.keys())
-            except Exception:
-                pass
-        with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
-            course_ids = [
-                str(row[0] or "")
-                for row in conn.execute(
-                    "SELECT DISTINCT course_id FROM students WHERE active=1 AND coalesce(course_id,'')!=''"
-                ).fetchall()
-            ]
-        print("EGE CORE COURSE IDS " + repr(course_ids), flush=True)
-        for course_id in course_ids[:3]:
-            try:
-                req = Request(
-                    f"https://coreapp.ai/app/player/course/{course_id}",
-                    headers={"User-Agent": "Mozilla/5.0"},
-                )
-                with urlopen(req, timeout=12) as resp:
-                    body = resp.read(500000).decode("utf-8", errors="ignore")
-                    print(
-                        "EGE CORE COURSE FETCH "
-                        f"id={course_id} status={getattr(resp, 'status', 200)} "
-                        f"len={len(body)} has_itog={('итог' in body.casefold())} "
-                        f"has_homework={('домаш' in body.casefold())}",
-                        flush=True,
-                    )
-                    for needle in ("итог", "финал", "домаш"):
-                        pos = body.casefold().find(needle)
-                        if pos >= 0:
-                            snippet = body[max(0,pos-220):pos+420].replace("\n"," ")
-                            print(
-                                f"EGE CORE COURSE SNIPPET {needle}=" + repr(snippet[:650]),
-                                flush=True,
-                            )
-            except Exception as exc:
-                print(
-                    f"EGE CORE COURSE FETCH failed id={course_id}: "
-                    f"{type(exc).__name__}: {exc}",
-                    flush=True,
-                )
+        final_check = _final_homework_payload()
         print(
-            "EGE HOMEWORK TYPE DIAG names="
-            + repr([(str(n or ""), str(i or ""), int(cnt or 0)) for n,i,cnt in hw_names])
-            + " raw_keys=" + repr(raw_keys),
+            "EGE final homework check: "
+            f"catalog={final_check['catalog_count']} "
+            f"started={final_check['started_count']} "
+            f"students={final_check['students_total']} "
+            f"submissions={final_check['completed_submissions']}",
             flush=True,
         )
     except Exception as exc:
-        print(f"EGE HOMEWORK TYPE DIAG failed: {type(exc).__name__}: {exc}", flush=True)
+        print(
+            f"EGE final homework check failed: {type(exc).__name__}: {exc}",
+            flush=True,
+        )
 
     try:
         check = _probnik_payload()
