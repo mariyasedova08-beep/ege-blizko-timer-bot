@@ -23,6 +23,7 @@ import teacher_product_transfer_enhancements as transfer_enhancements
 import teacher_product_cancellations as cancellations
 import teacher_product_courses as courses
 import teacher_product_reports as reports
+import teacher_product_webapp as webapp
 
 
 def main():
@@ -41,6 +42,7 @@ def main():
     cancellations.ensure_tables()
     courses.ensure_tables()
     reports.ensure_tables()
+    webapp.install_server()
     threading.Thread(target=base.start_health_server, daemon=True).start()
     print("Teacher Product MVP ready: schedule + reminders + payments + subscriptions + today-actions + tomorrow + availability-slots + homework + attendance + group-members + courses + reports + student-messaging + tasks + private voice beta", flush=True)
     if not base.BOT_TOKEN:
@@ -64,6 +66,7 @@ def main():
     courses.install(app)
     reports.install(app)
     student_messaging.install(app)
+    webapp.install(app)
     app.run_polling(drop_pending_updates=False)
 
 
