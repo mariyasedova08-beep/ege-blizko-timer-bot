@@ -30,7 +30,7 @@ WEBAPP_URL = os.getenv(
     f"https://{PUBLIC_DOMAIN}/webapp" if PUBLIC_DOMAIN else "",
 ).strip()
 MAX_AUTH_AGE = 24 * 60 * 60
-WEBAPP_BUILD = "20260919-2"
+WEBAPP_BUILD = "20260919-3"
 HTML_PATH = Path(__file__).with_name("teacher_product_webapp.html")
 _INSTALLED = False
 
@@ -508,7 +508,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
-        if path not in {"/api/dashboard", "/api/student", "/api/student/action"}:
+        if path not in {"/api/dashboard", "/api/student", "/api/student/action", "/api/client-error"}:
             self._send(404, _json_bytes({"ok": False, "error": "not_found"}))
             return
         try:
@@ -516,6 +516,17 @@ class WebAppHandler(BaseHTTPRequestHandler):
             if length <= 0 or length > 20000:
                 raise ValueError("bad length")
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
+
+            if path == "/api/client-error":
+                print(
+                    "PREPODMIN WEBAPP CLIENT ERROR "
+                    f"role={str(payload.get('role') or '')[:20]} "
+                    f"where={str(payload.get('where') or '')[:80]} "
+                    f"message={str(payload.get('message') or '')[:500]}",
+                    flush=True,
+                )
+                self._send(200, _json_bytes({"ok": True}))
+                return
 
             uid = _validate_init_data(payload.get("initData", ""))
             if path == "/api/dashboard":
