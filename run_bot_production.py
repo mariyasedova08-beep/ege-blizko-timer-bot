@@ -199,6 +199,11 @@ def main():
     import ege_admin_webapp
     ege_admin_webapp.install()
 
+    # Monthly Kulyochki: automatic rewards, practical-lesson awards,
+    # student cabinet, discount draw and breakthrough-of-the-month flow.
+    import kulek_rewards
+    kulek_rewards.install()
+
     live90.live79.live24.main()
 
 
