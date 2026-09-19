@@ -1139,17 +1139,24 @@ def _admin_markup(month_key=None):
 def _recent_lessons_markup():
     dates = tuple(deadlines._course_dates())
     today = datetime.now(bot.TIMEZONE).date()
+
+    # Filter past lessons first, then take the most recent ones. Previously the
+    # code took the final lessons of the whole course (mostly future dates) and
+    # only afterwards filtered the future, which could leave an empty list.
+    past_lessons = [
+        (lesson_no, lesson_date)
+        for lesson_no, lesson_date in enumerate(dates, 1)
+        if lesson_date <= today
+    ]
+
     rows = []
-    for lesson_no, lesson_date in list(enumerate(dates, 1))[-20:]:
-        if lesson_date > today:
-            continue
+    for lesson_no, lesson_date in past_lessons[-8:]:
         rows.append([
             InlineKeyboardButton(
                 f"Урок №{lesson_no} · {lesson_date:%d.%m}",
                 callback_data=f"cab:kulek:practice:{lesson_no}",
             )
         ])
-    rows = rows[-8:]
     rows.append([InlineKeyboardButton("← К Кулёчкам", callback_data="cab:kulek")])
     return InlineKeyboardMarkup(rows)
 
