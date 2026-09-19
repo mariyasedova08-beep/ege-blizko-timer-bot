@@ -191,6 +191,10 @@ def main():
     import student_keyboard_compact
     student_keyboard_compact.install()
 
+    # Private beautiful admin WebApp: Maria only. Do not expose to students/tutor/parents.
+    import ege_admin_webapp
+    ege_admin_webapp.install()
+
     live90.live79.live24.main()
 
 
