@@ -35,7 +35,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20260919-5"
+WEBAPP_BUILD = "20260919-6"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 _INSTALLED = False
 
@@ -445,6 +445,61 @@ def _probnik_payload():
     }
 
 
+def _ensure_final_homework_catalog_table():
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS final_homework_catalog (
+                course_id TEXT NOT NULL,
+                lesson_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                synced_at TEXT NOT NULL,
+                PRIMARY KEY(course_id, lesson_id)
+            )
+            """
+        )
+        conn.commit()
+
+
+def _saved_final_homework_catalog():
+    _ensure_final_homework_catalog_table()
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        rows = conn.execute(
+            """
+            SELECT course_id,lesson_id,title
+            FROM final_homework_catalog
+            ORDER BY rowid
+            """
+        ).fetchall()
+    return [
+        {"course_id": str(course_id), "lesson_id": str(lesson_id), "title": str(title)}
+        for course_id, lesson_id, title in rows
+    ]
+
+
+def _save_final_homework_catalog(items):
+    _ensure_final_homework_catalog_table()
+    now = datetime.now(bot.TIMEZONE).isoformat()
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        for item in items:
+            conn.execute(
+                """
+                INSERT INTO final_homework_catalog(course_id,lesson_id,title,synced_at)
+                VALUES(?,?,?,?)
+                ON CONFLICT(course_id,lesson_id) DO UPDATE SET
+                    title=excluded.title,
+                    synced_at=excluded.synced_at
+                """,
+                (
+                    str(item["course_id"]),
+                    str(item["lesson_id"]),
+                    str(item["title"]),
+                    now,
+                ),
+            )
+        conn.commit()
+
+
 _CORE_COURSE_CACHE = {"fetched_at": 0.0, "items": []}
 
 
@@ -465,12 +520,17 @@ def _core_course_ids():
 
 def _final_homework_catalog(force=False):
     now = time.time()
-    if (
-        not force
-        and _CORE_COURSE_CACHE["items"]
-        and now - float(_CORE_COURSE_CACHE["fetched_at"] or 0) < 600
-    ):
-        return list(_CORE_COURSE_CACHE["items"])
+    if not force:
+        if (
+            _CORE_COURSE_CACHE["items"]
+            and now - float(_CORE_COURSE_CACHE["fetched_at"] or 0) < 600
+        ):
+            return list(_CORE_COURSE_CACHE["items"])
+        saved = _saved_final_homework_catalog()
+        if saved:
+            _CORE_COURSE_CACHE["fetched_at"] = now
+            _CORE_COURSE_CACHE["items"] = list(saved)
+            return saved
 
     items = []
     seen = set()
@@ -542,6 +602,8 @@ def _final_homework_catalog(force=False):
                 }
             )
 
+    if items:
+        _save_final_homework_catalog(items)
     _CORE_COURSE_CACHE["fetched_at"] = now
     _CORE_COURSE_CACHE["items"] = list(items)
     return items
@@ -1374,6 +1436,7 @@ def install():
         )
 
     try:
+        _final_homework_catalog(force=True)
         final_check = _final_homework_payload()
         print(
             "EGE final homework check: "
