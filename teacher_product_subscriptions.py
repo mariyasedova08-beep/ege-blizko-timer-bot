@@ -14,12 +14,14 @@ import teacher_product_mvp as base
 import teacher_product_schedule as schedule
 import teacher_product_payments as payments
 import teacher_product_today as today
+import teacher_product_learning as learning
 
 
 SUB_STUDENT, SUB_AMOUNT, SUB_COUNT = range(210, 213)
 _SENTINEL_DUE = "9999-12-31"
 
 _ORIGINAL_PAYMENT_LINE = today._payment_line
+_ORIGINAL_SET_ATTENDANCE = learning._set_attendance
 
 
 def _table_columns(conn, table_name):
@@ -53,7 +55,229 @@ def ensure_tables():
             ON student_subscription_lesson_usage(teacher_telegram_user_id, student_id, used_at)
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS student_subscription_attendance_usage (
+                teacher_telegram_user_id INTEGER NOT NULL,
+                student_id INTEGER NOT NULL,
+                lesson_kind TEXT NOT NULL,
+                schedule_slot_id INTEGER NOT NULL,
+                lesson_date TEXT NOT NULL,
+                lessons_before INTEGER NOT NULL,
+                lessons_after INTEGER NOT NULL,
+                deducted_at TEXT NOT NULL,
+                PRIMARY KEY(
+                    teacher_telegram_user_id,student_id,lesson_kind,
+                    schedule_slot_id,lesson_date
+                )
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS teacher_subscription_repairs (
+                repair_key TEXT PRIMARY KEY,
+                applied_at TEXT NOT NULL
+            )
+            """
+        )
         conn.commit()
+    _apply_requested_balance_repairs()
+
+
+def _apply_requested_balance_repairs():
+    """One-time correction explicitly requested by the teacher."""
+    repair_key = "alina-topup-balance-8-20260919"
+    with base.db() as conn:
+        done = conn.execute(
+            "SELECT 1 FROM teacher_subscription_repairs WHERE repair_key=?",
+            (repair_key,),
+        ).fetchone()
+        if done:
+            return
+
+        rows = conn.execute(
+            """
+            SELECT p.teacher_telegram_user_id,p.student_id,p.lessons_total,
+                   p.lessons_remaining
+            FROM student_payment_plans p
+            JOIN students s ON s.id=p.student_id
+             AND s.teacher_telegram_user_id=p.teacher_telegram_user_id
+            WHERE p.payment_type='package' AND p.active=1 AND s.active=1
+              AND lower(trim(s.name))='алина'
+            """
+        ).fetchall()
+
+        if len(rows) == 1:
+            row = rows[0]
+            current_total = int(row["lessons_total"] or 0)
+            conn.execute(
+                """
+                UPDATE student_payment_plans
+                SET lessons_remaining=8,
+                    lessons_total=CASE WHEN lessons_total<8 OR lessons_total IS NULL THEN 8 ELSE lessons_total END,
+                    updated_at=?
+                WHERE teacher_telegram_user_id=? AND student_id=? AND payment_type='package'
+                """,
+                (
+                    datetime.utcnow().isoformat(),
+                    int(row["teacher_telegram_user_id"]),
+                    int(row["student_id"]),
+                ),
+            )
+            conn.execute(
+                "INSERT INTO teacher_subscription_repairs(repair_key,applied_at) VALUES(?,?)",
+                (repair_key, datetime.utcnow().isoformat()),
+            )
+            conn.commit()
+            print(
+                f"PREPODMIN requested subscription repair applied: Alina remaining=8 total_before={current_total}",
+                flush=True,
+            )
+        else:
+            print(
+                f"PREPODMIN requested subscription repair skipped: exact Alina matches={len(rows)}",
+                flush=True,
+            )
+
+
+def _attendance_usage(uid, sid, kind, slot_id, lesson_date):
+    with base.db() as conn:
+        return conn.execute(
+            """
+            SELECT *
+            FROM student_subscription_attendance_usage
+            WHERE teacher_telegram_user_id=? AND student_id=?
+              AND lesson_kind=? AND schedule_slot_id=? AND lesson_date=?
+            """,
+            (int(uid), int(sid), str(kind), int(slot_id), lesson_date.isoformat()),
+        ).fetchone()
+
+
+def _deduct_for_attendance(uid, sid, kind, slot_id, lesson_date):
+    if _attendance_usage(uid, sid, kind, slot_id, lesson_date):
+        return False
+
+    plan = _package_plan(uid, sid)
+    if not plan or not int(plan["active"] or 0):
+        return False
+
+    total = int(plan["lessons_total"] or 0)
+    before = int(plan["lessons_remaining"] or 0)
+    if total <= 0 or before <= 0:
+        return False
+
+    after = before - 1
+    prev_balance = _package_balance(plan["amount_rub"], total, before)
+    new_balance = _package_balance(plan["amount_rub"], total, after)
+    deducted = max(0, prev_balance - new_balance)
+    now_local = datetime.now(schedule.tz(uid)).isoformat()
+    now_utc = datetime.utcnow().isoformat()
+
+    with base.db() as conn:
+        existing = conn.execute(
+            """
+            SELECT 1
+            FROM student_subscription_attendance_usage
+            WHERE teacher_telegram_user_id=? AND student_id=?
+              AND lesson_kind=? AND schedule_slot_id=? AND lesson_date=?
+            """,
+            (int(uid), int(sid), str(kind), int(slot_id), lesson_date.isoformat()),
+        ).fetchone()
+        if existing:
+            return False
+
+        conn.execute(
+            """
+            UPDATE student_payment_plans
+            SET lessons_remaining=?,updated_at=?
+            WHERE teacher_telegram_user_id=? AND student_id=? AND payment_type='package'
+            """,
+            (after, now_utc, int(uid), int(sid)),
+        )
+        conn.execute(
+            """
+            INSERT INTO student_subscription_lesson_usage(
+                teacher_telegram_user_id,student_id,amount_rub_deducted,
+                lessons_before,lessons_after,used_at
+            ) VALUES(?,?,?,?,?,?)
+            """,
+            (int(uid), int(sid), deducted, before, after, now_local),
+        )
+        conn.execute(
+            """
+            INSERT INTO student_subscription_attendance_usage(
+                teacher_telegram_user_id,student_id,lesson_kind,
+                schedule_slot_id,lesson_date,lessons_before,lessons_after,deducted_at
+            ) VALUES(?,?,?,?,?,?,?,?)
+            """,
+            (
+                int(uid), int(sid), str(kind), int(slot_id),
+                lesson_date.isoformat(), before, after, now_local,
+            ),
+        )
+        conn.commit()
+
+    print(
+        f"PREPODMIN subscription auto-deduct: before={before} after={after} date={lesson_date.isoformat()}",
+        flush=True,
+    )
+    return True
+
+
+def _restore_for_attendance(uid, sid, kind, slot_id, lesson_date):
+    usage = _attendance_usage(uid, sid, kind, slot_id, lesson_date)
+    if not usage:
+        return False
+    plan = _package_plan(uid, sid)
+    if not plan or not int(plan["active"] or 0):
+        return False
+
+    before = int(plan["lessons_remaining"] or 0)
+    after = before + 1
+    total = max(int(plan["lessons_total"] or 0), after)
+    with base.db() as conn:
+        conn.execute(
+            """
+            UPDATE student_payment_plans
+            SET lessons_remaining=?,lessons_total=?,updated_at=?
+            WHERE teacher_telegram_user_id=? AND student_id=? AND payment_type='package'
+            """,
+            (after, total, datetime.utcnow().isoformat(), int(uid), int(sid)),
+        )
+        conn.execute(
+            """
+            DELETE FROM student_subscription_attendance_usage
+            WHERE teacher_telegram_user_id=? AND student_id=?
+              AND lesson_kind=? AND schedule_slot_id=? AND lesson_date=?
+            """,
+            (int(uid), int(sid), str(kind), int(slot_id), lesson_date.isoformat()),
+        )
+        conn.commit()
+    print(
+        f"PREPODMIN subscription attendance restore: before={before} after={after} date={lesson_date.isoformat()}",
+        flush=True,
+    )
+    return True
+
+
+def _set_attendance_with_subscription(
+    uid, kind, slot_id, lesson_date, subject_kind, subject_id, status
+):
+    previous = learning._attendance_status(
+        uid, kind, slot_id, lesson_date, subject_kind, subject_id
+    )
+    result = _ORIGINAL_SET_ATTENDANCE(
+        uid, kind, slot_id, lesson_date, subject_kind, subject_id, status
+    )
+
+    if kind == "individual" and subject_kind == "individual":
+        sid = int(subject_id)
+        if previous != "present" and status == "present":
+            _deduct_for_attendance(uid, sid, kind, slot_id, lesson_date)
+        elif previous == "present" and status != "present":
+            _restore_for_attendance(uid, sid, kind, slot_id, lesson_date)
+    return result
 
 
 def _parse_positive_int(text, max_value):
@@ -126,6 +350,7 @@ def _payment_line_with_package(uid, student_id, today_date):
 def patch_functions():
     payments._active_plans = _active_non_package_plans
     today._payment_line = _payment_line_with_package
+    learning._set_attendance = _set_attendance_with_subscription
 
 
 def _rows(uid):
@@ -180,7 +405,7 @@ async def payments_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines.append("\nДля абонемента дата следующего платежа не ставится: она наступает, когда закончатся оплаченные занятия.")
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🎟 Новый абонемент", callback_data="sub:setup")],
-        [InlineKeyboardButton("➖ Списать проведённый урок", callback_data="sub:use")],
+        [InlineKeyboardButton("➖ Ручное списание", callback_data="sub:use")],
         [InlineKeyboardButton("➕ Разовая / ежемесячная", callback_data="pay:setup")],
         [InlineKeyboardButton("✅ Получила разовую / месячную оплату", callback_data="pay:mark")],
         [InlineKeyboardButton("📜 История оплат", callback_data="pay:history")],
@@ -218,8 +443,8 @@ async def setup_student(update: Update, context: ContextTypes.DEFAULT_TYPE):
     warning = ""
     if current and int(current["lessons_remaining"] or 0) > 0:
         warning = (
-            f"\n\n⚠️ Сейчас у ученика ещё {int(current['lessons_remaining'])} оплаченных занятий. "
-            "Новая настройка заменит текущий остаток."
+            f"\n\nСейчас у ученика ещё {int(current['lessons_remaining'])} оплаченных занятий. "
+            "Новые занятия добавятся к этому остатку."
         )
     await q.edit_message_text(
         f"{student['name']}\n\nСколько рублей получено за абонемент?\nНапример: 40000{warning}"
@@ -258,6 +483,25 @@ async def setup_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     now_local = datetime.now(schedule.tz(uid))
     now_utc = datetime.utcnow().isoformat()
+    current = _package_plan(uid, sid)
+    old_remaining = (
+        int(current["lessons_remaining"] or 0)
+        if current and int(current["active"] or 0)
+        else 0
+    )
+    old_balance = (
+        _package_balance(
+            current["amount_rub"],
+            int(current["lessons_total"] or 0),
+            old_remaining,
+        )
+        if current and old_remaining > 0
+        else 0
+    )
+    new_remaining = old_remaining + int(count)
+    new_total = new_remaining
+    new_amount = old_balance + int(amount)
+
     with base.db() as conn:
         conn.execute(
             """
@@ -274,7 +518,10 @@ async def setup_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 lessons_total=excluded.lessons_total,
                 lessons_remaining=excluded.lessons_remaining
             """,
-            (uid, int(sid), "package", int(amount), _SENTINEL_DUE, now_utc, now_utc, int(count), int(count)),
+            (
+                uid, int(sid), "package", new_amount, _SENTINEL_DUE,
+                now_utc, now_utc, new_total, new_remaining,
+            ),
         )
         conn.execute(
             """
@@ -291,12 +538,14 @@ async def setup_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     per_lesson = int(round(int(amount) / int(count)))
     await update.message.reply_text(
-        f"✅ Абонемент для {name} создан.\n\n"
-        f"Получено: {payments._money(amount)}\n"
-        f"Занятий: {count}\n"
-        f"Ориентир за 1 занятие: {payments._money(per_lesson)}\n\n"
-        "Дату следующего платежа не ставлю. После каждого реально проведённого урока "
-        "нажимай «💳 Оплаты» → «➖ Списать проведённый урок».",
+        f"✅ Оплата для {name} учтена.\n\n"
+        f"Получено сейчас: {payments._money(amount)}\n"
+        f"Добавлено занятий: {count}\n"
+        f"Было в остатке: {old_remaining}\n"
+        f"Теперь в остатке: {new_remaining}\n"
+        f"Ориентир за 1 новое занятие: {payments._money(per_lesson)}\n\n"
+        "Занятие теперь списывается автоматически, когда в «✅ Посещаемость» "
+        "ученик отмечен как «Был(а)». Поздняя отметка за вчера тоже учитывается.",
         reply_markup=base.MAIN_KB,
     )
     return ConversationHandler.END
@@ -327,7 +576,9 @@ async def use_picker(update: Update, context: ContextTypes.DEFAULT_TYPE):
         label = f"{r['name']} • осталось {remaining}/{int(r['lessons_total'] or 0)}"
         kb.append([InlineKeyboardButton(label, callback_data=f"sub:use:{r['student_id']}")])
     await q.edit_message_text(
-        "Какой урок действительно был проведён?\n\nСписываем только состоявшиеся занятия.",
+        "Ручное списание абонемента.\n\nОбычно списывать здесь не нужно: "
+        "занятие списывается автоматически через «✅ Посещаемость» → «Был(а)». "
+        "Используй ручное списание только если занятие не отмечалось в посещаемости.",
         reply_markup=InlineKeyboardMarkup(kb),
     )
 
