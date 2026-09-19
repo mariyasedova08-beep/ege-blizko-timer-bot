@@ -423,6 +423,10 @@ def install():
     ensure_nonmetals_tables()
     live41.ensure_weekly_report_tables()
     register_nonmetals_trainer()
+    active_trainers = list(live41._active_trainers())
+    if ("⚛️ Неметаллы", "nonmetals") not in active_trainers:
+        raise RuntimeError("Nonmetals trainer is missing from the student cabinet trainer catalog")
+    print("Nonmetals student cabinet entry verified", flush=True)
     _patch_student_keyboard()
 
     previous_trivial_callback = live7.trivial_callback
@@ -587,7 +591,6 @@ def install():
                             InlineKeyboardButton("🧪 Оксиды", callback_data="cab:oxides"),
                         ],
                         [InlineKeyboardButton("⚛️ Неметаллы", callback_data="cab:nonmetals")],
-                        [InlineKeyboardButton("🏆 Рейтинг тривиальных", callback_data="cab:trivtop")],
                         [InlineKeyboardButton("← В кабинет", callback_data="cab:back")],
                     ]),
                 )
