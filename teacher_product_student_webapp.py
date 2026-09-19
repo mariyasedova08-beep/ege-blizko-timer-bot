@@ -30,6 +30,7 @@ STUDENT_KB = ReplyKeyboardMarkup(
     resize_keyboard=True,
     is_persistent=True,
 )
+STUDENT_WEBAPP_BUILD = "20260919-2"
 _INSTALLED = False
 
 
@@ -522,7 +523,7 @@ def action(telegram_uid, payload):
 def _launch_markup(uid):
     token = launch_token(uid)
     sep = "&" if "?" in STUDENT_WEBAPP_URL else "?"
-    url = f"{STUDENT_WEBAPP_URL}{sep}launch={token}"
+    url = f"{STUDENT_WEBAPP_URL}{sep}launch={token}&v={STUDENT_WEBAPP_BUILD}"
     return InlineKeyboardMarkup([[
         InlineKeyboardButton(
             "💗 Открыть мой кабинет",
