@@ -27,6 +27,7 @@ import homework_deadline_logic as deadlines
 import payment_schedule
 import payment_name_aliases
 import ege_admin_webapp as admin_app
+import kulechek_mascot
 
 bot = live90.bot
 live79 = live90.live79
@@ -50,6 +51,17 @@ MONTH_NAMES = {
     5: "Май", 6: "Июнь", 7: "Июль", 8: "Август",
     9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь",
 }
+
+
+async def _send_mascot_photo(context, chat_id):
+    """Show Maria's approved Kulechek visual when the Kulechki section opens."""
+    try:
+        await context.bot.send_photo(
+            chat_id=int(chat_id),
+            photo=kulechek_mascot.image_file(),
+        )
+    except Exception as exc:
+        print(f"Kulechek mascot send failed: {type(exc).__name__}: {exc}", flush=True)
 
 
 def ensure_tables():
@@ -1392,6 +1404,7 @@ def _patch_student_cabinet():
             if not student:
                 await query.edit_message_text("Сначала нужно привязать Telegram к ученику через /link.")
                 return
+            await _send_mascot_photo(context, update.effective_chat.id)
             await query.edit_message_text(
                 student_text(int(student[0])),
                 parse_mode="HTML",
@@ -1440,6 +1453,7 @@ async def monthly_close_tick(context):
     admin_id = bot.get_admin_id()
     if admin_id and not _delivered(key, "admin", int(admin_id)):
         try:
+            await _send_mascot_photo(context, int(admin_id))
             await context.bot.send_message(
                 chat_id=int(admin_id),
                 text=admin_text(key),
@@ -1460,6 +1474,7 @@ async def monthly_close_tick(context):
         if _delivered(key, "student", int(telegram_id)):
             continue
         try:
+            await _send_mascot_photo(context, int(telegram_id))
             await context.bot.send_message(
                 chat_id=int(telegram_id),
                 text=student_text(sid, key),
@@ -1524,6 +1539,7 @@ def install():
             and update.message
             and update.message.text == BUTTON
         ):
+            await _send_mascot_photo(context, update.effective_chat.id)
             await update.message.reply_text(
                 admin_text(),
                 parse_mode="HTML",
@@ -1568,6 +1584,7 @@ def install():
 
         if data == "cab:kulek":
             await query.answer()
+            await _send_mascot_photo(context, update.effective_chat.id)
             await query.edit_message_text(
                 admin_text(), parse_mode="HTML", reply_markup=_admin_markup()
             )
