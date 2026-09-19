@@ -4,7 +4,7 @@ import secrets
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import (ApplicationHandlerStop, CallbackQueryHandler, CommandHandler,
                           ConversationHandler, MessageHandler, filters)
 
@@ -15,6 +15,12 @@ import teacher_product_student_messaging as messaging
 
 ADD_MEMBER = 130
 OFFSETS = (1440, 60)
+STUDENT_CABINET_KB = ReplyKeyboardMarkup(
+    [[KeyboardButton("💗 Мой кабинет")]],
+    resize_keyboard=True,
+    is_persistent=True,
+)
+
 
 
 def ensure_tables():
@@ -281,7 +287,10 @@ async def join(update, context):
             linked = conn.execute("""SELECT name FROM student_reminder_people
                 WHERE telegram_user_id=? AND active=1 LIMIT 1""", (update.effective_user.id,)).fetchone()
         if linked and not base.teacher(update.effective_user.id):
-            await update.message.reply_text("Ты привязан(а) к ПРЕПОДМИН. Здесь будут приходить напоминания об уроках и кнопки подтверждения.")
+            await update.message.reply_text(
+                "Ты привязан(а) к ПРЕПОДМИН. Здесь будут приходить напоминания об уроках, а личный кабинет открывается кнопкой ниже.",
+                reply_markup=STUDENT_CABINET_KB,
+            )
             raise ApplicationHandlerStop
         return
     token = context.args[0][5:]
@@ -300,9 +309,15 @@ async def join(update, context):
             row = None
         if row:
             conn.execute("UPDATE student_reminder_people SET telegram_user_id=? WHERE id=?", (uid, row["id"]))
-    await update.message.reply_text(
-        f"✅ Ты привязан(а) как {row['name']}. Когда преподаватель включит напоминания, здесь можно будет подтвердить участие в уроке."
-        if row else "Ссылка недействительна или уже привязана к другому аккаунту. Попроси преподавателя проверить её.")
+    if row:
+        await update.message.reply_text(
+            f"✅ Ты привязан(а) как {row['name']}. Когда преподаватель включит напоминания, здесь можно будет подтвердить участие в уроке.\n\n💗 Личный кабинет — по кнопке ниже.",
+            reply_markup=STUDENT_CABINET_KB,
+        )
+    else:
+        await update.message.reply_text(
+            "Ссылка недействительна или уже привязана к другому аккаунту. Попроси преподавателя проверить её."
+        )
     raise ApplicationHandlerStop
 
 
