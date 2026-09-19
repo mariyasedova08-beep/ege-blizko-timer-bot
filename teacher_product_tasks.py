@@ -284,28 +284,22 @@ async def tasks_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "SELECT COUNT(*) AS c FROM teacher_tasks WHERE teacher_telegram_user_id=? AND completed=0 AND due_date>=?",
             (int(uid), today_date.isoformat()),
         ).fetchone()["c"]
+
+    rows = _task_rows(uid, "all")
     text = (
         "✅ Задачи\n\n"
-        f"📍 Сегодня: {today_count}\n"
-        f"📅 С датой впереди: {upcoming_count}\n\n"
-        f"📋 Работа: {counts['work']}\n"
-        f"💡 Контент: {counts['content']}\n"
-        f"🛠 Технические: {counts['tech']}\n\n"
-        "Быстрее всего — кнопка «➕ Быстрая задача» внизу."
+        f"📍 Сегодня: {today_count} · 📅 С датой впереди: {upcoming_count}\n"
+        f"📋 Работа: {counts['work']} · 💡 Контент: {counts['content']} · 🛠 Тех: {counts['tech']}\n\n"
+        + (
+            "Нажми на задачу — она сразу закроется ✅"
+            if rows
+            else "Активных задач нет 🎉"
+        )
     )
-    kb = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("📋 Работа", callback_data="task:kind:work"),
-            InlineKeyboardButton("💡 Контент", callback_data="task:kind:content"),
-        ],
-        [InlineKeyboardButton("🛠 Технические", callback_data="task:kind:tech")],
-        [
-            InlineKeyboardButton("📍 Сегодня", callback_data="task:today"),
-            InlineKeyboardButton("📅 Ближайшие", callback_data="task:upcoming"),
-        ],
-        [InlineKeyboardButton("✅ Отметить выполненной", callback_data="task:done")],
-    ])
-    await update.message.reply_text(text, reply_markup=kb)
+    await update.message.reply_text(
+        text,
+        reply_markup=_task_list_markup(rows, "all", include_filters=True),
+    )
 
 
 async def quick_task_begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -406,6 +400,55 @@ def _row_when(row):
     return "без даты"
 
 
+def _task_button_label(row):
+    prefix = TASK_KINDS.get(row["task_kind"], TASK_KINDS["work"])[0].split()[0]
+    title = str(row["title"] or "Задача").strip()
+    when = _row_when(row)
+    raw = f"☐ {prefix} {when} • {title}"
+    return raw[:58]
+
+
+def _task_list_markup(rows, mode, include_filters=False):
+    buttons = [
+        [
+            InlineKeyboardButton(
+                _task_button_label(row),
+                callback_data=f"task:quickdone:{mode}:{int(row['id'])}",
+            )
+        ]
+        for row in rows[:30]
+    ]
+
+    if include_filters:
+        buttons += [
+            [
+                InlineKeyboardButton("📋 Работа", callback_data="task:kind:work"),
+                InlineKeyboardButton("💡 Контент", callback_data="task:kind:content"),
+            ],
+            [InlineKeyboardButton("🛠 Технические", callback_data="task:kind:tech")],
+            [
+                InlineKeyboardButton("📍 Сегодня", callback_data="task:today"),
+                InlineKeyboardButton("📅 Ближайшие", callback_data="task:upcoming"),
+            ],
+        ]
+    if mode in TASK_KINDS:
+        verb = TASK_KINDS[mode][1]
+        buttons.append([
+            InlineKeyboardButton(f"➕ Добавить {verb}", callback_data=f"task:add:{mode}")
+        ])
+    return InlineKeyboardMarkup(buttons) if buttons else None
+
+
+def _task_list_text(uid, mode, title):
+    rows = _task_rows(uid, mode)
+    if not rows:
+        return f"{title}\n\nПока здесь пусто 🎉", rows
+    return (
+        f"{title}\n\n"
+        "Нажми на задачу — она сразу отметится выполненной ✅"
+    ), rows
+
+
 async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -416,22 +459,85 @@ async def list_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         mode = "today" if data == "task:today" else "upcoming"
         title = "📍 Задачи на сегодня" if mode == "today" else "📅 Ближайшие задачи"
-    rows = _task_rows(q.from_user.id, mode)
-    lines = [title]
-    if not rows:
-        lines.append("\nПока здесь пусто 🎉")
-    else:
-        lines.append("")
-        for r in rows:
-            lines.append(f"• {_row_when(r)} — {r['title']}")
 
-    markup = None
+    text, rows = _task_list_text(q.from_user.id, mode, title)
+    await q.edit_message_text(
+        text,
+        reply_markup=_task_list_markup(rows, mode),
+    )
+
+
+async def quick_done_apply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    try:
+        _, _, mode, task_text = str(q.data or "").split(":", 3)
+        task_id = int(task_text)
+    except Exception:
+        await q.answer("Не удалось определить задачу.", show_alert=True)
+        return
+
+    uid = int(q.from_user.id)
+    with base.db() as conn:
+        row = conn.execute(
+            """
+            SELECT id,title
+            FROM teacher_tasks
+            WHERE id=? AND teacher_telegram_user_id=? AND completed=0
+            """,
+            (task_id, uid),
+        ).fetchone()
+        if not row:
+            await q.answer("Эта задача уже закрыта ✅")
+        else:
+            conn.execute(
+                """
+                UPDATE teacher_tasks
+                SET completed=1,completed_at=?
+                WHERE id=? AND teacher_telegram_user_id=? AND completed=0
+                """,
+                (datetime.utcnow().isoformat(), task_id, uid),
+            )
+            conn.commit()
+            await q.answer("✅ Выполнено")
+
+    if mode == "all":
+        rows = _task_rows(uid, "all")
+        counts = _category_counts(uid)
+        today_date = _now(uid).date()
+        with base.db() as conn:
+            today_count = conn.execute(
+                "SELECT COUNT(*) AS c FROM teacher_tasks WHERE teacher_telegram_user_id=? AND completed=0 AND due_date=?",
+                (uid, today_date.isoformat()),
+            ).fetchone()["c"]
+            upcoming_count = conn.execute(
+                "SELECT COUNT(*) AS c FROM teacher_tasks WHERE teacher_telegram_user_id=? AND completed=0 AND due_date>=?",
+                (uid, today_date.isoformat()),
+            ).fetchone()["c"]
+        text = (
+            "✅ Задачи\n\n"
+            f"📍 Сегодня: {today_count} · 📅 С датой впереди: {upcoming_count}\n"
+            f"📋 Работа: {counts['work']} · 💡 Контент: {counts['content']} · 🛠 Тех: {counts['tech']}\n\n"
+            + ("Нажми на задачу — она сразу закроется ✅" if rows else "Активных задач нет 🎉")
+        )
+        await q.edit_message_text(
+            text,
+            reply_markup=_task_list_markup(rows, "all", include_filters=True),
+        )
+        return
+
     if mode in TASK_KINDS:
-        verb = TASK_KINDS[mode][1]
-        markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"➕ Добавить {verb}", callback_data=f"task:add:{mode}")]
-        ])
-    await q.edit_message_text("\n".join(lines), reply_markup=markup)
+        title = TASK_KINDS.get(mode, ("✅ Задачи", ""))[0]
+    elif mode == "today":
+        title = "📍 Задачи на сегодня"
+    else:
+        mode = "upcoming"
+        title = "📅 Ближайшие задачи"
+
+    text, rows = _task_list_text(uid, mode, title)
+    await q.edit_message_text(
+        text,
+        reply_markup=_task_list_markup(rows, mode),
+    )
 
 
 async def done_picker(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -573,6 +679,13 @@ def build_app():
         per_message=False,
     ), group=-5)
     app.add_handler(CallbackQueryHandler(list_tasks, pattern=r"^task:(?:today|upcoming|kind:(?:work|content|tech))$"), group=-4)
+    app.add_handler(
+        CallbackQueryHandler(
+            quick_done_apply,
+            pattern=r"^task:quickdone:(?:all|today|upcoming|work|content|tech):\d+$",
+        ),
+        group=-4,
+    )
     app.add_handler(CallbackQueryHandler(done_picker, pattern=r"^task:done$"), group=-4)
     app.add_handler(CallbackQueryHandler(done_apply, pattern=r"^task:done:\d+$"), group=-4)
     app.add_handler(MessageHandler(filters.VOICE, voice_task), group=-6)
