@@ -43,6 +43,7 @@ h1{font-size:31px;line-height:1.03;margin:9px 0 7px;letter-spacing:-.035em}.sub{
 .mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}.mini{background:var(--milk);border-radius:14px;padding:9px}.mini b{display:block;font-size:14px}.mini span{font-size:9px;color:var(--muted)}
 .history{display:flex;gap:7px;overflow-x:auto;padding-top:12px}.history-chip{min-width:88px;background:var(--soft);border-radius:13px;padding:8px}.history-chip b{font-size:13px}.history-chip span{display:block;font-size:9px;color:var(--muted);margin-top:3px}
 .final-card{background:linear-gradient(145deg,#FFFDFC,#F8E8F0);border:1px solid var(--line);border-radius:21px;padding:15px;margin-bottom:10px;box-shadow:0 7px 22px rgba(54,34,44,.04)}.final-title{font-size:14px;font-weight:900;line-height:1.35}.final-progress{height:8px;background:#fff;border-radius:999px;overflow:hidden;margin-top:11px}.final-progress i{display:block;height:100%;background:var(--hot);border-radius:999px}.statusline{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.statuspill{font-size:10px;padding:6px 8px;border-radius:999px;background:var(--soft)}.statuspill.ok{background:#EAF7EF;color:var(--green)}.statuspill.bad{background:#FFF0F4;color:#A72A51}
+.kulek-hero{background:linear-gradient(145deg,#FFF7FB,#F4D9E6);border:1px solid var(--line);border-radius:24px;padding:16px;box-shadow:var(--shadow)}.kulek-score{font-size:38px;font-weight:950;letter-spacing:-.04em}.kulek-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}.kulek-cat{background:rgba(255,255,255,.72);border-radius:15px;padding:10px}.kulek-cat b{font-size:17px;display:block}.kulek-cat span{font-size:9px;color:var(--muted);display:block;margin-top:3px}.primary-btn{width:100%;border:0;border-radius:17px;background:var(--hot);color:#fff;padding:13px;font:inherit;font-weight:900;margin-top:10px}.secondary-btn{width:100%;border:1px solid var(--line);border-radius:17px;background:var(--paper);color:var(--ink);padding:12px;font:inherit;font-weight:850;margin-top:8px}
 .empty{padding:22px;text-align:center;color:var(--muted);font-size:13px}.loading{padding:58px 20px;text-align:center;color:var(--muted)}.error{padding:14px;background:#FFF0F4;color:#8F2645;border-radius:17px}
 .link{display:inline-block;margin-top:8px;color:var(--hot);font-size:11px;text-decoration:none;font-weight:800}
 .bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(248,245,242,.95);backdrop-filter:blur(15px);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:6}.nav{max-width:700px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:3px}.nav button{border:0;background:transparent;color:#8A8286;font:inherit;font-size:10px;padding:5px 2px}.nav .active{color:var(--hot);font-weight:900}.nav i{font-style:normal;display:block;font-size:19px;margin-bottom:3px}
@@ -106,6 +107,8 @@ var weak='';pw.forEach(function(x){weak+='<span class="weakpill">№'+x.task+' �
 out+='<div class="section"><div class="section-title"><strong>📝 Пробники</strong><span onclick="openView(\'probniki\')">по ученикам →</span></div><div class="probnik-summary" onclick="openView(\'probniki\')"><div class="probnik-head"><div><div class="row-title">'+esc(pl.name||'Последний пробник')+'</div><div class="row-sub">'+esc(pl.date||'результаты ещё не синхронизированы')+'</div></div><div><div class="score-big">'+(pl.average==null?'—':pl.average)+'</div><div class="score-caption">средний балл</div></div></div><div class="mini-stats"><div class="mini"><b>'+po.students_with_results+'/'+po.students_total+'</b><span>есть результаты</span></div><div class="mini"><b>'+po.results_total+'</b><span>всего работ</span></div><div class="mini"><b>'+(pl.best==null?'—':pl.best)+'</b><span>лучший балл</span></div></div>'+(weak?'<div class="weakline">'+weak+'</div>':'')+'</div></div>';
 var fh=d.final_homework||{},fw=fh.works||[];var frows='';fw.forEach(function(x){var pct=x.total?Math.round(100*x.done/x.total):0;frows+='<div class="row"><div class="row-main"><div class="row-title">'+esc(x.title)+'</div><div class="row-sub">'+x.done+'/'+x.total+' выполнили'+(x.started?'':' · ещё нет сдач')+'</div></div><span class="badge '+(x.started?'ok':'')+'">'+pct+'%</span></div>';});
 out+='<div class="section"><div class="section-title"><strong>📚 Итоговые ДЗ</strong><span onclick="openView(\'final_homework\')">статистика →</span></div><div class="list" onclick="openView(\'final_homework\')">'+(frows||'<div class="empty">Итоговые работы в Core пока не найдены</div>')+'</div></div>';
+var kk=d.kulek||{};
+out+='<div class="section"><div class="section-title"><strong>🐶 Кулёчки</strong><span onclick="openView(\'kulek\')">месяц →</span></div><div class="kulek-hero" onclick="openView(\'kulek\')"><div class="probnik-head"><div><div class="row-title">'+esc(kk.label||'Текущий месяц')+'</div><div class="row-sub">регулярность, рост и мотивация</div></div><div><div class="kulek-score">'+(kk.total_points||0)+'</div><div class="score-caption">Кулёчков выдано</div></div></div><div class="mini-stats"><div class="mini"><b>'+(kk.full_objective_count||0)+'/'+(kk.student_count||0)+'</b><span>закрыли все условия</span></div><div class="mini"><b>'+(kk.eligible_draw_count||0)+'</b><span>в розыгрыше 5%</span></div><div class="mini"><b>🐶</b><span>практика вручную</span></div></div></div></div>';
 out+='<div class="section"><div class="section-title"><strong>Быстрые разделы</strong></div><div class="actions"><button class="action" onclick="openView(\'tomorrow\')"><span class="aicon">🌅</span>Завтра</button><button class="action" onclick="openView(\'payments\')"><span class="aicon">💳</span>Оплаты</button><button class="action" onclick="openView(\'recordings\')"><span class="aicon">🎥</span>Записи уроков</button><button class="action" onclick="openView(\'attention\')"><span class="aicon">🚨</span>Внимание</button><button class="action" onclick="openView(\'students\')"><span class="aicon">👥</span>Ученики</button><button class="action" onclick="openView(\'tasks\')"><span class="aicon">🗒</span>Задачи</button></div></div><div class="brand-foot">ЕГЭ БЛИЗКО · СИСТЕМНО К СОТКЕ</div>';
 document.getElementById('app').innerHTML=out;}
 function renderDay(d,title){document.getElementById('app').innerHTML=screenHeader(title,d.weekday+' · '+d.date)+'<div class="section"><div class="section-title"><strong>Расписание</strong></div><div class="list">'+(eventRows(d.events)||'<div class="empty">Событий нет</div>')+'</div></div><div class="section"><div class="section-title"><strong>Задачи</strong></div><div class="list">'+(taskRows(d.tasks,current)||'<div class="empty">Задач нет 🎉</div>')+'</div></div>';}
@@ -244,8 +247,77 @@ function renderFinalHomework(d){
  out+='</div>';
  document.getElementById('app').innerHTML=out;
 }
+async function drawKulekDiscount(month){
+ try{
+   var r=await action({action:'kulek_draw',month:month});
+   await openView('kulek:'+month);
+   if(tg&&tg.showAlert)tg.showAlert('🎁 Скидка 5%: '+(r.winner_name||'победитель выбран'));
+ }catch(e){
+   var msg=String((e&&e.message)||e);
+   if(msg.indexOf('month_not_closed')>=0)msg='Месяц ещё не закрыт.';
+   if(msg.indexOf('no_eligible')>=0)msg='Пока нет детей, выполнивших все условия и имеющих помесячную оплату.';
+   if(tg&&tg.showAlert)tg.showAlert(msg);else alert(msg);
+ }
+}
+async function chooseBreakthrough(month,id){
+ try{
+   await action({action:'kulek_breakthrough_choose',month:month,student_id:id});
+   await openView('kulek:'+month);
+ }catch(e){await reportClientError('kulek_breakthrough',e);}
+}
+function renderKulek(d){
+ var out=screenHeader('🐶 Кулёчки',d.label+' · месячная мотивация');
+ out+='<div class="kulek-hero"><div class="probnik-head"><div><div class="row-title">За месяц</div><div class="row-sub">объективные условия + твои Кулёчки за практику</div></div><div><div class="kulek-score">'+d.total_points+'</div><div class="score-caption">выдано Кулёчков</div></div></div><div class="mini-stats"><div class="mini"><b>'+d.full_objective_count+'/'+d.student_count+'</b><span>все условия</span></div><div class="mini"><b>'+d.eligible_draw_count+'</b><span>допущены к 5%</span></div><div class="mini"><b>'+d.practice_opportunities+'</b><span>практических уроков</span></div></div></div>';
+ out+='<div class="section"><div class="section-title"><strong>Условия месяца</strong></div><div class="metric-grid">';
+ out+='<div class="metricbox"><b>'+d.homework_opportunities+'</b><span>обычных ДЗ со сроком</span></div>';
+ out+='<div class="metricbox"><b>'+d.final_opportunities+'</b><span>активных итоговых 80%+</span></div>';
+ out+='<div class="metricbox"><b>'+d.trainer_opportunities+'</b><span>тренажёров × 3 попытки</span></div>';
+ out+='<div class="metricbox"><b>'+d.probnik_opportunities+'</b><span>пробников 61+</span></div>';
+ out+='</div><div class="section-note">Практические Кулёчки не влияют на допуск к скидке — они учитывают твою оценку работы ребёнка и помогают определить прорыв.</div></div>';
+
+ out+='<div class="section"><div class="section-title"><strong>По детям</strong><span>без рейтинга по абсолютному баллу</span></div>';
+ (d.students||[]).forEach(function(s){
+   var c=s.categories||{};
+   out+='<div class="student-card"><div class="student-card-top"><div><div class="student-name">'+esc(s.name)+'</div><div class="student-meta">'+(s.monthly_payment?'помесячная оплата':'не помесячная')+'</div></div><div><div class="student-score">'+s.points+'/'+s.possible+'</div><div class="score-caption">Кулёчков</div></div></div>';
+   out+='<div class="kulek-grid">';
+   out+='<div class="kulek-cat"><b>🏠 '+c.homework.earned+'/'+c.homework.total+'</b><span>ДЗ вовремя</span></div>';
+   out+='<div class="kulek-cat"><b>📚 '+c.final.earned+'/'+c.final.total+'</b><span>итоговые 80%+</span></div>';
+   out+='<div class="kulek-cat"><b>🧪 '+c.trainers.earned+'/'+c.trainers.total+'</b><span>тренажёры 3+</span></div>';
+   out+='<div class="kulek-cat"><b>📝 '+c.probnik.earned+'/'+c.probnik.total+'</b><span>пробники 61+</span></div>';
+   out+='<div class="kulek-cat"><b>👩‍🏫 '+c.practice.earned+'/'+c.practice.total+'</b><span>практика</span></div>';
+   out+='<div class="kulek-cat"><b>'+(s.draw_eligible?'🎁 Да':'—')+'</b><span>розыгрыш 5%</span></div>';
+   out+='</div>';
+   if((s.remaining||[]).length){out+='<div class="row-sub" style="margin-top:10px">Осталось: '+esc(s.remaining.slice(0,2).join(' · '))+'</div>';}
+   out+='</div>';
+ });
+ out+='</div>';
+
+ var cand=d.breakthrough_candidates||[];
+ if(cand.length){
+   out+='<div class="section"><div class="section-title"><strong>🚀 Кандидаты на прорыв</strong><span>рост относительно себя</span></div>';
+   cand.forEach(function(x){
+     out+='<div class="student-card"><div class="student-name">'+esc(x.name)+'</div><div class="row-sub" style="margin-top:6px">'+esc((x.reasons||[]).join(' · ')||'пока мало данных')+'</div><button class="secondary-btn" onclick="chooseBreakthrough(\''+d.month+'\','+x.student_id+')">Выбрать «Прорыв месяца»</button></div>';
+   });
+   out+='</div>';
+ }
+ if(d.breakthrough_winner){
+   out+='<div class="probnik-summary"><div class="row-title">🚀 Прорыв месяца</div><div class="big" style="font-size:24px;margin-top:7px">'+esc(d.breakthrough_winner.student_name)+'</div></div>';
+ }
+ if(d.draw){
+   out+='<div class="section"><div class="probnik-summary"><div class="row-title">🎁 Скидка 5%</div><div class="big" style="font-size:24px;margin-top:7px">'+esc(d.draw.winner_name)+'</div></div></div>';
+ }else{
+   var nowMonth=(new Date()).toISOString().slice(0,7);
+   if(d.month<nowMonth){
+     out+='<button class="primary-btn" onclick="drawKulekDiscount(\''+d.month+'\')">🎁 Разыграть скидку 5%</button>';
+   }else{
+     out+='<div class="section-note">Розыгрыш текущего месяца станет доступен после его закрытия. Сейчас допущены: '+d.eligible_draw_count+'.</div>';
+   }
+ }
+ out+='<div class="section-note">Кулёчки за практический урок выдаются в обычном боте ЕГЭ БЛИЗКО: «🐶 Кулёчки → 👩‍🏫 Выдать за практику».</div>';
+ document.getElementById('app').innerHTML=out;
+}
 function renderRecordings(d){var rows='';(d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title">Урок №'+x.lesson_number+'</div><div class="row-sub">'+esc((x.updated_at||'').slice(0,16).replace('T',' '))+'</div><a class="link" href="'+esc(x.url)+'" target="_blank">Открыть ↗</a></div></div>';});document.getElementById('app').innerHTML=screenHeader('Записи уроков','сохранённые ссылки')+'<div class="list">'+(rows||'<div class="empty">Записей пока нет</div>')+'</div>';}
-function render(view,d){if(view==='home')renderHome(d);else if(view==='today')renderDay(d,'Сегодня');else if(view==='tomorrow')renderDay(d,'Завтра');else if(view==='tasks')renderTasks(d);else if(view==='students')renderStudents(d);else if(view.indexOf('student:')===0)renderStudentDetail(d);else if(view==='attention')renderAttention(d);else if(view==='payments')renderPayments(d);else if(view==='recordings')renderRecordings(d);else if(view==='probniki')renderProbniki(d);else if(view==='final_homework')renderFinalHomework(d);}
+function render(view,d){if(view==='home')renderHome(d);else if(view==='today')renderDay(d,'Сегодня');else if(view==='tomorrow')renderDay(d,'Завтра');else if(view==='tasks')renderTasks(d);else if(view==='students')renderStudents(d);else if(view.indexOf('student:')===0)renderStudentDetail(d);else if(view==='attention')renderAttention(d);else if(view==='payments')renderPayments(d);else if(view==='recordings')renderRecordings(d);else if(view==='probniki')renderProbniki(d);else if(view==='final_homework')renderFinalHomework(d);else if(view==='kulek'||view.indexOf('kulek:')===0)renderKulek(d);}
 async function openView(v){current=v;setNav(['home','today','tasks','students'].indexOf(v)>=0?v:'');document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(v);render(p.view,p.data);try{window.scrollTo(0,0);}catch(_){}}catch(e){await reportClientError('open:'+v,e);document.getElementById('app').innerHTML='<div class="error">Раздел не загрузился. Закрой приложение и открой снова.</div>';}}
 document.addEventListener('visibilitychange',function(){if(!document.hidden&&launch)openView(current);});
 async function boot(){if(!launch){document.getElementById('app').innerHTML='<div class="error">Открой приложение через личную кнопку внутри ЕГЭ БЛИЗКО.</div>';return;}await openView('home');}
