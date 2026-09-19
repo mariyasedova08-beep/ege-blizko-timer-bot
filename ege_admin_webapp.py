@@ -1442,7 +1442,15 @@ async def _push_admin_launch_once(context):
             parse_mode="HTML",
             reply_markup=_launcher_markup(),
         )
-        print("EGE admin WebApp mobile launcher pushed=1", flush=True)
+        await context.bot.send_message(
+            chat_id=int(admin_id),
+            text=(
+                "📚 Добавила «Итоговые ДЗ» прямо в меню бота.\n"
+                "Теперь статистику можно смотреть и без приложения."
+            ),
+            reply_markup=live23.ADMIN_KEYBOARD,
+        )
+        print("EGE admin WebApp mobile launcher pushed=1 keyboard_refreshed=1", flush=True)
     except Exception as exc:
         print(
             f"EGE admin WebApp mobile launcher push failed: {type(exc).__name__}: {exc}",
