@@ -187,6 +187,10 @@ def main():
     import lesson_recordings
     lesson_recordings.install()
 
+    # Student homework cabinet: show every evidenced unfinished CoreApp assignment.
+    import student_homework_all_debts
+    student_homework_all_debts.install()
+
     # Final student UX layer: one persistent button, all navigation inside cabinet.
     import student_keyboard_compact
     student_keyboard_compact.install()
