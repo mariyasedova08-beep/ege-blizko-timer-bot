@@ -114,44 +114,6 @@ def _events(day):
     return result
 
 
-def _task_rows(limit=100):
-    live79.live35.ensure_admin_tasks_table()
-    live79.ensure_task_sections()
-    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
-        rows = conn.execute(
-            """
-            SELECT id,task_text,start_date,reminder_time,task_kind
-            FROM admin_tasks
-            WHERE completed_at IS NULL
-            ORDER BY
-                CASE WHEN start_date=? THEN 0 ELSE 1 END,
-                start_date,reminder_time,id DESC
-            LIMIT ?
-            """,
-            (admin_quick_tasks.NO_DATE, int(limit)),
-        ).fetchall()
-    return rows
-
-
-def _tasks_payload(limit=100):
-    now = datetime.now(bot.TIMEZONE).date()
-    items = []
-    for task_id, text, start_date, reminder_time, kind in _task_rows(limit):
-        no_date = str(start_date) == admin_quick_tasks.NO_DATE
-        items.append(
-            {
-                "id": int(task_id),
-                "text": str(text or "Задача"),
-                "date": "" if no_date else str(start_date or ""),
-                "time": "" if no_date else str(reminder_time or ""),
-                "kind": str(kind or "task"),
-                "overdue": bool(not no_date and str(start_date or "") < now.isoformat()),
-                "no_date": no_date,
-            }
-        )
-    return items
-
-
 def _student_rows():
     live34.ensure_attention_tables()
     rows = live34._student_rows()
