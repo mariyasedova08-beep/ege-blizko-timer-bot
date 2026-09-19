@@ -779,6 +779,40 @@ def install():
     live7.start_router = _start_router
 
     try:
+        with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+            hw_names = conn.execute(
+                """
+                SELECT lesson_name, lesson_id, COUNT(*) AS c
+                FROM homework_submissions
+                GROUP BY lesson_name,lesson_id
+                ORDER BY MAX(id) DESC
+                LIMIT 80
+                """
+            ).fetchall()
+            raw_row = conn.execute(
+                """
+                SELECT raw_json
+                FROM homework_submissions
+                ORDER BY id DESC LIMIT 1
+                """
+            ).fetchone()
+        raw_keys = []
+        if raw_row and raw_row[0]:
+            try:
+                payload = json.loads(raw_row[0])
+                raw_keys = sorted(str(k) for k in payload.keys())
+            except Exception:
+                pass
+        print(
+            "EGE HOMEWORK TYPE DIAG names="
+            + repr([(str(n or ""), str(i or ""), int(cnt or 0)) for n,i,cnt in hw_names])
+            + " raw_keys=" + repr(raw_keys),
+            flush=True,
+        )
+    except Exception as exc:
+        print(f"EGE HOMEWORK TYPE DIAG failed: {type(exc).__name__}: {exc}", flush=True)
+
+    try:
         check = _probnik_payload()
         print(
             "EGE admin WebApp probnik check: "
