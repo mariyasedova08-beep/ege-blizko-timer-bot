@@ -1296,8 +1296,64 @@ def _admin_keyboard():
         for row in rows
     ]
     rows = [row for row in rows if row]
+    rows = [
+        [button for button in row if getattr(button, "text", button) != "📚 Итоговые ДЗ"]
+        for row in rows
+    ]
+    rows = [row for row in rows if row]
     rows.insert(0, [KeyboardButton("💗 ЕГЭ БЛИЗКО")])
+    rows.insert(1, [KeyboardButton("📚 Итоговые ДЗ")])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, is_persistent=True)
+
+
+def _final_homework_bot_text():
+    data = _final_homework_payload()
+    lines = [
+        "📚 <b>Итоговые домашние работы</b>",
+        "",
+        f"В курсе: <b>{data['catalog_count']}</b>",
+        f"Учеников: <b>{data['students_total']}</b>",
+        f"Работ, где уже есть сдачи в нашей базе: <b>{data['started_count']}</b>",
+        "",
+        "📌 <b>По работам</b>",
+    ]
+
+    if not data["works"]:
+        lines.append("Итоговые работы пока не найдены.")
+    else:
+        for index, work in enumerate(data["works"], 1):
+            pct = round(100 * work["done"] / work["total"]) if work["total"] else 0
+            lines.extend([
+                "",
+                f"<b>{index}. {html_lib.escape(work['title'])}</b>",
+                f"✅ Выполнили: {work['done']}/{work['total']} ({pct}%)",
+                f"⏳ Не выполнено: {work['missing']}",
+            ])
+
+    lines.extend(["", "👥 <b>По ученикам</b>"])
+    for student in data["students"]:
+        icon = "✅" if student["missing"] == 0 and student["total"] else "⏳"
+        lines.append(
+            f"{icon} {html_lib.escape(student['name'])}: "
+            f"{student['done']}/{student['total']} · {student['percent']}%"
+        )
+
+    if data["started_count"] == 0 and data["catalog_count"]:
+        lines.extend([
+            "",
+            "ℹ️ Сейчас ЕГЭ БЛИЗКО уже видит сами итоговые работы в структуре Core, "
+            "но Core пока не прислал в наш webhook ни одной сдачи именно этих Examination-работ. "
+            "Поэтому статусы выполнения будут обновляться, как только этот тип сдачи начнёт поступать в базу.",
+        ])
+    return "\n".join(lines)
+
+
+async def _open_final_homework_bot(message):
+    await message.reply_text(
+        _final_homework_bot_text(),
+        parse_mode="HTML",
+        reply_markup=live23.ADMIN_KEYBOARD,
+    )
 
 
 async def _open_app_message(message):
@@ -1316,10 +1372,13 @@ async def _text_router(update, context):
         and update.effective_chat.type == "private"
         and bot.user_is_admin(update)
         and update.message
-        and update.message.text == "💗 ЕГЭ БЛИЗКО"
     ):
-        await _open_app_message(update.message)
-        return
+        if update.message.text == "💗 ЕГЭ БЛИЗКО":
+            await _open_app_message(update.message)
+            return
+        if update.message.text == "📚 Итоговые ДЗ":
+            await _open_final_homework_bot(update.message)
+            return
     return await _previous_text_router(update, context)
 
 
@@ -1437,13 +1496,18 @@ def install():
 
     try:
         _final_homework_catalog(force=True)
+        _CORE_COURSE_CACHE["items"] = []
+        _CORE_COURSE_CACHE["fetched_at"] = 0.0
+        started_at = time.perf_counter()
         final_check = _final_homework_payload()
+        elapsed_ms = round((time.perf_counter() - started_at) * 1000)
         print(
             "EGE final homework check: "
             f"catalog={final_check['catalog_count']} "
             f"started={final_check['started_count']} "
             f"students={final_check['students_total']} "
-            f"submissions={final_check['completed_submissions']}",
+            f"submissions={final_check['completed_submissions']} "
+            f"local_load_ms={elapsed_ms}",
             flush=True,
         )
     except Exception as exc:
