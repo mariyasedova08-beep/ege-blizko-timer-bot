@@ -30,7 +30,7 @@ STUDENT_KB = ReplyKeyboardMarkup(
     resize_keyboard=True,
     is_persistent=True,
 )
-STUDENT_WEBAPP_BUILD = "20260919-2"
+STUDENT_WEBAPP_BUILD = "20260919-3"
 _INSTALLED = False
 
 
