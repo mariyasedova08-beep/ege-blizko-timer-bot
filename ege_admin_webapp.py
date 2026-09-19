@@ -31,7 +31,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20260919-2"
+WEBAPP_BUILD = "20260919-3"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 _INSTALLED = False
 
@@ -644,7 +644,7 @@ def _launcher_markup():
     sep = "&" if "?" in WEBAPP_URL else "?"
     url = f"{WEBAPP_URL}{sep}launch={token}&v={WEBAPP_BUILD}"
     return InlineKeyboardMarkup(
-        [[InlineKeyboardButton("💗 Открыть ЕГЭ БЛИЗКО", web_app=WebAppInfo(url=url))]]
+        [[InlineKeyboardButton("💗 Открыть ЕГЭ БЛИЗКО", url=url)]]
     )
 
 
@@ -709,15 +709,46 @@ def _cabinet_markup():
     ):
         rows.insert(
             0,
-            [InlineKeyboardButton("💗 Открыть красивую главную", web_app=WebAppInfo(
+            [InlineKeyboardButton(
+                "💗 Открыть красивую главную",
                 url=f"{WEBAPP_URL}?launch={_launch_token()}&v={WEBAPP_BUILD}"
-            ))],
+            )],
         )
     return InlineKeyboardMarkup(rows)
 
 
 async def _cabinet_callback(update, context):
     return await _previous_callback(update, context)
+
+
+_admin_launch_push_done = False
+
+
+async def _push_admin_launch_once(context):
+    global _admin_launch_push_done
+    if _admin_launch_push_done:
+        return
+    _admin_launch_push_done = True
+    admin_id = _admin_id()
+    if not admin_id:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=int(admin_id),
+            text=(
+                "💗 <b>ЕГЭ БЛИЗКО — новая ссылка</b>\n\n"
+                "На телефоне открывай приложение этой кнопкой. "
+                "Она использует обычную защищённую ссылку и не зависит от Telegram WebApp-кнопки."
+            ),
+            parse_mode="HTML",
+            reply_markup=_launcher_markup(),
+        )
+        print("EGE admin WebApp mobile launcher pushed=1", flush=True)
+    except Exception as exc:
+        print(
+            f"EGE admin WebApp mobile launcher push failed: {type(exc).__name__}: {exc}",
+            flush=True,
+        )
 
 
 def install():
@@ -764,7 +795,17 @@ def install():
             flush=True,
         )
 
+    # Reuse the existing repeating scheduler chain to send Maria one fresh
+    # mobile-safe launcher after deployment.
+    original_tick = live7.friday_trivial_tick
+
+    async def tick_with_admin_webapp_push(context):
+        await _push_admin_launch_once(context)
+        return await original_tick(context)
+
+    live7.friday_trivial_tick = tick_with_admin_webapp_push
+
     print(
-        f"EGE admin WebApp ready: admin-only url={WEBAPP_URL or 'missing'}",
+        f"EGE admin WebApp ready: admin-only url={WEBAPP_URL or 'missing'} launcher=url-button",
         flush=True,
     )
