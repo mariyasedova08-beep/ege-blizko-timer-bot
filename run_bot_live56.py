@@ -58,6 +58,24 @@ def unique_probnik_student_match(result_name, student_rows):
     if len(exact) > 1:
         return None
 
+    # Если в таблице записано только имя (например, "ЕВА"),
+    # сравниваем его как отдельное слово, а не как подстроку фамилии.
+    # Иначе "Ева" ошибочно конфликтует с фамилиями вроде "Иноземцева".
+    target_tokens = _tokens(result_name)
+    if len(target_tokens) == 1:
+        token = target_tokens[0]
+        token_matches = []
+        for row in student_rows:
+            for value in (row[1], row[2]):
+                if token in _tokens(value):
+                    token_matches.append(row)
+                    break
+        unique_token_matches = {int(row[0]): row for row in token_matches}
+        if len(unique_token_matches) == 1:
+            return next(iter(unique_token_matches.values()))
+        if len(unique_token_matches) > 1:
+            return None
+
     partial = []
     for row in student_rows:
         for candidate in _student_name_candidates(row):
