@@ -10,6 +10,7 @@ import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
 
@@ -811,6 +812,35 @@ def install():
                 ).fetchall()
             ]
         print("EGE CORE COURSE IDS " + repr(course_ids), flush=True)
+        for course_id in course_ids[:3]:
+            try:
+                req = Request(
+                    f"https://coreapp.ai/app/player/course/{course_id}",
+                    headers={"User-Agent": "Mozilla/5.0"},
+                )
+                with urlopen(req, timeout=12) as resp:
+                    body = resp.read(500000).decode("utf-8", errors="ignore")
+                    print(
+                        "EGE CORE COURSE FETCH "
+                        f"id={course_id} status={getattr(resp, 'status', 200)} "
+                        f"len={len(body)} has_itog={('итог' in body.casefold())} "
+                        f"has_homework={('домаш' in body.casefold())}",
+                        flush=True,
+                    )
+                    for needle in ("итог", "финал", "домаш"):
+                        pos = body.casefold().find(needle)
+                        if pos >= 0:
+                            snippet = body[max(0,pos-220):pos+420].replace("\n"," ")
+                            print(
+                                f"EGE CORE COURSE SNIPPET {needle}=" + repr(snippet[:650]),
+                                flush=True,
+                            )
+            except Exception as exc:
+                print(
+                    f"EGE CORE COURSE FETCH failed id={course_id}: "
+                    f"{type(exc).__name__}: {exc}",
+                    flush=True,
+                )
         print(
             "EGE HOMEWORK TYPE DIAG names="
             + repr([(str(n or ""), str(i or ""), int(cnt or 0)) for n,i,cnt in hw_names])
