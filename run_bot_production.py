@@ -204,6 +204,11 @@ def main():
     import kulek_rewards
     kulek_rewards.install()
 
+    # Student beautiful WebApp: personal read-only cabinet for each linked child.
+    # Install after Kulechki so its launcher wraps the final student cabinet UI.
+    import ege_student_webapp
+    ege_student_webapp.install()
+
     live90.live79.live24.main()
 
 
