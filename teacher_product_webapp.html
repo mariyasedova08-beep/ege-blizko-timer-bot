@@ -53,9 +53,16 @@ var currentView='home';
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
 function money(n){return n?String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' ₽':'—';}
 function setNav(v){['home','students','schedule','reports'].forEach(function(x){var e=document.getElementById('nav-'+x);if(e)e.classList.toggle('active',x===v);});}
+async function reportClientError(where,e){
+ try{
+  await fetch('/api/client-error',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({role:'teacher',where:where,message:String((e&&e.message)||e||'unknown')})});
+ }catch(_){}
+}
+window.addEventListener('error',function(e){reportClientError('window.error',e.error||e.message);});
+window.addEventListener('unhandledrejection',function(e){reportClientError('unhandledrejection',e.reason);});
 async function api(view){
- var r=await fetch('/api/dashboard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData:(tg&&tg.initData)||'',launch:launch,view:view})});
- if(!r.ok)throw new Error('api');
+ var r=await fetch('/api/dashboard?ts='+Date.now(),{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({initData:(tg&&tg.initData)||'',launch:launch,view:view})});
+ if(!r.ok)throw new Error('api '+r.status);
  return await r.json();
 }
 function head(title,sub){
@@ -133,14 +140,45 @@ function renderSlots(d){
  (d.blocks||[]).forEach(function(x){blocks+='<div class="row"><div class="time">'+esc(x.start)+'–'+esc(x.end)+'</div><div class="row-main"><div class="row-title">'+esc(x.label)+'</div><div class="row-sub">закрыто вручную</div></div></div>';});
  document.getElementById('app').innerHTML=head('Свободные окна',d.date)+'<div class="section"><div class="section-title"><strong>Занято сегодня</strong></div><div class="list">'+(rows||'<div class="empty">Занятий сегодня нет</div>')+'</div></div><div class="section"><div class="section-title"><strong>Закрытые периоды</strong></div><div class="list">'+(blocks||'<div class="empty">Ручных блокировок нет</div>')+'</div></div>';
 }
+function renderFallback(view,d){
+ var out=head((d&&d.title)||'Раздел','данные загружены');
+ out+='<div class="list">';
+ if(d&&Array.isArray(d.items)&&d.items.length){
+  d.items.forEach(function(x){
+   var title=x.name||x.title||x.text||'Запись';
+   var sub=x.status||x.due||x.due_date||x.scope||'';
+   out+='<div class="row"><div class="row-main"><div class="row-title">'+esc(title)+'</div><div class="row-sub">'+esc(sub)+'</div></div></div>';
+  });
+ }else{
+  out+='<div class="empty">Данные раздела загружены. Обнови экран, если список не появился.</div>';
+ }
+ out+='</div>';
+ document.getElementById('app').innerHTML=out;
+}
 function renderView(view,d){
- if(view==='home')renderHome(d);else if(view==='students')renderStudents(d);else if(view==='schedule')renderSchedule(d);else if(view==='homework')renderHomework(d);else if(view==='payments')renderPayments(d);else if(view==='attention')renderAttention(d);else if(view==='tasks')renderTasks(d);else if(view==='attendance')renderAttendance(d);else if(view==='reports')renderReports(d);else if(view==='slots')renderSlots(d);
+ if(view==='home')return renderHome(d);
+ if(view==='students')return renderStudents(d);
+ if(view==='schedule')return renderSchedule(d);
+ if(view==='homework')return renderHomework(d);
+ if(view==='payments')return renderPayments(d);
+ if(view==='attention')return renderAttention(d);
+ if(view==='tasks')return renderTasks(d);
+ if(view==='attendance')return renderAttendance(d);
+ if(view==='reports')return renderReports(d);
+ if(view==='slots')return renderSlots(d);
+ return renderFallback(view,d);
 }
 async function openView(view){
  currentView=view;setNav(['home','students','schedule','reports'].indexOf(view)>=0?view:'');
  document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';
- try{var p=await api(view);renderView(p.view,p.data);window.scrollTo(0,0);}
- catch(e){document.getElementById('app').innerHTML='<div class="error">Не удалось открыть раздел. Закрой мини-приложение и открой его снова.</div>';}
+ try{
+  var p=await api(view);
+  try{renderView(p.view,p.data);}catch(renderError){await reportClientError('render:'+view,renderError);renderFallback(view,p.data||{});}
+  try{window.scrollTo(0,0);}catch(_){}
+ }catch(e){
+  await reportClientError('open:'+view,e);
+  document.getElementById('app').innerHTML='<div class="error">Раздел не загрузился. Нажми «Главная» и попробуй ещё раз.</div>';
+ }
 }
 async function boot(){
  if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="top"><div><span class="eyebrow">ПРЕПОДМИН</span><h1>Главная 💗</h1><div class="sub">Открой этот экран через кнопку «💗 Главная ПРЕПОДМИН» внутри бота.</div></div><div class="avatar">🎓</div></div>';return;}
