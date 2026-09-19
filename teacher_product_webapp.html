@@ -76,12 +76,13 @@ function render(d){
  document.getElementById('app').innerHTML=out;
 }
 async function boot(){
- if(!tg||!tg.initData){document.getElementById('app').innerHTML='<div class="top"><div><span class="eyebrow">ПРЕПОДМИН</span><h1>Главная 💗</h1><div class="sub">Открой этот экран из кнопки внутри Telegram-бота.</div></div><div class="avatar">🎓</div></div>';return;}
+ var launch=(new URLSearchParams(window.location.search)).get('launch')||'';
+ if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="top"><div><span class="eyebrow">ПРЕПОДМИН</span><h1>Главная 💗</h1><div class="sub">Открой этот экран через кнопку «💗 Главная ПРЕПОДМИН» внутри бота.</div></div><div class="avatar">🎓</div></div>';return;}
  try{
-  var r=await fetch('/api/dashboard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData:tg.initData})});
+  var r=await fetch('/api/dashboard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData:(tg&&tg.initData)||'',launch:launch})});
   if(!r.ok)throw new Error('auth');
   render(await r.json());
- }catch(e){document.getElementById('app').innerHTML='<div class="error">Не удалось загрузить данные. Закрой экран и открой его ещё раз из ПРЕПОДМИН.</div>';}
+ }catch(e){document.getElementById('app').innerHTML='<div class="error">Не удалось загрузить данные. Закрой экран и открой его ещё раз через «💗 Главная ПРЕПОДМИН».</div>';}
 }
 boot();
 </script>
