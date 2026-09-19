@@ -492,26 +492,41 @@ def _final_homework_catalog(force=False):
         # CORE renders published course lessons in anchor blocks. We keep only
         # explicit final-homework / examination lessons, so ordinary homework
         # never leaks into this statistic.
-        pattern = re.compile(
-            r'href="[^"]*/lesson/([0-9a-fA-F]{12,})"[^>]*>(.*?)</a>',
-            re.DOTALL,
+        lesson_link_pattern = re.compile(
+            r'href="[^"]*/lesson/([0-9a-fA-F]{12,})"'
         )
-        for match in pattern.finditer(body):
+        title_pattern = re.compile(
+            r'<div[^>]*class="[^"]*player-lesson-thumbnail-name[^"]*"[^>]*>([^<]+)</div>',
+            re.I,
+        )
+        links = list(lesson_link_pattern.finditer(body))
+        for idx, match in enumerate(links):
             lesson_id = match.group(1)
-            block = match.group(2)
-            texts = re.findall(r'>([^<>]{2,})<', block)
-            title = " ".join(
-                html_lib.unescape(t).strip()
-                for t in texts
-                if html_lib.unescape(t).strip()
-            )
+            start = match.end()
+            end = links[idx + 1].start() if idx + 1 < len(links) else min(len(body), start + 5000)
+            block = body[start:end]
+            title_match = title_pattern.search(block)
+            if not title_match:
+                # Fallback for CORE class-name changes: inspect nearby visible text.
+                visible = [
+                    re.sub(r"\s+", " ", html_lib.unescape(t)).strip()
+                    for t in re.findall(r'>([^<>]{3,})<', block[:1800])
+                ]
+                title = next(
+                    (
+                        t for t in visible
+                        if "итоговая домашняя работа" in t.casefold().replace("ё", "е")
+                    ),
+                    "",
+                )
+            else:
+                title = html_lib.unescape(title_match.group(1)).strip()
+
             title = re.sub(r"\s+", " ", title).strip()
             norm = title.casefold().replace("ё", "е")
             if "итоговая домашняя работа" not in norm:
                 continue
-            # Remove visual index/badge noise if it was captured.
-            title = re.sub(r"^\d+(?:\.\d+)?\s+", "", title)
-            title = re.sub(r"\s+Examination\s*$", "", title, flags=re.I)
+
             key = (course_id, lesson_id)
             if key in seen:
                 continue
