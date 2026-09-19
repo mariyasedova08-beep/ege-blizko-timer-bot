@@ -300,7 +300,6 @@ async def cabinet_callback(update, context):
                     live7.InlineKeyboardButton("🧪 Кислоты", callback_data="cab:acid"),
                     live7.InlineKeyboardButton("🧫 Тривиальные", callback_data="cab:trivial"),
                 ],
-                [live7.InlineKeyboardButton("🏆 Рейтинг тривиальных", callback_data="cab:trivtop")],
                 [live7.InlineKeyboardButton("← В кабинет", callback_data="cab:back")],
             ]),
         )
@@ -317,7 +316,18 @@ async def cabinet_callback(update, context):
         return
 
     if action == "trivtop":
-        await _send_chunks(query.message, live7.top_text())
+        # Legacy callback from old messages: return to trainer menu without ranking.
+        await query.edit_message_text(
+            "🧪 <b>Тренажёры</b>\n\nВыбирай статистику:",
+            parse_mode="HTML",
+            reply_markup=live7.InlineKeyboardMarkup([
+                [
+                    live7.InlineKeyboardButton("🧪 Кислоты", callback_data="cab:acid"),
+                    live7.InlineKeyboardButton("🧫 Тривиальные", callback_data="cab:trivial"),
+                ],
+                [live7.InlineKeyboardButton("← В кабинет", callback_data="cab:back")],
+            ]),
+        )
         return
 
     if action == "linkmenu":
