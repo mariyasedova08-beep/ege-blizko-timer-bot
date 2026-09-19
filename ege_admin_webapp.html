@@ -313,6 +313,7 @@ function renderKulek(d){
      out+='<div class="section-note">Розыгрыш текущего месяца станет доступен после его закрытия. Сейчас допущены: '+d.eligible_draw_count+'.</div>';
    }
  }
+ out+='<div class="section"><div class="actions"><button class="action" onclick="openView(\'kulek:'+d.previous_month+'\')"><span class="aicon">←</span>Предыдущий месяц</button><button class="action" onclick="openView(\'kulek:'+d.current_month+'\')"><span class="aicon">🐶</span>Текущий месяц</button></div></div>';
  out+='<div class="section-note">Кулёчки за практический урок выдаются в обычном боте ЕГЭ БЛИЗКО: «🐶 Кулёчки → 👩‍🏫 Выдать за практику».</div>';
  document.getElementById('app').innerHTML=out;
 }
