@@ -1357,6 +1357,23 @@ def install():
     live7.start_router = _start_router
 
     try:
+        analytics_check = _student_analytics_payload(force=True)
+        detail_count = len(analytics_check.get("details") or {})
+        print(
+            "EGE student analytics check: "
+            f"students={analytics_check['total']} "
+            f"details={detail_count} "
+            f"linked={analytics_check['linked']}",
+            flush=True,
+        )
+    except Exception as exc:
+        print(
+            f"EGE student analytics check failed: {type(exc).__name__}: {exc}\n"
+            + traceback.format_exc(),
+            flush=True,
+        )
+
+    try:
         final_check = _final_homework_payload()
         print(
             "EGE final homework check: "
