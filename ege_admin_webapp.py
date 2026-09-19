@@ -492,40 +492,42 @@ def _final_homework_catalog(force=False):
         # CORE renders published course lessons in anchor blocks. We keep only
         # explicit final-homework / examination lessons, so ordinary homework
         # never leaks into this statistic.
-        lesson_link_pattern = re.compile(
-            r'href="[^"]*/lesson/([0-9a-fA-F]{12,})"'
-        )
-        title_pattern = re.compile(
-            r'<div[^>]*class="[^"]*player-lesson-thumbnail-name[^"]*"[^>]*>([^<]+)</div>',
-            re.I,
-        )
-        links = list(lesson_link_pattern.finditer(body))
-        for idx, match in enumerate(links):
-            lesson_id = match.group(1)
-            start = match.end()
-            end = links[idx + 1].start() if idx + 1 < len(links) else min(len(body), start + 5000)
-            block = body[start:end]
-            title_match = title_pattern.search(block)
-            if not title_match:
-                # Fallback for CORE class-name changes: inspect nearby visible text.
-                visible = [
-                    re.sub(r"\s+", " ", html_lib.unescape(t)).strip()
-                    for t in re.findall(r'>([^<>]{3,})<', block[:1800])
-                ]
-                title = next(
-                    (
-                        t for t in visible
-                        if "итоговая домашняя работа" in t.casefold().replace("ё", "е")
-                    ),
-                    "",
-                )
-            else:
-                title = html_lib.unescape(title_match.group(1)).strip()
+        lower_body = body.casefold().replace("ё", "е")
+        needle = "итоговая домашняя работа"
+        for title_match in re.finditer(re.escape(needle), lower_body):
+            pos = title_match.start()
 
-            title = re.sub(r"\s+", " ", title).strip()
-            norm = title.casefold().replace("ё", "е")
-            if "итоговая домашняя работа" not in norm:
+            # The lesson link is immediately before the visible title in CORE's
+            # rendered course HTML. Take the closest lesson id, not a module id.
+            before = body[max(0, pos - 2500):pos]
+            lesson_ids = re.findall(
+                r'(?:/|%2F)lesson(?:/|%2F)([0-9a-fA-F]{12,})',
+                before,
+                flags=re.I,
+            )
+            if not lesson_ids:
+                # Fallback: CORE sometimes emits escaped JSON-style URLs.
+                lesson_ids = re.findall(
+                    r'lesson[\\/"%2F:]+([0-9a-fA-F]{12,})',
+                    before,
+                    flags=re.I,
+                )
+            if not lesson_ids:
                 continue
+            lesson_id = lesson_ids[-1]
+
+            neighborhood = body[max(0, pos - 800):min(len(body), pos + 1800)]
+            title_candidates = re.findall(
+                r'>([^<>]*ИТОГОВАЯ\s+ДОМАШНЯЯ\s+РАБОТА[^<>]*)<',
+                neighborhood,
+                flags=re.I,
+            )
+            title = (
+                html_lib.unescape(title_candidates[0]).strip()
+                if title_candidates
+                else "Итоговая домашняя работа"
+            )
+            title = re.sub(r"\s+", " ", title).strip()
 
             key = (course_id, lesson_id)
             if key in seen:
@@ -535,7 +537,7 @@ def _final_homework_catalog(force=False):
                 {
                     "course_id": course_id,
                     "lesson_id": lesson_id,
-                    "title": title or "Итоговая домашняя работа",
+                    "title": title,
                 }
             )
 
