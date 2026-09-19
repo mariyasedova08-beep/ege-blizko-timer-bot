@@ -25,6 +25,7 @@ import teacher_product_courses as courses
 import teacher_product_reports as reports
 import teacher_product_webapp as webapp
 import teacher_product_student_webapp as student_webapp
+import teacher_product_feedback as feedback
 
 
 def main():
@@ -43,6 +44,7 @@ def main():
     cancellations.ensure_tables()
     courses.ensure_tables()
     reports.ensure_tables()
+    feedback.ensure_tables()
     webapp.install_server()
     threading.Thread(target=base.start_health_server, daemon=True).start()
     print("Teacher Product MVP ready: schedule + reminders + payments + subscriptions + today-actions + tomorrow + availability-slots + homework + attendance + group-members + courses + reports + student-messaging + tasks + private voice beta", flush=True)
@@ -68,6 +70,7 @@ def main():
     reports.install(app)
     student_messaging.install(app)
     webapp.install(app)
+    feedback.install(app)
     student_webapp.install(app)
     app.run_polling(drop_pending_updates=False)
 
