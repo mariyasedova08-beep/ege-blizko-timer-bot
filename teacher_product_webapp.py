@@ -21,6 +21,7 @@ import teacher_product_groups as groups
 import teacher_product_slots as slots
 import teacher_product_tasks as tasks
 import teacher_product_reports as reports
+import teacher_product_student_webapp as student_webapp
 
 PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
 WEBAPP_URL = os.getenv(
@@ -494,11 +495,18 @@ class WebAppHandler(BaseHTTPRequestHandler):
                 print(f"PREPODMIN WebApp html error: {type(exc).__name__}: {exc}", flush=True)
                 self._send(500, b"WebApp unavailable", "text/plain; charset=utf-8")
             return
+        if path == "/student":
+            try:
+                self._send(200, student_webapp.HTML_PATH.read_bytes(), "text/html; charset=utf-8")
+            except Exception as exc:
+                print(f"PREPODMIN student WebApp html error: {type(exc).__name__}: {exc}", flush=True)
+                self._send(500, b"Student WebApp unavailable", "text/plain; charset=utf-8")
+            return
         self._send(404, _json_bytes({"ok": False, "error": "not_found"}))
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
-        if path != "/api/dashboard":
+        if path not in {"/api/dashboard", "/api/student", "/api/student/action"}:
             self._send(404, _json_bytes({"ok": False, "error": "not_found"}))
             return
         try:
@@ -506,18 +514,40 @@ class WebAppHandler(BaseHTTPRequestHandler):
             if length <= 0 or length > 20000:
                 raise ValueError("bad length")
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
+
             uid = _validate_init_data(payload.get("initData", ""))
+            if path == "/api/dashboard":
+                if not uid:
+                    uid = _validate_launch_token(payload.get("launch", ""))
+                if not uid:
+                    self._send(401, _json_bytes({"ok": False, "error": "unauthorized"}))
+                    return
+                view_name = str(payload.get("view") or "home")
+                data = _view(uid, view_name)
+                if not data:
+                    self._send(403, _json_bytes({"ok": False, "error": "not_available"}))
+                    return
+                self._send(200, _json_bytes({"view": view_name, "data": data}))
+                return
+
             if not uid:
-                uid = _validate_launch_token(payload.get("launch", ""))
+                uid = student_webapp.validate_launch_token(payload.get("launch", ""))
             if not uid:
                 self._send(401, _json_bytes({"ok": False, "error": "unauthorized"}))
                 return
-            view_name = str(payload.get("view") or "home")
-            data = _view(uid, view_name)
+
+            if path == "/api/student":
+                data = student_webapp.view(
+                    uid,
+                    str(payload.get("view") or "home"),
+                    payload.get("link_id"),
+                )
+            else:
+                data = student_webapp.action(uid, payload)
             if not data:
                 self._send(403, _json_bytes({"ok": False, "error": "not_available"}))
                 return
-            self._send(200, _json_bytes({"view": view_name, "data": data}))
+            self._send(200, _json_bytes(data))
         except Exception as exc:
             print(f"PREPODMIN WebApp api error: {type(exc).__name__}: {exc}", flush=True)
             self._send(400, _json_bytes({"ok": False, "error": "bad_request"}))
