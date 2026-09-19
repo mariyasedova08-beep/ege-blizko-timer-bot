@@ -44,6 +44,7 @@ _previous_get = None
 _previous_post = None
 _previous_markup = None
 _previous_callback = None
+_previous_show = None
 
 
 def _launch_token(telegram_user_id, ttl=6 * 60 * 60):
@@ -434,25 +435,46 @@ def _launcher_url(telegram_user_id):
 
 
 def _patch_student_cabinet():
-    global _previous_markup, _previous_callback
+    global _previous_markup, _previous_callback, _previous_show
     _previous_markup = student_cabinet._student_home_markup
     _previous_callback = student_cabinet.student_cabinet_callback
+    _previous_show = student_cabinet.show_student_cabinet
 
     def home_markup():
+        # Fallback markup used by older code paths. A live student opening the
+        # cabinet gets a signed direct URL from show_student_cabinet_with_webapp.
+        return _previous_markup()
+
+    def markup_for(uid):
         base = _previous_markup()
         rows = [list(row) for row in base.inline_keyboard]
-        if not any(
-            getattr(button, "callback_data", "") == "triv:studentcab:webapp"
-            for row in rows for button in row
-        ):
-            rows.insert(
-                0,
-                [InlineKeyboardButton(
-                    "💗 Открыть личный кабинет",
-                    callback_data="triv:studentcab:webapp",
-                )],
-            )
+        rows = [
+            [
+                button for button in row
+                if getattr(button, "callback_data", "") != "triv:studentcab:webapp"
+            ]
+            for row in rows
+        ]
+        rows = [row for row in rows if row]
+        rows.insert(
+            0,
+            [InlineKeyboardButton(
+                "💗 Открыть приложение",
+                url=_launcher_url(uid),
+            )],
+        )
         return InlineKeyboardMarkup(rows)
+
+    async def show_student_cabinet_with_webapp(update, context, student=None, edit=False):
+        student = student or student_cabinet._student_by_telegram(update.effective_user.id)
+        if not student:
+            return await _previous_show(update, context, student=student, edit=edit)
+        text = student_cabinet._student_home_text(student)
+        markup = markup_for(update.effective_user.id)
+        if edit and update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=markup)
+        else:
+            await update.effective_message.reply_text(text, reply_markup=markup)
 
     async def callback(update, context):
         query = update.callback_query
@@ -460,6 +482,7 @@ def _patch_student_cabinet():
         if data != "triv:studentcab:webapp":
             return await _previous_callback(update, context)
 
+        # Legacy callback from the first WebApp build. Keep old messages useful.
         await query.answer()
         student = student_cabinet._student_by_telegram(update.effective_user.id)
         if not student:
@@ -468,9 +491,7 @@ def _patch_student_cabinet():
             )
             return
         await query.message.reply_text(
-            "💗 <b>ЕГЭ БЛИЗКО — твой личный кабинет</b>\n\n"
-            "Здесь собраны твои ДЗ, посещение, пробники, тренажёры, "
-            "Кулёчки, оплаты и записи уроков.",
+            "💗 <b>ЕГЭ БЛИЗКО — твой личный кабинет</b>",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton(
@@ -481,6 +502,7 @@ def _patch_student_cabinet():
         )
 
     student_cabinet._student_home_markup = home_markup
+    student_cabinet.show_student_cabinet = show_student_cabinet_with_webapp
     student_cabinet.student_cabinet_callback = callback
 
 
