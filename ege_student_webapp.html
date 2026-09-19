@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F8F5F2">
+<title>ЕГЭ БЛИЗКО — личный кабинет</title>
+<style>
+:root{--milk:#F8F5F2;--ink:#171719;--soft:#F4D9E6;--pink:#F00087;--paper:#fffdfc;--muted:#8a7f85;--line:#eadfe4;--ok:#2f8f58;--warn:#b66c19;--danger:#c7485d;--shadow:0 10px 34px rgba(58,36,47,.08)}
+*{box-sizing:border-box}body{margin:0;background:var(--milk);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,a{font:inherit}
+.app{max-width:760px;margin:0 auto;padding:18px 15px 96px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin:5px 2px 17px}
+.brand{font-weight:950;letter-spacing:-.045em;font-size:24px}.brand span{color:var(--pink)}.kicker{font-size:12px;color:var(--muted);margin-top:4px}
+.avatar{width:44px;height:44px;border-radius:15px;background:var(--soft);display:grid;place-items:center;font-size:22px;border:1px solid #efd0de}
+.hero{background:linear-gradient(145deg,#fff,#fff7fb);border:1px solid var(--line);border-radius:28px;padding:20px;box-shadow:var(--shadow)}
+.hello{font-size:27px;font-weight:950;letter-spacing:-.045em;margin:0}.course{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.4}
+.progress{height:9px;background:#f0e7eb;border-radius:99px;overflow:hidden;margin:17px 0 8px}.progress>div{height:100%;background:var(--pink);border-radius:99px}
+.progressline{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:15px;box-shadow:0 6px 20px rgba(58,36,47,.04)}.card b{font-size:22px;display:block;letter-spacing:-.035em}.card span{display:block;color:var(--muted);font-size:12px;margin-top:5px;line-height:1.25}
+.section{margin-top:22px}.section-title{display:flex;justify-content:space-between;align-items:center;margin:0 2px 9px}.section-title strong{font-size:18px;letter-spacing:-.02em}.section-title span{font-size:12px;color:var(--muted)}
+.list{background:var(--paper);border:1px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:var(--shadow)}.row{display:flex;justify-content:space-between;gap:12px;padding:14px 15px;border-bottom:1px solid var(--line);align-items:flex-start}.row:last-child{border-bottom:0}
+.rmain{font-weight:750;font-size:14px}.rsub{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.35}.badge{flex:0 0 auto;font-size:11px;padding:6px 9px;border-radius:999px;background:#f4eef1}.badge.ok{background:#edf8f1;color:var(--ok)}.badge.warn{background:#fff5e7;color:var(--warn)}.badge.danger{background:#fff0f2;color:var(--danger)}
+.kulek{background:linear-gradient(145deg,#fff7fb,var(--soft));border:1px solid #ebcbd9;border-radius:25px;padding:17px;box-shadow:var(--shadow)}.khead{display:flex;justify-content:space-between;gap:14px;align-items:center}.kleft{display:flex;gap:11px;align-items:center}.kimg{width:50px;height:50px;border-radius:17px;object-fit:cover;border:2px solid #fff}.kscore{font-size:34px;font-weight:950;letter-spacing:-.05em;text-align:right}.ksub{font-size:11px;color:var(--muted);text-align:right}.kcats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.kcat{background:rgba(255,255,255,.72);padding:10px 11px;border-radius:15px;font-size:12px}.kcat b{font-size:15px}.remaining{margin-top:12px;background:rgba(255,255,255,.72);border-radius:15px;padding:11px 12px;font-size:12px;line-height:1.45}
+.record-link{display:block;text-decoration:none;color:var(--ink)}.empty{padding:20px 16px;color:var(--muted);font-size:13px;text-align:center}
+.tabs{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(760px,100%);display:grid;grid-template-columns:repeat(4,1fr);background:rgba(248,245,242,.96);backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:7px 8px calc(7px + env(safe-area-inset-bottom));z-index:20}.tab{border:0;background:transparent;padding:8px 2px;color:var(--muted);font-size:10px;border-radius:13px}.tab i{display:block;font-style:normal;font-size:20px;margin-bottom:2px}.tab.active{color:var(--pink);background:#fff}.view{display:none}.view.active{display:block}.pill{font-size:12px;color:var(--pink);font-weight:800}
+.loader{min-height:65vh;display:grid;place-items:center;text-align:center;color:var(--muted)}.err{background:#fff;border:1px solid var(--line);border-radius:22px;padding:18px;max-width:520px}
+@media(min-width:680px){.app{padding-top:28px}.grid{grid-template-columns:repeat(4,1fr)}.kcats{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<div class="app" id="app"><div class="loader">Загружаю личный кабинет…</div></div>
+<nav class="tabs" id="tabs" style="display:none">
+<button class="tab active" data-view="home"><i>⌂</i>Главная</button>
+<button class="tab" data-view="study"><i>📚</i>Учёба</button>
+<button class="tab" data-view="kulek"><i>🐶</i>Кулёчки</button>
+<button class="tab" data-view="more"><i>•••</i>Ещё</button>
+</nav>
+<script>
+var qs=new URLSearchParams(location.search),launch=qs.get("launch")||"";
+var app=document.getElementById("app"),tabs=document.getElementById("tabs");
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]})}
+function fmtDate(s){if(!s)return"";var p=String(s).split("-");return p.length===3?p[2]+"."+p[1]+"."+p[0]:s}
+function pct(a,b){return b?Math.round(100*a/b):0}
+function report(where,e){fetch("/student-app/client-error",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({where:where,message:String(e&&e.stack||e)})}).catch(function(){})}
+window.addEventListener("error",function(e){report("window",e.error||e.message)});
+window.addEventListener("unhandledrejection",function(e){report("promise",e.reason)});
+function row(main,sub,badge,cls){
+ return '<div class="row"><div><div class="rmain">'+main+'</div>'+(sub?'<div class="rsub">'+sub+'</div>':'')+'</div>'+(badge?'<div class="badge '+(cls||'')+'">'+badge+'</div>':'')+'</div>';
+}
+function section(title,inside,meta){
+ return '<div class="section"><div class="section-title"><strong>'+title+'</strong><span>'+(meta||'')+'</span></div><div class="list">'+(inside||'<div class="empty">Пока нет данных</div>')+'</div></div>';
+}
+function trainerRows(items){
+ return (items||[]).map(function(x){return row(esc(x.title),x.sessions+' тренировок · '+x.questions+' вопросов',x.accuracy+'%',x.sessions?'ok':'')}).join('');
+}
+function homeworkRows(items){
+ var ordered=(items||[]).slice().sort(function(a,b){return Number(a.done)-Number(b.done)||String(b.due_date).localeCompare(String(a.due_date))});
+ return ordered.map(function(x){
+  var badge='✅',cls='ok',sub='срок '+fmtDate(x.due_date);
+  if(!x.done&&x.overdue){badge='долг';cls='danger'}else if(!x.done&&x.due_today){badge='сегодня';cls='warn'}else if(!x.done){badge='в работе';cls='warn'}
+  return row('ДЗ после урока №'+x.source_no,sub,badge,cls);
+ }).join('');
+}
+function attendanceRows(items){
+ return (items||[]).map(function(x){return row('Урок №'+x.lesson,fmtDate(x.date),x.status==='present'?'был(а)':'пропуск',x.status==='present'?'ok':'danger')}).join('');
+}
+function probnikRows(items){
+ return (items||[]).map(function(x){
+  var score=x.secondary!=null?x.secondary:(x.primary!=null?x.primary:'—');
+  var weak=(x.zero_tasks||[]).length?'Слабые задания: №'+x.zero_tasks.map(esc).join(', №'):'Без нулевых заданий';
+  return row(esc(x.event),esc(x.date)+' · '+weak,score+' б.','');
+ }).join('');
+}
+function recordingsRows(items){
+ return (items||[]).map(function(x){
+  return '<a class="record-link" href="'+esc(x.url)+'" target="_blank" rel="noopener">'+row('Урок №'+x.lesson+(x.topic?' · '+esc(x.topic):''),fmtDate(x.date),'смотреть','ok')+'</a>';
+ }).join('');
+}
+function paymentCard(p){
+ if(!p||!p.connected)return '<div class="empty">Информация об оплате пока не подключена.</div>';
+ var body=row('Оплачено',esc(p.paid_label||'—'),'✓','ok')+row('График',esc(p.cadence_label||'—'));
+ if(p.next)body+=row('Следующая оплата: '+esc(p.next.label),'до '+fmtDate(p.next.due_date),esc(p.next.amount),p.next.status==='overdue'?'danger':'warn');
+ else body+=row('Следующая оплата','Дополнительный платёж сейчас не требуется','закрыто','ok');
+ return body;
+}
+function kulekBlock(k){
+ if(!k)return '<div class="kulek"><div class="empty">Кулёчки пока не рассчитаны.</div></div>';
+ var cats=k.categories||{},vals=[['🏠 ДЗ',cats.homework],['📚 Итоговые',cats.final],['🧪 Тренажёры',cats.trainers],['📝 Пробники',cats.probnik]];
+ var rem='';
+ if(k.objective_complete)rem='<div class="remaining">🌟 <b>Все объективные условия месяца выполнены!</b>'+(k.draw_eligible?'<br>🎁 Ты проходишь в розыгрыш скидки 5%.':'')+'</div>';
+ else if((k.remaining||[]).length)rem='<div class="remaining"><b>До полного месяца осталось:</b><br>'+k.remaining.map(function(x){return '• '+esc(x)}).join('<br>')+'</div>';
+ return '<div class="kulek"><div class="khead"><div class="kleft"><img class="kimg" src="/kulechek-mascot.jpg?v=12" alt=""><div><div class="rmain">Мои Кулёчки</div><div class="rsub">За учебный год: '+k.year_total+'</div></div></div><div><div class="kscore">'+k.points+'/'+k.possible+'</div><div class="ksub">за этот месяц</div></div></div><div class="kcats">'+vals.map(function(v){return '<div class="kcat">'+v[0]+'<br><b>'+(v[1]?(v[1].earned+'/'+v[1].total):'—')+'</b></div>'}).join('')+'</div>'+rem+'</div>';
+}
+function render(d){
+ var name=esc(d.student.first_name||d.student.name),c=d.course,w=d.week,m=d.month,coursePct=c.total_lessons?pct(c.lesson_number,c.total_lessons):0;
+ var hm=d.homework||[],unfinished=hm.filter(function(x){return !x.done}).length,overdue=hm.filter(function(x){return !x.done&&x.overdue}).length,latest=(d.probniki||[])[0];
+ var home='<div class="view active" id="view-home"><div class="top"><div><div class="brand">ЕГЭ <span>БЛИЗКО</span></div><div class="kicker">Личный кабинет ученика</div></div><div class="avatar">🧪</div></div>'+
+ '<div class="hero"><h1 class="hello">Привет, '+name+'! 💗</h1><div class="course">'+esc(d.student.course)+'</div><div class="progress"><div style="width:'+Math.min(100,coursePct)+'%"></div></div><div class="progressline"><span>Урок '+c.lesson_number+' из '+c.total_lessons+'</span><span>'+c.days_left+' дн. до ЕГЭ</span></div></div>'+
+ '<div class="grid"><div class="card"><b>'+m.homework_count+'</b><span>ДЗ сдано в '+esc(d.month_label)+'</span></div><div class="card"><b>'+(m.attendance_total?m.attendance_present+'/'+m.attendance_total:'—')+'</b><span>посещение за месяц</span></div><div class="card"><b>'+m.trainer_sessions+'</b><span>тренировок за месяц</span></div><div class="card"><b>'+(latest?(latest.secondary!=null?latest.secondary:(latest.primary!=null?latest.primary:'—')):'—')+'</b><span>последний пробник</span></div></div>'+
+ section('Эта неделя',row('Домашние работы',w.homework_total?w.homework_done+' из '+w.homework_total:'пока нет обязательных',w.homework_total?pct(w.homework_done,w.homework_total)+'%':'')+row('Посещение',w.attendance_total?w.attendance_present+' из '+w.attendance_total:'ещё не отмечено',w.attendance_total?pct(w.attendance_present,w.attendance_total)+'%':'')+row('Тренажёры',w.trainer_sessions+' тренировок'+(w.trainer_accuracy!=null?' · '+w.trainer_accuracy+'%':'')))+
+ kulekBlock(d.kulek)+(overdue?'<div class="section"><div class="list">'+row('Есть незакрытые ДЗ',unfinished+' не выполнено · '+overdue+' просрочено','проверить','danger')+'</div></div>':'')+'</div>';
+
+ var study='<div class="view" id="view-study"><div class="top"><div><div class="brand">Моя <span>учёба</span></div><div class="kicker">'+esc(d.month_label)+'</div></div></div>'+
+ section('🏠 Домашние работы',homeworkRows(d.homework),unfinished+' не выполнено')+
+ section('🎓 Посещение',attendanceRows(d.attendance),m.attendance_present+'/'+m.attendance_total)+
+ section('📝 Пробники',probnikRows(d.probniki),m.probnik_count+' за месяц')+
+ section('🧪 Тренажёры',trainerRows(d.trainers),m.trainer_sessions+' за месяц')+'</div>';
+
+ var history=(d.kulek&&d.kulek.history||[]).slice().reverse().map(function(x){return row(esc(x.month),x.points+' из '+x.possible)}).join('');
+ var kulek='<div class="view" id="view-kulek"><div class="top"><div><div class="brand">Мои <span>Кулёчки</span></div><div class="kicker">'+esc(d.month_label)+'</div></div></div>'+kulekBlock(d.kulek)+section('История',history)+'</div>';
+
+ var weak=(d.weak_tasks||[]).length?row('Последний пробник','Повтори задания: №'+d.weak_tasks.map(esc).join(', №'),'повторить','warn'):'<div class="empty">По последнему пробнику нулевых заданий нет.</div>';
+ var more='<div class="view" id="view-more"><div class="top"><div><div class="brand">Ещё</div><div class="kicker">Всё важное по курсу</div></div></div>'+
+ section('💳 Оплата',paymentCard(d.payment))+section('🎥 Записи уроков',recordingsRows(d.recordings),(d.recordings||[]).length+' доступно')+section('🧠 Слабые места',weak)+'</div>';
+ app.innerHTML=home+study+kulek+more;tabs.style.display='grid';
+}
+function switchView(name){
+ document.querySelectorAll('.view').forEach(function(x){x.classList.toggle('active',x.id==='view-'+name)});
+ document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('active',x.dataset.view===name)});
+ window.scrollTo({top:0,behavior:'smooth'});
+}
+tabs.addEventListener('click',function(e){var b=e.target.closest('.tab');if(b)switchView(b.dataset.view)});
+async function load(){
+ try{
+  if(!launch)throw new Error('Ссылка на кабинет устарела. Открой кабинет заново из бота.');
+  var r=await fetch('/student-app/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({launch:launch})});
+  var j=await r.json().catch(function(){return {}});
+  if(!r.ok||!j.ok)throw new Error(r.status===401?'Ссылка на кабинет устарела. Открой кабинет заново из бота.':'Не удалось загрузить кабинет.');
+  render(j.data);
+ }catch(e){
+  report('load',e);
+  app.innerHTML='<div class="loader"><div class="err"><b>Не удалось открыть кабинет</b><br><br>'+esc(e.message||e)+'<br><br><span class="pill">Вернись в бот → 👤 Мой кабинет → 💗 Открыть личный кабинет</span></div></div>';
+ }
+}
+load();
+</script>
+</body>
+</html>
