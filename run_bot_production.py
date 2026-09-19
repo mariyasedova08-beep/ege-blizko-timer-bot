@@ -187,6 +187,10 @@ def main():
     import lesson_recordings
     lesson_recordings.install()
 
+    # Final student UX layer: one persistent button, all navigation inside cabinet.
+    import student_keyboard_compact
+    student_keyboard_compact.install()
+
     live90.live79.live24.main()
 
 
