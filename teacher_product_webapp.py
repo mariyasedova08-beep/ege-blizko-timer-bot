@@ -719,12 +719,63 @@ async def _push_keyboard_migration(context):
     )
 
 
+def _production_self_check():
+    teacher_views = ("home", "students", "schedule", "homework", "payments", "attention", "tasks", "attendance", "reports", "slots")
+    student_views = ("home", "homework", "schedule", "profile", "attendance", "payment")
+    ok = failed = 0
+    with base.db() as conn:
+        teacher_rows = conn.execute(
+            "SELECT telegram_user_id FROM teachers WHERE onboarding_completed_at IS NOT NULL"
+        ).fetchall()
+        student_rows = conn.execute(
+            """
+            SELECT DISTINCT telegram_user_id
+            FROM student_reminder_people
+            WHERE active=1 AND telegram_user_id IS NOT NULL
+            """
+        ).fetchall()
+
+    for row in teacher_rows:
+        uid = int(row["telegram_user_id"])
+        for name in teacher_views:
+            try:
+                data = _view(uid, name)
+                if data is None:
+                    raise RuntimeError("view returned None")
+                ok += 1
+            except Exception as exc:
+                failed += 1
+                print(
+                    f"PREPODMIN WEBAPP SELFTEST FAIL role=teacher uid={uid} view={name} "
+                    f"error={type(exc).__name__}: {exc}\n{traceback.format_exc()}",
+                    flush=True,
+                )
+
+    for row in student_rows:
+        uid = int(row["telegram_user_id"])
+        for name in student_views:
+            try:
+                data = student_webapp.view(uid, name)
+                if data is None:
+                    raise RuntimeError("view returned None")
+                ok += 1
+            except Exception as exc:
+                failed += 1
+                print(
+                    f"PREPODMIN WEBAPP SELFTEST FAIL role=student uid={uid} view={name} "
+                    f"error={type(exc).__name__}: {exc}\n{traceback.format_exc()}",
+                    flush=True,
+                )
+    print(f"PREPODMIN WEBAPP SELFTEST done ok={ok} failed={failed}", flush=True)
+
+
 def install(app):
     global _INSTALLED
     if _INSTALLED:
         return
     _INSTALLED = True
     base.MAIN_KB = _main_keyboard_with_webapp()
+    _production_self_check()
     app.add_handler(
         MessageHandler(filters.Regex(r"^💗 Главная ПРЕПОДМИН$"), open_webapp),
         group=-41,
