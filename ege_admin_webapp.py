@@ -22,6 +22,7 @@ live79 = live90.live79
 live23 = live79.live23
 live7 = live79.live7
 live34 = live79.live34
+live56 = live79.live56
 live85 = live90.live85
 
 PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
@@ -29,7 +30,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20260919-1"
+WEBAPP_BUILD = "20260919-2"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 _INSTALLED = False
 
@@ -216,6 +217,229 @@ def _payments_payload():
     }
 
 
+def _probnik_date_key(value):
+    text = str(value or "").strip()
+    for fmt in ("%d.%m.%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text, fmt)
+        except Exception:
+            pass
+    return datetime.min
+
+
+def _num(value):
+    try:
+        if value is None or str(value).strip() == "":
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _task_scores(tasks_json):
+    try:
+        data = json.loads(tasks_json or "{}")
+    except Exception:
+        data = {}
+    result = {}
+    for key, value in data.items():
+        score = _num(value)
+        if score is not None:
+            result[str(key)] = score
+    return result
+
+
+def _probnik_payload():
+    """Beautiful per-student probnik statistics using the canonical matching logic."""
+    live79.live10.ensure_probnik_tables()
+    students = live34._student_rows()
+
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        raw_rows = conn.execute(
+            """
+            SELECT id,student_name,event_name,event_date,
+                   primary_score,secondary_score,tasks_json
+            FROM probnik_results
+            WHERE secondary_score IS NOT NULL OR primary_score IS NOT NULL
+            ORDER BY id
+            """
+        ).fetchall()
+
+    by_student = {int(row[0]): [] for row in students}
+    unmatched = 0
+    for result_id, result_name, event_name, event_date, primary, secondary, tasks_json in raw_rows:
+        matched = live56.unique_probnik_student_match(result_name, students)
+        if not matched:
+            unmatched += 1
+            continue
+        sid = int(matched[0])
+        by_student.setdefault(sid, []).append(
+            {
+                "id": int(result_id),
+                "result_name": str(result_name or ""),
+                "event_name": str(event_name or "Пробник"),
+                "event_date": str(event_date or ""),
+                "primary": _num(primary),
+                "secondary": _num(secondary),
+                "tasks": _task_scores(tasks_json),
+            }
+        )
+
+    cards = []
+    all_secondary = []
+    latest_event_candidates = []
+
+    for student in students:
+        sid = int(student[0])
+        results = by_student.get(sid, [])
+        results.sort(key=lambda x: (_probnik_date_key(x["event_date"]), x["id"]))
+
+        secondary = [x["secondary"] for x in results if x["secondary"] is not None]
+        display_scores = [
+            x["secondary"] if x["secondary"] is not None else x["primary"]
+            for x in results
+            if x["secondary"] is not None or x["primary"] is not None
+        ]
+        all_secondary.extend(secondary)
+
+        latest = results[-1] if results else None
+        if latest:
+            latest_event_candidates.append(latest)
+
+        zero_counts = {}
+        for result in results:
+            for task, score in result["tasks"].items():
+                try:
+                    task_no = int(task)
+                except Exception:
+                    continue
+                if 1 <= task_no <= 34 and score == 0:
+                    zero_counts[task_no] = zero_counts.get(task_no, 0) + 1
+        weak = sorted(zero_counts.items(), key=lambda item: (-item[1], item[0]))[:5]
+
+        delta = None
+        if len(secondary) >= 2:
+            delta = round(secondary[-1] - secondary[0], 1)
+
+        average = round(sum(secondary) / len(secondary), 1) if secondary else None
+        latest_score = None
+        latest_score_kind = ""
+        if latest:
+            if latest["secondary"] is not None:
+                latest_score = latest["secondary"]
+                latest_score_kind = "вторичный"
+            elif latest["primary"] is not None:
+                latest_score = latest["primary"]
+                latest_score_kind = "первичный"
+
+        history = []
+        for result in reversed(results[-6:]):
+            score = result["secondary"] if result["secondary"] is not None else result["primary"]
+            history.append(
+                {
+                    "event": result["event_name"],
+                    "date": result["event_date"],
+                    "score": score,
+                    "score_kind": "secondary" if result["secondary"] is not None else "primary",
+                }
+            )
+
+        cards.append(
+            {
+                "student_id": sid,
+                "name": live34._shown_name(student),
+                "results_count": len(results),
+                "latest_score": latest_score,
+                "latest_score_kind": latest_score_kind,
+                "latest_event": latest["event_name"] if latest else "",
+                "latest_date": latest["event_date"] if latest else "",
+                "average": average,
+                "delta": delta,
+                "weak_tasks": [
+                    {"task": task, "misses": misses}
+                    for task, misses in weak
+                ],
+                "history": history,
+            }
+        )
+
+    cards.sort(
+        key=lambda x: (
+            x["results_count"] == 0,
+            -(x["latest_score"] if x["latest_score"] is not None else -1),
+            x["name"].casefold(),
+        )
+    )
+
+    # Latest probnik summary across all matched students.
+    latest_key = None
+    latest_name = ""
+    latest_date = ""
+    if latest_event_candidates:
+        latest = max(
+            latest_event_candidates,
+            key=lambda x: (_probnik_date_key(x["event_date"]), x["id"]),
+        )
+        latest_name = latest["event_name"]
+        latest_date = latest["event_date"]
+        latest_key = (latest_name, latest_date)
+
+    latest_scores = []
+    latest_task_stats = {}
+    if latest_key:
+        for results in by_student.values():
+            for result in results:
+                if (result["event_name"], result["event_date"]) != latest_key:
+                    continue
+                if result["secondary"] is not None:
+                    latest_scores.append(result["secondary"])
+                for task, score in result["tasks"].items():
+                    try:
+                        task_no = int(task)
+                    except Exception:
+                        continue
+                    if not (1 <= task_no <= 34):
+                        continue
+                    entry = latest_task_stats.setdefault(task_no, {"zeros": 0, "answered": 0})
+                    entry["answered"] += 1
+                    if score == 0:
+                        entry["zeros"] += 1
+
+    weak_group = []
+    for task, info in latest_task_stats.items():
+        if not info["answered"]:
+            continue
+        pct = round(100 * info["zeros"] / info["answered"])
+        weak_group.append(
+            {
+                "task": task,
+                "zeros": info["zeros"],
+                "answered": info["answered"],
+                "pct": pct,
+            }
+        )
+    weak_group.sort(key=lambda x: (-x["pct"], -x["zeros"], x["task"]))
+
+    return {
+        "latest": {
+            "name": latest_name,
+            "date": latest_date,
+            "written": len(latest_scores),
+            "average": round(sum(latest_scores) / len(latest_scores), 1) if latest_scores else None,
+            "best": max(latest_scores) if latest_scores else None,
+        },
+        "overall": {
+            "students_with_results": sum(1 for card in cards if card["results_count"]),
+            "students_total": len(cards),
+            "results_total": sum(card["results_count"] for card in cards),
+            "average_all": round(sum(all_secondary) / len(all_secondary), 1) if all_secondary else None,
+            "unmatched_results": unmatched,
+        },
+        "weak_group": weak_group[:5],
+        "students": cards,
+    }
+
+
 def _recordings_payload():
     lesson_recordings.ensure_tables()
     rows = lesson_recordings._saved_rows()
@@ -237,6 +461,7 @@ def _home():
     tasks = _tasks_payload(60)
     payments = _payments_payload()
     recordings = _recordings_payload()
+    probniki = _probnik_payload()
 
     lesson_number = bot.get_course_lesson_number(today)
     percent = round(100 * lesson_number / bot.TOTAL_LESSONS) if bot.TOTAL_LESSONS else 0
@@ -257,11 +482,18 @@ def _home():
             "linked": sum(1 for s in students if s["linked"]),
             "payments_due": payments["due_now"],
             "recordings": len(recordings),
+            "probniki_students": probniki["overall"]["students_with_results"],
+            "probniki_results": probniki["overall"]["results_total"],
         },
         "today_events": _events(today),
         "tomorrow_events": _events(tomorrow),
         "tasks": tasks[:6],
         "attention": attention[:4],
+        "probniki": {
+            "latest": probniki["latest"],
+            "overall": probniki["overall"],
+            "weak_group": probniki["weak_group"],
+        },
     }
 
 
@@ -305,6 +537,8 @@ def _view(name):
         return _payments_payload()
     if name == "recordings":
         return {"items": _recordings_payload()}
+    if name == "probniki":
+        return _probnik_payload()
     return None
 
 
