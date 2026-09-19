@@ -21,6 +21,7 @@ import run_bot_live10 as live10
 import admin_quick_tasks
 import lesson_recordings
 import homework_deadline_logic as deadlines
+import kulek_rewards
 
 bot = live90.bot
 live79 = live90.live79
@@ -35,7 +36,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20260919-7"
+WEBAPP_BUILD = "20260919-8"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 _INSTALLED = False
 
@@ -1149,6 +1150,7 @@ def _home():
     recordings = _recordings_payload()
     probniki = _probnik_payload()
     final_hw = _final_homework_payload()
+    kulek = kulek_rewards.month_payload(with_breakthrough=False)
 
     lesson_number = bot.get_course_lesson_number(today)
     percent = round(100 * lesson_number / bot.TOTAL_LESSONS) if bot.TOTAL_LESSONS else 0
@@ -1173,6 +1175,9 @@ def _home():
             "probniki_results": probniki["overall"]["results_total"],
             "final_homework": final_hw["catalog_count"],
             "final_homework_started": final_hw["started_count"],
+            "kulek_points": kulek["total_points"],
+            "kulek_full": kulek["full_objective_count"],
+            "kulek_eligible": kulek["eligible_draw_count"],
         },
         "today_events": _events(today),
         "tomorrow_events": _events(tomorrow),
@@ -1189,6 +1194,14 @@ def _home():
             "completed_submissions": final_hw["completed_submissions"],
             "students_total": final_hw["students_total"],
             "works": final_hw["works"][:3],
+        },
+        "kulek": {
+            "month": kulek["month"],
+            "label": kulek["label"],
+            "total_points": kulek["total_points"],
+            "full_objective_count": kulek["full_objective_count"],
+            "eligible_draw_count": kulek["eligible_draw_count"],
+            "student_count": kulek["student_count"],
         },
     }
 
@@ -1241,38 +1254,56 @@ def _view(name):
         return _probnik_payload()
     if name == "final_homework":
         return _final_homework_payload()
+    if name == "kulek":
+        return kulek_rewards.month_payload()
+    if name.startswith("kulek:"):
+        return kulek_rewards.month_payload(name.split(":", 1)[1])
     return None
 
 
 def _action(payload):
     action_name = str(payload.get("action") or "")
-    if action_name != "task_done":
-        return {"ok": False, "error": "unknown_action"}
-    try:
-        task_id = int(payload.get("task_id"))
-    except Exception:
-        return {"ok": False, "error": "bad_task_id"}
 
-    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
-        row = conn.execute(
-            "SELECT task_text,completed_at FROM admin_tasks WHERE id=? LIMIT 1",
-            (task_id,),
-        ).fetchone()
-        if not row:
-            return {"ok": False, "error": "not_found"}
-        if row[1]:
-            return {"ok": True, "already_done": True, "task_id": task_id}
-        conn.execute(
-            """
-            UPDATE admin_tasks
-            SET completed_at=?
-            WHERE id=? AND completed_at IS NULL
-            """,
-            (datetime.now(bot.TIMEZONE).isoformat(), task_id),
-        )
-        conn.commit()
-    print(f"EGE admin WebApp task completed task_id={task_id}", flush=True)
-    return {"ok": True, "task_id": task_id, "title": str(row[0] or "")}
+    if action_name == "task_done":
+        try:
+            task_id = int(payload.get("task_id"))
+        except Exception:
+            return {"ok": False, "error": "bad_task_id"}
+
+        with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+            row = conn.execute(
+                "SELECT task_text,completed_at FROM admin_tasks WHERE id=? LIMIT 1",
+                (task_id,),
+            ).fetchone()
+            if not row:
+                return {"ok": False, "error": "not_found"}
+            if row[1]:
+                return {"ok": True, "already_done": True, "task_id": task_id}
+            conn.execute(
+                """
+                UPDATE admin_tasks
+                SET completed_at=?
+                WHERE id=? AND completed_at IS NULL
+                """,
+                (datetime.now(bot.TIMEZONE).isoformat(), task_id),
+            )
+            conn.commit()
+        print(f"EGE admin WebApp task completed task_id={task_id}", flush=True)
+        return {"ok": True, "task_id": task_id, "title": str(row[0] or "")}
+
+    if action_name == "kulek_draw":
+        month = str(payload.get("month") or kulek_rewards._month_key())
+        return kulek_rewards.draw_discount(month)
+
+    if action_name == "kulek_breakthrough_choose":
+        month = str(payload.get("month") or kulek_rewards._month_key())
+        try:
+            student_id = int(payload.get("student_id"))
+        except Exception:
+            return {"ok": False, "error": "bad_student_id"}
+        return kulek_rewards.choose_breakthrough(month, student_id)
+
+    return {"ok": False, "error": "unknown_action"}
 
 
 def _http_get(self):
