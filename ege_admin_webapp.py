@@ -35,7 +35,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20260919-6"
+WEBAPP_BUILD = "20260919-7"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 _INSTALLED = False
 
@@ -633,8 +633,11 @@ def _final_homework_payload():
 
     works = []
     student_done = {int(row[0]): set() for row in students}
+    student_work_progress = {
+        int(row[0]): {} for row in students
+    }
 
-    for item in catalog:
+    for work_index, item in enumerate(catalog, 1):
         lesson_id = str(item["lesson_id"])
         title_norm = re.sub(r"\s+", " ", str(item["title"]).casefold().replace("ё", "е")).strip()
         relevant = []
@@ -657,32 +660,73 @@ def _final_homework_payload():
         for uid, email, _sub_lesson_id, _sub_name, correct, total, received_at in relevant:
             uid = str(uid or "").strip()
             email_norm = str(email or "").strip().casefold()
+            matched_sid = None
             for sid, (core_id, student_email) in identity_by_student.items():
                 if (core_id and uid and core_id == uid) or (
                     student_email and email_norm and student_email == email_norm
                 ):
+                    matched_sid = sid
                     done_student_ids.add(sid)
                     student_done[sid].add(lesson_id)
                     break
-            try:
-                correct_n = float(str(correct).replace(",", "."))
-                total_n = float(str(total).replace(",", "."))
-                if total_n > 0:
-                    scores.append(round(correct_n * 100 / total_n, 1))
-            except Exception:
-                pass
+
+            correct_n = _num(correct)
+            total_n = _num(total)
+            result_percent = None
+            if correct_n is not None and total_n is not None and total_n > 0:
+                result_percent = round(100 * correct_n / total_n, 1)
+                scores.append(result_percent)
+
+            if matched_sid is not None:
+                # Core currently emits a completion/submission event, so a
+                # submitted final work is 100% closed. Keep result percent
+                # separately: it is accuracy, not completion.
+                student_work_progress[matched_sid][lesson_id] = {
+                    "completion_percent": 100,
+                    "result_percent": result_percent,
+                    "correct": correct_n,
+                    "total_questions": total_n,
+                    "submitted": True,
+                    "received_at": str(received_at or ""),
+                }
+
             if received_at and str(received_at) > latest_at:
                 latest_at = str(received_at)
 
         missing_ids = [
             int(row[0]) for row in students if int(row[0]) not in done_student_ids
         ]
+        group_completion_percent = (
+            round(100 * len(done_student_ids) / len(students))
+            if students else 0
+        )
+        student_progress_rows = []
+        for student in students:
+            sid = int(student[0])
+            progress = student_work_progress[sid].get(lesson_id)
+            student_progress_rows.append(
+                {
+                    "student_id": sid,
+                    "name": live34._shown_name(student),
+                    "completion_percent": (
+                        int(progress["completion_percent"]) if progress else 0
+                    ),
+                    "result_percent": (
+                        progress.get("result_percent") if progress else None
+                    ),
+                    "submitted": bool(progress),
+                }
+            )
+
         works.append(
             {
                 **item,
+                "index": int(work_index),
+                "label": f"Итоговая №{work_index}",
                 "done": len(done_student_ids),
                 "missing": len(missing_ids),
                 "total": len(students),
+                "group_completion_percent": group_completion_percent,
                 "started": bool(relevant),
                 "average_accuracy": (
                     round(sum(scores) / len(scores), 1) if scores else None
@@ -690,6 +734,7 @@ def _final_homework_payload():
                 "missing_names": [
                     live34._shown_name(student_by_id[sid]) for sid in missing_ids
                 ],
+                "student_progress": student_progress_rows,
                 "latest_submission_at": latest_at,
             }
         )
@@ -699,6 +744,29 @@ def _final_homework_payload():
     for student in students:
         sid = int(student[0])
         done_count = len(student_done.get(sid, set()))
+        student_items = []
+        for work_index, item in enumerate(catalog, 1):
+            lesson_id = str(item["lesson_id"])
+            progress = student_work_progress[sid].get(lesson_id)
+            student_items.append(
+                {
+                    "index": int(work_index),
+                    "label": f"Итоговая №{work_index}",
+                    "lesson_id": lesson_id,
+                    "title": item["title"],
+                    "done": bool(progress),
+                    "completion_percent": (
+                        int(progress["completion_percent"]) if progress else 0
+                    ),
+                    "result_percent": (
+                        progress.get("result_percent") if progress else None
+                    ),
+                    "correct": progress.get("correct") if progress else None,
+                    "total_questions": (
+                        progress.get("total_questions") if progress else None
+                    ),
+                }
+            )
         per_student.append(
             {
                 "student_id": sid,
@@ -707,14 +775,7 @@ def _final_homework_payload():
                 "total": total_works,
                 "missing": max(0, total_works - done_count),
                 "percent": round(100 * done_count / total_works) if total_works else 0,
-                "items": [
-                    {
-                        "lesson_id": item["lesson_id"],
-                        "title": item["title"],
-                        "done": item["lesson_id"] in student_done.get(sid, set()),
-                    }
-                    for item in catalog
-                ],
+                "items": student_items,
             }
         )
     per_student.sort(key=lambda x: (x["percent"], x["name"].casefold()))
@@ -1313,37 +1374,50 @@ def _final_homework_bot_text():
         "",
         f"В курсе: <b>{data['catalog_count']}</b>",
         f"Учеников: <b>{data['students_total']}</b>",
-        f"Работ, где уже есть сдачи в нашей базе: <b>{data['started_count']}</b>",
         "",
-        "📌 <b>По работам</b>",
+        "Каждая работа считается отдельно. Процент ниже — насколько работа закрыта по группе.",
     ]
 
     if not data["works"]:
-        lines.append("Итоговые работы пока не найдены.")
+        lines.extend(["", "Итоговые работы пока не найдены."])
     else:
-        for index, work in enumerate(data["works"], 1):
-            pct = round(100 * work["done"] / work["total"]) if work["total"] else 0
+        for work in data["works"]:
             lines.extend([
                 "",
-                f"<b>{index}. {html_lib.escape(work['title'])}</b>",
-                f"✅ Выполнили: {work['done']}/{work['total']} ({pct}%)",
-                f"⏳ Не выполнено: {work['missing']}",
+                f"📌 <b>{html_lib.escape(work['label'])}</b>",
+                f"{html_lib.escape(work['title'])}",
+                f"📊 Закрыта по группе: <b>{work['group_completion_percent']}%</b> "
+                f"({work['done']}/{work['total']})",
             ])
+            for child in work.get("student_progress", []):
+                child_pct = int(child.get("completion_percent") or 0)
+                icon = "✅" if child_pct == 100 else "⏳"
+                extra = ""
+                if child.get("result_percent") is not None:
+                    extra = f" · результат {child['result_percent']:g}%"
+                lines.append(
+                    f"{icon} {html_lib.escape(child['name'])}: "
+                    f"<b>{child_pct}%</b>{extra}"
+                )
 
-    lines.extend(["", "👥 <b>По ученикам</b>"])
+    lines.extend(["", "👤 <b>Итого по каждому ученику</b>"])
     for student in data["students"]:
-        icon = "✅" if student["missing"] == 0 and student["total"] else "⏳"
+        work_bits = " · ".join(
+            f"№{item['index']} {int(item.get('completion_percent') or 0)}%"
+            for item in student.get("items", [])
+        )
         lines.append(
-            f"{icon} {html_lib.escape(student['name'])}: "
-            f"{student['done']}/{student['total']} · {student['percent']}%"
+            f"{html_lib.escape(student['name'])}: {work_bits or 'нет работ'}"
         )
 
     if data["started_count"] == 0 and data["catalog_count"]:
         lines.extend([
             "",
-            "ℹ️ Сейчас ЕГЭ БЛИЗКО уже видит сами итоговые работы в структуре Core, "
-            "но Core пока не прислал в наш webhook ни одной сдачи именно этих Examination-работ. "
-            "Поэтому статусы выполнения будут обновляться, как только этот тип сдачи начнёт поступать в базу.",
+            "ℹ️ Пока Core не прислал события сдачи этих Examination-работ, "
+            "поэтому у детей сейчас будет 0%. Когда сдача попадёт в базу, "
+            "конкретная работа этого ребёнка станет 100%. "
+            "Если Core начнёт отдавать промежуточный прогресс, сюда можно будет "
+            "подставлять и значения между 0% и 100%.",
         ])
     return "\n".join(lines)
 
