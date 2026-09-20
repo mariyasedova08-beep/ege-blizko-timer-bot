@@ -1292,6 +1292,12 @@ def student_text(student_id, month_key=None):
         lines.extend(["", "🎁 <b>Ты выиграл(а) скидку 5% на следующий месяц!</b>"])
     if data.get("breakthrough_winner") and int(data["breakthrough_winner"]["student_id"]) == int(student_id):
         lines.extend(["", "🚀 <b>Ты — «Прорыв месяца»!</b>"])
+    if data.get("student_of_month_winner") and int(data["student_of_month_winner"]["student_id"]) == int(student_id):
+        lines.extend([
+            "",
+            "🏆 <b>Ты — «Ученик месяца»!</b>",
+            "Тебя ждёт отдельный подарок от Маши 💗",
+        ])
     if _history:
         lines.extend(["", "📅 <b>История</b>"])
         for item in _history[-4:]:
@@ -1334,6 +1340,14 @@ def admin_text(month_key=None):
             why = "; ".join(item["reasons"][:3]) or "пока мало данных"
             lines.append(f"• {html.escape(item['name'])} — {html.escape(why)}")
 
+    month_candidates = student_of_month_candidates(key)
+    if month_candidates:
+        lines.extend(["", "🏆 <b>Ученик месяца — объективный индекс</b>"])
+        for item in month_candidates[:3]:
+            lines.append(
+                f"• {html.escape(item['name'])} — <b>{item['score']:g}/100</b>"
+            )
+
     if data.get("draw"):
         lines.extend([
             "",
@@ -1343,6 +1357,11 @@ def admin_text(month_key=None):
         lines.extend([
             f"🚀 Прорыв месяца: <b>{html.escape(data['breakthrough_winner']['student_name'])}</b>",
         ])
+    if data.get("student_of_month_winner"):
+        lines.extend([
+            f"🏆 Ученик месяца: <b>{html.escape(data['student_of_month_winner']['student_name'])}</b> "
+            f"({data['student_of_month_winner']['score']:g}/100)",
+        ])
     return "\n".join(lines)
 
 
@@ -1351,6 +1370,7 @@ def _admin_markup(month_key=None):
     rows = [
         [InlineKeyboardButton("➕ Выдать за прошлый урок", callback_data="cab:kulek:practice")],
         [InlineKeyboardButton("🚀 Прорыв месяца", callback_data=f"cab:kulek:breakthrough:{key}")],
+        [InlineKeyboardButton("🏆 Ученик месяца", callback_data=f"cab:kulek:studentmonth:{key}")],
     ]
     if key < _month_key():
         rows.append([InlineKeyboardButton("🎁 Разыграть скидку 5%", callback_data=f"cab:kulek:draw:{key}")])
