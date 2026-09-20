@@ -1276,6 +1276,20 @@ def student_text(student_id, month_key=None):
         f"📝 Пробники 61+: <b>{c['probnik']['earned']}/{c['probnik']['total']}</b>",
         f"👩‍🏫 Практика: <b>{c['practice']['earned']}/{c['practice']['total']}</b>",
     ]
+    month_score = next(
+        (
+            item for item in student_of_month_candidates(key)
+            if int(item["student_id"]) == int(student_id)
+        ),
+        None,
+    )
+    if month_score and month_score["available_weight"] > 0:
+        lines.extend([
+            "",
+            f"🏆 Индекс «Ученик месяца»: <b>{month_score['score']:g}/100</b>",
+            "Он считается только по твоей стабильности: ДЗ, тренажёры, "
+            "пробники и отсутствие долгов. Общего рейтинга детей нет.",
+        ])
     if row["objective_complete"]:
         lines.extend(["", "🌟 <b>Все объективные условия месяца выполнены!</b>"])
         if row["monthly_payment"]:
