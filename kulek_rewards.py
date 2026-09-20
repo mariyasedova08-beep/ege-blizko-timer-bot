@@ -18,7 +18,6 @@ import re
 import secrets
 import sqlite3
 from datetime import date, datetime, time, timedelta
-from pathlib import Path
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
@@ -35,7 +34,6 @@ live34 = live79.live34
 live56 = live79.live56
 
 BUTTON = "🐶 Кулёчки"
-MASCOT_PATH = Path(__file__).with_name("kulechek_mascot.jpg")
 _INSTALLED = False
 _CACHE = {}
 
@@ -52,18 +50,6 @@ MONTH_NAMES = {
     5: "Май", 6: "Июнь", 7: "Июль", 8: "Август",
     9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь",
 }
-
-
-async def _send_mascot_photo(context, chat_id):
-    """Show Maria's approved Kulechek visual when the Kulechki section opens."""
-    try:
-        with MASCOT_PATH.open("rb") as photo:
-            await context.bot.send_photo(
-                chat_id=int(chat_id),
-                photo=photo,
-            )
-    except Exception as exc:
-        print(f"Kulechek mascot send failed: {type(exc).__name__}: {exc}", flush=True)
 
 
 def ensure_tables():
@@ -1454,7 +1440,6 @@ async def monthly_close_tick(context):
     admin_id = bot.get_admin_id()
     if admin_id and not _delivered(key, "admin", int(admin_id)):
         try:
-            await _send_mascot_photo(context, int(admin_id))
             await context.bot.send_message(
                 chat_id=int(admin_id),
                 text=admin_text(key),
@@ -1539,7 +1524,6 @@ def install():
             and update.message
             and update.message.text == BUTTON
         ):
-            await _send_mascot_photo(context, update.effective_chat.id)
             await update.message.reply_text(
                 admin_text(),
                 parse_mode="HTML",
@@ -1584,7 +1568,6 @@ def install():
 
         if data == "cab:kulek":
             await query.answer()
-            await _send_mascot_photo(context, update.effective_chat.id)
             await query.edit_message_text(
                 admin_text(), parse_mode="HTML", reply_markup=_admin_markup()
             )
