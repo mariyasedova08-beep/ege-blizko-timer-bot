@@ -1755,6 +1755,22 @@ async def monthly_close_tick(context):
     if now.day != 1 or now.time() < time(12, 0):
         return
     key = previous_month_key(_month_key())
+
+    # Freeze the objective monthly award before sending month-close summaries.
+    try:
+        result = choose_student_of_month(key)
+        if result.get("ok") and not result.get("existing"):
+            print(
+                f"Student of month frozen: month={key} "
+                f"student_id={result['student_id']} score={result['score']}",
+                flush=True,
+            )
+    except Exception as exc:
+        print(
+            f"Student of month close failed: {type(exc).__name__}: {exc}",
+            flush=True,
+        )
+
     admin_id = bot.get_admin_id()
     if admin_id and not _delivered(key, "admin", int(admin_id)):
         try:
@@ -1990,6 +2006,53 @@ def install():
                         )
                     except Exception:
                         pass
+            return
+
+        if data.startswith("cab:kulek:studentmonthpick:"):
+            key = data.rsplit(":", 1)[1]
+            result = choose_student_of_month(key)
+            if not result.get("ok"):
+                msg = (
+                    "Месяц ещё не закрыт."
+                    if result.get("error") == "month_not_closed"
+                    else "Пока недостаточно данных для определения победителя."
+                )
+                await query.answer(msg, show_alert=True)
+                return
+            await query.answer("Ученик месяца определён 🏆")
+            await query.edit_message_text(
+                _student_month_text(key),
+                parse_mode="HTML",
+                reply_markup=_student_month_markup(key),
+            )
+            if not result.get("existing"):
+                student = next(
+                    (x for x in _student_rows() if int(x[0]) == int(result["student_id"])),
+                    None,
+                )
+                if student and student[5] is not None:
+                    try:
+                        await context.bot.send_message(
+                            chat_id=int(student[5]),
+                            text=(
+                                "🏆 <b>Ты — «Ученик месяца»!</b>\n\n"
+                                f"За {month_label(key)} у тебя самый высокий объективный "
+                                "индекс стабильной работы. Тебя ждёт отдельный подарок от Маши 💗"
+                            ),
+                            parse_mode="HTML",
+                        )
+                    except Exception:
+                        pass
+            return
+
+        if data.startswith("cab:kulek:studentmonth:"):
+            key = data.rsplit(":", 1)[1]
+            await query.answer()
+            await query.edit_message_text(
+                _student_month_text(key),
+                parse_mode="HTML",
+                reply_markup=_student_month_markup(key),
+            )
             return
 
         if data.startswith("cab:kulek:breakthroughpick:"):
