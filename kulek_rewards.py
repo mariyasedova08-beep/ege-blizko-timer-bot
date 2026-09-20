@@ -916,6 +916,206 @@ def breakthrough_candidates(month_key=None):
     return candidates[:3]
 
 
+def student_of_month_candidates(month_key=None):
+    """Objective monthly award: discipline + consistency, never absolute scores."""
+    key = _month_key(month_key)
+    current = month_payload(key, with_breakthrough=False)
+    prev_key = previous_month_key(key)
+    previous = month_payload(prev_key, with_breakthrough=False)
+    prev_by_id = {int(x["id"]): x for x in previous["students"]}
+
+    base_weights = {
+        "homework": 30.0,
+        "trainers": 25.0,
+        "probnik": 25.0,
+        "no_debts": 20.0,
+    }
+    result = []
+    for row in current["students"]:
+        sid = int(row["id"])
+        prev = prev_by_id.get(sid)
+        components = {}
+        available = []
+
+        hw = row["categories"]["homework"]
+        if hw["total"]:
+            value = 100.0 * hw["earned"] / hw["total"]
+            components["homework"] = {
+                "label": "ДЗ вовремя",
+                "value": round(value, 1),
+                "detail": f"{hw['earned']}/{hw['total']}",
+                "weight": base_weights["homework"],
+            }
+            available.append("homework")
+
+        trainers = row["categories"]["trainers"]
+        if trainers["total"]:
+            value = 100.0 * trainers["earned"] / trainers["total"]
+            components["trainers"] = {
+                "label": "Регулярность тренажёров",
+                "value": round(value, 1),
+                "detail": f"{trainers['earned']}/{trainers['total']} норм закрыто",
+                "weight": base_weights["trainers"],
+            }
+            available.append("trainers")
+
+        probnik = row["categories"]["probnik"]
+        if probnik["total"]:
+            written = sum(1 for x in probnik["items"] if x.get("written"))
+            participation = 100.0 * written / probnik["total"]
+            current_scores = [
+                float(x["score"]) for x in probnik["items"]
+                if x.get("score") is not None
+            ]
+            prev_scores = []
+            if prev:
+                prev_scores = [
+                    float(x["score"]) for x in prev["categories"]["probnik"]["items"]
+                    if x.get("score") is not None
+                ]
+
+            delta = None
+            if len(current_scores) >= 2:
+                delta = current_scores[-1] - current_scores[0]
+            elif current_scores and prev_scores:
+                delta = current_scores[-1] - prev_scores[-1]
+
+            if delta is None:
+                value = participation
+                detail = f"участие {written}/{probnik['total']}; динамика пока не измеряется"
+            else:
+                # No absolute score comparison: 0 change = neutral 50/100,
+                # +20 points = full progress score, -20 = 0.
+                progress = max(0.0, min(100.0, 50.0 + delta * 2.5))
+                value = (participation + progress) / 2.0
+                detail = (
+                    f"участие {written}/{probnik['total']}; "
+                    f"динамика к себе {delta:+.0f} бал."
+                )
+            components["probnik"] = {
+                "label": "Пробники: участие + прогресс",
+                "value": round(value, 1),
+                "detail": detail,
+                "weight": base_weights["probnik"],
+            }
+            available.append("probnik")
+
+        final = row["categories"]["final"]
+        debt_opportunities = int(hw["total"]) + int(final["total"])
+        if debt_opportunities:
+            hw_clear = all(bool(x.get("done")) for x in hw.get("items") or [])
+            final_clear = all(bool(x.get("submitted")) for x in final.get("items") or [])
+            debt_free = bool(hw_clear and final_clear)
+            components["no_debts"] = {
+                "label": "Месяц без долгов",
+                "value": 100.0 if debt_free else 0.0,
+                "detail": "все обязательные работы закрыты" if debt_free else "есть незакрытые обязательные работы",
+                "weight": base_weights["no_debts"],
+            }
+            available.append("no_debts")
+
+        available_weight = sum(base_weights[name] for name in available)
+        if available_weight:
+            score = sum(
+                components[name]["value"] * base_weights[name]
+                for name in available
+            ) / available_weight
+        else:
+            score = 0.0
+
+        # Effective weights after proportional redistribution of unavailable criteria.
+        if available_weight:
+            for name in available:
+                components[name]["effective_weight"] = round(
+                    100.0 * base_weights[name] / available_weight, 1
+                )
+
+        result.append(
+            {
+                "student_id": sid,
+                "name": row["name"],
+                "score": round(score, 1),
+                "components": components,
+                "available_weight": round(available_weight, 1),
+            }
+        )
+
+    result.sort(key=lambda x: (-x["score"], x["name"].casefold()))
+    return result
+
+
+def choose_student_of_month(month_key=None):
+    """Freeze one objective winner after month close; ties are random."""
+    key = _month_key(month_key)
+    if key >= _month_key():
+        return {"ok": False, "error": "month_not_closed"}
+
+    ensure_tables()
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        existing = conn.execute(
+            """
+            SELECT student_id,student_name,score,components_json,tied_json,chosen_at
+            FROM kulek_student_month_winners WHERE month_key=?
+            """,
+            (key,),
+        ).fetchone()
+    if existing:
+        return {
+            "ok": True,
+            "existing": True,
+            "student_id": int(existing[0]),
+            "student_name": str(existing[1]),
+            "score": float(existing[2]),
+            "components": json.loads(existing[3] or "{}"),
+            "tied": json.loads(existing[4] or "[]"),
+            "chosen_at": str(existing[5]),
+        }
+
+    candidates = [x for x in student_of_month_candidates(key) if x["available_weight"] > 0]
+    if not candidates:
+        return {"ok": False, "error": "no_data"}
+
+    top_score = candidates[0]["score"]
+    tied = [x for x in candidates if x["score"] == top_score]
+    winner = secrets.choice(tied)
+    chosen_at = datetime.now(bot.TIMEZONE).isoformat()
+    tied_payload = [
+        {"student_id": int(x["student_id"]), "name": x["name"], "score": x["score"]}
+        for x in tied
+    ]
+
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO kulek_student_month_winners(
+                month_key,student_id,student_name,score,components_json,tied_json,chosen_at
+            ) VALUES(?,?,?,?,?,?,?)
+            """,
+            (
+                key,
+                int(winner["student_id"]),
+                str(winner["name"]),
+                float(winner["score"]),
+                json.dumps(winner["components"], ensure_ascii=False),
+                json.dumps(tied_payload, ensure_ascii=False),
+                chosen_at,
+            ),
+        )
+        conn.commit()
+
+    _CACHE.pop(key, None)
+    return {
+        "ok": True,
+        "existing": False,
+        "student_id": int(winner["student_id"]),
+        "student_name": winner["name"],
+        "score": winner["score"],
+        "components": winner["components"],
+        "tied": tied_payload,
+        "chosen_at": chosen_at,
+    }
+
+
 def mark_practical_lesson(lesson_number):
     lesson_number = int(lesson_number)
     dates = tuple(deadlines._course_dates())
