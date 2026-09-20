@@ -209,11 +209,6 @@ def main():
     import ege_student_webapp
     ege_student_webapp.install()
 
-    # Teacher-only combined dashboard: homework, attendance, probniki,
-    # trainers, Kulechki, monthly award and payments in one screen.
-    import ege_general_stats
-    ege_general_stats.install()
-
     live90.live79.live24.main()
 
 
