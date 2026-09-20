@@ -237,10 +237,18 @@ def _trainer_rows(student):
 
 
 def _kulek(student):
-    row = kulek_rewards.student_month(int(student[0]))
+    sid = int(student[0])
+    row = kulek_rewards.student_month(sid)
     if not row:
         return None
-    total_year, history = kulek_rewards.student_year_total(int(student[0]))
+    total_year, history = kulek_rewards.student_year_total(sid)
+    month_candidates = kulek_rewards.student_of_month_candidates()
+    month_score = next(
+        (x for x in month_candidates if int(x["student_id"]) == sid),
+        None,
+    )
+    month_data = kulek_rewards.month_payload(with_breakthrough=False)
+    month_winner = month_data.get("student_of_month_winner")
     return {
         "points": int(row.get("points") or 0),
         "possible": int(row.get("possible") or 0),
@@ -257,6 +265,17 @@ def _kulek(student):
             }
             for item in history[-6:]
         ],
+        "student_of_month": (
+            {
+                "score": float(month_score.get("score") or 0),
+                "components": month_score.get("components") or {},
+                "winner": bool(
+                    month_winner
+                    and int(month_winner.get("student_id") or 0) == sid
+                ),
+            }
+            if month_score else None
+        ),
     }
 
 
