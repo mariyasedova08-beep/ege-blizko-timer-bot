@@ -703,6 +703,13 @@ def _build_month_payload(month_key):
             """,
             (month_key,),
         ).fetchone()
+        student_month_row = conn.execute(
+            """
+            SELECT student_id,student_name,score,components_json,tied_json,chosen_at
+            FROM kulek_student_month_winners WHERE month_key=?
+            """,
+            (month_key,),
+        ).fetchone()
 
     return {
         "month": month_key,
@@ -737,6 +744,17 @@ def _build_month_payload(month_key):
                 "chosen_at": str(breakthrough_row[2]),
             }
             if breakthrough_row else None
+        ),
+        "student_of_month_winner": (
+            {
+                "student_id": int(student_month_row[0]),
+                "student_name": str(student_month_row[1]),
+                "score": float(student_month_row[2]),
+                "components": json.loads(student_month_row[3] or "{}"),
+                "tied": json.loads(student_month_row[4] or "[]"),
+                "chosen_at": str(student_month_row[5]),
+            }
+            if student_month_row else None
         ),
     }
 
