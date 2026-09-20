@@ -88,7 +88,11 @@ function kulekBlock(k){
  var rem='';
  if(k.objective_complete)rem='<div class="remaining">🌟 <b>Все объективные условия месяца выполнены!</b>'+(k.draw_eligible?'<br>🎁 Ты проходишь в розыгрыш скидки 5%.':'')+'</div>';
  else if((k.remaining||[]).length)rem='<div class="remaining"><b>До полного месяца осталось:</b><br>'+k.remaining.map(function(x){return '• '+esc(x)}).join('<br>')+'</div>';
- return '<div class="kulek"><div class="khead"><div class="kleft"><img class="kimg" src="/kulechek-mascot.jpg?v=12" alt=""><div><div class="rmain">Мои Кулёчки</div><div class="rsub">За учебный год: '+k.year_total+'</div></div></div><div><div class="kscore">'+k.points+'/'+k.possible+'</div><div class="ksub">за этот месяц</div></div></div><div class="kcats">'+vals.map(function(v){return '<div class="kcat">'+v[0]+'<br><b>'+(v[1]?(v[1].earned+'/'+v[1].total):'—')+'</b></div>'}).join('')+'</div>'+rem+'</div>';
+ var award='';
+ if(k.student_of_month){
+   award='<div class="remaining">🏆 <b>Индекс «Ученик месяца»: '+k.student_of_month.score+'/100</b><br>Считается только по твоей стабильности. Общего рейтинга детей нет.'+(k.student_of_month.winner?'<br>🎁 <b>Ты — Ученик месяца! Тебя ждёт подарок от Маши 💗</b>':'')+'</div>';
+ }
+ return '<div class="kulek"><div class="khead"><div class="kleft"><img class="kimg" src="/kulechek-mascot.jpg?v=12" alt=""><div><div class="rmain">Мои Кулёчки</div><div class="rsub">За учебный год: '+k.year_total+'</div></div></div><div><div class="kscore">'+k.points+'/'+k.possible+'</div><div class="ksub">за этот месяц</div></div></div><div class="kcats">'+vals.map(function(v){return '<div class="kcat">'+v[0]+'<br><b>'+(v[1]?(v[1].earned+'/'+v[1].total):'—')+'</b></div>'}).join('')+'</div>'+award+rem+'</div>';
 }
 function render(d){
  var name=esc(d.student.first_name||d.student.name),c=d.course,w=d.week,m=d.month,coursePct=c.total_lessons?pct(c.lesson_number,c.total_lessons):0;
