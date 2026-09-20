@@ -88,6 +88,16 @@ def ensure_tables():
                 chosen_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS kulek_student_month_winners (
+                month_key TEXT PRIMARY KEY,
+                student_id INTEGER NOT NULL,
+                student_name TEXT NOT NULL,
+                score REAL NOT NULL,
+                components_json TEXT NOT NULL,
+                tied_json TEXT NOT NULL,
+                chosen_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS kulek_monthly_deliveries (
                 month_key TEXT NOT NULL,
                 recipient_kind TEXT NOT NULL,
