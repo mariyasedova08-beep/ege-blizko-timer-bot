@@ -1580,6 +1580,76 @@ def _breakthrough_text(month_key):
     return "\n".join(lines)
 
 
+def _student_month_text(month_key):
+    data = month_payload(month_key, force=True, with_breakthrough=False)
+    candidates = student_of_month_candidates(month_key)
+    winner = data.get("student_of_month_winner")
+    lines = [
+        f"🏆 <b>Ученик месяца — {month_label(month_key)}</b>",
+        "",
+        "Награда считается только по объективным данным, без ручной оценки.",
+        "",
+        "Если все категории доступны:",
+        "• 🏠 ДЗ вовремя — 30%",
+        "• 🧪 тренажёры — 25%",
+        "• 📝 пробники: участие + прогресс относительно себя — 25%",
+        "• ✅ месяц без долгов — 20%",
+        "",
+        "Лишние попытки тренажёров не дают преимущества: по каждому тренажёру "
+        "важно только закрыть норму 3+.",
+        "Если в месяце какой-то категории объективно не было, её вес "
+        "пропорционально перераспределяется между остальными.",
+        "Абсолютные баллы пробника между детьми не сравниваются.",
+        "",
+    ]
+    if winner:
+        lines.extend([
+            f"🏆 Победитель: <b>{html.escape(winner['student_name'])}</b>",
+            f"Индекс: <b>{winner['score']:g}/100</b>",
+        ])
+        tied = winner.get("tied") or []
+        if len(tied) > 1:
+            lines.append(
+                f"При равном результате было {len(tied)} лидера — победитель выбран случайно."
+            )
+    elif month_key < _month_key():
+        lines.append("Месяц закрыт, победитель ещё не зафиксирован.")
+    else:
+        lines.append("Текущий предварительный расчёт:")
+    if candidates:
+        lines.append("")
+        for item in candidates:
+            lines.append(f"<b>{html.escape(item['name'])}</b> — {item['score']:g}/100")
+            for component in item["components"].values():
+                weight = component.get("effective_weight", component.get("weight", 0))
+                lines.append(
+                    f"• {html.escape(component['label'])}: "
+                    f"{component['value']:g}/100 · вес {weight:g}% · "
+                    f"{html.escape(component['detail'])}"
+                )
+            lines.append("")
+    return "\n".join(lines).strip()
+
+
+def _student_month_markup(month_key):
+    data = month_payload(month_key, force=True, with_breakthrough=False)
+    rows = []
+    if month_key < _month_key() and not data.get("student_of_month_winner"):
+        rows.append([
+            InlineKeyboardButton(
+                "🏆 Определить по системе",
+                callback_data=f"cab:kulek:studentmonthpick:{month_key}",
+            )
+        ])
+    rows.append([
+        InlineKeyboardButton(
+            "← К Кулёчкам",
+            callback_data=f"cab:kulek:month:{month_key}",
+        )
+    ])
+    return InlineKeyboardMarkup(rows)
+
+
 def _patch_admin_keyboard():
     current = getattr(live79.live23, "ADMIN_KEYBOARD", None)
     rows = [list(row) for row in getattr(current, "keyboard", ())] if current else []
