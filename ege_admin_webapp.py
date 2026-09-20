@@ -35,7 +35,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20260919-12"
+WEBAPP_BUILD = "20260920-13"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 MASCOT_PATH = Path(__file__).with_name("kulechek_mascot.jpg")
 _INSTALLED = False
@@ -1102,6 +1102,14 @@ def _recordings_payload():
     ]
 
 
+def _kulek_payload(month_key=None):
+    data = kulek_rewards.month_payload(month_key)
+    candidates = kulek_rewards.student_of_month_candidates(data["month"])
+    data["student_of_month_candidates"] = candidates
+    data["student_of_month_leader"] = candidates[0] if candidates else None
+    return data
+
+
 def _home():
     today = datetime.now(bot.TIMEZONE).date()
     tomorrow = today + timedelta(days=1)
@@ -1111,7 +1119,7 @@ def _home():
     recordings = _recordings_payload()
     probniki = _probnik_payload()
     final_hw = _final_homework_payload()
-    kulek = kulek_rewards.month_payload(with_breakthrough=False)
+    kulek = _kulek_payload()
 
     lesson_number = bot.get_course_lesson_number(today)
     percent = round(100 * lesson_number / bot.TOTAL_LESSONS) if bot.TOTAL_LESSONS else 0
@@ -1161,6 +1169,8 @@ def _home():
             "full_objective_count": kulek["full_objective_count"],
             "eligible_draw_count": kulek["eligible_draw_count"],
             "student_count": kulek["student_count"],
+            "student_of_month_leader": kulek.get("student_of_month_leader"),
+            "student_of_month_winner": kulek.get("student_of_month_winner"),
         },
     }
 
@@ -1203,9 +1213,9 @@ def _view(name):
     if name == "final_homework":
         return _final_homework_payload()
     if name == "kulek":
-        return kulek_rewards.month_payload()
+        return _kulek_payload()
     if name.startswith("kulek:"):
-        return kulek_rewards.month_payload(name.split(":", 1)[1])
+        return _kulek_payload(name.split(":", 1)[1])
     return None
 
 
