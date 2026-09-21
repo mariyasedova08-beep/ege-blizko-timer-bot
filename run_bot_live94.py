@@ -7,6 +7,7 @@ trainer, payment, parent, and survey fallbacks remain available.
 
 from telegram import ReplyKeyboardMarkup
 
+import run_bot_live17 as acid_trainer
 import run_bot_live49 as student_cabinet
 import run_bot_live90 as live90
 
@@ -90,9 +91,16 @@ _previous_trivial_callback = live7.trivial_callback
 
 async def trivial_callback_with_student_cabinet(update, context):
     query = update.callback_query
-    if query and str(query.data or "").startswith("triv:studentcab:"):
+    data = str(query.data or "") if query else ""
+    if query and data.startswith("triv:studentcab:"):
         await student_cabinet.student_cabinet_callback(update, context)
         return
+    if query and data.startswith("triv:acid:a:"):
+        session = context.user_data.get("acid_session")
+        if session and session.get("index", 0) >= len(session.get("questions") or []):
+            await query.answer()
+            await acid_trainer._finish_or_show_question(update, context, edit=True)
+            return
     return await _previous_trivial_callback(update, context)
 
 
