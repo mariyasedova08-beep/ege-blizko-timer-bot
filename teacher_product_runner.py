@@ -26,6 +26,7 @@ import teacher_product_reports as reports
 import teacher_product_webapp as webapp
 import teacher_product_student_webapp as student_webapp
 import teacher_product_feedback as feedback
+import teacher_product_onboarding as onboarding
 
 
 def main():
@@ -53,8 +54,10 @@ def main():
         threading.Event().wait()
         return
     openai_diag.run()
+    onboarding.patch()
     transfer_enhancements.patch()
     app = voice_beta.build_app()
+    onboarding.install(app)
     transfer_button.install(app)
     transfer_enhancements.install(app)
     student_reminders.install(app)
