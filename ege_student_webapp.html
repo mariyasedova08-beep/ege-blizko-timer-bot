@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F8F5F2">
 <title>ЕГЭ БЛИЗКО — личный кабинет</title>
+<script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 <style>
 :root{--milk:#F8F5F2;--ink:#171719;--soft:#F4D9E6;--pink:#F00087;--paper:#fffdfc;--muted:#8a7f85;--line:#eadfe4;--ok:#2f8f58;--warn:#b66c19;--danger:#c7485d;--shadow:0 10px 34px rgba(58,36,47,.08)}
 *{box-sizing:border-box}body{margin:0;background:var(--milk);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,a{font:inherit}
@@ -36,6 +37,9 @@
 </nav>
 <script>
 var qs=new URLSearchParams(location.search),launch=qs.get("launch")||"";
+var tg=(window.Telegram&&window.Telegram.WebApp)?window.Telegram.WebApp:null;
+if(tg){try{tg.ready();tg.expand()}catch(_){}}
+var initData=(tg&&tg.initData)||"";
 var app=document.getElementById("app"),tabs=document.getElementById("tabs");
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]})}
 function fmtDate(s){if(!s)return"";var p=String(s).split("-");return p.length===3?p[2]+"."+p[1]+"."+p[0]:s}
@@ -125,14 +129,14 @@ function switchView(name){
 tabs.addEventListener('click',function(e){var b=e.target.closest('.tab');if(b)switchView(b.dataset.view)});
 async function load(){
  try{
-  if(!launch)throw new Error('Ссылка на кабинет устарела. Открой кабинет заново из бота.');
-  var r=await fetch('/student-app/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({launch:launch})});
+  if(!launch&&!initData)throw new Error('Открой личный кабинет кнопкой внутри Telegram-бота.');
+  var r=await fetch('/student-app/api',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({launch:launch,init_data:initData})});
   var j=await r.json().catch(function(){return {}});
-  if(!r.ok||!j.ok)throw new Error(r.status===401?'Ссылка на кабинет устарела. Открой кабинет заново из бота.':'Не удалось загрузить кабинет.');
+  if(!r.ok||!j.ok)throw new Error(r.status===401?'Доступ нужно обновить. Закрой кабинет и снова открой его кнопкой в боте.':'Не удалось загрузить кабинет.');
   render(j.data);
  }catch(e){
   report('load',e);
-  app.innerHTML='<div class="loader"><div class="err"><b>Не удалось открыть кабинет</b><br><br>'+esc(e.message||e)+'<br><br><span class="pill">Вернись в бот → 👤 Мой кабинет → 💗 Открыть личный кабинет</span></div></div>';
+  app.innerHTML='<div class="loader"><div class="err"><b>Не удалось открыть кабинет</b><br><br>'+esc(e.message||e)+'<br><br><span class="pill">Закрой это окно → вернись в бот → 👤 Мой кабинет → 💗 Открыть приложение</span></div></div>';
  }
 }
 load();
