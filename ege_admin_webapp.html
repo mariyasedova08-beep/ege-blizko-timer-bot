@@ -164,9 +164,12 @@ function renderStudentDetail(d){
  var fh=d.final_homework||{},fi=fh.items||[];
  out+='<div class="section"><div class="section-title"><strong>Итоговые домашние работы</strong><span>'+fh.done+'/'+fh.total+' закрыто</span></div>';
  fi.forEach(function(x){
-   var cp=Number(x.completion_percent||0);
-   out+='<div class="chartbox"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div class="chart-title">'+esc(x.label||('Итоговая №'+x.index))+'</div><div class="chart-sub">'+esc(x.title||'')+'</div></div><div class="student-score">'+cp+'%</div></div><div class="final-progress"><i style="width:'+Math.max(0,Math.min(100,cp))+'%"></i></div>';
-   if(x.result_percent!=null){out+='<div class="row-sub" style="margin-top:7px">Результат работы: '+fmtScore(x.result_percent)+'%</div>';}
+   var hasResult=x.result_percent!=null;
+   var result=hasResult?Number(x.result_percent):null;
+   var scoreText=hasResult?fmtScore(result)+'%':'—';
+   var barWidth=hasResult?Math.max(0,Math.min(100,result)):0;
+   out+='<div class="chartbox"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div class="chart-title">'+esc(x.label||('Итоговая №'+x.index))+'</div><div class="chart-sub">'+esc(x.title||'')+'</div></div><div class="student-score">'+scoreText+'</div></div><div class="final-progress"><i style="width:'+barWidth+'%"></i></div>';
+   out+='<div class="row-sub" style="margin-top:7px">'+(x.done?(hasResult?'Результат CORE':'Работа сдана · результат CORE пока не получен'):'Не сдано')+'</div>';
    out+='</div>';
  });
  if(!fi.length){out+='<div class="list"><div class="empty">Итоговых работ пока нет</div></div>';}
@@ -220,10 +223,11 @@ function renderFinalHomework(d){
    out+='<div class="section-note" style="margin-top:12px;margin-bottom:6px">По каждому ребёнку</div>';
    out+='<div class="statusline">';
    (w.student_progress||[]).forEach(function(s){
-      var cp=Number(s.completion_percent||0);
-      var cls=cp>=100?'ok':cp>0?'':'bad';
-      var extra=s.result_percent==null?'':' · результат '+fmtScore(s.result_percent)+'%';
-      out+='<span class="statuspill '+cls+'">'+esc(s.name)+' · <b>'+cp+'%</b>'+extra+'</span>';
+      var hasResult=s.result_percent!=null;
+      var result=hasResult?Number(s.result_percent):null;
+      var cls=s.submitted?'ok':'bad';
+      var score=hasResult?fmtScore(result)+'%':(s.submitted?'сдано':'не сдано');
+      out+='<span class="statuspill '+cls+'">'+esc(s.name)+' · <b>'+score+'</b></span>';
    });
    out+='</div></div>';
  });
@@ -233,11 +237,12 @@ function renderFinalHomework(d){
  (d.students||[]).forEach(function(s){
    out+='<div class="student-card"><div class="student-card-top"><div><div class="student-name">'+esc(s.name)+'</div><div class="student-meta">'+s.done+' из '+s.total+' итоговых закрыто</div></div><div><div class="student-score">'+s.percent+'%</div><div class="score-caption">всего закрыто</div></div></div>';
    (s.items||[]).forEach(function(i){
-      var cp=Number(i.completion_percent||0);
-      out+='<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><div class="row-title">'+esc(i.label||('Итоговая №'+i.index))+'</div><div class="row-sub">'+esc(i.title||'')+'</div></div><div class="row-title">'+cp+'%</div></div><div class="final-progress"><i style="width:'+Math.max(0,Math.min(100,cp))+'%"></i></div>';
-      if(i.result_percent!=null){
-        out+='<div class="row-sub" style="margin-top:4px">Результат: '+fmtScore(i.result_percent)+'%</div>';
-      }
+      var hasResult=i.result_percent!=null;
+      var result=hasResult?Number(i.result_percent):null;
+      var scoreText=hasResult?fmtScore(result)+'%':'—';
+      var barWidth=hasResult?Math.max(0,Math.min(100,result)):0;
+      out+='<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><div class="row-title">'+esc(i.label||('Итоговая №'+i.index))+'</div><div class="row-sub">'+esc(i.title||'')+'</div></div><div class="row-title">'+scoreText+'</div></div><div class="final-progress"><i style="width:'+barWidth+'%"></i></div>';
+      out+='<div class="row-sub" style="margin-top:4px">'+(i.done?(hasResult?'Результат CORE':'Работа сдана · результат CORE пока не получен'):'Не сдано')+'</div>';
       out+='</div>';
    });
    out+='</div>';
