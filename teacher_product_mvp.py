@@ -1,8 +1,10 @@
 import os
+import secrets
 import sqlite3
 import threading
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlencode
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
 from telegram.ext import (
@@ -16,6 +18,7 @@ from telegram.ext import (
 )
 
 BOT_TOKEN = os.getenv("TEACHER_PRODUCT_BOT_TOKEN", "").strip()
+BOT_USERNAME = os.getenv("TEACHER_PRODUCT_BOT_USERNAME", "prepodmin_bot").strip().lstrip("@") or "prepodmin_bot"
 PORT = int(os.getenv("PORT", "8080"))
 DB_PATH = os.getenv("TEACHER_PRODUCT_DB_PATH", "/data/teacher_product.sqlite3")
 
@@ -105,11 +108,88 @@ def list_students(uid):
 
 def add_student(uid, name, contact=""):
     with db() as conn:
-        conn.execute(
+        cursor = conn.execute(
             "INSERT INTO students (teacher_telegram_user_id, name, contact, created_at) VALUES (?, ?, ?, ?)",
             (int(uid), name.strip(), contact.strip(), datetime.utcnow().isoformat()),
         )
+        student_id = int(cursor.lastrowid)
         conn.commit()
+    return student_id
+
+
+def normalize_telegram_username(value):
+    raw = str(value or "").strip()
+    if raw == "-":
+        return ""
+    for prefix in ("https://t.me/", "http://t.me/", "t.me/"):
+        if raw.lower().startswith(prefix):
+            raw = raw[len(prefix):]
+            break
+    raw = raw.split("?", 1)[0].strip().strip("/").lstrip("@")
+    if not raw:
+        return ""
+    if not all(ch.isalnum() or ch == "_" for ch in raw):
+        return None
+    return "@" + raw
+
+
+def ensure_student_invite(uid, student_id, name):
+    """Create or restore the personal Telegram invite for one individual student."""
+    with db() as conn:
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='student_reminder_people'"
+        ).fetchone()
+        if not exists:
+            return None
+        row = conn.execute(
+            """SELECT * FROM student_reminder_people
+               WHERE teacher_id=? AND kind='individual' AND student_id=? LIMIT 1""",
+            (int(uid), int(student_id)),
+        ).fetchone()
+        if row:
+            conn.execute(
+                "UPDATE student_reminder_people SET active=1,name=? WHERE id=?",
+                (name.strip(), int(row["id"])),
+            )
+        else:
+            conn.execute(
+                """INSERT INTO student_reminder_people
+                   (teacher_id,kind,student_id,name,invite_token,created_at)
+                   VALUES(?,'individual',?,?,?,?)""",
+                (
+                    int(uid),
+                    int(student_id),
+                    name.strip(),
+                    secrets.token_urlsafe(24),
+                    datetime.utcnow().isoformat(),
+                ),
+            )
+        conn.commit()
+        return conn.execute(
+            """SELECT * FROM student_reminder_people
+               WHERE teacher_id=? AND kind='individual' AND student_id=? LIMIT 1""",
+            (int(uid), int(student_id)),
+        ).fetchone()
+
+
+def student_invite_url(row):
+    return f"https://t.me/{BOT_USERNAME}?start=join_{row['invite_token']}"
+
+
+def student_share_url(row):
+    return "https://t.me/share/url?" + urlencode({
+        "url": student_invite_url(row),
+        "text": (
+            f"{row['name']}, присоединяйся к ПРЕПОДМИН, чтобы получать напоминания "
+            "об уроках и пользоваться личным кабинетом. Открой ссылку и нажми «Запустить»."
+        ),
+    })
+
+
+def student_invite_markup(row):
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("📨 Отправить приглашение", url=student_share_url(row))
+    ]])
 
 
 def remove_student(uid, student_id):
@@ -237,23 +317,45 @@ async def add_student_begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def add_student_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["new_student_name"] = update.message.text.strip()
     await update.message.reply_text(
-        "Добавь контакт ученика: Telegram @username, телефон или email.\n\n"
-        "Если пока не хочешь — отправь «-»."
+        "Напиши Telegram ученика: @username.\n\n"
+        "Например: @alina_chem\n"
+        "Если Telegram пока нет — отправь «-». Приглашение можно будет отправить позже."
     )
     return ADD_STUDENT_CONTACT
 
 
 async def add_student_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    contact = update.message.text.strip()
-    if contact == "-":
-        contact = ""
+    contact = normalize_telegram_username(update.message.text)
+    if contact is None:
+        await update.message.reply_text(
+            "Не похоже на Telegram @username. Напиши, например, @alina_chem "
+            "или отправь «-», если Telegram пока нет."
+        )
+        return ADD_STUDENT_CONTACT
+
     name = context.user_data.pop("new_student_name", "Ученик")
-    add_student(update.effective_user.id, name, contact)
+    student_id = add_student(update.effective_user.id, name, contact)
+    invite = ensure_student_invite(update.effective_user.id, student_id, name)
     count = len(list_students(update.effective_user.id))
-    await update.message.reply_text(
-        f"✅ {name} добавлен(а).\n\nСейчас в кабинете учеников: {count}.",
-        reply_markup=MAIN_KB,
-    )
+
+    if invite:
+        await update.message.reply_text(
+            f"✅ {name} добавлен(а).\n"
+            f"Telegram: {contact or 'пока не указан'}\n\n"
+            "📨 Теперь сразу отправь персональное приглашение. "
+            "Ученик откроет его, нажмёт «Запустить» — и Telegram привяжется к карточке автоматически.",
+            reply_markup=student_invite_markup(invite),
+        )
+        await update.message.reply_text(
+            f"Сейчас в кабинете учеников: {count}. "
+            "После подключения я сообщу тебе об этом здесь.",
+            reply_markup=MAIN_KB,
+        )
+    else:
+        await update.message.reply_text(
+            f"✅ {name} добавлен(а).\n\nСейчас в кабинете учеников: {count}.",
+            reply_markup=MAIN_KB,
+        )
     return ConversationHandler.END
 
 
