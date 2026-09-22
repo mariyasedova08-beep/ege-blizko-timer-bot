@@ -7,7 +7,7 @@ so there is one source of truth for every entity.
 from datetime import datetime
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
-from telegram.ext import ApplicationHandlerStop, CallbackQueryHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import ApplicationHandlerStop, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
 import teacher_product_mvp as base
 import teacher_product_groups as groups
@@ -285,6 +285,7 @@ def patch():
 def install(app):
     ensure_tables()
     base.MAIN_KB = _main_keyboard()
+    app.add_handler(CommandHandler("setup", show_setup), group=-30)
     app.add_handler(MessageHandler(filters.Regex(r"^🚀 Быстрая настройка$"), show_setup), group=-30)
     app.add_handler(CallbackQueryHandler(show_setup, pattern=r"^setup:home$"), group=-30)
     app.add_handler(CallbackQueryHandler(choose_schedule, pattern=r"^setup:schedule$"), group=-30)
