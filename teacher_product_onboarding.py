@@ -163,8 +163,13 @@ async def show_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     markup = _progress_markup(uid)
     if update.callback_query:
         q = update.callback_query
-        await q.answer()
-        await q.edit_message_text(text, reply_markup=markup)
+        status = setup_status(uid)
+        completed = sum(bool(status[key]) for key in ("profile", "people", "schedule", "payments"))
+        if q.message and q.message.text == text:
+            await q.answer(f"Прогресс уже актуален: {completed}/4", show_alert=False)
+        else:
+            await q.answer("Прогресс обновлён", show_alert=False)
+            await q.edit_message_text(text, reply_markup=markup)
     else:
         await update.message.reply_text(text, reply_markup=markup)
     raise ApplicationHandlerStop

@@ -537,7 +537,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
                 "service": "teacher-product-mvp",
                 "webapp": True,
                 "quick_setup": True,
-                "build": "2026-09-22-onboarding-2",
+                "build": "2026-09-22-onboarding-3",
             }))
             return
         if path in {"/", "/webapp"}:
