@@ -27,6 +27,7 @@ import teacher_product_webapp as webapp
 import teacher_product_student_webapp as student_webapp
 import teacher_product_feedback as feedback
 import teacher_product_onboarding as onboarding
+import teacher_product_reset as reset
 
 
 def main():
@@ -74,6 +75,7 @@ def main():
     webapp.install(app)
     feedback.install(app)
     student_webapp.install(app)
+    reset.install(app)
     # Install last: several feature modules rebuild MAIN_KB while installing.
     # The setup button must be added after the final product keyboard exists.
     onboarding.install(app)
