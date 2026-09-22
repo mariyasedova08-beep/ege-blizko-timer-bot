@@ -57,7 +57,6 @@ def main():
     onboarding.patch()
     transfer_enhancements.patch()
     app = voice_beta.build_app()
-    onboarding.install(app)
     transfer_button.install(app)
     transfer_enhancements.install(app)
     student_reminders.install(app)
@@ -75,6 +74,9 @@ def main():
     webapp.install(app)
     feedback.install(app)
     student_webapp.install(app)
+    # Install last: several feature modules rebuild MAIN_KB while installing.
+    # The setup button must be added after the final product keyboard exists.
+    onboarding.install(app)
     app.run_polling(drop_pending_updates=False)
 
 
