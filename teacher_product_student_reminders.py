@@ -128,9 +128,21 @@ def _share_url(row):
     })
 
 
-def _invitation_buttons(row, back_label, back_callback):
+def _direct_url(row, contact=""):
+    username = str(contact or "").strip().lstrip("@")
+    if not username:
+        return _share_url(row)
+    text = (
+        f"{row['name']}, присоединяйся к ПРЕПОДМИН, чтобы получать напоминания "
+        "об уроках и пользоваться личным кабинетом. Открой ссылку и нажми «Запустить».\n\n"
+        f"{_invite(row)}"
+    )
+    return f"https://t.me/{username}?" + urlencode({"text": text})
+
+
+def _invitation_buttons(row, back_label, back_callback, contact=""):
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📨 Отправить ученику", url=_share_url(row))],
+        [InlineKeyboardButton(f"📨 Отправить {row['name']}", url=_direct_url(row, contact))],
         [InlineKeyboardButton(back_label, callback_data=back_callback)],
     ])
 
@@ -190,10 +202,18 @@ async def person(update, context):
         await q.edit_message_text("Ученик не найден.")
     else:
         state = "привязан" if row["telegram_user_id"] else "пока не привязан"
-        await q.edit_message_text(f"{row['name']} — {state}.\n\nЛичная ссылка для ученика:\n{_invite(row)}\n\n"
-                                  "Нажми «Отправить ученику», выбери его чат и отправь приглашение. "
-                                  "После перехода по ссылке ученику нужно нажать «Запустить».",
-                                  reply_markup=_invitation_buttons(row, "↩️ Назад", "srem:individual"))
+        student = schedule.get_student(uid, sid)
+        contact = student["contact"] if student else ""
+        await q.edit_message_text(
+            f"{row['name']} — {state}.\n\n"
+            f"Telegram: {contact or 'не указан'}\n"
+            f"Личная ссылка:\n{_invite(row)}\n\n"
+            "Нажми кнопку ниже — если @username указан, сразу откроется чат ученика "
+            "с готовым приглашением. После перехода ученику нужно нажать «Запустить».",
+            reply_markup=_invitation_buttons(
+                row, "↩️ Назад", "srem:individual", contact=contact
+            ),
+        )
     raise ApplicationHandlerStop
 
 
