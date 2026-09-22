@@ -35,7 +35,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20260920-13"
+WEBAPP_BUILD = "20260923-14"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 MASCOT_PATH = Path(__file__).with_name("kulechek_mascot.jpg")
 _INSTALLED = False
