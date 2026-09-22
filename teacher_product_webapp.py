@@ -5,7 +5,7 @@ import json
 import os
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qsl
@@ -30,7 +30,7 @@ WEBAPP_URL = os.getenv(
     f"https://{PUBLIC_DOMAIN}/webapp" if PUBLIC_DOMAIN else "",
 ).strip()
 MAX_AUTH_AGE = 24 * 60 * 60
-WEBAPP_BUILD = "20260919-5"
+WEBAPP_BUILD = "20260922-main-dashboard-1"
 HTML_PATH = Path(__file__).with_name("teacher_product_webapp.html")
 _INSTALLED = False
 
@@ -53,8 +53,20 @@ def _dashboard(uid):
 
     now = datetime.now(schedule.tz(uid))
     day = now.date()
-    events = today._individual_today(uid, day) + today._group_today(uid, day)
-    events.sort(key=lambda e: (str(e["time"]), e["kind"], str(e["name"]).lower()))
+    today_events = today._individual_today(uid, day) + today._group_today(uid, day)
+    today_events.sort(key=lambda e: (str(e["time"]), e["kind"], str(e["name"]).lower()))
+    upcoming_events = []
+    weekday_short = ("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
+    for offset in range(7):
+        event_day = day + timedelta(days=offset)
+        day_events = today._individual_today(uid, event_day) + today._group_today(uid, event_day)
+        day_events.sort(key=lambda e: (str(e["time"]), e["kind"], str(e["name"]).lower()))
+        for event in day_events:
+            upcoming_events.append({
+                **event,
+                "date": event_day.strftime("%d.%m"),
+                "day_label": "Сегодня" if offset == 0 else weekday_short[event_day.weekday()],
+            })
 
     with base.db() as conn:
         task_rows = conn.execute(
@@ -62,14 +74,57 @@ def _dashboard(uid):
             SELECT id,title,due_date,due_time
             FROM teacher_tasks
             WHERE teacher_telegram_user_id=? AND completed=0
-              AND due_date<=?
-            ORDER BY due_date,
+            ORDER BY CASE WHEN due_date<=? THEN 0 ELSE 1 END,
+                     due_date,
                      CASE WHEN due_time IS NULL THEN 1 ELSE 0 END,
                      due_time,id
             LIMIT 6
             """,
             (int(uid), day.isoformat()),
         ).fetchall()
+
+        payment_debt_rows = conn.execute(
+            """
+            SELECT s.name,p.amount_rub,p.next_due_date
+            FROM student_payment_plans p
+            JOIN students s ON s.id=p.student_id
+            WHERE p.teacher_telegram_user_id=?
+              AND p.active=1 AND s.active=1
+              AND p.next_due_date<=?
+            ORDER BY p.next_due_date,lower(s.name)
+            LIMIT 5
+            """,
+            (int(uid), day.isoformat()),
+        ).fetchall()
+
+        homework_debt_rows = conn.execute(
+            """
+            SELECT h.id,h.homework_text,h.due_date,h.target_kind,h.target_id,
+                   COUNT(*) AS pending_count
+            FROM teacher_homework h
+            JOIN teacher_homework_status hs ON hs.assignment_id=h.id
+            WHERE h.teacher_telegram_user_id=?
+              AND h.active=1 AND hs.status='pending' AND h.due_date<=?
+            GROUP BY h.id,h.homework_text,h.due_date,h.target_kind,h.target_id
+            ORDER BY h.due_date,h.id
+            LIMIT 5
+            """,
+            (int(uid), day.isoformat()),
+        ).fetchall()
+        group_names = {
+            int(r["id"]): r["name"]
+            for r in conn.execute(
+                "SELECT id,name FROM teacher_groups WHERE teacher_telegram_user_id=?",
+                (int(uid),),
+            ).fetchall()
+        }
+        student_names = {
+            int(r["id"]): r["name"]
+            for r in conn.execute(
+                "SELECT id,name FROM students WHERE teacher_telegram_user_id=?",
+                (int(uid),),
+            ).fetchall()
+        }
 
         hw_overdue = _safe_count(
             conn,
@@ -123,7 +178,8 @@ def _dashboard(uid):
             "пятница", "суббота", "воскресенье"
         )[day.weekday()],
         "counts": {
-            "lessons": len(events),
+            "lessons": len(today_events),
+            "tasks": len(task_rows),
             "homework": hw_overdue + hw_today,
             "homework_overdue": hw_overdue,
             "payments": payment_due,
@@ -135,8 +191,10 @@ def _dashboard(uid):
                 "name": e["name"],
                 "kind": "Группа" if e["kind"] == "group" else "Ученик",
                 "moved": bool(e.get("moved")),
+                "date": e["date"],
+                "day_label": e["day_label"],
             }
-            for e in events[:5]
+            for e in upcoming_events[:5]
         ],
         "tasks": [
             {
@@ -147,6 +205,31 @@ def _dashboard(uid):
                 "overdue": r["due_date"] < day.isoformat(),
             }
             for r in task_rows
+        ],
+        "debts": [
+            {
+                "kind": "payment",
+                "name": r["name"],
+                "title": "Оплата",
+                "detail": f"{int(r['amount_rub'] or 0):,} ₽".replace(",", " "),
+                "due": r["next_due_date"],
+                "overdue": r["next_due_date"] < day.isoformat(),
+            }
+            for r in payment_debt_rows
+        ] + [
+            {
+                "kind": "homework",
+                "name": (
+                    group_names.get(int(r["target_id"]), "Группа")
+                    if r["target_kind"] == "group"
+                    else student_names.get(int(r["target_id"]), "Ученик")
+                ),
+                "title": r["homework_text"],
+                "detail": f"Не сдали: {int(r['pending_count'] or 0)}",
+                "due": r["due_date"],
+                "overdue": r["due_date"] < day.isoformat(),
+            }
+            for r in homework_debt_rows
         ],
         "attention": [
             {"name": name, "scope": scope, "reasons": reasons}
@@ -537,7 +620,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
                 "service": "teacher-product-mvp",
                 "webapp": True,
                 "quick_setup": True,
-                "build": "2026-09-22-onboarding-3",
+                "build": "2026-09-22-main-dashboard-1",
             }))
             return
         if path in {"/", "/webapp"}:

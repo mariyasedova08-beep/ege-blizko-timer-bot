@@ -157,6 +157,15 @@ def _progress_markup(uid):
     return InlineKeyboardMarkup(buttons)
 
 
+def _finished_markup():
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            "➕ Добавить группу или ученика",
+            callback_data="setup:people",
+        )
+    ]])
+
+
 async def show_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(update.effective_user.id)
     text = _progress_text(uid)
@@ -226,6 +235,20 @@ async def payment_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     raise ApplicationHandlerStop
 
 
+async def open_people(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Open the regular people area without changing any existing records."""
+    q = update.callback_query
+    await q.answer()
+    await q.edit_message_text(
+        "👥 Ученики и группы\n\nВыбери, кого нужно добавить.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Добавить ученика", callback_data="student:add")],
+            [InlineKeyboardButton("➕ Создать группу", callback_data="group:add")],
+        ]),
+    )
+    raise ApplicationHandlerStop
+
+
 async def finish_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -246,7 +269,8 @@ async def finish_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.edit_message_text(
         "✅ Основная настройка готова!\n\n"
         "Теперь ПРЕП | АДМИН уже может показывать занятия, учеников и ближайшие дела. "
-        "Оплаты и остальные разделы можно дополнять постепенно."
+        "Оплаты и остальные разделы можно дополнять постепенно.",
+        reply_markup=_finished_markup(),
     )
     await context.bot.send_message(
         chat_id=uid,
@@ -296,4 +320,5 @@ def install(app):
     app.add_handler(CallbackQueryHandler(choose_schedule, pattern=r"^setup:schedule$"), group=-30)
     app.add_handler(CallbackQueryHandler(choose_group_people, pattern=r"^setup:group_people$"), group=-30)
     app.add_handler(CallbackQueryHandler(payment_help, pattern=r"^setup:payment_help$"), group=-30)
+    app.add_handler(CallbackQueryHandler(open_people, pattern=r"^setup:people$"), group=-30)
     app.add_handler(CallbackQueryHandler(finish_setup, pattern=r"^setup:finish$"), group=-30)

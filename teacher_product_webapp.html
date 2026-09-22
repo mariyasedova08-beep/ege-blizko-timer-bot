@@ -53,6 +53,7 @@ var launch=(new URLSearchParams(window.location.search)).get('launch')||'';
 var currentView='home';
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
 function money(n){return n?String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' ₽':'—';}
+function shortDate(s){var p=String(s||'').split('-');return p.length===3?p[2]+'.'+p[1]:String(s||'');}
 function setNav(v){['home','students','schedule','reports'].forEach(function(x){var e=document.getElementById('nav-'+x);if(e)e.classList.toggle('active',x===v);});}
 async function reportClientError(where,e){
  try{
@@ -91,9 +92,10 @@ function metric(icon,num,label,hint,pink,view){
  return '<button class="metric '+(pink?'pink':'')+'" onclick="openView(\''+view+'\')"><span class="dot"></span><div class="icon">'+icon+'</div><div class="num">'+num+'</div><div class="label">'+label+'</div><div class="hint">'+hint+'</div></button>';
 }
 function renderHome(d){
- var c=d.counts||{},events='',taskRows='',attention='';
- (d.events||[]).forEach(function(e){events+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+'</div></div></div>';});
- (d.tasks||[]).forEach(function(t){taskRows+='<div class="row taskrow" onclick="completeTask('+t.id+',\'home\')"><div class="check">✓</div><div class="row-main"><div class="row-title '+(t.overdue?'alert':'')+'">'+esc(t.title)+'</div><div class="row-sub">'+(t.overdue?'Просрочено':'Сегодня')+(t.due_time?' · '+esc(t.due_time):'')+' · нажми, чтобы закрыть</div></div><span class="badge">'+(t.overdue?'!':'✓')+'</span></div>';});
+ var c=d.counts||{},events='',taskRows='',debts='',attention='';
+ (d.events||[]).forEach(function(e){events+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+' · '+esc(e.day_label)+' · '+esc(e.date)+'</div></div></div>';});
+ (d.tasks||[]).forEach(function(t){taskRows+='<div class="row taskrow" onclick="completeTask('+t.id+',\'home\')"><div class="check">✓</div><div class="row-main"><div class="row-title '+(t.overdue?'alert':'')+'">'+esc(t.title)+'</div><div class="row-sub">'+(t.overdue?'Просрочено':'до '+shortDate(t.due_date))+(t.due_time?' · '+esc(t.due_time):'')+' · нажми, чтобы закрыть</div></div><span class="badge">'+(t.overdue?'!':'✓')+'</span></div>';});
+ (d.debts||[]).forEach(function(x){debts+='<div class="row"><div class="check">'+(x.kind==='payment'?'💳':'🏠')+'</div><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.name)+' · '+esc(x.title)+'</div><div class="row-sub">'+esc(x.detail)+' · '+(x.overdue?'просрочено':'срок сегодня')+'</div></div><span class="badge">'+(x.kind==='payment'?'Оплата':'ДЗ')+'</span></div>';});
  (d.attention||[]).forEach(function(a){attention+='<div class="row"><div class="row-main"><div class="row-title">'+esc(a.name)+'</div><div class="row-sub">'+esc(a.scope)+' · '+esc((a.reasons||[]).join(', '))+'</div></div></div>';});
  var out='<div class="top"><div><span class="eyebrow">личный администратор</span><h1>Привет, '+esc(d.teacher.name)+' 💗</h1><div class="sub">'+esc(d.teacher.subject||'Преподавание')+' · всё важное на одном экране</div></div><div class="avatar">🎓</div></div>';
  out+='<div class="status"><div class="status-head"><div class="status-title">Сегодня</div><div class="date">'+esc(d.weekday)+' · '+esc(d.date)+'</div></div><div class="grid">';
@@ -102,11 +104,12 @@ function renderHome(d){
  out+=metric('💳',c.payments||0,'по оплатам','срок сегодня или просрочен',false,'payments');
  out+=metric('🚨',c.attention||0,'в зоне внимания','нужна проверка',true,'attention');
  out+='</div></div>';
- out+='<div class="section"><div class="section-title"><strong>Ближайшие занятия</strong><span onclick="openView(\'schedule\')">всё расписание →</span></div><div class="list">'+(events||'<div class="empty">Сегодня занятий нет 🎉</div>')+'</div></div>';
- out+='<div class="section"><div class="section-title"><strong>Задачи</strong><span onclick="openView(\'tasks\')">открыть все →</span></div><div class="list">'+(taskRows||'<div class="empty">На сегодня долгов по задачам нет</div>')+'</div></div>';
+ out+='<div class="section"><div class="section-title"><strong>Ближайшие занятия</strong><span onclick="openView(\'schedule\')">всё расписание →</span></div><div class="list">'+(events||'<div class="empty">На ближайшие 7 дней занятий нет 🎉</div>')+'</div></div>';
+ out+='<div class="section"><div class="section-title"><strong>Невыполненные задачи</strong><span onclick="openView(\'tasks\')">открыть все →</span></div><div class="list">'+(taskRows||'<div class="empty">Невыполненных задач нет 🎉</div>')+'</div></div>';
+ out+='<div class="section"><div class="section-title"><strong>Долги по оплате и ДЗ</strong><span>требуют внимания</span></div><div class="list">'+(debts||'<div class="empty">Долгов нет 🎉</div>')+'</div></div>';
  if(attention){out+='<div class="section"><div class="section-title"><strong>Зона внимания</strong><span onclick="openView(\'attention\')">подробнее →</span></div><div class="list">'+attention+'</div></div>';}
- out+='<div class="section"><div class="section-title"><strong>Быстрые разделы</strong><span>внутри ПРЕПОДМИН</span></div><div class="actions">';
- [['📅','Расписание','schedule'],['🏠','Домашнее','homework'],['✅','Посещаемость','attendance'],['💳','Оплаты','payments'],['🗓','Свободные окна','slots'],['📊','Отчёты','reports']].forEach(function(a){out+='<button class="action" onclick="openView(\''+a[2]+'\')"><span class="aicon">'+a[0]+'</span>'+a[1]+'</button>';});
+ out+='<div class="section"><div class="section-title"><strong>Быстрые действия</strong><span>основное под рукой</span></div><div class="actions">';
+ [['👥','Ученики и группы','students'],['📅','Открыть расписание','schedule'],['🏠','Проверить ДЗ','homework'],['✅','Отметить посещаемость','attendance'],['💳','Проверить оплаты','payments'],['📋','Закрыть задачи','tasks']].forEach(function(a){out+='<button class="action" onclick="openView(\''+a[2]+'\')"><span class="aicon">'+a[0]+'</span>'+a[1]+'</button>';});
  out+='</div></div><div class="brand">ПРЕПОДМИН · больше времени на главное</div>';
  document.getElementById('app').innerHTML=out;
 }
