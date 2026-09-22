@@ -165,6 +165,8 @@ def _status(uid, row):
 
 
 def _type_label(value):
+    if value == "package":
+        return "абонемент"
     return "ежемесячно" if value == "monthly" else "разовая"
 
 
@@ -223,7 +225,7 @@ async def setup_student(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["pay_name"] = student["name"]
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("1️⃣ Разовая", callback_data="pay:type:once")],
-        [InlineKeyboardButton("🔁 Ежемесячная", callback_data="pay:type:monthly")],
+        [InlineKeyboardButton("🎟 Абонемент на занятия", callback_data="pay:type:package")],
     ])
     await q.edit_message_text(f"{student['name']}\n\nКак оплачивает ученик?", reply_markup=kb)
     return PAY_TYPE
@@ -234,7 +236,7 @@ async def setup_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     payment_type = q.data.rsplit(":", 1)[1]
     context.user_data["pay_type"] = payment_type
-    label = "разовая" if payment_type == "once" else "ежемесячная"
+    label = "разовая" if payment_type == "once" else "абонемент"
     await q.edit_message_text(f"Тип оплаты: {label}.\n\nНапиши сумму в рублях, например: 15000")
     return PAY_AMOUNT
 
@@ -245,14 +247,76 @@ async def setup_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Не поняла сумму. Напиши только сумму, например: 15000")
         return PAY_AMOUNT
     context.user_data["pay_amount"] = amount
-    await update.message.reply_text(
-        "На какую дату ждём оплату?\nНапиши, например: 28.09"
-    )
+    if context.user_data.get("pay_type") == "package":
+        await update.message.reply_text(
+            "Сколько занятий входит в абонемент?\nНапиши, например: 8"
+        )
+    else:
+        await update.message.reply_text(
+            "На какую дату ждём разовую оплату?\nНапиши, например: 28.09"
+        )
     return PAY_DATE
 
 
 async def setup_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
+    payment_type = context.user_data.get("pay_type")
+    if payment_type == "package":
+        cleaned = "".join(ch for ch in update.message.text if ch.isdigit())
+        count = int(cleaned) if cleaned else 0
+        if count <= 0 or count > 100:
+            await update.message.reply_text("Не поняла количество. Напиши число занятий, например: 8")
+            return PAY_DATE
+        sid = context.user_data.get("pay_sid")
+        name = context.user_data.get("pay_name", "Ученик")
+        amount = context.user_data.get("pay_amount")
+        if sid is None or amount is None:
+            await update.message.reply_text(
+                "Настройка сбилась. Открой «💳 Оплаты» и попробуй ещё раз.",
+                reply_markup=base.MAIN_KB,
+            )
+            return ConversationHandler.END
+        now = datetime.utcnow().isoformat()
+        with base.db() as conn:
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(student_payment_plans)").fetchall()}
+            if "lessons_total" not in cols:
+                conn.execute("ALTER TABLE student_payment_plans ADD COLUMN lessons_total INTEGER")
+            if "lessons_remaining" not in cols:
+                conn.execute("ALTER TABLE student_payment_plans ADD COLUMN lessons_remaining INTEGER")
+            conn.execute(
+                """
+                INSERT INTO student_payment_plans(
+                    teacher_telegram_user_id,student_id,payment_type,amount_rub,
+                    next_due_date,active,created_at,updated_at,lessons_total,lessons_remaining
+                ) VALUES(?,?, 'package',?, '9999-12-31',1,?,?,?,?)
+                ON CONFLICT(teacher_telegram_user_id,student_id) DO UPDATE SET
+                    payment_type='package',amount_rub=excluded.amount_rub,
+                    next_due_date=excluded.next_due_date,active=1,updated_at=excluded.updated_at,
+                    lessons_total=excluded.lessons_total,lessons_remaining=excluded.lessons_remaining
+                """,
+                (int(uid), int(sid), int(amount), now, now, count, count),
+            )
+            conn.execute(
+                """
+                INSERT INTO student_payment_history(
+                    teacher_telegram_user_id,student_id,amount_rub,payment_type,due_date,paid_at
+                ) VALUES(?,?,?,'package',NULL,?)
+                """,
+                (int(uid), int(sid), int(amount), now),
+            )
+            conn.commit()
+        for key in ("pay_sid", "pay_name", "pay_type", "pay_amount"):
+            context.user_data.pop(key, None)
+        await update.message.reply_text(
+            f"✅ Абонемент для {name} настроен.\n\n"
+            f"Сумма: {_money(amount)}\n"
+            f"Оплачено занятий: {count}\n"
+            f"Осталось занятий: {count}\n\n"
+            "Одно занятие спишется автоматически после отметки «Был(а)» в посещаемости.",
+            reply_markup=base.MAIN_KB,
+        )
+        return ConversationHandler.END
+
     today = _today(uid)
     due = schedule.parse_date(update.message.text, today)
     if not due:
@@ -378,7 +442,7 @@ def build_app():
         entry_points=[CallbackQueryHandler(setup_begin, pattern=r"^pay:setup$")],
         states={
             PAY_STUDENT: [CallbackQueryHandler(setup_student, pattern=r"^pay:student:\d+$")],
-            PAY_TYPE: [CallbackQueryHandler(setup_type, pattern=r"^pay:type:(?:once|monthly)$")],
+            PAY_TYPE: [CallbackQueryHandler(setup_type, pattern=r"^pay:type:(?:once|package)$")],
             PAY_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_amount)],
             PAY_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_date)],
         },
