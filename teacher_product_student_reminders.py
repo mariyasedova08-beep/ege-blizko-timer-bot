@@ -295,6 +295,7 @@ async def join(update, context):
         return
     token = context.args[0][5:]
     uid = update.effective_user.id
+    newly_linked = False
     with base.db() as conn:
         row = conn.execute("SELECT * FROM student_reminder_people WHERE invite_token=? AND active=1", (token,)).fetchone()
         if row and row["kind"] == "individual" and not schedule.get_student(row["teacher_id"], row["student_id"]):
@@ -308,12 +309,28 @@ async def join(update, context):
             (row["teacher_id"], uid, row["id"])).fetchone():
             row = None
         if row:
+            newly_linked = row["telegram_user_id"] is None
             conn.execute("UPDATE student_reminder_people SET telegram_user_id=? WHERE id=?", (uid, row["id"]))
     if row:
         await update.message.reply_text(
             f"✅ Ты привязан(а) как {row['name']}. Когда преподаватель включит напоминания, здесь можно будет подтвердить участие в уроке.\n\n💗 Личный кабинет — по кнопке ниже.",
             reply_markup=STUDENT_CABINET_KB,
         )
+        if newly_linked:
+            try:
+                await context.bot.send_message(
+                    chat_id=int(row["teacher_id"]),
+                    text=(
+                        f"✅ {row['name']} подключен(а) к ПРЕПОДМИН.\n\n"
+                        "Telegram привязан к карточке ученика — приглашение больше отправлять не нужно."
+                    ),
+                )
+            except Exception as exc:
+                print(
+                    f"Student link teacher notification failed teacher={row['teacher_id']}: "
+                    f"{type(exc).__name__}",
+                    flush=True,
+                )
     else:
         await update.message.reply_text(
             "Ссылка недействительна или уже привязана к другому аккаунту. Попроси преподавателя проверить её."
