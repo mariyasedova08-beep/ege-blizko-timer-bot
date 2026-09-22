@@ -28,6 +28,7 @@ import teacher_product_student_webapp as student_webapp
 import teacher_product_feedback as feedback
 import teacher_product_onboarding as onboarding
 import teacher_product_reset as reset
+import teacher_product_help as help_guide
 
 
 def main():
@@ -79,6 +80,8 @@ def main():
     # Install last: several feature modules rebuild MAIN_KB while installing.
     # The setup button must be added after the final product keyboard exists.
     onboarding.install(app)
+    # Install after onboarding so the final keyboard contains both setup and help.
+    help_guide.install(app)
     app.run_polling(drop_pending_updates=False)
 
 
