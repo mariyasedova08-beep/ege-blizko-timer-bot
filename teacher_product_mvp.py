@@ -176,19 +176,35 @@ def student_invite_url(row):
     return f"https://t.me/{BOT_USERNAME}?start=join_{row['invite_token']}"
 
 
+def student_invite_text(row):
+    return (
+        f"{row['name']}, присоединяйся к ПРЕПОДМИН, чтобы получать напоминания "
+        "об уроках и пользоваться личным кабинетом. Открой ссылку и нажми «Запустить»."
+    )
+
+
 def student_share_url(row):
     return "https://t.me/share/url?" + urlencode({
         "url": student_invite_url(row),
-        "text": (
-            f"{row['name']}, присоединяйся к ПРЕПОДМИН, чтобы получать напоминания "
-            "об уроках и пользоваться личным кабинетом. Открой ссылку и нажми «Запустить»."
-        ),
+        "text": student_invite_text(row),
     })
 
 
-def student_invite_markup(row):
+def student_direct_url(row, contact):
+    username = str(contact or "").strip().lstrip("@")
+    if not username:
+        return student_share_url(row)
+    return f"https://t.me/{username}?" + urlencode({
+        "text": f"{student_invite_text(row)}\n\n{student_invite_url(row)}",
+    })
+
+
+def student_invite_markup(row, contact=""):
     return InlineKeyboardMarkup([[
-        InlineKeyboardButton("📨 Отправить приглашение", url=student_share_url(row))
+        InlineKeyboardButton(
+            f"📨 Отправить {row['name']}",
+            url=student_direct_url(row, contact),
+        )
     ]])
 
 
@@ -344,7 +360,7 @@ async def add_student_contact(update: Update, context: ContextTypes.DEFAULT_TYPE
             f"Telegram: {contact or 'пока не указан'}\n\n"
             "📨 Теперь сразу отправь персональное приглашение. "
             "Ученик откроет его, нажмёт «Запустить» — и Telegram привяжется к карточке автоматически.",
-            reply_markup=student_invite_markup(invite),
+            reply_markup=student_invite_markup(invite, contact),
         )
         await update.message.reply_text(
             f"Сейчас в кабинете учеников: {count}. "
