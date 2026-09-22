@@ -13,9 +13,9 @@ import time
 import traceback
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlparse
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 import run_bot_live90 as live90
 import run_bot_live49 as student_cabinet
@@ -37,7 +37,7 @@ STUDENT_WEBAPP_URL = os.getenv(
     "EGE_STUDENT_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/student-app" if PUBLIC_DOMAIN else "",
 ).strip()
-STUDENT_WEBAPP_BUILD = "20260919-1"
+STUDENT_WEBAPP_BUILD = "20260922-1"
 HTML_PATH = Path(__file__).with_name("ege_student_webapp.html")
 _INSTALLED = False
 _previous_get = None
@@ -78,6 +78,49 @@ def _validate_launch_token(token):
         ).hexdigest()
         if not hmac.compare_digest(expected, signature):
             return None
+        return uid if student_cabinet._student_by_telegram(uid) else None
+    except Exception:
+        return None
+
+
+def _validate_telegram_init_data(raw_init_data, max_age=24 * 60 * 60):
+    """Validate Telegram Mini App initData and return a linked student UID."""
+    try:
+        raw = str(raw_init_data or "")
+        if not raw:
+            return None
+        fields = dict(parse_qsl(raw, keep_blank_values=True))
+        received_hash = str(fields.pop("hash", "") or "")
+        if not received_hash:
+            return None
+
+        secret = os.getenv("BOT_TOKEN", "")
+        if not secret:
+            return None
+
+        data_check_string = "\n".join(
+            f"{key}={value}" for key, value in sorted(fields.items())
+        )
+        secret_key = hmac.new(
+            b"WebAppData",
+            secret.encode("utf-8"),
+            hashlib.sha256,
+        ).digest()
+        expected_hash = hmac.new(
+            secret_key,
+            data_check_string.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(expected_hash, received_hash):
+            return None
+
+        now = int(time.time())
+        auth_date = int(fields.get("auth_date") or 0)
+        if auth_date <= 0 or auth_date > now + 300 or now - auth_date > int(max_age):
+            return None
+
+        user = json.loads(fields.get("user") or "{}")
+        uid = int(user.get("id"))
         return uid if student_cabinet._student_by_telegram(uid) else None
     except Exception:
         return None
@@ -425,7 +468,7 @@ def _http_post(self):
             self._send_json(200, {"ok": True})
             return
 
-        uid = _validate_launch_token(request.get("launch"))
+        uid = _validate_telegram_init_data(request.get("init_data")) or _validate_launch_token(request.get("launch"))
         if not uid:
             self._send_json(401, {"ok": False, "error": "unauthorized"})
             return
@@ -445,6 +488,11 @@ def _http_post(self):
             flush=True,
         )
         self._send_json(400, {"ok": False, "error": "bad_request"})
+
+
+def _webapp_url():
+    sep = "&" if "?" in STUDENT_WEBAPP_URL else "?"
+    return f"{STUDENT_WEBAPP_URL}{sep}v={STUDENT_WEBAPP_BUILD}"
 
 
 def _launcher_url(telegram_user_id):
@@ -481,7 +529,7 @@ def _patch_student_cabinet():
             0,
             [InlineKeyboardButton(
                 "💗 Открыть приложение",
-                url=_launcher_url(uid),
+                web_app=WebAppInfo(url=_webapp_url()),
             )],
         )
         return InlineKeyboardMarkup(rows)
