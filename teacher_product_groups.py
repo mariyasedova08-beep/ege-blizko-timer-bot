@@ -197,21 +197,43 @@ async def people_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, reply_markup=kb)
 
 
+def _telegram_link_status(uid, student_id):
+    with base.db() as conn:
+        exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='student_reminder_people'"
+        ).fetchone()
+        if not exists:
+            return False
+        row = conn.execute(
+            """SELECT telegram_user_id FROM student_reminder_people
+               WHERE teacher_id=? AND kind='individual' AND student_id=? AND active=1
+               LIMIT 1""",
+            (int(uid), int(student_id)),
+        ).fetchone()
+    return bool(row and row["telegram_user_id"])
+
+
 async def individual_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     rows = base.list_students(q.from_user.id)
     if rows:
-        names = "\n".join(f"• {r['name']}" for r in rows[:30])
+        lines = []
+        for r in rows[:30]:
+            status = "🟢 Telegram подключён" if _telegram_link_status(q.from_user.id, r["id"]) else "🔴 Telegram не подключён"
+            lines.append(f"• {r['name']} — {status}")
+        names = "\n".join(lines)
         text = f"👤 Индивидуальные: {len(rows)}\n\n{names}"
     else:
         text = "👤 Индивидуальные\n\nПока учеников нет."
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("➕ Добавить ученика", callback_data="student:add")],
+    buttons = [[InlineKeyboardButton("➕ Добавить ученика", callback_data="student:add")]]
+    if rows:
+        buttons.append([InlineKeyboardButton("📨 Подключить Telegram", callback_data="srem:individual")])
+    buttons += [
         [InlineKeyboardButton("🗑 Удалить / архив", callback_data="student:remove")],
         [InlineKeyboardButton("⬅️ К форматам", callback_data="people:back")],
-    ])
-    await q.edit_message_text(text, reply_markup=kb)
+    ]
+    await q.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons))
 
 
 async def groups_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
