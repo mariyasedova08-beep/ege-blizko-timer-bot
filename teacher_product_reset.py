@@ -7,6 +7,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ApplicationHandlerStop, CallbackQueryHandler, CommandHandler, ContextTypes
 
 import teacher_product_mvp as base
+import teacher_product_reminders as reminders
 
 
 NOTICE_TEXT = (
@@ -191,3 +192,8 @@ def install(app):
     app.add_handler(CallbackQueryHandler(reset_confirmed, pattern=r"^e2e:reset$"), group=-40)
     app.add_handler(CallbackQueryHandler(cancel_reset, pattern=r"^e2e:cancel$"), group=-40)
     print("PREPODMIN safe E2E reset flow ready", flush=True)
+
+
+def build_app():
+    """Compatibility link used by the existing payments → reminders app chain."""
+    return reminders.build_app()

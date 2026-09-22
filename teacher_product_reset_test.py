@@ -53,6 +53,9 @@ class SafeResetTest(unittest.TestCase):
         self.assertIsNotNone(base.teacher(200))
         self.assertEqual([r["name"] for r in base.list_students(200)], ["Чужой ученик"])
 
+    def test_reset_keeps_legacy_app_builder_contract(self):
+        self.assertTrue(callable(reset.build_app))
+
 
 if __name__ == "__main__":
     unittest.main()
