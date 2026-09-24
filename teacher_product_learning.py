@@ -901,7 +901,7 @@ async def homework_due(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Срок: {due.strftime('%d.%m')}\n"
         f"Учитывается учеников: {len(statuses)}\n"
         f"{messaging.delivery_summary(uid, total_linked, sent, failed, singular=(kind == 'individual'))}\n\n"
-        f"Если ученик ещё не привязан к ПРЕПОДМИН, ДЗ всё равно останется в твоём учёте.",
+        f"Если ученик ещё не привязан к ПРЕПАДМИН, ДЗ всё равно останется в твоём учёте.",
         reply_markup=base.MAIN_KB,
     )
     return ConversationHandler.END
@@ -1028,7 +1028,7 @@ async def homework_student_done(update: Update, context: ContextTypes.DEFAULT_TY
         conn.commit()
     await q.edit_message_text(
         _homework_student_text(a, prefix="✅ Домашнее отмечено выполненным") +
-        "\n\nПреподаватель увидит отметку в ПРЕПОДМИН."
+        "\n\nПреподаватель увидит отметку в ПРЕПАДМИН."
     )
     raise ApplicationHandlerStop
 
