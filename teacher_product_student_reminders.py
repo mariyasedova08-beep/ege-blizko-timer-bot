@@ -124,7 +124,7 @@ def _invite(row):
 def _share_url(row):
     return "https://t.me/share/url?" + urlencode({
         "url": _invite(row),
-        "text": f"{row['name']}, присоединяйся к ПРЕПОДМИН, чтобы получать напоминания об уроках и подтверждать участие. Открой ссылку и нажми «Запустить».",
+        "text": f"{row['name']}, присоединяйся к ПРЕПАДМИН, чтобы получать напоминания об уроках и подтверждать участие. Открой ссылку и нажми «Запустить».",
     })
 
 
@@ -133,7 +133,7 @@ def _direct_url(row, contact=""):
     if not username:
         return _share_url(row)
     text = (
-        f"{row['name']}, присоединяйся к ПРЕПОДМИН, чтобы получать напоминания "
+        f"{row['name']}, присоединяйся к ПРЕПАДМИН, чтобы получать напоминания "
         "об уроках и пользоваться личным кабинетом. Открой ссылку и нажми «Запустить».\n\n"
         f"{_invite(row)}"
     )
@@ -308,7 +308,7 @@ async def join(update, context):
                 WHERE telegram_user_id=? AND active=1 LIMIT 1""", (update.effective_user.id,)).fetchone()
         if linked and not base.teacher(update.effective_user.id):
             await update.message.reply_text(
-                "Ты привязан(а) к ПРЕПОДМИН. Здесь будут приходить напоминания об уроках, а личный кабинет открывается кнопкой ниже.",
+                "Ты привязан(а) к ПРЕПАДМИН. Здесь будут приходить напоминания об уроках, а личный кабинет открывается кнопкой ниже.",
                 reply_markup=STUDENT_CABINET_KB,
             )
             raise ApplicationHandlerStop
@@ -341,7 +341,7 @@ async def join(update, context):
                 await context.bot.send_message(
                     chat_id=int(row["teacher_id"]),
                     text=(
-                        f"✅ {row['name']} подключен(а) к ПРЕПОДМИН.\n\n"
+                        f"✅ {row['name']} подключен(а) к ПРЕПАДМИН.\n\n"
                         "Telegram привязан к карточке ученика — приглашение больше отправлять не нужно."
                     ),
                 )
