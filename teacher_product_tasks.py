@@ -603,7 +603,7 @@ async def voice_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ensure_tables()
     if not OPENAI_API_KEY:
         await update.message.reply_text(
-            "🎙 Голосовые задачи уже предусмотрены, но распознавание речи ещё не подключено к ПРЕПОДМИН.\n\n"
+            "🎙 Голосовые задачи уже предусмотрены, но распознавание речи ещё не подключено к ПРЕПАДМИН.\n\n"
             "Пока используй «➕ Быстрая задача»."
         )
         return
