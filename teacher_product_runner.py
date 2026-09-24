@@ -68,7 +68,7 @@ def main():
     persistence_probe.check()
     webapp.install_server()
     threading.Thread(target=base.start_health_server, daemon=True).start()
-    print("Teacher Product MVP ready: schedule + reminders + payments + subscriptions + today-actions + tomorrow + availability-slots + homework + attendance + group-members + courses + reports + student-messaging + tasks + private voice beta", flush=True)
+    print("PREPADMIN pilot checks passed: schedule + reminders + payments + group-payments + homework + attendance + reports + WebApps + feedback; voice disabled for pilot", flush=True)
     if not base.BOT_TOKEN:
         print("TEACHER_PRODUCT_BOT_TOKEN is missing; health server stays available", flush=True)
         threading.Event().wait()
