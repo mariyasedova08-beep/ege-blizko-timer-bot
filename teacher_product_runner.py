@@ -40,6 +40,7 @@ import teacher_product_reset as reset
 import teacher_product_help as help_guide
 import teacher_product_group_payments as group_payments
 import teacher_product_pilot_selftest as pilot_selftest
+import teacher_product_persistence_probe as persistence_probe
 
 
 def main():
@@ -62,6 +63,7 @@ def main():
     feedback.ensure_tables()
     group_payments.selftest()
     pilot_selftest.run()
+    persistence_probe.check()
     webapp.install_server()
     threading.Thread(target=base.start_health_server, daemon=True).start()
     print("Teacher Product MVP ready: schedule + reminders + payments + subscriptions + today-actions + tomorrow + availability-slots + homework + attendance + group-members + courses + reports + student-messaging + tasks + private voice beta", flush=True)
