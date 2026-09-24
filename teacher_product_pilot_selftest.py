@@ -14,6 +14,7 @@ import teacher_product_groups as groups
 import teacher_product_student_reminders as student_reminders
 import teacher_product_learning as learning
 import teacher_product_tasks as tasks
+import teacher_product_payments as payments
 import teacher_product_group_payments as group_payments
 
 
@@ -38,6 +39,7 @@ def run():
         student_reminders.ensure_tables()
         learning.ensure_tables()
         tasks.ensure_tables()
+        payments.ensure_tables()
         group_payments.ensure_tables()
 
         now = datetime.utcnow().isoformat()
@@ -120,6 +122,26 @@ def run():
             ).fetchone()[0]
         if int(attendance_count) != 1:
             raise RuntimeError("attendance write failed")
+
+        payments._save_plan(
+            teacher_a, student_a, "monthly", 15000, date(2026, 9, 28)
+        )
+        with base.db() as conn:
+            monthly = conn.execute(
+                """
+                SELECT payment_type,amount_rub,next_due_date
+                FROM student_payment_plans
+                WHERE teacher_telegram_user_id=? AND student_id=?
+                """,
+                (teacher_a, student_a),
+            ).fetchone()
+        if (
+            not monthly
+            or monthly["payment_type"] != "monthly"
+            or int(monthly["amount_rub"]) != 15000
+            or monthly["next_due_date"] != "2026-09-28"
+        ):
+            raise RuntimeError("individual monthly payment plan failed")
 
         parsed = tasks.parse_tasks(teacher_a, "Подготовить конспект завтра в 12:00")
         if not parsed:
