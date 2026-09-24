@@ -6,7 +6,13 @@ from telegram.ext import ContextTypes
 import teacher_product_tasks as tasks
 
 
+def _voice_enabled():
+    return os.getenv("PREPADMIN_VOICE_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _allowed_ids():
+    if not _voice_enabled():
+        return set()
     raw = os.getenv("VOICE_BETA_USER_IDS", "").strip()
     result = set()
     for part in raw.replace(";", ",").split(","):
@@ -24,8 +30,8 @@ async def beta_voice_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(update.effective_user.id)
     if uid not in allowed:
         await update.message.reply_text(
-            "🎙 Голосовые задачи сейчас тестируются в закрытом режиме. "
-            "Пока добавь задачу через «✅ Задачи» → «➕ Добавить текстом»."
+            "🎙 Голосовые задачи пока выключены на время пилота. "
+            "Добавь задачу через «✅ Задачи» → «➕ Добавить текстом»."
         )
         return
     return await ORIGINAL_VOICE_TASK(update, context)
