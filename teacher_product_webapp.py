@@ -736,7 +736,10 @@ def _main_keyboard_with_webapp():
     rows = [list(row) for row in getattr(current, "keyboard", ())] if current else []
     rows = [
         row for row in rows
-        if not any(getattr(button, "text", button) == "💗 Главная ПРЕПАДМИН" for button in row)
+        if not any(
+            getattr(button, "text", button) in {"💗 Главная ПРЕПАДМИН", "💗 Главная ПРЕПОДМИН"}
+            for button in row
+        )
     ]
     rows.insert(0, [KeyboardButton("💗 Главная ПРЕПАДМИН")])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
@@ -807,7 +810,7 @@ async def webapp_action(update, context):
 
 
 async def _push_keyboard_migration(context):
-    migration_key = "webapp-auth-launch-v2"
+    migration_key = "webapp-brand-prepadmin-v3"
     with base.db() as conn:
         conn.execute(
             """
@@ -930,7 +933,7 @@ def install(app):
     base.MAIN_KB = _main_keyboard_with_webapp()
     _production_self_check()
     app.add_handler(
-        MessageHandler(filters.Regex(r"^💗 Главная ПРЕПАДМИН$"), open_webapp),
+        MessageHandler(filters.Regex(r"^💗 Главная ПРЕП(?:А|О)ДМИН$"), open_webapp),
         group=-41,
     )
     app.add_handler(
