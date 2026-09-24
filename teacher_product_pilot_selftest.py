@@ -16,6 +16,7 @@ import teacher_product_learning as learning
 import teacher_product_tasks as tasks
 import teacher_product_payments as payments
 import teacher_product_group_payments as group_payments
+import teacher_product_onboarding as onboarding
 
 
 def _group_id(uid, name):
@@ -41,6 +42,7 @@ def run():
         tasks.ensure_tables()
         payments.ensure_tables()
         group_payments.ensure_tables()
+        onboarding.ensure_tables()
 
         now = datetime.utcnow().isoformat()
         teacher_a, teacher_b = 910001, 910002
@@ -48,6 +50,7 @@ def run():
             teacher_a,
             name="Пилот А",
             subject="Химия",
+            work_format="groups",
             timezone="Europe/Moscow",
             onboarding_completed_at=now,
         )
@@ -55,6 +58,7 @@ def run():
             teacher_b,
             name="Пилот Б",
             subject="Математика",
+            work_format="individual",
             timezone="Europe/Moscow",
             onboarding_completed_at=now,
         )
@@ -161,6 +165,10 @@ def run():
             },
             lessons=4,
         )
+        setup_state = onboarding.setup_status(teacher_a)
+        if not setup_state["payments"]:
+            raise RuntimeError("group-only onboarding payment progress failed")
+
         group_payments._reconcile_package_charge(
             teacher_a,
             "group_member",
