@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light">
-<title>ПРЕПОДМИН</title>
+<title>ПРЕПАДМИН</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{--milk:#F8F5F2;--ink:#171719;--soft:#F4D9E6;--hot:#F00087;--paper:#FFFDFC;--line:#E9E2DE;--muted:#787276;--red:#D84C6F;--shadow:0 12px 36px rgba(54,34,44,.08)}
@@ -39,7 +39,7 @@ h1{font-size:32px;line-height:1.02;margin:10px 0 7px;letter-spacing:-.035em}.sub
 </style>
 </head>
 <body>
-<div class="app" id="app"><div class="loading">Открываю ПРЕПОДМИН…</div></div>
+<div class="app" id="app"><div class="loading">Открываю ПРЕПАДМИН…</div></div>
 <div class="bottom"><div class="nav">
 <button id="nav-home" class="active" onclick="openView('home')"><i>⌂</i>Главная</button>
 <button id="nav-students" onclick="openView('students')"><i>👥</i>Ученики</button>
@@ -110,7 +110,7 @@ function renderHome(d){
  if(attention){out+='<div class="section"><div class="section-title"><strong>Зона внимания</strong><span onclick="openView(\'attention\')">подробнее →</span></div><div class="list">'+attention+'</div></div>';}
  out+='<div class="section"><div class="section-title"><strong>Быстрые действия</strong><span>основное под рукой</span></div><div class="actions">';
  [['👥','Ученики и группы','students'],['📅','Открыть расписание','schedule'],['🏠','Проверить ДЗ','homework'],['✅','Отметить посещаемость','attendance'],['💳','Проверить оплаты','payments'],['📋','Закрыть задачи','tasks']].forEach(function(a){out+='<button class="action" onclick="openView(\''+a[2]+'\')"><span class="aicon">'+a[0]+'</span>'+a[1]+'</button>';});
- out+='</div></div><div class="brand">ПРЕПОДМИН · больше времени на главное</div>';
+ out+='</div></div><div class="brand">ПРЕПАДМИН · больше времени на главное</div>';
  document.getElementById('app').innerHTML=out;
 }
 function renderStudents(d){
@@ -206,7 +206,7 @@ async function openView(view){
  }
 }
 async function boot(){
- if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="top"><div><span class="eyebrow">ПРЕПОДМИН</span><h1>Главная 💗</h1><div class="sub">Открой этот экран через кнопку «💗 Главная ПРЕПОДМИН» внутри бота.</div></div><div class="avatar">🎓</div></div>';return;}
+ if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="top"><div><span class="eyebrow">ПРЕПАДМИН</span><h1>Главная 💗</h1><div class="sub">Открой этот экран через кнопку «💗 Главная ПРЕПАДМИН» внутри бота.</div></div><div class="avatar">🎓</div></div>';return;}
  await openView('home');
 }
 boot();
