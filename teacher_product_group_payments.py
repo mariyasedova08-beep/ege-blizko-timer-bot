@@ -946,6 +946,10 @@ def install(app):
     patch_student_webapp()
     patch_teacher_webapp()
     patch_reports()
+    # WebApp quick actions resolve this module attribute at click time. Point it
+    # to the unified hub so "Оплаты" never drops a group-only teacher into the
+    # legacy individual-only screen.
+    individual_payments.payments_menu = payments_home
 
     setup = ConversationHandler(
         entry_points=[CallbackQueryHandler(setup_begin, pattern=r"^gpay:setup:\d+$")],
