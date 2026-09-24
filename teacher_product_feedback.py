@@ -119,7 +119,7 @@ async def choose_feedback(update, context):
     else:
         prompt = (
             f"{label}\n\n"
-            "Опиши, что хотелось бы добавить или изменить в ПРЕПОДМИН.\n\n"
+            "Опиши, что хотелось бы добавить или изменить в ПРЕПАДМИН.\n\n"
             "Отправь одним сообщением."
         )
     await q.edit_message_text(prompt)
@@ -171,7 +171,7 @@ async def feedback_text_router(update, context):
     await update.message.reply_text(
         f"✅ Отправлено разработчикам.\n\n"
         f"{label} • обращение #{feedback_id}\n"
-        "Спасибо — это поможет улучшить ПРЕПОДМИН.",
+        "Спасибо — это поможет улучшить ПРЕПАДМИН.",
         reply_markup=base.MAIN_KB,
     )
 
@@ -185,7 +185,7 @@ async def feedback_text_router(update, context):
             await context.bot.send_message(
                 chat_id=int(DEVELOPER_CHAT_ID),
                 text=(
-                    f"📨 <b>Новый отзыв ПРЕПОДМИН #{feedback_id}</b>\n\n"
+                    f"📨 <b>Новый отзыв ПРЕПАДМИН #{feedback_id}</b>\n\n"
                     f"{label}\n"
                     f"От: {teacher_line}\n"
                     f"Telegram: {username_line}\n\n"
