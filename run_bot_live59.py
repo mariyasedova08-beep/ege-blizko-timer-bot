@@ -359,6 +359,9 @@ class FlexibleCoreAppWebhookHandler(bot.CoreAppWebhookHandler):
         return self._send_json(200, {"ok": True, "saved": bool(saved), "duplicate": bool(duplicate)})
 
     def do_POST(self):
+        parsed = urlparse(self.path)
+        if parsed.path not in WEBHOOK_PATHS:
+            return super().do_POST()
         self._process("POST")
 
     def do_GET(self):
