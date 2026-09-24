@@ -446,7 +446,7 @@ async def reports_menu(update, context):
     if not base.teacher(update.effective_user.id):
         raise ApplicationHandlerStop
     await update.message.reply_text(
-        "📊 Отчёты\n\nПРЕПОДМИН собирает их сам из уже внесённых данных.",
+        "📊 Отчёты\n\nПРЕПАДМИН собирает их сам из уже внесённых данных.",
         reply_markup=_menu_markup(),
     )
     raise ApplicationHandlerStop
