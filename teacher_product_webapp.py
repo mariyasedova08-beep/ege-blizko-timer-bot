@@ -736,9 +736,9 @@ def _main_keyboard_with_webapp():
     rows = [list(row) for row in getattr(current, "keyboard", ())] if current else []
     rows = [
         row for row in rows
-        if not any(getattr(button, "text", button) == "💗 Главная ПРЕПОДМИН" for button in row)
+        if not any(getattr(button, "text", button) == "💗 Главная ПРЕПАДМИН" for button in row)
     ]
-    rows.insert(0, [KeyboardButton("💗 Главная ПРЕПОДМИН")])
+    rows.insert(0, [KeyboardButton("💗 Главная ПРЕПАДМИН")])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
 
@@ -761,7 +761,7 @@ async def open_webapp(update, context):
         await update.message.reply_text("Главная сейчас недоступна. Попробуй чуть позже.")
         return
     await update.message.reply_text(
-        "💗 <b>ПРЕПОДМИН</b>\n\nОткрывай красивую главную — здесь будут реальные занятия, ДЗ, оплаты, задачи и зона внимания.",
+        "💗 <b>ПРЕПАДМИН</b>\n\nОткрывай красивую главную — здесь будут реальные занятия, ДЗ, оплаты, задачи и зона внимания.",
         parse_mode="HTML",
         reply_markup=_launch_markup(update.effective_user.id),
     )
@@ -796,7 +796,7 @@ async def webapp_action(update, context):
     handler = mapping.get(action)
     if not handler:
         await update.message.reply_text(
-            "Не поняла действие. Открой «💗 Главная ПРЕПОДМИН» ещё раз.",
+            "Не поняла действие. Открой «💗 Главная ПРЕПАДМИН» ещё раз.",
             reply_markup=base.MAIN_KB,
         )
         return
@@ -844,8 +844,8 @@ async def _push_keyboard_migration(context):
             await context.bot.send_message(
                 chat_id=uid,
                 text=(
-                    "💗 Главная ПРЕПОДМИН обновлена.\n"
-                    "Теперь открывай её через кнопку «💗 Главная ПРЕПОДМИН» снизу."
+                    "💗 Главная ПРЕПАДМИН обновлена.\n"
+                    "Теперь открывай её через кнопку «💗 Главная ПРЕПАДМИН» снизу."
                 ),
                 reply_markup=base.MAIN_KB,
             )
@@ -930,7 +930,7 @@ def install(app):
     base.MAIN_KB = _main_keyboard_with_webapp()
     _production_self_check()
     app.add_handler(
-        MessageHandler(filters.Regex(r"^💗 Главная ПРЕПОДМИН$"), open_webapp),
+        MessageHandler(filters.Regex(r"^💗 Главная ПРЕПАДМИН$"), open_webapp),
         group=-41,
     )
     app.add_handler(
