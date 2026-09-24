@@ -541,7 +541,7 @@ async def open_student_webapp(update, context):
     if base.teacher(uid):
         await update.message.reply_text(
             "💗 Это кнопка ученического кабинета.\n\n"
-            "Твой преподавательский кабинет открывается через «💗 Главная ПРЕПОДМИН».",
+            "Твой преподавательский кабинет открывается через «💗 Главная ПРЕПАДМИН».",
             reply_markup=base.MAIN_KB,
         )
         raise ApplicationHandlerStop
@@ -610,7 +610,7 @@ async def _push_student_cabinet(context):
             await context.bot.send_message(
                 chat_id=uid,
                 text=(
-                    "💗 В ПРЕПОДМИН появился личный кабинет ученика.\n\n"
+                    "💗 В ПРЕПАДМИН появился личный кабинет ученика.\n\n"
                     "Теперь расписание, ДЗ, посещаемость и важные изменения можно смотреть в одном месте."
                 ),
                 reply_markup=STUDENT_KB,
