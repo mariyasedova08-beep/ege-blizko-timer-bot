@@ -798,6 +798,128 @@ def patch_reports():
     reports._aggregate = aggregate
 
 
+
+def selftest():
+    """Run an isolated database smoke test before the pilot runtime starts."""
+    import os
+    import tempfile
+
+    original_path = base.DB_PATH
+    fd, temp_path = tempfile.mkstemp(prefix="prepadmin-gpay-", suffix=".sqlite3")
+    os.close(fd)
+    try:
+        base.DB_PATH = temp_path
+        base.ensure_tables()
+        groups.ensure_tables()
+        student_reminders.ensure_tables()
+        ensure_tables()
+
+        now = datetime.utcnow().isoformat()
+        uid = 900001
+        other_uid = 900002
+        with base.db() as conn:
+            conn.execute(
+                "INSERT INTO teachers(telegram_user_id,name,created_at) VALUES(?,?,?)",
+                (uid, "Pilot A", now),
+            )
+            conn.execute(
+                "INSERT INTO teachers(telegram_user_id,name,created_at) VALUES(?,?,?)",
+                (other_uid, "Pilot B", now),
+            )
+            student_id = conn.execute(
+                "INSERT INTO students(teacher_telegram_user_id,name,contact,created_at) VALUES(?,?,?,?)",
+                (uid, "Индивидуальный", "", now),
+            ).lastrowid
+            group_id = conn.execute(
+                "INSERT INTO teacher_groups(teacher_telegram_user_id,name,active,created_at) VALUES(?,?,1,?)",
+                (uid, "Тестовая группа", now),
+            ).lastrowid
+            other_group_id = conn.execute(
+                "INSERT INTO teacher_groups(teacher_telegram_user_id,name,active,created_at) VALUES(?,?,1,?)",
+                (other_uid, "Чужая группа", now),
+            ).lastrowid
+            person_id = conn.execute(
+                """
+                INSERT INTO student_reminder_people(
+                    teacher_id,kind,group_id,name,invite_token,active,created_at
+                ) VALUES(?,'group',?,?,?,1,?)
+                """,
+                (uid, group_id, "Участник", "selftest-token-a", now),
+            ).lastrowid
+            other_person_id = conn.execute(
+                """
+                INSERT INTO student_reminder_people(
+                    teacher_id,kind,group_id,name,invite_token,active,created_at
+                ) VALUES(?,'group',?,?,?,1,?)
+                """,
+                (other_uid, other_group_id, "Чужой участник", "selftest-token-b", now),
+            ).lastrowid
+            conn.execute(
+                """
+                INSERT INTO student_payment_plans(
+                    teacher_telegram_user_id,student_id,payment_type,amount_rub,
+                    next_due_date,active,created_at,updated_at,lessons_total,lessons_remaining
+                ) VALUES(?,?,'package',1000,'9999-12-31',1,?,?,3,3)
+                """,
+                (uid, student_id, now, now),
+            )
+            conn.commit()
+
+        _save_group_plan(
+            uid,
+            {"pid": person_id, "gid": group_id, "type": "package", "amount": 1500, "name": "Участник"},
+            lessons=3,
+        )
+        _save_group_plan(
+            other_uid,
+            {"pid": other_person_id, "gid": other_group_id, "type": "package", "amount": 2500, "name": "Чужой участник"},
+            lessons=4,
+        )
+
+        test_day = date(2026, 9, 24)
+        _reconcile_package_charge(uid, "group_member", person_id, 11, test_day, "present")
+        _reconcile_package_charge(uid, "group_member", person_id, 11, test_day, "present")
+        with base.db() as conn:
+            left = conn.execute(
+                "SELECT lessons_remaining FROM group_member_payment_plans WHERE teacher_telegram_user_id=? AND person_id=?",
+                (uid, person_id),
+            ).fetchone()[0]
+            foreign_left = conn.execute(
+                "SELECT lessons_remaining FROM group_member_payment_plans WHERE teacher_telegram_user_id=? AND person_id=?",
+                (other_uid, other_person_id),
+            ).fetchone()[0]
+        if int(left) != 2:
+            raise RuntimeError(f"group package charged incorrectly: {left}")
+        if int(foreign_left) != 4:
+            raise RuntimeError("teacher isolation failed for group payment")
+
+        _reconcile_package_charge(uid, "group_member", person_id, 11, test_day, "absent")
+        with base.db() as conn:
+            restored = conn.execute(
+                "SELECT lessons_remaining FROM group_member_payment_plans WHERE teacher_telegram_user_id=? AND person_id=?",
+                (uid, person_id),
+            ).fetchone()[0]
+        if int(restored) != 3:
+            raise RuntimeError(f"group package restore failed: {restored}")
+
+        _reconcile_package_charge(uid, "individual", student_id, 12, test_day, "present")
+        with base.db() as conn:
+            individual_left = conn.execute(
+                "SELECT lessons_remaining FROM student_payment_plans WHERE teacher_telegram_user_id=? AND student_id=?",
+                (uid, student_id),
+            ).fetchone()[0]
+        if int(individual_left) != 2:
+            raise RuntimeError(f"individual package attendance charge failed: {individual_left}")
+
+        print("PREPADMIN group payments SELFTEST ok", flush=True)
+    finally:
+        base.DB_PATH = original_path
+        try:
+            os.remove(temp_path)
+        except OSError:
+            pass
+
+
 def validate():
     ensure_tables()
     with base.db() as conn:
