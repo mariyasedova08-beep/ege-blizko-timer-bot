@@ -29,6 +29,7 @@ import teacher_product_feedback as feedback
 import teacher_product_onboarding as onboarding
 import teacher_product_reset as reset
 import teacher_product_help as help_guide
+import teacher_product_group_payments as group_payments
 
 
 def main():
@@ -39,6 +40,7 @@ def main():
     student_reminders.ensure_tables()
     student_messaging.ensure_tables()
     payments.ensure_tables()
+    group_payments.ensure_tables()
     subscriptions.ensure_tables()
     today_actions.ensure_tables()
     tasks.ensure_tables()
@@ -68,6 +70,7 @@ def main():
     availability_slots.install(app)
     slots_clarity.install()
     learning.install(app)
+    group_payments.install(app)
     group_members.install(app)
     cancellations.install(app)
     courses.install(app)
