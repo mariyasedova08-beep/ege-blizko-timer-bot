@@ -225,6 +225,7 @@ async def setup_student(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["pay_name"] = student["name"]
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("1️⃣ Разовая", callback_data="pay:type:once")],
+        [InlineKeyboardButton("📅 Ежемесячно", callback_data="pay:type:monthly")],
         [InlineKeyboardButton("🎟 Абонемент на занятия", callback_data="pay:type:package")],
     ])
     await q.edit_message_text(f"{student['name']}\n\nКак оплачивает ученик?", reply_markup=kb)
@@ -236,7 +237,7 @@ async def setup_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     payment_type = q.data.rsplit(":", 1)[1]
     context.user_data["pay_type"] = payment_type
-    label = "разовая" if payment_type == "once" else "абонемент"
+    label = {"once": "разовая", "monthly": "ежемесячная", "package": "абонемент"}.get(payment_type, payment_type)
     await q.edit_message_text(f"Тип оплаты: {label}.\n\nНапиши сумму в рублях, например: 15000")
     return PAY_AMOUNT
 
@@ -442,7 +443,7 @@ def build_app():
         entry_points=[CallbackQueryHandler(setup_begin, pattern=r"^pay:setup$")],
         states={
             PAY_STUDENT: [CallbackQueryHandler(setup_student, pattern=r"^pay:student:\d+$")],
-            PAY_TYPE: [CallbackQueryHandler(setup_type, pattern=r"^pay:type:(?:once|package)$")],
+            PAY_TYPE: [CallbackQueryHandler(setup_type, pattern=r"^pay:type:(?:once|monthly|package)$")],
             PAY_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_amount)],
             PAY_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_date)],
         },
