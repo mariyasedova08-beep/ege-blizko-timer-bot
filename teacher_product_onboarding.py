@@ -78,11 +78,16 @@ def setup_status(uid):
             "SELECT COUNT(*) FROM group_schedule_slots WHERE teacher_telegram_user_id=? AND active=1",
             (uid,),
         ) if _table_exists(conn, "group_schedule_slots") else 0
-        payment_count = _count(
+        individual_payment_count = _count(
             conn,
             "SELECT COUNT(*) FROM student_payment_plans WHERE teacher_telegram_user_id=? AND active=1",
             (uid,),
         ) if _table_exists(conn, "student_payment_plans") else 0
+        group_payment_count = _count(
+            conn,
+            "SELECT COUNT(*) FROM group_member_payment_plans WHERE teacher_telegram_user_id=? AND active=1",
+            (uid,),
+        ) if _table_exists(conn, "group_member_payment_plans") else 0
 
     work_format = str(teacher["work_format"] or "mixed") if teacher else "mixed"
     profile_done = bool(teacher and teacher["onboarding_completed_at"])
@@ -93,12 +98,20 @@ def setup_status(uid):
     else:
         people_done = student_count > 0 or (group_count > 0 and member_count > 0)
     schedule_done = individual_slots + group_slots > 0
+    if work_format == "groups":
+        payments_done = group_payment_count > 0
+    elif work_format == "individual":
+        payments_done = individual_payment_count > 0
+    else:
+        payments_done = individual_payment_count > 0 or group_payment_count > 0
 
     return {
         "profile": profile_done,
         "people": people_done,
         "schedule": schedule_done,
-        "payments": payment_count > 0,
+        "payments": payments_done,
+        "individual_payment_count": individual_payment_count,
+        "group_payment_count": group_payment_count,
         "student_count": student_count,
         "group_count": group_count,
         "member_count": member_count,
@@ -149,8 +162,12 @@ def _progress_markup(uid):
     if not s["schedule"]:
         buttons.append([InlineKeyboardButton("📅 Добавить расписание", callback_data="setup:schedule")])
     if not s["payments"]:
-        payment_callback = "pay:setup" if s["student_count"] else "setup:payment_help"
-        buttons.append([InlineKeyboardButton("💳 Настроить оплату", callback_data=payment_callback)])
+        if s["student_count"]:
+            buttons.append([InlineKeyboardButton("💳 Оплата индивидуального ученика", callback_data="pay:setup")])
+        if s["group_count"] and s["member_count"]:
+            buttons.append([InlineKeyboardButton("💳 Оплаты учеников группы", callback_data="gpay:groups")])
+        if not s["student_count"] and not (s["group_count"] and s["member_count"]):
+            buttons.append([InlineKeyboardButton("💳 Как настроить оплату", callback_data="setup:payment_help")])
     buttons.append([InlineKeyboardButton("🔄 Обновить прогресс", callback_data="setup:home")])
     if s["people"] and s["schedule"]:
         buttons.append([InlineKeyboardButton("✅ Завершить настройку", callback_data="setup:finish")])
@@ -225,10 +242,11 @@ async def payment_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     await q.edit_message_text(
         "💳 Оплаты\n\n"
-        "Сначала добавь индивидуального ученика — после этого можно указать сумму, "
-        "тип и ближайшую дату оплаты. Групповые оплаты пока не входят в быстрый запуск.",
+        "Сначала добавь ученика или участника группы. После этого можно указать "
+        "тип оплаты, сумму, дату или количество занятий в абонементе.",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ Добавить ученика", callback_data="student:add")],
+            [InlineKeyboardButton("➕ Добавить индивидуального ученика", callback_data="student:add")],
+            [InlineKeyboardButton("👥 Группы и участники", callback_data="setup:group_people")],
             [InlineKeyboardButton("⬅️ К настройке", callback_data="setup:home")],
         ]),
     )
