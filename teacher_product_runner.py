@@ -1,4 +1,6 @@
-import threading
+import warnings
+
+# python-telegram-bot emits this advisory for callback-based conversations.\n# It is not a runtime failure; hide only this exact warning so real errors stay visible.\nwarnings.filterwarnings(\n    "ignore",\n    message=r"If 'per_message=False'.*",\n)\n\nimport threading
 import teacher_product_mvp as base
 import teacher_product_schedule as schedule
 import teacher_product_groups as groups
