@@ -120,7 +120,7 @@ def _audience_text(rows):
 async def reset_preview(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = linked_students(update.effective_user.id)
     await update.message.reply_text(
-        "🧪 Полный тест ПРЕПОДМИНа\n\n"
+        "🧪 Полный тест ПРЕПАДМИНа\n\n"
         + _audience_text(rows)
         + "\n\nСначала этим ученикам уйдёт предупреждение. Данные пока не удаляются.",
         reply_markup=InlineKeyboardMarkup([
@@ -150,7 +150,7 @@ async def notify_students(update: Update, context: ContextTypes.DEFAULT_TYPE):
             failed += 1
     await q.edit_message_text(
         f"📨 Предупреждение отправлено: {sent}\nНе доставлено: {failed}\n\n"
-        "Следующий шаг создаст резервную копию и полностью очистит только твои данные ПРЕПОДМИНа.",
+        "Следующий шаг создаст резервную копию и полностью очистит только твои данные ПРЕПАДМИНа.",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🗄 Создать копию и очистить", callback_data="e2e:reset")],
             [InlineKeyboardButton("⏸ Остановиться", callback_data="e2e:cancel")],
@@ -171,7 +171,7 @@ async def reset_confirmed(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     total = sum(deleted.values())
     await q.edit_message_text(
-        "✅ Твои данные ПРЕПОДМИНа очищены.\n\n"
+        "✅ Твои данные ПРЕПАДМИНа очищены.\n\n"
         f"Удалено записей: {total}. Резервная копия сохранена.\n"
         "Нажми /start — и пройдём полную настройку заново."
     )
