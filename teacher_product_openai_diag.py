@@ -32,6 +32,11 @@ def _silent_wav_bytes():
 
 
 def run():
+    voice_enabled = os.getenv("PREPADMIN_VOICE_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+    if not voice_enabled:
+        print("OpenAI diagnostics: skipped for pilot (voice disabled)", flush=True)
+        return
+
     key = (tasks.OPENAI_API_KEY or "").strip()
     if not key:
         print("OpenAI key diagnostic: missing OPENAI_API_KEY", flush=True)
@@ -55,11 +60,6 @@ def run():
             )
     except Exception as exc:
         print(f"OpenAI key diagnostic /models failed: {type(exc).__name__}", flush=True)
-
-    voice_enabled = os.getenv("PREPADMIN_VOICE_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
-    if not voice_enabled:
-        print("OpenAI audio diagnostic: skipped for pilot (voice disabled)", flush=True)
-        return
 
     # Verify the exact Audio API endpoint used by Telegram voice transcription.
     # This sends only one second of generated silence; no user audio or secret is logged.
