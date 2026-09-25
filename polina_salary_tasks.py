@@ -33,19 +33,21 @@ def seed():
 
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
         for day in DATES:
+            task_key = f"polina-salary-{day}"
             existing = conn.execute(
                 """
                 SELECT id
                 FROM admin_tasks
                 WHERE completed_at IS NULL
                   AND start_date = ?
-                  AND lower(trim(task_text)) IN (
-                      'выплатить полине зарплату',
-                      'зарплата полине'
+                  AND (
+                      task_key = ?
+                      OR task_text = ?
+                      OR task_text = 'Зарплата Полине'
                   )
                 LIMIT 1
                 """,
-                (day,),
+                (day, task_key, TASK_TEXT),
             ).fetchone()
 
             if existing:
@@ -60,21 +62,21 @@ def seed():
                 reused += 1
                 continue
 
-            conn.execute(
+            cur = conn.execute(
                 """
                 INSERT OR IGNORE INTO admin_tasks
                     (task_key, task_text, start_date, reminder_time, created_at, task_kind)
                 VALUES (?, ?, ?, ?, ?, 'task')
                 """,
                 (
-                    f"polina-salary-{day}",
+                    task_key,
                     TASK_TEXT,
                     day,
                     REMINDER_TIME,
                     now,
                 ),
             )
-            if conn.total_changes:
+            if cur.rowcount:
                 created += 1
 
         conn.commit()
@@ -84,11 +86,8 @@ def seed():
             SELECT COUNT(*)
             FROM admin_tasks
             WHERE completed_at IS NULL
+              AND task_key LIKE 'polina-salary-%'
               AND start_date IN ({})
-              AND lower(trim(task_text)) IN (
-                  'выплатить полине зарплату',
-                  'зарплата полине'
-              )
             """.format(",".join("?" for _ in DATES)),
             DATES,
         ).fetchone()[0]
