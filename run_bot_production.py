@@ -211,6 +211,12 @@ def main():
     import ege_student_webapp
     ege_student_webapp.install()
 
+    # Public trainer hub for subscribers of the Telegram channel.
+    # Install last so the channel gate wraps the final start/trainer/admin routes
+    # without exposing paid-course cabinets or homework.
+    import public_channel_trainers
+    public_channel_trainers.install()
+
     live90.live79.live24.main()
 
 
