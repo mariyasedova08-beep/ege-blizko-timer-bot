@@ -522,6 +522,9 @@ def _patch_text_router():
     previous = live7.student_text_router
 
     async def student_text_router_with_recordings(update, context):
+        # Channel posts have no effective user and therefore no per-user state.
+        if context.user_data is None:
+            return
         state = context.user_data.get(STATE_KEY)
         if (
             state
