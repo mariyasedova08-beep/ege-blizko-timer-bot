@@ -525,8 +525,10 @@ def _startup_selfcheck():
                 flush=True,
             )
     except Exception as exc:
+        # Do not include exception text here: urllib errors may echo the request URL,
+        # which contains the Telegram bot token.
         print(
-            f"Channel trainers selfcheck error: {type(exc).__name__}: {exc}",
+            f"Channel trainers selfcheck error: {type(exc).__name__}",
             flush=True,
         )
 
