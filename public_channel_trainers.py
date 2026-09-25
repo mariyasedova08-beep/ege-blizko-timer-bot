@@ -1,7 +1,8 @@
-"""Public trainer hub for subscribers of the EGE BLIZKO Telegram channel.
+"""Dynamic public trainer hub for subscribers of the EGE BLIZKO Telegram channel.
 
-The channel is only an entry point. Exercises stay inside the existing student bot.
-Paid-course cabinets and homework are not exposed here.
+The public menu is driven by weekly_trainer_catalog, so a newly registered trainer
+appears automatically without editing this module. Maria can show/hide trainers
+for channel subscribers from the existing admin trainer menu.
 """
 
 import json
@@ -14,40 +15,26 @@ from datetime import datetime
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 import run_bot_live90 as live90
-import nonmetals_trainer
-import oxide_properties_trainer
 
 bot = live90.bot
 live79 = live90.live79
 live7 = live79.live7
-live17 = live79.live17
 live23 = live79.live23
-live48 = live79.live48
-live60 = live79.live60
+live41 = live79.live41
 
 CHANNEL_USERNAME = "@egeblizko_chem"
 CHANNEL_URL = "https://t.me/egeblizko_chem"
 PUBLIC_START_ARGS = {"trainers", "trainer", "тренажеры", "тренажёры"}
-PUBLIC_TRAINER_ARGS = {
-    "trivial": "trivial",
-    "acid": "acid",
-    "acids": "acid",
-    "metal": "metals",
-    "metals": "metals",
-    "nonmetal": "nonmetals",
-    "nonmetals": "nonmetals",
-    "oxides": "oxides",
-    "oxideproperties": "oxideprops",
-    "oxideprops": "oxideprops",
-}
 
-TRAINERS = {
-    "trivial": ("🧫 Тривиальные названия", "trivial_sessions"),
-    "acid": ("🧪 Кислоты и остатки", "acid_sessions"),
-    "metals": ("⚙️ Металлы", "metals_sessions"),
-    "nonmetals": ("⚛️ Неметаллы", "nonmetals_sessions"),
-    "oxides": ("🧪 Оксиды", "oxides_sessions"),
-    "oxideprops": ("🧬 Свойства оксидов", "oxide_properties_sessions"),
+# Existing trainers use these session tables. Future trainers are auto-detected
+# as <code>_sessions when they follow the same naming convention.
+SPECIAL_STATS_TABLES = {
+    "trivial": "trivial_sessions",
+    "acid": "acid_sessions",
+    "metals": "metals_sessions",
+    "nonmetals": "nonmetals_sessions",
+    "oxides": "oxides_sessions",
+    "oxideprops": "oxide_properties_sessions",
 }
 
 _INSTALLED = False
@@ -57,6 +44,7 @@ _previous_cabinet_callback = None
 
 
 def ensure_tables():
+    live41.ensure_weekly_report_tables()
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
         conn.executescript(
             """
@@ -73,6 +61,12 @@ def ensure_tables():
                 telegram_user_id INTEGER NOT NULL,
                 trainer_key TEXT NOT NULL,
                 opened_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS channel_trainer_catalog_settings (
+                code TEXT PRIMARY KEY,
+                public_active INTEGER NOT NULL DEFAULT 1,
+                updated_at TEXT NOT NULL
             );
 
             CREATE INDEX IF NOT EXISTS idx_channel_trainer_opens_user
@@ -94,6 +88,70 @@ def _table_exists(conn, name):
     )
 
 
+def _catalog_rows(include_hidden=False):
+    """Return registered trainers; public visibility defaults to ON."""
+    ensure_tables()
+    where = "WHERE c.active=1"
+    if not include_hidden:
+        where += " AND coalesce(s.public_active,1)=1"
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        return conn.execute(
+            f"""
+            SELECT
+                c.code,
+                c.title,
+                c.start_param,
+                c.sort_order,
+                coalesce(s.public_active,1) AS public_active
+            FROM weekly_trainer_catalog c
+            LEFT JOIN channel_trainer_catalog_settings s ON s.code=c.code
+            {where}
+            ORDER BY c.sort_order,c.title
+            """
+        ).fetchall()
+
+
+def _catalog_item(arg):
+    value = str(arg or "").strip().lower()
+    if not value:
+        return None
+    ensure_tables()
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        return conn.execute(
+            """
+            SELECT
+                c.code,
+                c.title,
+                c.start_param,
+                c.sort_order,
+                coalesce(s.public_active,1) AS public_active
+            FROM weekly_trainer_catalog c
+            LEFT JOIN channel_trainer_catalog_settings s ON s.code=c.code
+            WHERE c.active=1
+              AND (lower(c.start_param)=? OR lower(c.code)=?)
+            LIMIT 1
+            """,
+            (value, value),
+        ).fetchone()
+
+
+def _set_public_active(code, active):
+    ensure_tables()
+    now = datetime.now(bot.TIMEZONE).isoformat()
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO channel_trainer_catalog_settings(code,public_active,updated_at)
+            VALUES(?,?,?)
+            ON CONFLICT(code) DO UPDATE SET
+                public_active=excluded.public_active,
+                updated_at=excluded.updated_at
+            """,
+            (str(code), 1 if active else 0, now),
+        )
+        conn.commit()
+
+
 def _is_course_student(user_id):
     uid = int(user_id)
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
@@ -107,12 +165,22 @@ def _is_course_student(user_id):
                 ).fetchone()
                 if row:
                     return True
+
         if _table_exists(conn, "individual_students"):
-            cols = {row[1] for row in conn.execute("PRAGMA table_info(individual_students)").fetchall()}
+            cols = {
+                row[1]
+                for row in conn.execute(
+                    "PRAGMA table_info(individual_students)"
+                ).fetchall()
+            }
             if "telegram_user_id" in cols:
                 active_clause = " AND active=1" if "active" in cols else ""
                 row = conn.execute(
-                    f"SELECT 1 FROM individual_students WHERE telegram_user_id=?{active_clause} LIMIT 1",
+                    f"""
+                    SELECT 1 FROM individual_students
+                    WHERE telegram_user_id=?{active_clause}
+                    LIMIT 1
+                    """,
                     (uid,),
                 ).fetchone()
                 if row:
@@ -161,7 +229,7 @@ async def _subscription_state(context, user_id):
         member = await context.bot.get_chat_member(CHANNEL_USERNAME, int(user_id))
     except Exception as exc:
         print(
-            f"Channel trainer membership check failed: {type(exc).__name__}: {exc}",
+            f"Channel trainer membership check failed: {type(exc).__name__}",
             flush=True,
         )
         return None
@@ -183,25 +251,32 @@ def _subscribe_markup():
     )
 
 
-def _hub_markup():
-    return InlineKeyboardMarkup(
+async def _hub_markup(context):
+    me = await context.bot.get_me()
+    username = str(me.username or "").strip()
+    rows = []
+    current = []
+
+    for code, title, start_param, _sort_order, _public_active in _catalog_rows():
+        button = InlineKeyboardButton(
+            str(title),
+            url=f"https://t.me/{username}?start={start_param}",
+        )
+        current.append(button)
+        if len(current) == 2:
+            rows.append(current)
+            current = []
+
+    if current:
+        rows.append(current)
+
+    rows.extend(
         [
-            [
-                InlineKeyboardButton("⚙️ Металлы", callback_data="triv:channel:open:metals"),
-                InlineKeyboardButton("⚛️ Неметаллы", callback_data="triv:channel:open:nonmetals"),
-            ],
-            [
-                InlineKeyboardButton("🧪 Оксиды", callback_data="triv:channel:open:oxides"),
-                InlineKeyboardButton("🧬 Свойства оксидов", callback_data="triv:channel:open:oxideprops"),
-            ],
-            [
-                InlineKeyboardButton("🧪 Кислоты", callback_data="triv:channel:open:acid"),
-                InlineKeyboardButton("🧫 Тривиальные", callback_data="triv:channel:open:trivial"),
-            ],
             [InlineKeyboardButton("📊 Моя статистика", callback_data="triv:channel:stats")],
             [InlineKeyboardButton("💗 Канал ЕГЭ БЛИЗКО", url=CHANNEL_URL)],
         ]
     )
+    return InlineKeyboardMarkup(rows)
 
 
 async def _show_gate(update, edit=False):
@@ -224,21 +299,26 @@ async def _show_hub(update, context, edit=False):
     user = update.effective_user
     if not user:
         return
+
     audience = _record_entry(user.id)
+    visible_count = len(_catalog_rows())
     text = (
         "🧪 <b>Тренажёры ЕГЭ БЛИЗКО</b>\n\n"
+        f"Сейчас доступно: <b>{visible_count}</b>.\n"
         "Выбирай тему и тренируйся столько, сколько нужно.\n"
         "Ошибки и личная статистика сохраняются 💗"
     )
     if audience == "channel":
         text += "\n\nТы вошёл как подписчик канала."
+
+    markup = await _hub_markup(context)
     if edit and update.callback_query:
         await update.callback_query.edit_message_text(
-            text, parse_mode="HTML", reply_markup=_hub_markup()
+            text, parse_mode="HTML", reply_markup=markup
         )
     else:
         await update.effective_message.reply_text(
-            text, parse_mode="HTML", reply_markup=_hub_markup()
+            text, parse_mode="HTML", reply_markup=markup
         )
 
 
@@ -264,25 +344,14 @@ async def _require_subscription(update, context, edit=False):
     return False
 
 
-async def _open_trainer(update, context, trainer_key):
-    if trainer_key not in TRAINERS:
-        return
-    if not await _require_subscription(update, context, edit=True):
-        return
-
-    _record_open(update.effective_user.id, trainer_key)
-    if trainer_key == "trivial":
-        await live7.show_trivial_menu(update, context, edit=True)
-    elif trainer_key == "acid":
-        await live17.show_acid_menu(update, context, edit=True)
-    elif trainer_key == "metals":
-        await live48.show_metals_menu(update, context, edit=True)
-    elif trainer_key == "nonmetals":
-        await nonmetals_trainer.show_nonmetals_menu(update, context, edit=True)
-    elif trainer_key == "oxides":
-        await live60.show_oxides_menu(update, context, edit=True)
-    elif trainer_key == "oxideprops":
-        await oxide_properties_trainer.show_menu(update, context, edit=True)
+def _stats_table_for(conn, code):
+    special = SPECIAL_STATS_TABLES.get(str(code))
+    if special and _table_exists(conn, special):
+        return special
+    candidate = f"{code}_sessions"
+    if _table_exists(conn, candidate):
+        return candidate
+    return None
 
 
 def _user_stats_text(user_id):
@@ -291,8 +360,9 @@ def _user_stats_text(user_id):
     total_sessions = total_questions = total_correct = 0
 
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
-        for key, (label, table) in TRAINERS.items():
-            if not _table_exists(conn, table):
+        for code, title, _start_param, _sort_order, _public_active in _catalog_rows():
+            table = _stats_table_for(conn, code)
+            if not table:
                 continue
             row = conn.execute(
                 f"""
@@ -311,7 +381,7 @@ def _user_stats_text(user_id):
             total_questions += questions
             total_correct += correct
             pct = round(correct * 100 / questions) if questions else 0
-            lines.append(f"{label}: {sessions} трен. · {pct}%")
+            lines.append(f"{title}: {sessions} трен. · {pct}%")
 
     total_pct = round(total_correct * 100 / total_questions) if total_questions else 0
     lines.extend(
@@ -376,8 +446,11 @@ def _admin_channel_stats_text():
         )
 
         total_sessions = total_q = total_correct = 0
-        for key, (label, table) in TRAINERS.items():
-            if not _table_exists(conn, table):
+        for code, title, _start_param, _sort_order, _public_active in _catalog_rows(
+            include_hidden=True
+        ):
+            table = _stats_table_for(conn, code)
+            if not table:
                 continue
             row = conn.execute(
                 f"""
@@ -390,12 +463,16 @@ def _admin_channel_stats_text():
                 """,
                 (prefix,),
             ).fetchone()
-            sessions, q, correct = int(row[0] or 0), int(row[1] or 0), int(row[2] or 0)
+            sessions, q, correct = (
+                int(row[0] or 0),
+                int(row[1] or 0),
+                int(row[2] or 0),
+            )
             total_sessions += sessions
             total_q += q
             total_correct += correct
             pct = round(correct * 100 / q) if q else 0
-            lines.append(f"{label}: {sessions} трен. · {pct}%")
+            lines.append(f"{title}: {sessions} трен. · {pct}%")
 
         pct = round(total_correct * 100 / total_q) if total_q else 0
         lines.extend(
@@ -406,6 +483,7 @@ def _admin_channel_stats_text():
                 f"Средняя точность: <b>{pct}%</b>",
             ]
         )
+
     return "\n".join(lines)
 
 
@@ -422,8 +500,45 @@ def _admin_train_menu_markup():
             ],
             [InlineKeyboardButton("⚛️ Неметаллы", callback_data="cab:nonmetals")],
             [InlineKeyboardButton("📣 Подписчики канала", callback_data="cab:channeltrainers")],
+            [InlineKeyboardButton("⚙️ Каталог для канала", callback_data="cab:channelcatalog")],
             [InlineKeyboardButton("← В кабинет", callback_data="cab:back")],
         ]
+    )
+
+
+def _admin_catalog_markup():
+    rows = []
+    for code, title, _start_param, _sort_order, public_active in _catalog_rows(
+        include_hidden=True
+    ):
+        icon = "✅" if int(public_active or 0) else "⛔"
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    f"{icon} {title}",
+                    callback_data=f"cab:channeltoggle:{code}",
+                )
+            ]
+        )
+    rows.append([InlineKeyboardButton("← К тренажёрам", callback_data="cab:trainmenu")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _admin_catalog_text():
+    visible = sum(
+        1
+        for _code, _title, _start, _sort, active in _catalog_rows(
+            include_hidden=True
+        )
+        if int(active or 0)
+    )
+    total = len(_catalog_rows(include_hidden=True))
+    return (
+        "⚙️ <b>Каталог тренажёров для канала</b>\n\n"
+        f"В канале показывается: <b>{visible}/{total}</b>.\n\n"
+        "Нажми на тренажёр, чтобы скрыть или вернуть его.\n"
+        "Новые тренажёры, зарегистрированные в ЕГЭ БЛИЗКО, "
+        "появляются здесь автоматически."
     )
 
 
@@ -438,14 +553,26 @@ async def start_router(update, context):
             await _show_hub(update, context, edit=False)
         return
 
-    # Existing paid students keep their old direct trainer links unchanged.
-    # For everybody else, public trainer deep-links are available only while
-    # they are subscribed to the channel.
-    if arg in PUBLIC_TRAINER_ARGS and not _is_course_student(update.effective_user.id):
+    trainer = _catalog_item(arg)
+    if trainer and not _is_course_student(update.effective_user.id):
+        code, title, _start_param, _sort_order, public_active = trainer
+        if not int(public_active or 0):
+            await update.effective_message.reply_text(
+                f"{title} сейчас временно скрыт из бесплатного каталога.",
+                reply_markup=InlineKeyboardMarkup(
+                    [[
+                        InlineKeyboardButton(
+                            "🧪 Открыть каталог",
+                            callback_data="triv:channel:menu",
+                        )
+                    ]]
+                ),
+            )
+            return
         if not await _require_subscription(update, context, edit=False):
             return
         _record_entry(update.effective_user.id)
-        _record_open(update.effective_user.id, PUBLIC_TRAINER_ARGS[arg])
+        _record_open(update.effective_user.id, code)
 
     await _previous_start_router(update, context)
 
@@ -479,12 +606,6 @@ async def trivial_callback(update, context):
         )
         return
 
-    if data.startswith("triv:channel:open:"):
-        await query.answer()
-        trainer_key = data.rsplit(":", 1)[-1]
-        await _open_trainer(update, context, trainer_key)
-        return
-
     await _previous_trivial_callback(update, context)
 
 
@@ -492,6 +613,7 @@ async def cabinet_callback(update, context):
     query = update.callback_query
     if query and update.effective_chat.type == "private" and bot.user_is_admin(update):
         data = str(query.data or "")
+
         if data == "cab:trainmenu":
             await query.answer()
             await query.edit_message_text(
@@ -500,6 +622,7 @@ async def cabinet_callback(update, context):
                 reply_markup=_admin_train_menu_markup(),
             )
             return
+
         if data == "cab:channeltrainers":
             await query.answer()
             await query.edit_message_text(
@@ -510,6 +633,39 @@ async def cabinet_callback(update, context):
                 ),
             )
             return
+
+        if data == "cab:channelcatalog":
+            await query.answer()
+            await query.edit_message_text(
+                _admin_catalog_text(),
+                parse_mode="HTML",
+                reply_markup=_admin_catalog_markup(),
+            )
+            return
+
+        if data.startswith("cab:channeltoggle:"):
+            code = data.rsplit(":", 1)[-1]
+            item = next(
+                (
+                    row
+                    for row in _catalog_rows(include_hidden=True)
+                    if str(row[0]) == code
+                ),
+                None,
+            )
+            if not item:
+                await query.answer("Тренажёр уже не найден.", show_alert=True)
+                return
+            new_active = not bool(int(item[4] or 0))
+            _set_public_active(code, new_active)
+            await query.answer("Включён" if new_active else "Скрыт")
+            await query.edit_message_text(
+                _admin_catalog_text(),
+                parse_mode="HTML",
+                reply_markup=_admin_catalog_markup(),
+            )
+            return
+
     await _previous_cabinet_callback(update, context)
 
 
@@ -527,6 +683,7 @@ def _startup_selfcheck():
         if not me.get("ok"):
             print("Channel trainers selfcheck: getMe failed", flush=True)
             return
+
         bot_id = int(me["result"]["id"])
         username = str(me["result"].get("username") or "")
         query = urllib.parse.urlencode(
@@ -536,11 +693,14 @@ def _startup_selfcheck():
             f"https://api.telegram.org/bot{token}/getChatMember?{query}", timeout=15
         ) as response:
             membership = json.load(response)
+
+        catalog = _catalog_rows(include_hidden=True)
         if membership.get("ok"):
             status = membership["result"].get("status")
             print(
                 f"Channel trainers ready: channel={CHANNEL_USERNAME} "
-                f"bot=@{username} status={status} public_start=trainers",
+                f"bot=@{username} status={status} catalog={len(catalog)} "
+                f"public_start=trainers",
                 flush=True,
             )
         else:
@@ -549,8 +709,8 @@ def _startup_selfcheck():
                 flush=True,
             )
     except Exception as exc:
-        # Do not include exception text here: urllib errors may echo the request URL,
-        # which contains the Telegram bot token.
+        # Never print exception text: urllib errors may echo a URL containing
+        # the bot token.
         print(
             f"Channel trainers selfcheck error: {type(exc).__name__}",
             flush=True,
@@ -563,6 +723,7 @@ def install():
 
     if _INSTALLED:
         return
+
     ensure_tables()
 
     _previous_start_router = live7.start_router
