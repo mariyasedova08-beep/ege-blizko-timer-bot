@@ -28,6 +28,18 @@ live60 = live79.live60
 CHANNEL_USERNAME = "@egeblizko_chem"
 CHANNEL_URL = "https://t.me/egeblizko_chem"
 PUBLIC_START_ARGS = {"trainers", "trainer", "тренажеры", "тренажёры"}
+PUBLIC_TRAINER_ARGS = {
+    "trivial": "trivial",
+    "acid": "acid",
+    "acids": "acid",
+    "metal": "metals",
+    "metals": "metals",
+    "nonmetal": "nonmetals",
+    "nonmetals": "nonmetals",
+    "oxides": "oxides",
+    "oxideproperties": "oxideprops",
+    "oxideprops": "oxideprops",
+}
 
 TRAINERS = {
     "trivial": ("🧫 Тривиальные названия", "trivial_sessions"),
@@ -88,8 +100,9 @@ def _is_course_student(user_id):
         if _table_exists(conn, "students"):
             cols = {row[1] for row in conn.execute("PRAGMA table_info(students)").fetchall()}
             if "telegram_user_id" in cols:
+                active_clause = " AND active=1" if "active" in cols else ""
                 row = conn.execute(
-                    "SELECT 1 FROM students WHERE telegram_user_id=? AND coalesce(active,1)=1 LIMIT 1",
+                    f"SELECT 1 FROM students WHERE telegram_user_id=?{active_clause} LIMIT 1",
                     (uid,),
                 ).fetchone()
                 if row:
@@ -97,8 +110,9 @@ def _is_course_student(user_id):
         if _table_exists(conn, "individual_students"):
             cols = {row[1] for row in conn.execute("PRAGMA table_info(individual_students)").fetchall()}
             if "telegram_user_id" in cols:
+                active_clause = " AND active=1" if "active" in cols else ""
                 row = conn.execute(
-                    "SELECT 1 FROM individual_students WHERE telegram_user_id=? AND coalesce(active,1)=1 LIMIT 1",
+                    f"SELECT 1 FROM individual_students WHERE telegram_user_id=?{active_clause} LIMIT 1",
                     (uid,),
                 ).fetchone()
                 if row:
@@ -414,15 +428,25 @@ def _admin_train_menu_markup():
 
 
 async def start_router(update, context):
-    if (
-        update.effective_chat
-        and update.effective_chat.type == "private"
-        and context.args
-        and context.args[0].lower() in PUBLIC_START_ARGS
-    ):
+    if not update.effective_chat or update.effective_chat.type != "private":
+        await _previous_start_router(update, context)
+        return
+
+    arg = context.args[0].lower() if context.args else ""
+    if arg in PUBLIC_START_ARGS:
         if await _require_subscription(update, context, edit=False):
             await _show_hub(update, context, edit=False)
         return
+
+    # Existing paid students keep their old direct trainer links unchanged.
+    # For everybody else, public trainer deep-links are available only while
+    # they are subscribed to the channel.
+    if arg in PUBLIC_TRAINER_ARGS and not _is_course_student(update.effective_user.id):
+        if not await _require_subscription(update, context, edit=False):
+            return
+        _record_entry(update.effective_user.id)
+        _record_open(update.effective_user.id, PUBLIC_TRAINER_ARGS[arg])
+
     await _previous_start_router(update, context)
 
 
