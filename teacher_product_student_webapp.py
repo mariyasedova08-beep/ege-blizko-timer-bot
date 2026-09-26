@@ -18,6 +18,7 @@ import teacher_product_groups as groups
 import teacher_product_student_reminders as student_reminders
 import teacher_product_learning as learning
 import teacher_product_cancellations as cancellations
+import teacher_product_materials as materials
 
 PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
 STUDENT_WEBAPP_URL = os.getenv(
@@ -30,7 +31,7 @@ STUDENT_KB = ReplyKeyboardMarkup(
     resize_keyboard=True,
     is_persistent=True,
 )
-STUDENT_WEBAPP_BUILD = "20260919-4"
+STUDENT_WEBAPP_BUILD = "20260926-materials-1"
 _INSTALLED = False
 
 
@@ -275,6 +276,17 @@ def _payment(link):
     }
 
 
+
+def _materials(link):
+    subject_kind, subject_id = _subject(link)
+    return materials.list_for_subject(
+        int(link["teacher_id"]),
+        subject_kind,
+        subject_id,
+        limit=60,
+    )
+
+
 def _changes(link):
     uid = int(link["teacher_id"])
     today = datetime.now(schedule.tz(uid)).date()
@@ -362,6 +374,7 @@ def view(telegram_uid, view_name="home", link_id=None):
     upcoming = _upcoming(link, 14)
     attendance = _attendance(link)
     payment = _payment(link)
+    material_items = _materials(link)
 
     if view_name == "home":
         pending = [x for x in homework if x["status"] != "done"]
@@ -372,10 +385,12 @@ def view(telegram_uid, view_name="home", link_id=None):
             "attendance": attendance,
             "payment": payment,
             "changes": _changes(link),
+            "materials": material_items[:4],
             "counts": {
                 "homework": len(pending),
                 "homework_overdue": sum(1 for x in pending if x["overdue"]),
                 "upcoming": len(upcoming),
+                "materials": len(material_items),
             },
         }
     elif view_name == "homework":
@@ -400,6 +415,8 @@ def view(telegram_uid, view_name="home", link_id=None):
         data = {**base_payload, **attendance}
     elif view_name == "payment":
         data = {**base_payload, **payment}
+    elif view_name == "materials":
+        data = {**base_payload, "items": material_items}
     else:
         return None
     return {"link_id": int(link["id"]), "view": view_name, "data": data}
@@ -430,6 +447,23 @@ def action(telegram_uid, payload):
         return None
 
     action_name = str(payload.get("action") or "")
+    if action_name == "material_open":
+        try:
+            material_id = int(payload["material_id"])
+        except Exception:
+            return {"ok": False, "error": "bad_request"}
+        subject_kind, subject_id = _subject(link)
+        row = materials.material_for_subject(
+            material_id,
+            int(link["teacher_id"]),
+            subject_kind,
+            subject_id,
+        )
+        if not row:
+            return {"ok": False, "error": "forbidden"}
+        materials.mark_opened(material_id)
+        return {"ok": True, "action": "material_open", "url": row["url"]}
+
     if action_name == "homework_done":
         try:
             aid = int(payload["assignment_id"])
