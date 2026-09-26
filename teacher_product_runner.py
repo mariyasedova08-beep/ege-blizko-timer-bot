@@ -42,6 +42,7 @@ import teacher_product_group_payments as group_payments
 import teacher_product_pilot_selftest as pilot_selftest
 import teacher_product_persistence_probe as persistence_probe
 import teacher_product_boot_tests as boot_tests
+import teacher_product_materials as materials
 
 
 def main():
@@ -62,13 +63,14 @@ def main():
     courses.ensure_tables()
     reports.ensure_tables()
     feedback.ensure_tables()
+    materials.ensure_tables()
     group_payments.selftest()
     pilot_selftest.run()
     boot_tests.run()
     persistence_probe.check()
     webapp.install_server()
     threading.Thread(target=base.start_health_server, daemon=True).start()
-    print("PREPADMIN pilot checks passed: schedule + reminders + payments + group-payments + homework + attendance + reports + WebApps + feedback; voice disabled for pilot", flush=True)
+    print("PREPADMIN pilot checks passed: schedule + reminders + payments + group-payments + homework + attendance + reports + WebApps + feedback + materials; voice disabled for pilot", flush=True)
     if not base.BOT_TOKEN:
         print("TEACHER_PRODUCT_BOT_TOKEN is missing; health server stays available", flush=True)
         threading.Event().wait()
@@ -101,6 +103,8 @@ def main():
     onboarding.install(app)
     # Install after onboarding so the final keyboard contains both setup and help.
     help_guide.install(app)
+    # Install last so the final reply keyboard contains the Materials button.
+    materials.install(app)
     app.run_polling(drop_pending_updates=False)
 
 
