@@ -101,14 +101,14 @@ def _student_recipients():
 
 
 async def _trainer_markup(context):
-    me = await context.bot.get_me()
-    if not me.username:
+    username = context.bot.username
+    if not username:
         return None
     return InlineKeyboardMarkup(
         [[
             InlineKeyboardButton(
                 "⚛️ Открыть тренажёр",
-                url=f"https://t.me/{me.username}?start=nonmetals",
+                url=f"https://t.me/{username}?start=nonmetals",
             )
         ]]
     )
