@@ -254,8 +254,10 @@ def weekly_report_text(student_row, now):
 
 
 async def _weekly_report_markup(context):
-    me = await context.bot.get_me()
-    username = me.username
+    # The bot is initialized before JobQueue callbacks run, so its username is cached locally.
+    # Avoid a redundant Telegram API request here: a transient getMe failure used to abort
+    # the entire scheduled report/analysis pass before any messages were sent.
+    username = context.bot.username
     rows = []
     if username:
         for title, start_param in _active_trainers():
