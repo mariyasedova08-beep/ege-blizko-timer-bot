@@ -8,13 +8,13 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{--milk:#F8F5F2;--ink:#171719;--soft:#F4D9E6;--hot:#F00087;--paper:#FFFDFC;--line:#E9E2DE;--muted:#787276;--red:#D84C6F;--shadow:0 12px 36px rgba(54,34,44,.08)}
-*{box-sizing:border-box}html,body{margin:0;background:var(--milk);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+*{box-sizing:border-box}html,body{margin:0;background:radial-gradient(circle at 18% -8%,#FFE6F2 0,transparent 34%),linear-gradient(180deg,#FFFDFC 0,var(--milk) 42%,#F7ECEF 100%);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
 body{min-height:100vh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
 .app{max-width:680px;margin:0 auto;padding:20px 16px 96px}
-.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin:8px 2px 18px}
-.eyebrow{display:inline-flex;background:var(--soft);padding:7px 11px;border-radius:999px;font-size:12px;font-weight:700}
+.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin:8px 0 16px;padding:18px;border:1px solid rgba(240,0,135,.12);border-radius:26px;background:linear-gradient(145deg,#FFFDFC 0,#FFF4F9 58%,#F4D9E6 100%);box-shadow:0 16px 42px rgba(111,45,79,.10)}
+.eyebrow{display:inline-flex;background:var(--ink);color:#fff;padding:7px 11px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
 h1{font-size:32px;line-height:1.02;margin:10px 0 7px;letter-spacing:-.035em}.sub{color:var(--muted);font-size:14px;line-height:1.4}
-.avatar{width:52px;height:52px;border-radius:18px;background:linear-gradient(145deg,var(--soft),#fff);display:grid;place-items:center;font-size:24px;box-shadow:var(--shadow)}
+.avatar{width:54px;height:54px;border-radius:18px;background:linear-gradient(145deg,var(--hot),#FF65B6);color:#fff;display:grid;place-items:center;font-size:24px;box-shadow:0 12px 26px rgba(240,0,135,.22)}
 .status{background:linear-gradient(145deg,#fff,#FFF8FB);border:1px solid var(--line);border-radius:24px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
 .status-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.status-title{font-weight:800;font-size:17px}
 .date{font-size:12px;color:var(--muted);background:var(--milk);padding:6px 9px;border-radius:999px}
@@ -34,17 +34,17 @@ h1{font-size:32px;line-height:1.02;margin:10px 0 7px;letter-spacing:-.035em}.sub
 .day{margin-bottom:12px}.dayhead{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--soft);border-radius:16px 16px 0 0;font-weight:800}.day .list{border-radius:0 0 18px 18px}
 .money{font-weight:850;white-space:nowrap}.state{font-size:11px;padding:5px 8px;border-radius:999px;background:var(--milk)}.state.bad{background:#FFE8EF;color:#A72851}.state.warn{background:#FFF0D8;color:#9A6311}.state.ok{background:#EAF7EF;color:#2E7D4E}
 .bigstat{display:grid;grid-template-columns:1fr 1fr;gap:10px}.statcard{background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:16px}.statcard b{font-size:28px;display:block;margin-bottom:4px}.statcard span{font-size:12px;color:var(--muted)}
-.bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(248,245,242,.94);backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:9px 12px calc(9px + env(safe-area-inset-bottom));z-index:5}.nav{max-width:680px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.nav button{border:0;background:transparent;font:inherit;color:#8A8286;font-size:10px;padding:5px 2px}.nav .active{color:var(--hot);font-weight:800}.nav i{font-style:normal;display:block;font-size:19px;margin-bottom:3px}
+.bottom{position:fixed;left:10px;right:10px;bottom:8px;background:rgba(255,253,252,.94);backdrop-filter:blur(18px);border:1px solid rgba(233,226,222,.95);border-radius:24px;padding:7px 8px calc(7px + env(safe-area-inset-bottom));z-index:5;box-shadow:0 14px 38px rgba(54,34,44,.13)}.nav{max-width:680px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.nav button{border:0;background:transparent;border-radius:16px;font:inherit;color:#8A8286;font-size:10px;padding:7px 2px}.nav .active{color:var(--hot);font-weight:850;background:var(--soft)}.nav i{font-style:normal;display:block;font-size:19px;margin-bottom:3px}
 @media(min-width:560px){.app{padding-left:24px;padding-right:24px}.grid{grid-template-columns:repeat(4,1fr)}.metric{min-height:128px}}
 </style>
 </head>
 <body>
 <div class="app" id="app"><div class="loading">Открываю ПРЕПАДМИН…</div></div>
 <div class="bottom"><div class="nav">
-<button id="nav-home" class="active" onclick="openView('home')"><i>⌂</i>Главная</button>
+<button id="nav-home" class="active" onclick="openView('home')"><i>⌂</i>Кабинет</button>
+<button id="nav-tasks" onclick="openView('tasks')"><i>✅</i>Задачи</button>
 <button id="nav-students" onclick="openView('students')"><i>👥</i>Ученики</button>
 <button id="nav-schedule" onclick="openView('schedule')"><i>📅</i>Расписание</button>
-<button id="nav-reports" onclick="openView('reports')"><i>📊</i>Отчёты</button>
 </div></div>
 <script>
 var tg=(window.Telegram&&Telegram.WebApp)?Telegram.WebApp:null;
@@ -54,7 +54,7 @@ var currentView='home';
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
 function money(n){return n?String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' ₽':'—';}
 function shortDate(s){var p=String(s||'').split('-');return p.length===3?p[2]+'.'+p[1]:String(s||'');}
-function setNav(v){['home','students','schedule','reports'].forEach(function(x){var e=document.getElementById('nav-'+x);if(e)e.classList.toggle('active',x===v);});}
+function setNav(v){['home','tasks','students','schedule'].forEach(function(x){var e=document.getElementById('nav-'+x);if(e)e.classList.toggle('active',x===v);});}
 async function reportClientError(where,e){
  try{
   await fetch('/api/client-error',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({role:'teacher',where:where,message:String((e&&e.message)||e||'unknown')})});
@@ -97,10 +97,10 @@ function renderHome(d){
  (d.tasks||[]).forEach(function(t){taskRows+='<div class="row taskrow" onclick="completeTask('+t.id+',\'home\')"><div class="check">✓</div><div class="row-main"><div class="row-title '+(t.overdue?'alert':'')+'">'+esc(t.title)+'</div><div class="row-sub">'+(t.overdue?'Просрочено':'до '+shortDate(t.due_date))+(t.due_time?' · '+esc(t.due_time):'')+' · нажми, чтобы закрыть</div></div><span class="badge">'+(t.overdue?'!':'✓')+'</span></div>';});
  (d.debts||[]).forEach(function(x){debts+='<div class="row"><div class="check">'+(x.kind==='payment'?'💳':'🏠')+'</div><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.name)+' · '+esc(x.title)+'</div><div class="row-sub">'+esc(x.detail)+' · '+(x.overdue?'просрочено':'срок сегодня')+'</div></div><span class="badge">'+(x.kind==='payment'?'Оплата':'ДЗ')+'</span></div>';});
  (d.attention||[]).forEach(function(a){attention+='<div class="row"><div class="row-main"><div class="row-title">'+esc(a.name)+'</div><div class="row-sub">'+esc(a.scope)+' · '+esc((a.reasons||[]).join(', '))+'</div></div></div>';});
- var out='<div class="top"><div><span class="eyebrow">личный администратор</span><h1>Привет, '+esc(d.teacher.name)+' 💗</h1><div class="sub">'+esc(d.teacher.subject||'Преподавание')+' · всё важное на одном экране</div></div><div class="avatar">🎓</div></div>';
+ var out='<div class="top"><div><span class="eyebrow">ПРЕПАДМИН</span><h1>Мой кабинет 💗</h1><div class="sub">Привет, '+esc(d.teacher.name)+' · '+esc(d.teacher.subject||'преподавание')+'<br>Всё важное на одном экране</div></div><div class="avatar">ПА</div></div>';
  out+='<div class="status"><div class="status-head"><div class="status-title">Сегодня</div><div class="date">'+esc(d.weekday)+' · '+esc(d.date)+'</div></div><div class="grid">';
  out+=metric('📚',c.lessons||0,'занятий','расписание на день',true,'schedule');
- out+=metric('🏠',c.homework||0,'ДЗ требуют внимания',(c.homework_overdue||0)+' просрочено',false,'homework');
+ out+=metric('✅',c.tasks||0,'задач','активные задачи',false,'tasks');
  out+=metric('💳',c.payments||0,'по оплатам','срок сегодня или просрочен',false,'payments');
  out+=metric('🚨',c.attention||0,'в зоне внимания','нужна проверка',true,'attention');
  out+='</div></div>';
@@ -109,7 +109,7 @@ function renderHome(d){
  out+='<div class="section"><div class="section-title"><strong>Долги по оплате и ДЗ</strong><span>требуют внимания</span></div><div class="list">'+(debts||'<div class="empty">Долгов нет 🎉</div>')+'</div></div>';
  if(attention){out+='<div class="section"><div class="section-title"><strong>Зона внимания</strong><span onclick="openView(\'attention\')">подробнее →</span></div><div class="list">'+attention+'</div></div>';}
  out+='<div class="section"><div class="section-title"><strong>Быстрые действия</strong><span>основное под рукой</span></div><div class="actions">';
- [['👥','Ученики и группы','students'],['📅','Открыть расписание','schedule'],['🏠','Проверить ДЗ','homework'],['✅','Отметить посещаемость','attendance'],['💳','Проверить оплаты','payments'],['📋','Закрыть задачи','tasks']].forEach(function(a){out+='<button class="action" onclick="openView(\''+a[2]+'\')"><span class="aicon">'+a[0]+'</span>'+a[1]+'</button>';});
+ [['✅','Задачи','tasks'],['👥','Ученики и группы','students'],['📅','Расписание','schedule'],['🏠','Домашние задания','homework'],['💳','Оплаты','payments'],['📊','Отчёты','reports']].forEach(function(a){out+='<button class="action" onclick="openView(\''+a[2]+'\')"><span class="aicon">'+a[0]+'</span>'+a[1]+'</button>';});
  out+='</div></div><div class="brand">ПРЕПАДМИН · больше времени на главное</div>';
  document.getElementById('app').innerHTML=out;
 }
@@ -194,7 +194,7 @@ function renderView(view,d){
  return renderFallback(view,d);
 }
 async function openView(view){
- currentView=view;setNav(['home','students','schedule','reports'].indexOf(view)>=0?view:'');
+ currentView=view;setNav(['home','tasks','students','schedule'].indexOf(view)>=0?view:'');
  document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';
  try{
   var p=await api(view);
@@ -202,11 +202,11 @@ async function openView(view){
   try{window.scrollTo(0,0);}catch(_){}
  }catch(e){
   await reportClientError('open:'+view,e);
-  document.getElementById('app').innerHTML='<div class="error">Раздел не загрузился. Нажми «Главная» и попробуй ещё раз.</div>';
+  document.getElementById('app').innerHTML='<div class="error">Раздел не загрузился. Нажми «Кабинет» и попробуй ещё раз.</div>';
  }
 }
 async function boot(){
- if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="top"><div><span class="eyebrow">ПРЕПАДМИН</span><h1>Главная 💗</h1><div class="sub">Открой этот экран через кнопку «💗 Главная ПРЕПАДМИН» внутри бота.</div></div><div class="avatar">🎓</div></div>';return;}
+ if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="top"><div><span class="eyebrow">ПРЕПАДМИН</span><h1>Мой кабинет 💗</h1><div class="sub">Открой этот экран через кнопку «💗 Мой кабинет» внутри бота.</div></div><div class="avatar">ПА</div></div>';return;}
  await openView('home');
 }
 boot();
