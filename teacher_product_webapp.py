@@ -30,7 +30,7 @@ WEBAPP_URL = os.getenv(
     f"https://{PUBLIC_DOMAIN}/webapp" if PUBLIC_DOMAIN else "",
 ).strip()
 MAX_AUTH_AGE = 24 * 60 * 60
-WEBAPP_BUILD = "20260922-subscription-count-1"
+WEBAPP_BUILD = "20260928-my-cabinet-1"
 HTML_PATH = Path(__file__).with_name("teacher_product_webapp.html")
 _INSTALLED = False
 
@@ -620,7 +620,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
                 "service": "teacher-product-mvp",
                 "webapp": True,
                 "quick_setup": True,
-                "build": "2026-09-22-subscription-count-1",
+                "build": "2026-09-28-my-cabinet-1",
             }))
             return
         if path in {"/", "/webapp"}:
@@ -732,18 +732,20 @@ def install_server():
 
 
 def _main_keyboard_with_webapp():
-    current = getattr(base, "MAIN_KB", None)
-    rows = [list(row) for row in getattr(current, "keyboard", ())] if current else []
-    rows = [
-        row for row in rows
-        if not any(
-            getattr(button, "text", button) in {"💗 Главная ПРЕПАДМИН", "💗 Главная ПРЕПОДМИН"}
-            for button in row
-        )
-    ]
-    rows.insert(0, [KeyboardButton("💗 Главная ПРЕПАДМИН")])
-    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
-
+    """Compact PREPADMIN keyboard: cabinet and tasks first, like EGE BLIZKO."""
+    return ReplyKeyboardMarkup(
+        [
+            [KeyboardButton("💗 Мой кабинет"), KeyboardButton("✅ Задачи")],
+            [KeyboardButton("➕ Быстрая задача"), KeyboardButton("📚 Материалы")],
+            [KeyboardButton("👥 Ученики и группы"), KeyboardButton("📅 Расписание")],
+            [KeyboardButton("🔁 Перенести занятие"), KeyboardButton("❌ Отменить занятие")],
+            [KeyboardButton("🔔 Напоминания"), KeyboardButton("💳 Оплаты")],
+            [KeyboardButton("⚙️ Настройки"), KeyboardButton("❓ Инструкция")],
+            [KeyboardButton("💬 Разработчикам")],
+        ],
+        resize_keyboard=True,
+        is_persistent=True,
+    )
 
 def _launch_markup(uid):
     token = _launch_token(uid)
@@ -751,7 +753,7 @@ def _launch_markup(uid):
     url = f"{WEBAPP_URL}{sep}launch={token}&v={WEBAPP_BUILD}"
     return InlineKeyboardMarkup([[
         InlineKeyboardButton(
-            "💗 Открыть главную",
+            "💗 Открыть мой кабинет",
             web_app=WebAppInfo(url=url),
         )
     ]])
@@ -764,7 +766,7 @@ async def open_webapp(update, context):
         await update.message.reply_text("Главная сейчас недоступна. Попробуй чуть позже.")
         return
     await update.message.reply_text(
-        "💗 <b>ПРЕПАДМИН</b>\n\nОткрывай красивую главную — здесь будут реальные занятия, ДЗ, оплаты, задачи и зона внимания.",
+        "💗 <b>Мой кабинет ПРЕПАДМИН</b>\n\nЗдесь в одном месте: занятия, задачи, ДЗ, оплаты и зона внимания.",
         parse_mode="HTML",
         reply_markup=_launch_markup(update.effective_user.id),
     )
@@ -799,7 +801,7 @@ async def webapp_action(update, context):
     handler = mapping.get(action)
     if not handler:
         await update.message.reply_text(
-            "Не поняла действие. Открой «💗 Главная ПРЕПАДМИН» ещё раз.",
+            "Не поняла действие. Открой «💗 Мой кабинет» ещё раз.",
             reply_markup=base.MAIN_KB,
         )
         return
@@ -810,7 +812,7 @@ async def webapp_action(update, context):
 
 
 async def _push_keyboard_migration(context):
-    migration_key = "webapp-brand-prepadmin-v3"
+    migration_key = "webapp-my-cabinet-v1"
     with base.db() as conn:
         conn.execute(
             """
@@ -847,8 +849,8 @@ async def _push_keyboard_migration(context):
             await context.bot.send_message(
                 chat_id=uid,
                 text=(
-                    "💗 Главная ПРЕПАДМИН обновлена.\n"
-                    "Теперь открывай её через кнопку «💗 Главная ПРЕПАДМИН» снизу."
+                    "💗 ПРЕПАДМИН обновлён.\n"
+                    "Теперь главные кнопки снизу — «💗 Мой кабинет» и «✅ Задачи»."
                 ),
                 reply_markup=base.MAIN_KB,
             )
@@ -933,7 +935,7 @@ def install(app):
     base.MAIN_KB = _main_keyboard_with_webapp()
     _production_self_check()
     app.add_handler(
-        MessageHandler(filters.Regex(r"^💗 Главная ПРЕП(?:А|О)ДМИН$"), open_webapp),
+        MessageHandler(filters.Regex(r"^(?:💗 Мой кабинет|💗 Главная ПРЕП(?:А|О)ДМИН)$"), open_webapp),
         group=-41,
     )
     app.add_handler(
@@ -944,9 +946,9 @@ def install(app):
         app.job_queue.run_once(
             _push_keyboard_migration,
             when=3,
-            name="prepodmin_webapp_keyboard_migration_v2",
+            name="prepodmin_webapp_keyboard_migration_my_cabinet_v1",
         )
     print(
-        "PREPODMIN WebApp home installed: authenticated launcher + real dashboard + Telegram quick actions",
+        "PREPODMIN My Cabinet installed: compact keyboard + real dashboard + tasks-first navigation",
         flush=True,
     )
