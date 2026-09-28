@@ -94,7 +94,6 @@ def main():
     courses.install(app)
     reports.install(app)
     student_messaging.install(app)
-    webapp.install(app)
     feedback.install(app)
     student_webapp.install(app)
     reset.install(app)
@@ -103,8 +102,10 @@ def main():
     onboarding.install(app)
     # Install after onboarding so the final keyboard contains both setup and help.
     help_guide.install(app)
-    # Install last so the final reply keyboard contains the Materials button.
+    # Materials registers its handlers before the final navigation is normalized.
     materials.install(app)
+    # Install truly last: compact «Мой кабинет / Задачи» keyboard must win after every module patch.
+    webapp.install(app)
     app.run_polling(drop_pending_updates=False)
 
 
