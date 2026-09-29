@@ -2460,6 +2460,43 @@ def _delivered(month_key, kind, recipient_id):
         ).fetchone())
 
 
+async def breakthrough_prompt_tick(context):
+    now = datetime.now(bot.TIMEZONE)
+    if now.day != 1 or now.time() < time(9, 0):
+        return
+    key = previous_month_key(_month_key())
+
+    data = month_payload(key, force=True)
+    if data.get("breakthrough_winner"):
+        return
+
+    admin_id = bot.get_admin_id()
+    if not admin_id or _delivered(key, "breakthrough_admin_prompt", int(admin_id)):
+        return
+
+    candidates = breakthrough_candidates(key)
+    if not candidates:
+        return
+
+    try:
+        await context.bot.send_message(
+            chat_id=int(admin_id),
+            text=(
+                f"🚀 <b>Выбери «Прорыв месяца» — {month_label(key)}</b>\n\n"
+                "Я собрала 3 кандидатов по росту относительно самих себя. "
+                "Нажми на имя → посмотри причины → подтверди выбор."
+            ),
+            parse_mode="HTML",
+            reply_markup=_breakthrough_markup(key),
+        )
+        _mark_delivery(key, "breakthrough_admin_prompt", int(admin_id))
+    except Exception as exc:
+        print(
+            f"Breakthrough admin prompt failed: {type(exc).__name__}",
+            flush=True,
+        )
+
+
 async def monthly_close_tick(context):
     now = datetime.now(bot.TIMEZONE)
     if now.day != 1 or now.time() < time(12, 0):
@@ -3006,6 +3043,7 @@ def install():
         try:
             await previous_tick(context)
         finally:
+            await breakthrough_prompt_tick(context)
             await monthly_close_tick(context)
             await discount_draw_tick(context)
 
