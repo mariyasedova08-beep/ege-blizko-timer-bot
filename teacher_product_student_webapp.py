@@ -573,12 +573,7 @@ async def open_student_webapp(update, context):
         flush=True,
     )
     if base.teacher(uid):
-        await update.message.reply_text(
-            "💗 Это кнопка ученического кабинета.\n\n"
-            "Твой преподавательский кабинет открывается через «💗 Главная ПРЕПАДМИН».",
-            reply_markup=base.MAIN_KB,
-        )
-        raise ApplicationHandlerStop
+        return
 
     link = _link(uid)
     if not link:
