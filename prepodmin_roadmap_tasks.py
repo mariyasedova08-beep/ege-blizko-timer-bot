@@ -65,10 +65,33 @@ def seed():
             if cur.rowcount:
                 created += 1
 
+        # Close all older PREPADMIN / teacher-product work tasks that are
+        # superseded by the ordered roadmap above. Keep the 12 roadmap tasks open.
+        completed_at = now
+        close_cur = conn.execute(
+            """
+            UPDATE admin_tasks
+            SET completed_at = COALESCE(completed_at, ?)
+            WHERE completed_at IS NULL
+              AND task_kind='task'
+              AND task_key NOT LIKE 'prepodmin-roadmap-%'
+              AND (
+                    task_key LIKE 'teacher-product-%'
+                 OR lower(task_text) LIKE '%преподмин%'
+                 OR lower(task_text) LIKE '%универсального бота%'
+                 OR lower(task_text) LIKE '%универсальный бот%'
+                 OR lower(task_text) LIKE '%персональный администратор преподавателя%'
+              )
+            """,
+            (completed_at,),
+        )
+        closed_old = int(close_cur.rowcount or 0)
+
         conn.commit()
 
     print(
         f"PREPADMIN roadmap tasks ready in EGE BLIZKO Work: "
-        f"created={created} reused={reused} total={len(TASKS)}",
+        f"created={created} reused={reused} total={len(TASKS)} "
+        f"old_closed={closed_old}",
         flush=True,
     )
