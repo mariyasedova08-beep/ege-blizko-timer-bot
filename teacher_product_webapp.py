@@ -8,10 +8,11 @@ import traceback
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import parse_qsl
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
-from telegram.ext import ApplicationHandlerStop, MessageHandler, filters
+from telegram.ext import ApplicationHandlerStop, CallbackQueryHandler, MessageHandler, filters
 
 import teacher_product_mvp as base
 import teacher_product_schedule as schedule
@@ -36,7 +37,7 @@ WEBAPP_URL = os.getenv(
     f"https://{PUBLIC_DOMAIN}/webapp" if PUBLIC_DOMAIN else "",
 ).strip()
 MAX_AUTH_AGE = 24 * 60 * 60
-WEBAPP_BUILD = "20260929-cabinet-only-root-1"
+WEBAPP_BUILD = "20260929-ege-bot-cabinet-1"
 HTML_PATH = Path(__file__).with_name("teacher_product_webapp.html")
 _INSTALLED = False
 
@@ -626,7 +627,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
                 "service": "teacher-product-mvp",
                 "webapp": True,
                 "quick_setup": True,
-                "build": "2026-09-29-cabinet-only-root-1",
+                "build": "2026-09-29-ege-bot-cabinet-1",
             }))
             return
         if path in {"/", "/webapp"}:
@@ -755,7 +756,7 @@ def _launch_markup(uid):
     url = f"{WEBAPP_URL}{sep}launch={token}&v={WEBAPP_BUILD}"
     return InlineKeyboardMarkup([[
         InlineKeyboardButton(
-            "💗 Открыть мой кабинет",
+            "💗 Открыть ПРЕПАДМИН",
             web_app=WebAppInfo(url=url),
         )
     ]])
@@ -768,10 +769,114 @@ async def open_webapp(update, context):
         await update.message.reply_text("Главная сейчас недоступна. Попробуй чуть позже.")
         return
     await update.message.reply_text(
-        "💗 <b>Мой кабинет ПРЕПАДМИН</b>\n\nЗдесь в одном месте: занятия, задачи, ДЗ, оплаты и зона внимания.",
+        "💗 <b>ПРЕПАДМИН</b>\n\nОткрываю приложение преподавателя: расписание, задачи, ученики, оплаты и всё рабочее — в одном месте.",
         parse_mode="HTML",
         reply_markup=_launch_markup(update.effective_user.id),
     )
+
+
+def _bot_cabinet_markup():
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ Задачи", callback_data="pcab:tasks"),
+            InlineKeyboardButton("📚 Материалы", callback_data="pcab:materials"),
+        ],
+        [
+            InlineKeyboardButton("👥 Ученики и группы", callback_data="pcab:students"),
+            InlineKeyboardButton("📅 Расписание", callback_data="pcab:schedule"),
+        ],
+        [
+            InlineKeyboardButton("🏠 Домашние задания", callback_data="pcab:homework"),
+            InlineKeyboardButton("💳 Оплаты", callback_data="pcab:payments"),
+        ],
+        [
+            InlineKeyboardButton("↪️ Перенести занятие", callback_data="pcab:transfer"),
+            InlineKeyboardButton("❌ Отменить занятие", callback_data="pcab:cancel"),
+        ],
+        [
+            InlineKeyboardButton("🔔 Напоминания", callback_data="pcab:reminders"),
+            InlineKeyboardButton("🎯 Посещаемость", callback_data="pcab:attendance"),
+        ],
+        [
+            InlineKeyboardButton("📊 Отчёты", callback_data="pcab:reports"),
+            InlineKeyboardButton("🚨 Зона внимания", callback_data="pcab:attention"),
+        ],
+        [
+            InlineKeyboardButton("🕒 Свободные окна", callback_data="pcab:slots"),
+            InlineKeyboardButton("⚙️ Настройки", callback_data="pcab:settings"),
+        ],
+        [InlineKeyboardButton("❓ Инструкция", callback_data="pcab:help")],
+    ])
+
+
+async def show_bot_cabinet(update, context):
+    if not base.teacher(update.effective_user.id):
+        return
+    await update.effective_message.reply_text(
+        "👤 <b>Мой кабинет</b>\n\n"
+        "Выбирай нужный раздел — все рабочие функции ПРЕПАДМИНА собраны здесь 💗",
+        parse_mode="HTML",
+        reply_markup=_bot_cabinet_markup(),
+    )
+
+
+def _callback_message_update(query):
+    return SimpleNamespace(
+        message=query.message,
+        effective_message=query.message,
+        effective_user=query.from_user,
+        effective_chat=query.message.chat,
+        callback_query=None,
+    )
+
+
+async def bot_cabinet_callback(update, context):
+    q = update.callback_query
+    if not q or not base.teacher(q.from_user.id):
+        return
+    await q.answer()
+    action = str(q.data or "").split(":", 1)[1] if ":" in str(q.data or "") else ""
+
+    if action == "back":
+        await q.edit_message_text(
+            "👤 <b>Мой кабинет</b>\n\n"
+            "Выбирай нужный раздел — все рабочие функции ПРЕПАДМИНА собраны здесь 💗",
+            parse_mode="HTML",
+            reply_markup=_bot_cabinet_markup(),
+        )
+        return
+
+    if action == "attention":
+        text, _rows = reports.attention_text(q.from_user.id)
+        await q.message.reply_text(text[:3900], reply_markup=base.MAIN_KB)
+        return
+
+    mapping = {
+        "students": groups.people_menu,
+        "schedule": schedule.schedule_menu,
+        "homework": learning.homework_menu,
+        "attendance": learning.attendance_menu,
+        "payments": payments.payments_menu,
+        "slots": slots.slots_menu,
+        "tasks": tasks.tasks_menu,
+        "reports": reports.reports_menu,
+        "materials": materials.materials_home,
+        "reminders": reminders.reminders_menu_message,
+        "transfer": transfer_button.transfer_menu,
+        "cancel": cancellations.cancellation_menu,
+        "settings": onboarding.show_setup,
+        "help": help_guide.show_help,
+    }
+    handler = mapping.get(action)
+    if not handler:
+        await q.message.reply_text("Раздел не найден. Открой «👤 Мой кабинет» ещё раз.")
+        return
+
+    proxy = _callback_message_update(q)
+    try:
+        await handler(proxy, context)
+    except ApplicationHandlerStop:
+        return
 
 
 async def webapp_action(update, context):
@@ -820,7 +925,7 @@ async def webapp_action(update, context):
 
 
 async def _push_keyboard_migration(context):
-    migration_key = "webapp-cabinet-only-root-v1"
+    migration_key = "webapp-ege-bot-cabinet-v1"
     with base.db() as conn:
         conn.execute(
             """
@@ -858,8 +963,8 @@ async def _push_keyboard_migration(context):
                 chat_id=uid,
                 text=(
                     "💗 ПРЕПАДМИН обновлён.\n"
-                    "Снаружи оставила только «👤 Мой кабинет», «➕ Быстрая задача» и «💬 Разработчикам». "
-                    "Все остальные рабочие разделы теперь внутри кабинета."
+                    "Теперь как в ЕГЭ БЛИЗКО: «💗 ПРЕПАДМИН» открывает приложение, "
+                    "а «👤 Мой кабинет» открывает все рабочие разделы прямо в боте."
                 ),
                 reply_markup=base.MAIN_KB,
             )
@@ -944,8 +1049,16 @@ def install(app):
     base.MAIN_KB = _main_keyboard_with_webapp()
     _production_self_check()
     app.add_handler(
-        MessageHandler(filters.Regex(r"^(?:💗 ПРЕПАДМИН|👤 Мой кабинет|💗 Мой кабинет|💗 Главная ПРЕП(?:А|О)ДМИН)$"), open_webapp),
+        MessageHandler(filters.Regex(r"^(?:💗 ПРЕПАДМИН|💗 Главная ПРЕП(?:А|О)ДМИН)$"), open_webapp),
         group=-41,
+    )
+    app.add_handler(
+        MessageHandler(filters.Regex(r"^(?:👤 Мой кабинет|💗 Мой кабинет)$"), show_bot_cabinet),
+        group=-42,
+    )
+    app.add_handler(
+        CallbackQueryHandler(bot_cabinet_callback, pattern=r"^pcab:"),
+        group=-42,
     )
     app.add_handler(
         MessageHandler(filters.StatusUpdate.WEB_APP_DATA, webapp_action),
@@ -955,7 +1068,7 @@ def install(app):
         app.job_queue.run_once(
             _push_keyboard_migration,
             when=3,
-            name="prepodmin_webapp_keyboard_migration_cabinet_only_root_v1",
+            name="prepodmin_webapp_keyboard_migration_ege_bot_cabinet_v1",
         )
     print(
         "PREPODMIN EGE-style cabinet installed: unified screens + tasks-first navigation",
