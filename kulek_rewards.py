@@ -2258,6 +2258,20 @@ def _patch_student_cabinet():
                 ).fetchone()
             if award:
                 text += f"\n🏆 Ученик месяца · {month_label(str(award[0]))}"
+            discount = active_discount_status(int(student[0]))
+            if discount and discount.get("monthly_payment"):
+                if discount.get("draw_done"):
+                    text += (
+                        "\n🎁 Скидка 5%: "
+                        + ("выиграна 💗" if discount.get("winner") else "розыгрыш завершён")
+                    )
+                elif discount.get("remaining_count") == 0:
+                    text += "\n🎁 Скидка 5%: все условия выполнены ✅"
+                else:
+                    text += (
+                        f"\n🎁 До розыгрыша скидки: "
+                        f"{discount['remaining_count']} усл. осталось"
+                    )
         except Exception as exc:
             print(f"Kulek student home line failed: {type(exc).__name__}", flush=True)
         return text
