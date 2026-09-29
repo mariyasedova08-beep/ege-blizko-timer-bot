@@ -37,7 +37,7 @@ STUDENT_WEBAPP_URL = os.getenv(
     "EGE_STUDENT_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/student-app" if PUBLIC_DOMAIN else "",
 ).strip()
-STUDENT_WEBAPP_BUILD = "20260922-1"
+STUDENT_WEBAPP_BUILD = "20260929-month-award-1"  # 22-1"
 HTML_PATH = Path(__file__).with_name("ege_student_webapp.html")
 _INSTALLED = False
 _previous_get = None
@@ -322,6 +322,38 @@ def _kulek(student):
     }
 
 
+def _student_month_awards(student_id):
+    """Persistent award badges shown in the student's cabinet."""
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        try:
+            rows = conn.execute(
+                """
+                SELECT month_key,student_name,score,chosen_at
+                FROM kulek_student_month_winners
+                WHERE student_id=?
+                ORDER BY month_key DESC
+                LIMIT 12
+                """,
+                (int(student_id),),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            rows = []
+    result = []
+    for month_key, student_name, score, chosen_at in rows:
+        try:
+            year, month = map(int, str(month_key).split("-"))
+            label = f"{kulek_rewards.MONTH_NAMES.get(month, month)} {year}"
+        except Exception:
+            label = str(month_key)
+        result.append({
+            "month": str(month_key),
+            "label": label,
+            "score": float(score or 0),
+            "chosen_at": str(chosen_at or ""),
+        })
+    return result
+
+
 def _payment(telegram_user_id):
     row = payment_student_ui._row_for_telegram_user(int(telegram_user_id))
     if not row:
@@ -424,6 +456,7 @@ def _payload(telegram_user_id):
         "probniki": probniki,
         "trainers": _trainer_rows(student),
         "kulek": _kulek(student),
+        "awards": _student_month_awards(int(student[0])),
         "payment": _payment(telegram_user_id),
         "recordings": _recordings(),
         "weak_tasks": weak,
