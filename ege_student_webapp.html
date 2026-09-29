@@ -20,7 +20,7 @@
 .section{margin-top:22px}.section-title{display:flex;justify-content:space-between;align-items:center;margin:0 2px 9px}.section-title strong{font-size:18px;letter-spacing:-.02em}.section-title span{font-size:12px;color:var(--muted)}
 .list{background:var(--paper);border:1px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:var(--shadow)}.row{display:flex;justify-content:space-between;gap:12px;padding:14px 15px;border-bottom:1px solid var(--line);align-items:flex-start}.row:last-child{border-bottom:0}
 .rmain{font-weight:750;font-size:14px}.rsub{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.35}.badge{flex:0 0 auto;font-size:11px;padding:6px 9px;border-radius:999px;background:#f4eef1}.badge.ok{background:#edf8f1;color:var(--ok)}.badge.warn{background:#fff5e7;color:var(--warn)}.badge.danger{background:#fff0f2;color:var(--danger)}
-.kulek{background:linear-gradient(145deg,#fff7fb,var(--soft));border:1px solid #ebcbd9;border-radius:25px;padding:17px;box-shadow:var(--shadow)}.khead{display:flex;justify-content:space-between;gap:14px;align-items:center}.kleft{display:flex;gap:11px;align-items:center}.kimg{width:50px;height:50px;border-radius:17px;object-fit:cover;border:2px solid #fff}.kscore{font-size:34px;font-weight:950;letter-spacing:-.05em;text-align:right}.ksub{font-size:11px;color:var(--muted);text-align:right}.kcats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.kcat{background:rgba(255,255,255,.72);padding:10px 11px;border-radius:15px;font-size:12px}.kcat b{font-size:15px}.remaining{margin-top:12px;background:rgba(255,255,255,.72);border-radius:15px;padding:11px 12px;font-size:12px;line-height:1.45}
+.kulek{background:linear-gradient(145deg,#fff7fb,var(--soft));border:1px solid #ebcbd9;border-radius:25px;padding:17px;box-shadow:var(--shadow)}.khead{display:flex;justify-content:space-between;gap:14px;align-items:center}.kleft{display:flex;gap:11px;align-items:center}.kimg{width:50px;height:50px;border-radius:17px;object-fit:cover;border:2px solid #fff}.kscore{font-size:34px;font-weight:950;letter-spacing:-.05em;text-align:right}.ksub{font-size:11px;color:var(--muted);text-align:right}.kcats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.kcat{background:rgba(255,255,255,.72);padding:10px 11px;border-radius:15px;font-size:12px}.kcat b{font-size:15px}.remaining{margin-top:12px;background:rgba(255,255,255,.72);border-radius:15px;padding:11px 12px;font-size:12px;line-height:1.45}.discount{margin-top:16px;background:linear-gradient(145deg,#fffdfc,#fff2f8);border:1px solid #efc8dc;border-radius:25px;padding:17px;box-shadow:var(--shadow)}.discount-title{font-size:17px;font-weight:900}.discount-sub{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}.discount-list{margin-top:12px;display:grid;gap:7px}.discount-item{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;background:rgba(255,255,255,.78);border-radius:15px;padding:10px 11px}.discount-item b{font-size:12px}.discount-item span{font-size:11px;color:var(--muted);text-align:right}.discount-foot{margin-top:12px;font-size:12px;line-height:1.45;font-weight:750}
 .record-link{display:block;text-decoration:none;color:var(--ink)}.empty{padding:20px 16px;color:var(--muted);font-size:13px;text-align:center}
 .tabs{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(760px,100%);display:grid;grid-template-columns:repeat(4,1fr);background:rgba(248,245,242,.96);backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:7px 8px calc(7px + env(safe-area-inset-bottom));z-index:20}.tab{border:0;background:transparent;padding:8px 2px;color:var(--muted);font-size:10px;border-radius:13px}.tab i{display:block;font-style:normal;font-size:20px;margin-bottom:2px}.tab.active{color:var(--pink);background:#fff}.view{display:none}.view.active{display:block}.pill{font-size:12px;color:var(--pink);font-weight:800}
 .loader{min-height:65vh;display:grid;place-items:center;text-align:center;color:var(--muted)}.err{background:#fff;border:1px solid var(--line);border-radius:22px;padding:18px;max-width:520px}
@@ -86,6 +86,22 @@ function paymentCard(p){
  else body+=row('Следующая оплата','Дополнительный платёж сейчас не требуется','закрыто','ok');
  return body;
 }
+function discountBlock(d){
+ if(!d||!d.monthly_payment)return '';
+ var rows=(d.conditions||[]).map(function(x){
+   var icon=x.done?'✅':'🟡',meta=x.total?(x.earned+'/'+x.total):'—';
+   return '<div class="discount-item"><b>'+icon+' '+esc(x.label)+'</b><span>'+esc(meta)+'</span></div>';
+ }).join('');
+ var foot='';
+ if(d.draw_done){
+   foot=d.winner?'🎉 Ты выиграл(а) скидку 5% на октябрь!':'Розыгрыш уже проведён.';
+ }else if(d.remaining_count===0){
+   foot='✅ Все условия выполнены — ты в списке участников.';
+ }else{
+   foot='Осталось выполнить условий: '+d.remaining_count+'. Дедлайн — '+esc(d.cutoff_label)+'.';
+ }
+ return '<div class="discount"><div class="discount-title">🎁 До розыгрыша скидки 5%</div><div class="discount-sub">Список участников фиксируем 5 октября. Оплата — до '+esc(d.payment_due_label||'7 октября')+'.</div><div class="discount-list">'+rows+'</div><div class="discount-foot">'+foot+'</div></div>';
+}
 function kulekBlock(k){
  if(!k)return '<div class="kulek"><div class="empty">Кулёчки пока не рассчитаны.</div></div>';
  var cats=k.categories||{},vals=[['🏠 ДЗ',cats.homework],['📚 Итоговые',cats.final],['🧪 Тренажёры',cats.trainers],['📝 Пробники',cats.probnik]];
@@ -106,7 +122,7 @@ function render(d){
  '<div class="hero"><h1 class="hello">Привет, '+name+'! 💗</h1><div class="course">'+esc(d.student.course)+'</div>'+awardChip+'<div class="progress"><div style="width:'+Math.min(100,coursePct)+'%"></div></div><div class="progressline"><span>Урок '+c.lesson_number+' из '+c.total_lessons+'</span><span>'+c.days_left+' дн. до ЕГЭ</span></div></div>'+
  '<div class="grid"><div class="card"><b>'+m.homework_count+'</b><span>ДЗ сдано в '+esc(d.month_label)+'</span></div><div class="card"><b>'+(m.attendance_total?m.attendance_present+'/'+m.attendance_total:'—')+'</b><span>посещение за месяц</span></div><div class="card"><b>'+m.trainer_sessions+'</b><span>тренировок за месяц</span></div><div class="card"><b>'+(latest?(latest.secondary!=null?latest.secondary:(latest.primary!=null?latest.primary:'—')):'—')+'</b><span>последний пробник</span></div></div>'+
  section('Эта неделя',row('Домашние работы',w.homework_total?w.homework_done+' из '+w.homework_total:'пока нет обязательных',w.homework_total?pct(w.homework_done,w.homework_total)+'%':'')+row('Посещение',w.attendance_total?w.attendance_present+' из '+w.attendance_total:'ещё не отмечено',w.attendance_total?pct(w.attendance_present,w.attendance_total)+'%':'')+row('Тренажёры',w.trainer_sessions+' тренировок'+(w.trainer_accuracy!=null?' · '+w.trainer_accuracy+'%':'')))+
- kulekBlock(d.kulek)+(overdue?'<div class="section"><div class="list">'+row('Есть незакрытые ДЗ',unfinished+' не выполнено · '+overdue+' просрочено','проверить','danger')+'</div></div>':'')+'</div>';
+ kulekBlock(d.kulek)+discountBlock(d.discount)+(overdue?'<div class="section"><div class="list">'+row('Есть незакрытые ДЗ',unfinished+' не выполнено · '+overdue+' просрочено','проверить','danger')+'</div></div>':'')+'</div>';
 
  var study='<div class="view" id="view-study"><div class="top"><div><div class="brand">Моя <span>учёба</span></div><div class="kicker">'+esc(d.month_label)+'</div></div></div>'+
  section('🏠 Домашние работы',homeworkRows(d.homework),unfinished+' не выполнено')+
