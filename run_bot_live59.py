@@ -246,6 +246,39 @@ def save_live_coreapp_completion(payload):
     return True, False
 
 
+def _tutor_homework_course_allowed(payload):
+    """Tutor receives submissions only from intended Core courses.
+
+    The current 11th-grade course is explicitly excluded. If an allow-list is
+    later configured, it takes precedence and makes the filter exact.
+    """
+    course_id = str(payload.get("course_id") or "").strip()
+    if not course_id:
+        print("Tutor homework submit notification skipped: course_id_missing")
+        return False
+
+    allowed = {
+        item.strip()
+        for item in str(os.getenv("TUTOR_HOMEWORK_ALLOWED_COURSE_IDS") or "").split(",")
+        if item.strip()
+    }
+    if allowed:
+        if course_id not in allowed:
+            print("Tutor homework submit notification skipped: course_not_allowed")
+            return False
+        return True
+
+    excluded = {
+        item.strip()
+        for item in str(os.getenv("TUTOR_HOMEWORK_EXCLUDED_COURSE_IDS") or "").split(",")
+        if item.strip()
+    }
+    if course_id in excluded:
+        print("Tutor homework submit notification skipped: excluded_course")
+        return False
+    return True
+
+
 def ensure_tutor_homework_submit_notifications_table():
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
         conn.execute(
@@ -281,6 +314,9 @@ def _notify_tutor_homework_submitted(payload):
     60 seconds, while allowing later resubmissions of the same homework to notify
     the tutor again.
     """
+    if not _tutor_homework_course_allowed(payload):
+        return
+
     try:
         tutor_id = live24.live6.get_tutor_id()
     except Exception:
@@ -503,40 +539,6 @@ class FlexibleCoreAppWebhookHandler(bot.CoreAppWebhookHandler):
         return self._send_json(404, {"ok": False, "error": "not_found"})
 
 
-def _diagnose_core_course_ids():
-    """Temporary safe diagnostic: course IDs and non-personal lesson title samples only."""
-    try:
-        with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
-            rows = conn.execute(
-                """
-                SELECT course_id, COUNT(*) AS n
-                FROM homework_submissions
-                WHERE coalesce(course_id,'') != ''
-                GROUP BY course_id
-                ORDER BY n DESC
-                """
-            ).fetchall()
-            print(
-                "CoreApp course_ids counts:",
-                ";".join(f"{str(course_id).strip()}={int(n)}" for course_id,n in rows) or "none",
-            )
-            for course_id, _n in rows[:10]:
-                lessons = conn.execute(
-                    """
-                    SELECT DISTINCT lesson_name
-                    FROM homework_submissions
-                    WHERE course_id=? AND coalesce(lesson_name,'') != ''
-                    ORDER BY id DESC LIMIT 3
-                    """,
-                    (course_id,),
-                ).fetchall()
-                sample = " | ".join(str(r[0])[:120] for r in lessons)
-                print(f"CoreApp course sample {str(course_id).strip()}: {sample}")
-    except Exception as exc:
-        print("CoreApp course diagnostic failed:", type(exc).__name__)
-
-
-_diagnose_core_course_ids()
 
 
 bot.CoreAppWebhookHandler = FlexibleCoreAppWebhookHandler
