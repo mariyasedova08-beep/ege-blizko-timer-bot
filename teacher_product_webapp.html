@@ -62,6 +62,7 @@ window.addEventListener('error',function(e){reportClientError('window.error',e.e
 window.addEventListener('unhandledrejection',function(e){reportClientError('unhandledrejection',e.reason);});
 async function api(view){var r=await fetch('/api/dashboard?ts='+Date.now(),{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({initData:(tg&&tg.initData)||'',launch:launch,view:view})});if(!r.ok)throw new Error('api '+r.status);return await r.json();}
 async function teacherAction(payload){payload.initData=(tg&&tg.initData)||'';payload.launch=launch;var r=await fetch('/api/teacher/action?ts='+Date.now(),{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify(payload)});var data={};try{data=await r.json();}catch(_){}if(!r.ok||!data.ok)throw new Error(data.error||('action '+r.status));return data;}
+function openBotAction(action){try{if(tg&&tg.sendData){tg.sendData(JSON.stringify({action:action}));return;}throw new Error('telegram_webapp_unavailable');}catch(e){reportClientError('sendData:'+action,e);}}
 async function completeTask(taskId,returnView){try{if(tg&&tg.HapticFeedback){try{tg.HapticFeedback.impactOccurred('light');}catch(_){}}await teacherAction({action:'task_done',task_id:taskId});await openView(returnView||'tasks');}catch(e){await reportClientError('task_done:'+taskId,e);}}
 function screenHeader(title,sub){return '<div class="screen-head">'+(currentView==='home'?'':'<button class="back" onclick="openView(\'home\')">‹</button>')+'<div><h2>'+esc(title)+'</h2>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+'</div></div>';}
 function card(icon,num,label,hint,pink,view){return '<button class="card '+(pink?'pink':'')+'" onclick="openView(\''+view+'\')"><div class="icon">'+icon+'</div><div class="num">'+num+'</div><div class="label">'+label+'</div><div class="hint">'+hint+'</div></button>';}
@@ -79,7 +80,22 @@ function renderHome(d){
  out+='<div class="section"><div class="section-title"><strong>Долги по оплате и ДЗ</strong><span>только актуальное</span></div><div class="list">'+(debts||'<div class="empty">Долгов нет 🎉</div>')+'</div></div>';
  if(attention){out+='<div class="section"><div class="section-title"><strong>Зона внимания</strong><span onclick="openView(\'attention\')">подробнее →</span></div><div class="list">'+attention+'</div></div>';}
  out+='<div class="section"><div class="section-title"><strong>Все разделы</strong><span>как в ЕГЭ БЛИЗКО</span></div><div class="actions">';
- [['👥','Ученики и группы','students'],['📅','Расписание','schedule'],['✅','Задачи','tasks'],['🏠','Домашние задания','homework'],['💳','Оплаты','payments'],['📊','Отчёты','reports'],['🎯','Посещаемость','attendance'],['🕒','Свободные окна','slots']].forEach(function(a){out+='<button class="action" onclick="openView(\''+a[2]+'\')"><span class="aicon">'+a[0]+'</span>'+a[1]+'</button>';});
+ [
+  ['👥','Ученики и группы','view','students'],
+  ['📅','Расписание','view','schedule'],
+  ['✅','Задачи','view','tasks'],
+  ['📚','Материалы','bot','materials'],
+  ['🏠','Домашние задания','view','homework'],
+  ['💳','Оплаты','view','payments'],
+  ['🔁','Перенести занятие','bot','transfer'],
+  ['❌','Отменить занятие','bot','cancel'],
+  ['🔔','Напоминания','bot','reminders'],
+  ['🎯','Посещаемость','view','attendance'],
+  ['📊','Отчёты','view','reports'],
+  ['🕒','Свободные окна','view','slots'],
+  ['⚙️','Настройки','bot','settings'],
+  ['❓','Инструкция','bot','help']
+ ].forEach(function(a){var click=a[2]==='view'?"openView('"+a[3]+"')":"openBotAction('"+a[3]+"')";out+='<button class="action" onclick="'+click+'"><span class="aicon">'+a[0]+'</span>'+a[1]+'</button>';});
  out+='</div></div><div class="brand-foot">ПРЕПАДМИН · меньше админки, больше преподавания</div>';
  document.getElementById('app').innerHTML=out;
 }
