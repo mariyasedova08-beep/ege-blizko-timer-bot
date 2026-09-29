@@ -2185,11 +2185,60 @@ def _breakthrough_markup(month_key):
         rows.append([
             InlineKeyboardButton(
                 f"🚀 {item['name']}",
-                callback_data=f"cab:kulek:breakthroughpick:{month_key}:{item['student_id']}",
+                callback_data=f"cab:kulek:breakthroughconfirm:{month_key}:{item['student_id']}",
             )
         ])
     rows.append([InlineKeyboardButton("← К Кулёчкам", callback_data=f"cab:kulek:month:{month_key}")])
     return InlineKeyboardMarkup(rows)
+
+
+def _breakthrough_confirm_text(month_key, student_id):
+    candidate = next(
+        (
+            item for item in breakthrough_candidates(month_key)
+            if int(item["student_id"]) == int(student_id)
+        ),
+        None,
+    )
+    if not candidate:
+        return "Не удалось найти кандидата."
+    lines = [
+        f"🚀 <b>Подтвердить «Прорыв месяца» — {month_label(month_key)}</b>",
+        "",
+        f"<b>{html.escape(candidate['name'])}</b>",
+    ]
+    for reason in candidate.get("reasons") or []:
+        lines.append(f"• {html.escape(reason)}")
+    lines.extend([
+        "",
+        "После подтверждения выбор сохранится в боте.",
+    ])
+    return "\n".join(lines)
+
+
+def _breakthrough_confirm_markup(month_key, student_id):
+    candidate = next(
+        (
+            item for item in breakthrough_candidates(month_key)
+            if int(item["student_id"]) == int(student_id)
+        ),
+        None,
+    )
+    name = candidate["name"] if candidate else "ученика"
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                f"✅ Выбрать {name}",
+                callback_data=f"cab:kulek:breakthroughpick:{month_key}:{int(student_id)}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "← Назад к кандидатам",
+                callback_data=f"cab:kulek:breakthrough:{month_key}",
+            )
+        ],
+    ])
 
 
 def _breakthrough_text(month_key):
