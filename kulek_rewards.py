@@ -2954,6 +2954,22 @@ def install():
             )
             return
 
+        if data.startswith("cab:kulek:breakthroughconfirm:"):
+            try:
+                parts = data.split(":")
+                key = parts[3]
+                sid = int(parts[4])
+            except Exception:
+                await query.answer("Не удалось открыть кандидата")
+                return
+            await query.answer()
+            await query.edit_message_text(
+                _breakthrough_confirm_text(key, sid),
+                parse_mode="HTML",
+                reply_markup=_breakthrough_confirm_markup(key, sid),
+            )
+            return
+
         if data.startswith("cab:kulek:breakthroughpick:"):
             try:
                 parts = data.split(":")
