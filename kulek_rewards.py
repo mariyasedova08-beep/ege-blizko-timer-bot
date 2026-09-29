@@ -1081,6 +1081,76 @@ def _probnik_scores_for_student(student_id, month_key):
     return scores
 
 
+def _trainer_half_month_counts(student_id, month_key):
+    """Completed trainer sessions in the first vs second half of one month."""
+    student = next(
+        (row for row in _student_rows() if int(row[0]) == int(student_id)),
+        None,
+    )
+    if not student or student[5] is None:
+        return 0, 0
+
+    telegram_id = int(student[5])
+    year, month = map(int, _month_key(month_key).split("-"))
+    first_start = datetime(year, month, 1, 0, 0, tzinfo=bot.TIMEZONE)
+    second_start = datetime(year, month, 16, 0, 0, tzinfo=bot.TIMEZONE)
+    if month == 12:
+        month_end = datetime(year + 1, 1, 1, 0, 0, tzinfo=bot.TIMEZONE)
+    else:
+        month_end = datetime(year, month + 1, 1, 0, 0, tzinfo=bot.TIMEZONE)
+
+    first_count = 0
+    second_count = 0
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        tables = {
+            str(row[0])
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        for table in dict.fromkeys(TRAINER_TABLES.values()):
+            if table not in tables or not re.fullmatch(r"[A-Za-z0-9_]+", table):
+                continue
+            try:
+                first_count += int(
+                    conn.execute(
+                        f"""
+                        SELECT COUNT(*)
+                        FROM {table}
+                        WHERE telegram_user_id=?
+                          AND finished_at IS NOT NULL
+                          AND finished_at>=? AND finished_at<?
+                        """,
+                        (
+                            telegram_id,
+                            first_start.isoformat(),
+                            second_start.isoformat(),
+                        ),
+                    ).fetchone()[0]
+                    or 0
+                )
+                second_count += int(
+                    conn.execute(
+                        f"""
+                        SELECT COUNT(*)
+                        FROM {table}
+                        WHERE telegram_user_id=?
+                          AND finished_at IS NOT NULL
+                          AND finished_at>=? AND finished_at<?
+                        """,
+                        (
+                            telegram_id,
+                            second_start.isoformat(),
+                            month_end.isoformat(),
+                        ),
+                    ).fetchone()[0]
+                    or 0
+                )
+            except sqlite3.OperationalError:
+                continue
+    return first_count, second_count
+
+
 def breakthrough_candidates(month_key=None):
     key = _month_key(month_key)
     current = month_payload(key, with_breakthrough=False)
@@ -1143,15 +1213,31 @@ def breakthrough_candidates(month_key=None):
             reasons.append(f"практика: {practice['earned']}/{practice['total']} Кулёчков")
 
         cur_sessions = sum(x["sessions"] for x in row["categories"]["trainers"]["items"])
-        prev_sessions = (
-            sum(x["sessions"] for x in prev["categories"]["trainers"]["items"])
-            if prev else 0
-        )
-        if cur_sessions or prev_sessions:
-            session_delta = cur_sessions - prev_sessions
-            score = max(0.0, min(100.0, session_delta / 6.0 * 100.0))
-            components.append((0.15, score))
-            reasons.append(f"тренажёры: {session_delta:+d} попыт.")
+        if key == "2026-09":
+            # September is the first course month, so comparing against August=0
+            # would reward mere presence. Compare equal 15-day halves instead.
+            first_half_sessions, second_half_sessions = _trainer_half_month_counts(
+                sid, key
+            )
+            if first_half_sessions or second_half_sessions:
+                session_delta = second_half_sessions - first_half_sessions
+                score = max(0.0, min(100.0, session_delta / 6.0 * 100.0))
+                components.append((0.15, score))
+                reasons.append(
+                    "тренажёры: "
+                    f"{first_half_sessions} → {second_half_sessions} "
+                    f"({session_delta:+d})"
+                )
+        else:
+            prev_sessions = (
+                sum(x["sessions"] for x in prev["categories"]["trainers"]["items"])
+                if prev else 0
+            )
+            if cur_sessions or prev_sessions:
+                session_delta = cur_sessions - prev_sessions
+                score = max(0.0, min(100.0, session_delta / 6.0 * 100.0))
+                components.append((0.15, score))
+                reasons.append(f"тренажёры: {session_delta:+d} попыт.")
 
         if not components:
             indicator = 0.0
