@@ -80,6 +80,9 @@ def main():
     live90.live79.live35.seed_monday_task()
     import polina_salary_tasks
     polina_salary_tasks.seed()
+
+    import prepodmin_roadmap_tasks
+    prepodmin_roadmap_tasks.seed()
     live90.live79.live37.update_monday_task_text()
     live90.live79.live39.seed_probnik_return_task()
     live90.live79.live41.ensure_weekly_report_tables()
