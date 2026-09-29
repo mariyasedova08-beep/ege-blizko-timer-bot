@@ -2,7 +2,9 @@ import json
 import os
 import sqlite3
 import hmac
-from datetime import datetime
+import threading
+import urllib.request
+from datetime import datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
 import run_bot_live58
@@ -244,6 +246,132 @@ def save_live_coreapp_completion(payload):
     return True, False
 
 
+def ensure_tutor_homework_submit_notifications_table():
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS tutor_homework_submit_notifications (
+                event_key TEXT PRIMARY KEY,
+                last_notified_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.commit()
+
+
+def _tutor_submission_event_key(payload):
+    student = str(
+        payload.get("user_id")
+        or payload.get("user_email")
+        or payload.get("user_name")
+        or "student"
+    ).strip().lower()
+    lesson = str(
+        payload.get("lesson_id")
+        or payload.get("lesson_name")
+        or "homework"
+    ).strip().lower()
+    return f"{student}::{lesson}"[:500]
+
+
+def _notify_tutor_homework_submitted(payload):
+    """Notify the linked tutor when a child sends homework for review.
+
+    Core can resend the same webhook. Suppress only near-identical repeats for
+    60 seconds, while allowing later resubmissions of the same homework to notify
+    the tutor again.
+    """
+    try:
+        tutor_id = live24.live6.get_tutor_id()
+    except Exception:
+        tutor_id = None
+    if not tutor_id:
+        print("Tutor homework submit notification skipped: tutor_not_linked")
+        return
+
+    ensure_tutor_homework_submit_notifications_table()
+    now = datetime.now(bot.TIMEZONE)
+    event_key = _tutor_submission_event_key(payload)
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        row = conn.execute(
+            """
+            SELECT last_notified_at
+            FROM tutor_homework_submit_notifications
+            WHERE event_key=?
+            """,
+            (event_key,),
+        ).fetchone()
+        if row and row[0]:
+            try:
+                previous = datetime.fromisoformat(row[0])
+                if now - previous < timedelta(seconds=60):
+                    print("Tutor homework submit notification skipped: recent_duplicate")
+                    return
+            except Exception:
+                pass
+
+    student_name = str(payload.get("user_name") or "").strip()
+    if not student_name:
+        student_name = str(payload.get("user_email") or "Ученик").strip()
+    lesson_name = str(payload.get("lesson_name") or "").strip()
+    if not lesson_name:
+        lesson_name = "Домашняя работа"
+
+    text = (
+        "📥 Новое ДЗ на проверку\n\n"
+        f"👤 {student_name}\n"
+        f"📝 {lesson_name}\n\n"
+        "Ученик отправил домашнюю работу в Core. Можно проверять 💗"
+    )
+
+    token = str(os.getenv("BOT_TOKEN") or "").strip()
+    if not token:
+        print("Tutor homework submit notification skipped: bot_token_missing")
+        return
+
+    try:
+        body = json.dumps(
+            {
+                "chat_id": int(tutor_id),
+                "text": text,
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=8) as response:
+            if int(getattr(response, "status", 200) or 200) >= 300:
+                raise RuntimeError(f"telegram_http_{response.status}")
+        with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+            conn.execute(
+                """
+                INSERT INTO tutor_homework_submit_notifications(event_key,last_notified_at)
+                VALUES(?,?)
+                ON CONFLICT(event_key) DO UPDATE SET last_notified_at=excluded.last_notified_at
+                """,
+                (event_key, now.isoformat()),
+            )
+            conn.commit()
+        print("Tutor homework submit notification sent")
+    except Exception as exc:
+        print(
+            "Tutor homework submit notification failed: "
+            f"{type(exc).__name__}"
+        )
+
+
+def _notify_tutor_homework_submitted_async(payload):
+    threading.Thread(
+        target=_notify_tutor_homework_submitted,
+        args=(dict(payload),),
+        daemon=True,
+    ).start()
+
+
 def _record_webhook_event(path, method, status, content_type, payload=None, saved=False, duplicate=False, error_code=None):
     payload = payload or {}
     try:
@@ -329,6 +457,8 @@ class FlexibleCoreAppWebhookHandler(bot.CoreAppWebhookHandler):
             duplicate = False
             if path in {"/coreapp/homework-submitted", "/coreapp/lesson-completed", "/coreapp/lesson-complete", "/coreapp/lesson-finished"}:
                 saved, duplicate = save_live_coreapp_completion(payload)
+                if path == "/coreapp/homework-submitted":
+                    _notify_tutor_homework_submitted_async(payload)
             elif path == "/coreapp/student-joined":
                 if not (payload.get("user_id") or payload.get("user_email")):
                     raise ValueError("missing_student_identity")
