@@ -138,6 +138,267 @@ def previous_month_key(month_key):
     return f"{prev.year:04d}-{prev.month:02d}"
 
 
+SEPTEMBER_DISCOUNT_KEY = "2026-09"
+SEPTEMBER_DISCOUNT_CUTOFF = datetime(
+    2026, 10, 5, 21, 0, tzinfo=bot.TIMEZONE
+)
+SEPTEMBER_DISCOUNT_VISIBLE_FROM = date(2026, 10, 1)
+SEPTEMBER_DISCOUNT_VISIBLE_UNTIL = date(2026, 10, 7)
+
+
+def _discount_cutoff(month_key):
+    key = _month_key(month_key)
+    return SEPTEMBER_DISCOUNT_CUTOFF if key == SEPTEMBER_DISCOUNT_KEY else None
+
+
+def _discount_late_homework(student, month_key):
+    """September homework sourced in September but naturally due in October.
+
+    Earlier September homework keeps its original on-time requirement. Only these
+    cross-month assignments receive the special grace window through 05.10 21:00.
+    """
+    key = _month_key(month_key)
+    cutoff = _discount_cutoff(key)
+    if not cutoff:
+        return []
+
+    first, last = _month_bounds(key)
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        submissions = conn.execute(
+            """
+            SELECT received_at,user_id,lower(user_email),lesson_id,lesson_name
+            FROM homework_submissions
+            ORDER BY received_at
+            """
+        ).fetchall()
+
+    items = []
+    for source_no, source_date in enumerate(tuple(deadlines._course_dates()), 1):
+        if not (first <= source_date <= last):
+            continue
+        due = deadlines.due_lesson_for_source(source_date)
+        if not due:
+            continue
+        due_date, due_no = due
+        if due_date <= last:
+            continue
+
+        matching = [
+            row for row in submissions
+            if deadlines._explicit_match(
+                row[3], row[4], due_no, source_no, source_date
+            )
+            and _student_matches_submission(student, row[1], row[2])
+        ]
+        submitted = False
+        submitted_at = None
+        for row in matching:
+            dt = _parse_dt(row[0])
+            if dt and dt <= cutoff and (submitted_at is None or dt < submitted_at):
+                submitted_at = dt
+                submitted = True
+        items.append({
+            "lesson": int(source_no),
+            "source_date": source_date.isoformat(),
+            "due_date": due_date.isoformat(),
+            "done": submitted,
+            "submitted_at": submitted_at.isoformat() if submitted_at else "",
+        })
+    return items
+
+
+def discount_status(student_id, month_key=SEPTEMBER_DISCOUNT_KEY):
+    key = _month_key(month_key)
+    student = next(
+        (row for row in _student_rows() if int(row[0]) == int(student_id)),
+        None,
+    )
+    if not student:
+        return None
+    row = student_month(int(student_id), key)
+    if not row:
+        return None
+
+    categories = row["categories"]
+    late_hw = _discount_late_homework(student, key)
+
+    hw_fixed_earned = int(categories["homework"]["earned"])
+    hw_fixed_total = int(categories["homework"]["total"])
+    late_earned = sum(1 for x in late_hw if x["done"])
+    late_total = len(late_hw)
+
+    final_earned = int(categories["final"]["earned"])
+    final_total = int(categories["final"]["total"])
+    trainer_earned = int(categories["trainers"]["earned"])
+    trainer_total = int(categories["trainers"]["total"])
+    probnik_earned = int(categories["probnik"]["earned"])
+    probnik_total = int(categories["probnik"]["total"])
+
+    conditions = [
+        {
+            "code": "homework",
+            "label": "ДЗ с сентябрьским сроком — вовремя",
+            "earned": hw_fixed_earned,
+            "total": hw_fixed_total,
+            "done": hw_fixed_earned == hw_fixed_total,
+            "missing": [
+                f"ДЗ после урока №{x['lesson']} не было сдано вовремя"
+                for x in categories["homework"].get("items") or []
+                if not x.get("on_time")
+            ],
+        },
+        {
+            "code": "late_homework",
+            "label": "Последние сентябрьские ДЗ — до 5 октября",
+            "earned": late_earned,
+            "total": late_total,
+            "done": late_earned == late_total,
+            "missing": [
+                f"ДЗ после урока №{x['lesson']} — закрыть до 5 октября"
+                for x in late_hw if not x["done"]
+            ],
+        },
+        {
+            "code": "final",
+            "label": "Итоговые ДЗ 80%+",
+            "earned": final_earned,
+            "total": final_total,
+            "done": final_earned == final_total,
+            "missing": list(
+                x for x in row.get("remaining") or []
+                if str(x).startswith("Итоговая")
+            ),
+        },
+        {
+            "code": "trainers",
+            "label": "Тренажёры: норма 3+",
+            "earned": trainer_earned,
+            "total": trainer_total,
+            "done": trainer_earned == trainer_total,
+            "missing": [
+                f"{x['title']}: ещё {x['remaining']} попыт."
+                for x in categories["trainers"].get("items") or []
+                if not x.get("earned")
+            ],
+        },
+        {
+            "code": "probnik",
+            "label": "Сентябрьские пробники 61+",
+            "earned": probnik_earned,
+            "total": probnik_total,
+            "done": probnik_earned == probnik_total,
+            "missing": [
+                (
+                    f"{x['event']}: нет результата → нужно 61+"
+                    if x.get("score") is None
+                    else f"{x['event']}: {x['score']:g} → нужно 61+"
+                )
+                for x in categories["probnik"].get("items") or []
+                if not x.get("earned")
+            ],
+        },
+    ]
+
+    monthly_payment = bool(row.get("monthly_payment"))
+    all_done = all(item["done"] for item in conditions)
+    cutoff = _discount_cutoff(key)
+    now = datetime.now(bot.TIMEZONE)
+    data = month_payload(key, with_breakthrough=False)
+    draw = data.get("draw")
+    winner = bool(draw and int(draw["student_id"]) == int(student_id))
+
+    return {
+        "month": key,
+        "label": month_label(key),
+        "monthly_payment": monthly_payment,
+        "eligible": bool(monthly_payment and all_done),
+        "remaining_count": sum(1 for item in conditions if not item["done"]),
+        "conditions": conditions,
+        "cutoff": cutoff.isoformat() if cutoff else "",
+        "cutoff_label": "5 октября · 21:00",
+        "draw_done": bool(draw),
+        "winner": winner,
+        "discount_percent": 5,
+        "payment_due_label": "7 октября",
+        "window_open": bool(cutoff and now < cutoff),
+    }
+
+
+def active_discount_status(student_id):
+    today = datetime.now(bot.TIMEZONE).date()
+    if SEPTEMBER_DISCOUNT_VISIBLE_FROM <= today <= SEPTEMBER_DISCOUNT_VISIBLE_UNTIL:
+        return discount_status(student_id, SEPTEMBER_DISCOUNT_KEY)
+    return None
+
+
+def discount_notice_text(student_id, month_key=SEPTEMBER_DISCOUNT_KEY):
+    status = discount_status(student_id, month_key)
+    if not status:
+        return ""
+    if not status["monthly_payment"]:
+        return ""
+
+    lines = [
+        "🎁 <b>Розыгрыш скидки 5% — 5 октября</b>",
+        "",
+        "Оплата за октябрь — до 7 октября, поэтому сначала даём время закрыть "
+        "две последние сентябрьские домашки, которые переходят на октябрь.",
+        "",
+        "<b>Чтобы участвовать в розыгрыше:</b>",
+    ]
+    for item in status["conditions"]:
+        icon = "✅" if item["done"] else "🟡"
+        if item["total"]:
+            lines.append(
+                f"{icon} {html.escape(item['label'])}: "
+                f"<b>{item['earned']}/{item['total']}</b>"
+            )
+        else:
+            lines.append(f"{icon} {html.escape(item['label'])}: <b>не было в сентябре</b>")
+
+    if status["remaining_count"]:
+        lines.extend([
+            "",
+            f"До допуска осталось условий: <b>{status['remaining_count']}</b>",
+        ])
+        missing = []
+        for item in status["conditions"]:
+            missing.extend(item["missing"])
+        for item in missing[:8]:
+            lines.append(f"• {html.escape(item)}")
+    else:
+        lines.extend([
+            "",
+            "✅ <b>Все условия уже выполнены — ты в списке участников.</b>",
+        ])
+
+    lines.extend([
+        "",
+        "⏰ Дедлайн: <b>5 октября, 21:00</b>.",
+        "После дедлайна бот зафиксирует список и случайно выберет одного победителя.",
+        "",
+        "Твой прогресс будет виден в личном кабинете 💗",
+    ])
+    return "\n".join(lines)
+
+
+def course_discount_notice_text(month_key=SEPTEMBER_DISCOUNT_KEY):
+    return (
+        "🎁 <b>РОЗЫГРЫШ СКИДКИ 5% — 5 ОКТЯБРЯ</b>\n\n"
+        "Оплата за октябрь — до 7 октября, а две последние сентябрьские домашки "
+        "уходят по срокам уже в октябрь. Поэтому список участников фиксируем "
+        "<b>5 октября в 21:00</b>.\n\n"
+        "Для участия нужно:\n"
+        "✅ сентябрьские ДЗ с сентябрьским сроком — сдать вовремя;\n"
+        "✅ две последние сентябрьские ДЗ — закрыть до 5 октября;\n"
+        "✅ итоговые ДЗ — 80%+;\n"
+        "✅ закрыть норму 3+ по каждому сентябрьскому тренажёру;\n"
+        "✅ сентябрьские пробники — 61+.\n\n"
+        "Розыгрыш — только среди ребят с помесячной оплатой. "
+        "В личном кабинете у каждого будет видно, что уже выполнено и что осталось 💗"
+    )
+
+
 def _parse_dt(value):
     if not value:
         return None
