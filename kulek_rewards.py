@@ -1571,7 +1571,14 @@ def student_text(student_id, month_key=None):
     if row["objective_complete"]:
         lines.extend(["", "🌟 <b>Все объективные условия месяца выполнены!</b>"])
         if row["monthly_payment"]:
-            lines.append("🎁 Ты проходишь в розыгрыш скидки 5% на следующий месяц.")
+            if key == SEPTEMBER_DISCOUNT_KEY:
+                status = discount_status(int(student_id), key)
+                if status and status["eligible"]:
+                    lines.append("🎁 Все условия для розыгрыша 5 октября выполнены.")
+                else:
+                    lines.append("🎁 Розыгрыш скидки — 5 октября. Прогресс смотри в личном кабинете.")
+            else:
+                lines.append("🎁 Ты проходишь в розыгрыш скидки 5% на следующий месяц.")
         else:
             lines.append("🐶 Отличный полный месяц. Розыгрыш скидки проводится только среди помесячной оплаты.")
     elif row["remaining"]:
@@ -2064,7 +2071,13 @@ def _practice_students_markup(lesson_number):
 
 def _eligible_text(month_key):
     data = month_payload(month_key, force=True)
-    eligible = [x for x in data["students"] if x["draw_eligible"]]
+    if _month_key(month_key) == SEPTEMBER_DISCOUNT_KEY:
+        eligible = [
+            x for x in data["students"]
+            if (discount_status(int(x["id"]), month_key) or {}).get("eligible")
+        ]
+    else:
+        eligible = [x for x in data["students"] if x["draw_eligible"]]
     lines = [
         f"🎁 <b>Розыгрыш скидки 5% — {data['label']}</b>",
         "",
@@ -2354,6 +2367,24 @@ async def monthly_close_tick(context):
                 flush=True,
             )
 
+        if key == SEPTEMBER_DISCOUNT_KEY:
+            notice = discount_notice_text(sid, key)
+            notice_kind = "discount_notice"
+            if notice and not _delivered(key, notice_kind, int(telegram_id)):
+                try:
+                    await context.bot.send_message(
+                        chat_id=int(telegram_id),
+                        text=notice,
+                        parse_mode="HTML",
+                    )
+                    _mark_delivery(key, notice_kind, int(telegram_id))
+                except Exception as exc:
+                    print(
+                        f"September discount notice failed sid={sid} "
+                        f"error={type(exc).__name__}",
+                        flush=True,
+                    )
+
 
     # One common course summary in the main course chat/thread.
     chat_id = bot.os.getenv("CHAT_ID")
@@ -2371,6 +2402,20 @@ async def monthly_close_tick(context):
                     kwargs["message_thread_id"] = int(thread_id)
                 await context.bot.send_message(**kwargs)
                 _mark_delivery(key, "course", chat_id_int)
+
+            if key == SEPTEMBER_DISCOUNT_KEY and not _delivered(
+                key, "discount_course_notice", chat_id_int
+            ):
+                notice_kwargs = {
+                    "chat_id": chat_id_int,
+                    "text": course_discount_notice_text(key),
+                    "parse_mode": "HTML",
+                }
+                thread_id = bot.get_target_thread_id()
+                if thread_id:
+                    notice_kwargs["message_thread_id"] = int(thread_id)
+                await context.bot.send_message(**notice_kwargs)
+                _mark_delivery(key, "discount_course_notice", chat_id_int)
         except Exception as exc:
             print(
                 f"Kulek monthly course delivery failed: {type(exc).__name__}",
@@ -2395,6 +2440,120 @@ async def monthly_close_tick(context):
                 f"student={student_id} error={type(exc).__name__}",
                 flush=True,
             )
+
+
+async def discount_draw_tick(context):
+    now = datetime.now(bot.TIMEZONE)
+    if now.date() != date(2026, 10, 5) or now.time() < time(21, 5):
+        return
+
+    admin_id = bot.get_admin_id()
+    delivery_id = int(admin_id or 0)
+    if delivery_id and _delivered(
+        SEPTEMBER_DISCOUNT_KEY, "discount_draw_done", delivery_id
+    ):
+        return
+
+    result = draw_discount(SEPTEMBER_DISCOUNT_KEY)
+    if not result.get("ok"):
+        if result.get("error") == "draw_window_open":
+            return
+        if delivery_id:
+            try:
+                await context.bot.send_message(
+                    chat_id=delivery_id,
+                    text=(
+                        "🎁 <b>Розыгрыш скидки 5% — сентябрь</b>\n\n"
+                        "После дедлайна нет учеников, которые одновременно "
+                        "выполнили все условия и имеют помесячную оплату."
+                    ),
+                    parse_mode="HTML",
+                )
+                _mark_delivery(
+                    SEPTEMBER_DISCOUNT_KEY, "discount_draw_done", delivery_id
+                )
+            except Exception:
+                pass
+        return
+
+    if result.get("existing"):
+        if delivery_id:
+            _mark_delivery(
+                SEPTEMBER_DISCOUNT_KEY, "discount_draw_done", delivery_id
+            )
+        return
+
+    eligible_names = [
+        str(x.get("name") or "")
+        for x in result.get("eligible") or []
+        if str(x.get("name") or "").strip()
+    ]
+    admin_text_value = (
+        "🎁 <b>Розыгрыш скидки 5% проведён</b>\n\n"
+        f"Участников: <b>{result.get('eligible_count', len(eligible_names))}</b>\n"
+        f"Победитель: <b>{html.escape(result['winner_name'])}</b>"
+    )
+    if eligible_names:
+        admin_text_value += (
+            "\n\nСписок участников:\n"
+            + "\n".join(f"• {html.escape(name)}" for name in eligible_names)
+        )
+
+    if admin_id:
+        try:
+            await context.bot.send_message(
+                chat_id=int(admin_id),
+                text=admin_text_value,
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    student = next(
+        (
+            x for x in _student_rows()
+            if int(x[0]) == int(result["student_id"])
+        ),
+        None,
+    )
+    if student and student[5] is not None:
+        try:
+            await context.bot.send_message(
+                chat_id=int(student[5]),
+                text=(
+                    "🎁 <b>Ты выиграл(а) скидку 5%!</b>\n\n"
+                    "Скидка применяется к октябрьской оплате. "
+                    "Оплата — до 7 октября 💗"
+                ),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    chat_id = bot.os.getenv("CHAT_ID")
+    if chat_id:
+        try:
+            kwargs = {
+                "chat_id": int(chat_id),
+                "text": (
+                    "🎁 <b>Розыгрыш скидки 5% за сентябрь проведён!</b>\n\n"
+                    f"В розыгрыше участвовали: <b>{result.get('eligible_count', 0)}</b> человек.\n"
+                    f"Победитель — <b>{html.escape(result['winner_name'])}</b> 💗\n\n"
+                    "Спасибо всем, кто дожал сентябрьские условия до конца."
+                ),
+                "parse_mode": "HTML",
+            }
+            thread_id = bot.get_target_thread_id()
+            if thread_id:
+                kwargs["message_thread_id"] = int(thread_id)
+            await context.bot.send_message(**kwargs)
+        except Exception:
+            pass
+
+    if delivery_id:
+        _mark_delivery(
+            SEPTEMBER_DISCOUNT_KEY, "discount_draw_done", delivery_id
+        )
 
 
 def _patch_admin_cabinet_buttons():
@@ -2683,6 +2842,7 @@ def install():
             await previous_tick(context)
         finally:
             await monthly_close_tick(context)
+            await discount_draw_tick(context)
 
     live79.live7.friday_trivial_tick = tick
 
