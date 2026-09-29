@@ -30,7 +30,7 @@ WEBAPP_URL = os.getenv(
     f"https://{PUBLIC_DOMAIN}/webapp" if PUBLIC_DOMAIN else "",
 ).strip()
 MAX_AUTH_AGE = 24 * 60 * 60
-WEBAPP_BUILD = "20260929-ege-style-all-screens-1"
+WEBAPP_BUILD = "20260929-three-button-header-1"
 HTML_PATH = Path(__file__).with_name("teacher_product_webapp.html")
 _INSTALLED = False
 
@@ -620,7 +620,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
                 "service": "teacher-product-mvp",
                 "webapp": True,
                 "quick_setup": True,
-                "build": "2026-09-29-ege-style-all-screens-1",
+                "build": "2026-09-29-three-button-header-1",
             }))
             return
         if path in {"/", "/webapp"}:
@@ -732,11 +732,12 @@ def install_server():
 
 
 def _main_keyboard_with_webapp():
-    """Compact PREPADMIN keyboard: cabinet and tasks first, like EGE BLIZKO."""
+    """PREPADMIN keyboard in the same hierarchy as EGE BLIZKO."""
     return ReplyKeyboardMarkup(
         [
-            [KeyboardButton("💗 Мой кабинет"), KeyboardButton("✅ Задачи")],
-            [KeyboardButton("➕ Быстрая задача"), KeyboardButton("📚 Материалы")],
+            [KeyboardButton("💗 ПРЕПАДМИН")],
+            [KeyboardButton("👤 Мой кабинет"), KeyboardButton("➕ Быстрая задача")],
+            [KeyboardButton("✅ Задачи"), KeyboardButton("📚 Материалы")],
             [KeyboardButton("👥 Ученики и группы"), KeyboardButton("📅 Расписание")],
             [KeyboardButton("🔁 Перенести занятие"), KeyboardButton("❌ Отменить занятие")],
             [KeyboardButton("🔔 Напоминания"), KeyboardButton("💳 Оплаты")],
@@ -812,7 +813,7 @@ async def webapp_action(update, context):
 
 
 async def _push_keyboard_migration(context):
-    migration_key = "webapp-ege-style-all-screens-v1"
+    migration_key = "webapp-three-button-header-v1"
     with base.db() as conn:
         conn.execute(
             """
@@ -850,7 +851,7 @@ async def _push_keyboard_migration(context):
                 chat_id=uid,
                 text=(
                     "💗 ПРЕПАДМИН обновлён.\n"
-                    "Теперь главные кнопки снизу — «💗 Мой кабинет» и «✅ Задачи»."
+                    "Теперь сверху: «💗 ПРЕПАДМИН», а под ним — «👤 Мой кабинет» и «➕ Быстрая задача»."
                 ),
                 reply_markup=base.MAIN_KB,
             )
@@ -935,7 +936,7 @@ def install(app):
     base.MAIN_KB = _main_keyboard_with_webapp()
     _production_self_check()
     app.add_handler(
-        MessageHandler(filters.Regex(r"^(?:💗 Мой кабинет|💗 Главная ПРЕП(?:А|О)ДМИН)$"), open_webapp),
+        MessageHandler(filters.Regex(r"^(?:💗 ПРЕПАДМИН|👤 Мой кабинет|💗 Мой кабинет|💗 Главная ПРЕП(?:А|О)ДМИН)$"), open_webapp),
         group=-41,
     )
     app.add_handler(
@@ -946,7 +947,7 @@ def install(app):
         app.job_queue.run_once(
             _push_keyboard_migration,
             when=3,
-            name="prepodmin_webapp_keyboard_migration_ege_style_v1",
+            name="prepodmin_webapp_keyboard_migration_three_button_header_v1",
         )
     print(
         "PREPODMIN EGE-style cabinet installed: unified screens + tasks-first navigation",
