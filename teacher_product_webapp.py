@@ -30,7 +30,7 @@ WEBAPP_URL = os.getenv(
     f"https://{PUBLIC_DOMAIN}/webapp" if PUBLIC_DOMAIN else "",
 ).strip()
 MAX_AUTH_AGE = 24 * 60 * 60
-WEBAPP_BUILD = "20260928-my-cabinet-1"
+WEBAPP_BUILD = "20260929-ege-style-all-screens-1"
 HTML_PATH = Path(__file__).with_name("teacher_product_webapp.html")
 _INSTALLED = False
 
@@ -620,7 +620,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
                 "service": "teacher-product-mvp",
                 "webapp": True,
                 "quick_setup": True,
-                "build": "2026-09-28-my-cabinet-1",
+                "build": "2026-09-29-ege-style-all-screens-1",
             }))
             return
         if path in {"/", "/webapp"}:
@@ -812,7 +812,7 @@ async def webapp_action(update, context):
 
 
 async def _push_keyboard_migration(context):
-    migration_key = "webapp-my-cabinet-v1"
+    migration_key = "webapp-ege-style-all-screens-v1"
     with base.db() as conn:
         conn.execute(
             """
@@ -946,9 +946,9 @@ def install(app):
         app.job_queue.run_once(
             _push_keyboard_migration,
             when=3,
-            name="prepodmin_webapp_keyboard_migration_my_cabinet_v1",
+            name="prepodmin_webapp_keyboard_migration_ege_style_v1",
         )
     print(
-        "PREPODMIN My Cabinet installed: compact keyboard + real dashboard + tasks-first navigation",
+        "PREPODMIN EGE-style cabinet installed: unified screens + tasks-first navigation",
         flush=True,
     )
