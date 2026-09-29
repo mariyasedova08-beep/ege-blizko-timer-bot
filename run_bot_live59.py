@@ -503,6 +503,31 @@ class FlexibleCoreAppWebhookHandler(bot.CoreAppWebhookHandler):
         return self._send_json(404, {"ok": False, "error": "not_found"})
 
 
+def _diagnose_grade11_course_ids():
+    """Temporary safe diagnostic: print only course IDs matched to known grade-11 surnames."""
+    try:
+        known = ("иноземцева", "приголовкина", "смольянинов", "никифорова")
+        with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT course_id, lower(coalesce(user_name,''))
+                FROM students
+                WHERE coalesce(course_id,'') != ''
+                """
+            ).fetchall()
+        ids = sorted({
+            str(course_id).strip()
+            for course_id, name in rows
+            if any(s in str(name or '') for s in known) and str(course_id or '').strip()
+        })
+        print("CoreApp grade11 candidate course_ids:", ",".join(ids) if ids else "none")
+    except Exception as exc:
+        print("CoreApp grade11 course diagnostic failed:", type(exc).__name__)
+
+
+_diagnose_grade11_course_ids()
+
+
 bot.CoreAppWebhookHandler = FlexibleCoreAppWebhookHandler
 
 
