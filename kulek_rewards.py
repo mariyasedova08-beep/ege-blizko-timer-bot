@@ -1949,6 +1949,19 @@ def _patch_student_cabinet():
                     f"\n\n🐶 Кулёчки за месяц: "
                     f"{row['points']}/{row['possible']}"
                 )
+            with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+                award = conn.execute(
+                    """
+                    SELECT month_key
+                    FROM kulek_student_month_winners
+                    WHERE student_id=?
+                    ORDER BY month_key DESC
+                    LIMIT 1
+                    """,
+                    (int(student[0]),),
+                ).fetchone()
+            if award:
+                text += f"\n🏆 Ученик месяца · {month_label(str(award[0]))}"
         except Exception as exc:
             print(f"Kulek student home line failed: {type(exc).__name__}", flush=True)
         return text
