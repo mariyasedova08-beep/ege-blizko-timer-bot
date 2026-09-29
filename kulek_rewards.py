@@ -1450,13 +1450,29 @@ def draw_discount(month_key=None):
     current = _month_key()
     if key >= current:
         return {"ok": False, "error": "month_not_closed"}
+
+    cutoff = _discount_cutoff(key)
+    if cutoff and datetime.now(bot.TIMEZONE) < cutoff:
+        return {
+            "ok": False,
+            "error": "draw_window_open",
+            "cutoff": cutoff.isoformat(),
+        }
+
     data = month_payload(key, force=True, with_breakthrough=False)
     existing = data.get("draw")
     if existing:
         return {"ok": True, "existing": True, **existing}
-    eligible = [x for x in data["students"] if x["draw_eligible"]]
+
+    eligible = []
+    for row in data["students"]:
+        status = discount_status(int(row["id"]), key)
+        if status and status["eligible"]:
+            eligible.append(row)
+
     if not eligible:
         return {"ok": False, "error": "no_eligible"}
+
     winner = secrets.choice(eligible)
     now = datetime.now(bot.TIMEZONE).isoformat()
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
@@ -1488,6 +1504,7 @@ def draw_discount(month_key=None):
         "winner_name": winner["name"],
         "discount_percent": 5,
         "eligible_count": len(eligible),
+        "eligible": [{"id": int(x["id"]), "name": x["name"]} for x in eligible],
     }
 
 
@@ -2549,11 +2566,12 @@ def install():
             key = data.rsplit(":", 1)[1]
             result = draw_discount(key)
             if not result["ok"]:
-                msg = (
-                    "Месяц ещё не закрыт."
-                    if result["error"] == "month_not_closed"
-                    else "Нет детей, которые одновременно выполнили все условия и имеют помесячную оплату."
-                )
+                if result["error"] == "month_not_closed":
+                    msg = "Месяц ещё не закрыт."
+                elif result["error"] == "draw_window_open":
+                    msg = "Список участников фиксируем 5 октября в 21:00."
+                else:
+                    msg = "Нет детей, которые выполнили все условия и имеют помесячную оплату."
                 await query.answer(msg, show_alert=True)
                 return
             await query.answer("Розыгрыш проведён 🎁")
