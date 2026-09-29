@@ -1321,6 +1321,244 @@ def student_text(student_id, month_key=None):
     return "\n".join(lines)
 
 
+def _attendance_month(student_id, month_key):
+    first, last = _month_bounds(month_key)
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        try:
+            row = conn.execute(
+                """
+                SELECT
+                    SUM(CASE WHEN ar.status='present' THEN 1 ELSE 0 END),
+                    COUNT(*)
+                FROM attendance_records ar
+                JOIN attendance_sessions s ON s.lesson_number=ar.lesson_number
+                WHERE ar.student_id=?
+                  AND s.finalized=1
+                  AND s.lesson_date BETWEEN ? AND ?
+                """,
+                (int(student_id), first.isoformat(), last.isoformat()),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            row = (0, 0)
+    return int((row or (0, 0))[0] or 0), int((row or (0, 0))[1] or 0)
+
+
+def _probnik_month_stats(row):
+    scores = [
+        float(item["score"])
+        for item in row["categories"]["probnik"]["items"]
+        if item.get("score") is not None
+    ]
+    if not scores:
+        return 0, None, None
+    return len(scores), round(sum(scores) / len(scores), 1), round(max(scores), 1)
+
+
+def _month_debt_free(row):
+    hw = row["categories"]["homework"]
+    final = row["categories"]["final"]
+    hw_clear = all(bool(x.get("done")) for x in (hw.get("items") or []))
+    final_clear = all(bool(x.get("submitted")) for x in (final.get("items") or []))
+    return bool(hw_clear and final_clear)
+
+
+def student_monthly_report_text(student_id, month_key=None):
+    key = _month_key(month_key)
+    row = student_month(student_id, key)
+    if not row:
+        return f"💗 <b>Итоги {month_label(key)}</b>\n\nПока недостаточно данных для отчёта."
+
+    attendance_present, attendance_total = _attendance_month(student_id, key)
+    probnik_count, probnik_avg, probnik_best = _probnik_month_stats(row)
+    c = row["categories"]
+    trainers = sum(int(x.get("sessions") or 0) for x in c["trainers"].get("items") or [])
+    winner = month_payload(key, with_breakthrough=False).get("student_of_month_winner")
+    is_winner = bool(winner and int(winner["student_id"]) == int(student_id))
+
+    lines = [
+        f"💗 <b>Твои итоги — {month_label(key)}</b>",
+        "",
+        f"🏠 ДЗ вовремя: <b>{c['homework']['earned']}/{c['homework']['total']}</b>",
+        f"📚 Итоговые 80%+: <b>{c['final']['earned']}/{c['final']['total']}</b>",
+        (
+            f"🎓 Посещаемость: <b>{attendance_present}/{attendance_total}</b>"
+            if attendance_total else
+            "🎓 Посещаемость: пока нет сохранённых отметок"
+        ),
+        (
+            f"📝 Пробники: <b>{probnik_count}</b> · средний <b>{probnik_avg:g}</b> · лучший <b>{probnik_best:g}</b>"
+            if probnik_count else
+            "📝 Пробники: в этом месяце нет результата"
+        ),
+        f"🧪 Тренажёры: <b>{trainers}</b> завершённых тренировок",
+        f"🐶 Кулёчки: <b>{row['points']}/{row['possible']}</b>",
+        f"✅ Долги к концу месяца: <b>{'нет' if _month_debt_free(row) else 'остались'}</b>",
+    ]
+    if is_winner:
+        lines.extend([
+            "",
+            f"🏆 <b>Ты — Ученик месяца · {month_label(key)}!</b>",
+            "Тебя ждёт отдельный подарок от Маши 💗",
+        ])
+    lines.extend([
+        "",
+        "В новом месяце не начинаем заново — продолжаем наращивать результат. ЕГЭ БЛИЗКО 💗",
+    ])
+    return "\n".join(lines)
+
+
+def parent_monthly_report_text(student_id, month_key=None):
+    key = _month_key(month_key)
+    row = student_month(student_id, key)
+    if not row:
+        return f"💗 <b>Итоги {month_label(key)}</b>\n\nПока недостаточно данных для отчёта."
+
+    attendance_present, attendance_total = _attendance_month(student_id, key)
+    probnik_count, probnik_avg, probnik_best = _probnik_month_stats(row)
+    c = row["categories"]
+    trainers = sum(int(x.get("sessions") or 0) for x in c["trainers"].get("items") or [])
+    winner = month_payload(key, with_breakthrough=False).get("student_of_month_winner")
+    is_winner = bool(winner and int(winner["student_id"]) == int(student_id))
+
+    strengths = []
+    attention = []
+    if c["homework"]["total"]:
+        pct = 100 * c["homework"]["earned"] / c["homework"]["total"]
+        (strengths if pct >= 80 else attention).append(
+            f"домашние работы вовремя — {c['homework']['earned']}/{c['homework']['total']}"
+        )
+    if attendance_total:
+        pct = 100 * attendance_present / attendance_total
+        (strengths if pct >= 90 else attention).append(
+            f"посещаемость — {attendance_present}/{attendance_total}"
+        )
+    if probnik_count:
+        strengths.append(f"пробники — средний {probnik_avg:g}, лучший {probnik_best:g}")
+    if trainers:
+        strengths.append(f"тренажёры — {trainers} завершённых тренировок")
+    if not _month_debt_free(row):
+        attention.append("к концу месяца остались незакрытые обязательные работы")
+
+    lines = [
+        f"💗 <b>Итоги {month_label(key)} — {html.escape(row['name'])}</b>",
+        "",
+        f"🏠 ДЗ вовремя: <b>{c['homework']['earned']}/{c['homework']['total']}</b>",
+        f"📚 Итоговые 80%+: <b>{c['final']['earned']}/{c['final']['total']}</b>",
+        (
+            f"🎓 Посещаемость: <b>{attendance_present}/{attendance_total}</b>"
+            if attendance_total else
+            "🎓 Посещаемость: сохранённых отметок пока нет"
+        ),
+        (
+            f"📝 Пробники: <b>{probnik_count}</b> · средний <b>{probnik_avg:g}</b> · лучший <b>{probnik_best:g}</b>"
+            if probnik_count else
+            "📝 Пробники: в этом месяце результата нет"
+        ),
+        f"🧪 Тренажёры: <b>{trainers}</b>",
+        f"🐶 Кулёчки: <b>{row['points']}/{row['possible']}</b>",
+    ]
+    if strengths:
+        lines.extend(["", "🌟 <b>Что получилось хорошо</b>"])
+        lines.extend(f"• {html.escape(x)}" for x in strengths[:4])
+    if attention:
+        lines.extend(["", "🎯 <b>На что обратить внимание в новом месяце</b>"])
+        lines.extend(f"• {html.escape(x)}" for x in attention[:4])
+    if is_winner:
+        lines.extend([
+            "",
+            f"🏆 <b>{html.escape(row['name'])} — Ученик месяца · {month_label(key)}</b>",
+            "Награда определяется по объективной системе стабильной работы.",
+        ])
+    lines.extend([
+        "",
+        "Я вижу эту динамику и учитываю её при дальнейшей подготовке.\nМария Александровна 💗",
+    ])
+    return "\n".join(lines)
+
+
+def course_monthly_report_text(month_key=None):
+    key = _month_key(month_key)
+    data = month_payload(key, force=True, with_breakthrough=False)
+    students = data["students"]
+    att_present = att_total = hw_earned = hw_total = trainer_sessions = 0
+    scores = []
+    debt_free = 0
+
+    for row in students:
+        sid = int(row["id"])
+        p, t = _attendance_month(sid, key)
+        att_present += p
+        att_total += t
+        hw_earned += int(row["categories"]["homework"]["earned"])
+        hw_total += int(row["categories"]["homework"]["total"])
+        trainer_sessions += sum(
+            int(x.get("sessions") or 0)
+            for x in row["categories"]["trainers"].get("items") or []
+        )
+        scores.extend(
+            float(x["score"])
+            for x in row["categories"]["probnik"].get("items") or []
+            if x.get("score") is not None
+        )
+        if _month_debt_free(row):
+            debt_free += 1
+
+    winner = data.get("student_of_month_winner")
+    lines = [
+        f"💗 <b>ЕГЭ БЛИЗКО — итоги {month_label(key)}</b>",
+        "",
+        f"👥 В системе: <b>{data['student_count']}</b> учеников",
+        (
+            f"🎓 Общая посещаемость: <b>{round(100 * att_present / att_total)}%</b> · {att_present}/{att_total}"
+            if att_total else
+            "🎓 Посещаемость: пока недостаточно сохранённых отметок"
+        ),
+        (
+            f"🏠 ДЗ вовремя: <b>{round(100 * hw_earned / hw_total)}%</b> · {hw_earned}/{hw_total}"
+            if hw_total else
+            "🏠 ДЗ: пока недостаточно данных"
+        ),
+        f"🧪 Завершено тренировок: <b>{trainer_sessions}</b>",
+        (
+            f"📝 Средний результат пробников по всем написанным работам: <b>{round(sum(scores)/len(scores),1):g}</b>"
+            if scores else
+            "📝 Пробники: результатов за месяц пока нет"
+        ),
+        f"✅ Закончили месяц без обязательных долгов: <b>{debt_free}/{data['student_count']}</b>",
+        f"🐶 Собрано Кулёчков: <b>{data['total_points']}</b>",
+    ]
+    if winner:
+        lines.extend([
+            "",
+            f"🏆 <b>Ученик месяца — {html.escape(winner['student_name'])}</b>",
+            "Награда — за стабильность: ДЗ, регулярную практику, пробники и отсутствие долгов.",
+        ])
+    lines.extend([
+        "",
+        "Сентябрь был только стартом. В октябре продолжаем играть в долгую 💗",
+        "<b>ЕГЭ БЛИЗКО</b>",
+    ])
+    return "\n".join(lines)
+
+
+def _parent_links_for_month():
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        try:
+            return [
+                (int(parent_id), int(student_id))
+                for parent_id, student_id in conn.execute(
+                    """
+                    SELECT parent_telegram_user_id,student_id
+                    FROM parent_links
+                    WHERE active=1
+                    ORDER BY parent_telegram_user_id,student_id
+                    """
+                ).fetchall()
+            ]
+        except sqlite3.OperationalError:
+            return []
+
+
 def admin_text(month_key=None):
     key = _month_key(month_key)
     data = month_payload(key)
@@ -1810,13 +2048,55 @@ async def monthly_close_tick(context):
         try:
             await context.bot.send_message(
                 chat_id=int(telegram_id),
-                text=student_text(sid, key),
+                text=student_monthly_report_text(sid, key),
                 parse_mode="HTML",
             )
             _mark_delivery(key, "student", int(telegram_id))
         except Exception as exc:
             print(
                 f"Kulek monthly student delivery failed sid={sid} error={type(exc).__name__}",
+                flush=True,
+            )
+
+
+    # One common course summary in the main course chat/thread.
+    chat_id = bot.os.getenv("CHAT_ID")
+    if chat_id:
+        try:
+            chat_id_int = int(chat_id)
+            if not _delivered(key, "course", chat_id_int):
+                kwargs = {
+                    "chat_id": chat_id_int,
+                    "text": course_monthly_report_text(key),
+                    "parse_mode": "HTML",
+                }
+                thread_id = bot.get_target_thread_id()
+                if thread_id:
+                    kwargs["message_thread_id"] = int(thread_id)
+                await context.bot.send_message(**kwargs)
+                _mark_delivery(key, "course", chat_id_int)
+        except Exception as exc:
+            print(
+                f"Kulek monthly course delivery failed: {type(exc).__name__}",
+                flush=True,
+            )
+
+    # Personal parent summary for every active parent-child link.
+    for parent_id, student_id in _parent_links_for_month():
+        kind = f"parent:{int(student_id)}"
+        if _delivered(key, kind, int(parent_id)):
+            continue
+        try:
+            await context.bot.send_message(
+                chat_id=int(parent_id),
+                text=parent_monthly_report_text(student_id, key),
+                parse_mode="HTML",
+            )
+            _mark_delivery(key, kind, int(parent_id))
+        except Exception as exc:
+            print(
+                f"Kulek monthly parent delivery failed parent={parent_id} "
+                f"student={student_id} error={type(exc).__name__}",
                 flush=True,
             )
 
