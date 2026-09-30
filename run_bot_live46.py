@@ -87,10 +87,10 @@ def _parent_ids(student_id):
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
         return [int(row[0]) for row in conn.execute(
             """
-            SELECT telegram_user_id
+            SELECT parent_telegram_user_id
             FROM parent_links
             WHERE student_id = ? AND active = 1
-            ORDER BY id
+            ORDER BY linked_at
             """,
             (int(student_id),),
         ).fetchall()]
