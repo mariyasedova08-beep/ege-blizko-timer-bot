@@ -22,7 +22,7 @@
 .rmain{font-weight:750;font-size:14px}.rsub{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.35}.badge{flex:0 0 auto;font-size:11px;padding:6px 9px;border-radius:999px;background:#f4eef1}.badge.ok{background:#edf8f1;color:var(--ok)}.badge.warn{background:#fff5e7;color:var(--warn)}.badge.danger{background:#fff0f2;color:var(--danger)}
 .kulek{background:linear-gradient(145deg,#fff7fb,var(--soft));border:1px solid #ebcbd9;border-radius:25px;padding:17px;box-shadow:var(--shadow)}.khead{display:flex;justify-content:space-between;gap:14px;align-items:center}.kleft{display:flex;gap:11px;align-items:center}.kimg{width:50px;height:50px;border-radius:17px;object-fit:cover;border:2px solid #fff}.kscore{font-size:34px;font-weight:950;letter-spacing:-.05em;text-align:right}.ksub{font-size:11px;color:var(--muted);text-align:right}.kcats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.kcat{background:rgba(255,255,255,.72);padding:10px 11px;border-radius:15px;font-size:12px}.kcat b{font-size:15px}.remaining{margin-top:12px;background:rgba(255,255,255,.72);border-radius:15px;padding:11px 12px;font-size:12px;line-height:1.45}.discount{margin-top:16px;background:linear-gradient(145deg,#fffdfc,#fff2f8);border:1px solid #efc8dc;border-radius:25px;padding:17px;box-shadow:var(--shadow)}.discount-title{font-size:17px;font-weight:900}.discount-sub{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}.discount-list{margin-top:12px;display:grid;gap:7px}.discount-item{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;background:rgba(255,255,255,.78);border-radius:15px;padding:10px 11px}.discount-item b{font-size:12px}.discount-item span{font-size:11px;color:var(--muted);text-align:right}.discount-foot{margin-top:12px;font-size:12px;line-height:1.45;font-weight:750}
 .record-link{display:block;text-decoration:none;color:var(--ink)}.empty{padding:20px 16px;color:var(--muted);font-size:13px;text-align:center}
-.tabs{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(760px,100%);display:grid;grid-template-columns:repeat(4,1fr);background:rgba(248,245,242,.96);backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:7px 8px calc(7px + env(safe-area-inset-bottom));z-index:20}.tab{border:0;background:transparent;padding:8px 2px;color:var(--muted);font-size:10px;border-radius:13px}.tab i{display:block;font-style:normal;font-size:20px;margin-bottom:2px}.tab.active{color:var(--pink);background:#fff}.view{display:none}.view.active{display:block}.pill{font-size:12px;color:var(--pink);font-weight:800}
+.rank-hero{margin-top:16px;background:linear-gradient(145deg,#171719,#30272d);color:#fff;border-radius:25px;padding:18px;box-shadow:var(--shadow)}.rank-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.rank-place{font-size:34px;font-weight:950;letter-spacing:-.04em}.rank-score{font-size:24px;font-weight:900;text-align:right}.rank-sub{font-size:11px;opacity:.72}.rank-list{display:grid;gap:8px}.rank-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 13px;background:#fff;border:1px solid var(--line);border-radius:16px}.rank-row.me{border-color:#ef9fc8;background:#fff6fa}.rank-name{font-weight:850;font-size:13px}.rank-meta{font-size:11px;color:var(--muted);margin-top:2px}.rank-num{font-weight:900;font-size:13px;white-space:nowrap}.rank-formula{font-size:11px;color:var(--muted);line-height:1.5;padding:12px 13px;background:#fff;border:1px solid var(--line);border-radius:16px}.tabs{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(760px,100%);display:grid;grid-template-columns:repeat(5,1fr);background:rgba(248,245,242,.96);backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:7px 8px calc(7px + env(safe-area-inset-bottom));z-index:20}.tab{border:0;background:transparent;padding:8px 2px;color:var(--muted);font-size:10px;border-radius:13px}.tab i{display:block;font-style:normal;font-size:20px;margin-bottom:2px}.tab.active{color:var(--pink);background:#fff}.view{display:none}.view.active{display:block}.pill{font-size:12px;color:var(--pink);font-weight:800}
 .loader{min-height:65vh;display:grid;place-items:center;text-align:center;color:var(--muted)}.err{background:#fff;border:1px solid var(--line);border-radius:22px;padding:18px;max-width:520px}
 @media(min-width:680px){.app{padding-top:28px}.grid{grid-template-columns:repeat(4,1fr)}.kcats{grid-template-columns:repeat(4,1fr)}}
 </style>
@@ -32,6 +32,7 @@
 <nav class="tabs" id="tabs" style="display:none">
 <button class="tab active" data-view="home"><i>⌂</i>Главная</button>
 <button class="tab" data-view="study"><i>📚</i>Учёба</button>
+<button class="tab" data-view="ranking"><i>🏆</i>Рейтинг</button>
 <button class="tab" data-view="kulek"><i>🐶</i>Кулёчки</button>
 <button class="tab" data-view="more"><i>•••</i>Ещё</button>
 </nav>
@@ -86,6 +87,33 @@ function paymentCard(p){
  else body+=row('Следующая оплата','Дополнительный платёж сейчас не требуется','закрыто','ok');
  return body;
 }
+function rankingMedal(rank){return rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'#'+rank}
+function rankingHome(r){
+ if(!r||!r.me)return '';
+ var me=r.me,lead=r.leader||null;
+ return '<div class="rank-hero"><div class="rank-top"><div><div class="rank-sub">🏆 Рейтинг курса</div><div class="rank-place">'+rankingMedal(me.rank)+' <span style="font-size:16px">из '+r.student_count+'</span></div><div class="rank-sub">твоё место сейчас</div></div><div><div class="rank-score">'+me.score+'/100</div><div class="rank-sub">общий индекс</div></div></div>'+(lead&&me.rank!==1?'<div class="rank-sub" style="margin-top:12px">Сейчас на 1 месте — '+esc(lead.public_name)+' · '+lead.score+'/100</div>':'<div class="rank-sub" style="margin-top:12px">Ты сейчас на 1 месте 💗</div>')+'</div>';
+}
+function rankingLeaderboard(r,studentId){
+ if(!r)return '<div class="empty">Рейтинг пока не рассчитан.</div>';
+ return '<div class="rank-list">'+(r.items||[]).map(function(x){
+   var mine=Number(x.student_id)===Number(studentId);
+   return '<div class="rank-row '+(mine?'me':'')+'"><div><div class="rank-name">'+rankingMedal(x.rank)+' '+esc(x.public_name)+(mine?' · это ты':'')+'</div><div class="rank-meta">'+(x.rank===1?'лидер курса':'место '+x.rank+' из '+r.student_count)+'</div></div><div class="rank-num">'+x.score+'/100</div></div>';
+ }).join('')+'</div>';
+}
+function rankingBreakdown(r){
+ if(!r||!r.me)return '<div class="empty">Пока недостаточно данных.</div>';
+ var order=['homework','final','attendance','trainers','probnik','practice'];
+ return order.map(function(code){
+   var x=(r.me.components||{})[code];if(!x)return '';
+   var val=x.value==null?'—':x.value+'%';
+   var rank=x.rank?x.rank+' место':'—';
+   return row(esc(x.label),'вес '+x.effective_weight+'% в текущем расчёте',val+' · '+rank,x.rank===1?'ok':'');
+ }).join('');
+}
+function rankingFormula(r){
+ if(!r)return '';
+ return '<div class="rank-formula"><b>Как считается рейтинг</b><br>'+(r.weights||[]).map(function(x){return esc(x.label)+' — '+x.weight+'%'}).join(' · ')+'<br><br>По пробникам учитываются средний балл, участие и рост относительно себя. Если какого-то показателя на курсе ещё не было, его вес перераспределяется между доступными.</div>';
+}
 function discountBlock(d){
  if(!d||!d.monthly_payment)return '';
  var rows=(d.conditions||[]).map(function(x){
@@ -110,7 +138,7 @@ function kulekBlock(k){
  else if((k.remaining||[]).length)rem='<div class="remaining"><b>До полного месяца осталось:</b><br>'+k.remaining.map(function(x){return '• '+esc(x)}).join('<br>')+'</div>';
  var award='';
  if(k.student_of_month){
-   award='<div class="remaining">🏆 <b>Индекс «Ученик месяца»: '+k.student_of_month.score+'/100</b><br>Считается только по твоей стабильности. Общего рейтинга детей нет.'+(k.student_of_month.winner?'<br>🎁 <b>Ты — Ученик месяца! Тебя ждёт подарок от Маши 💗</b>':'')+'</div>';
+   award='<div class="remaining">🏆 <b>Индекс «Ученик месяца»: '+k.student_of_month.score+'/100</b><br>Считается отдельно от общего рейтинга курса.'+(k.student_of_month.winner?'<br>🎁 <b>Ты — Ученик месяца! Тебя ждёт подарок от Маши 💗</b>':'')+'</div>';
  }
  return '<div class="kulek"><div class="khead"><div class="kleft"><img class="kimg" src="/kulechek-mascot.jpg?v=12" alt=""><div><div class="rmain">Мои Кулёчки</div><div class="rsub">За учебный год: '+k.year_total+'</div></div></div><div><div class="kscore">'+k.points+'/'+k.possible+'</div><div class="ksub">за этот месяц</div></div></div><div class="kcats">'+vals.map(function(v){return '<div class="kcat">'+v[0]+'<br><b>'+(v[1]?(v[1].earned+'/'+v[1].total):'—')+'</b></div>'}).join('')+'</div>'+award+rem+'</div>';
 }
@@ -122,6 +150,7 @@ function render(d){
  '<div class="hero"><h1 class="hello">Привет, '+name+'! 💗</h1><div class="course">'+esc(d.student.course)+'</div>'+awardChip+'<div class="progress"><div style="width:'+Math.min(100,coursePct)+'%"></div></div><div class="progressline"><span>Урок '+c.lesson_number+' из '+c.total_lessons+'</span><span>'+c.days_left+' дн. до ЕГЭ</span></div></div>'+
  '<div class="grid"><div class="card"><b>'+m.homework_count+'</b><span>ДЗ сдано в '+esc(d.month_label)+'</span></div><div class="card"><b>'+(m.attendance_total?m.attendance_present+'/'+m.attendance_total:'—')+'</b><span>посещение за месяц</span></div><div class="card"><b>'+m.trainer_sessions+'</b><span>тренировок за месяц</span></div><div class="card"><b>'+(latest?(latest.secondary!=null?latest.secondary:(latest.primary!=null?latest.primary:'—')):'—')+'</b><span>последний пробник</span></div></div>'+
  section('Эта неделя',row('Домашние работы',w.homework_total?w.homework_done+' из '+w.homework_total:'пока нет обязательных',w.homework_total?pct(w.homework_done,w.homework_total)+'%':'')+row('Посещение',w.attendance_total?w.attendance_present+' из '+w.attendance_total:'ещё не отмечено',w.attendance_total?pct(w.attendance_present,w.attendance_total)+'%':'')+row('Тренажёры',w.trainer_sessions+' тренировок'+(w.trainer_accuracy!=null?' · '+w.trainer_accuracy+'%':'')))+
+ rankingHome(d.ranking)+
  kulekBlock(d.kulek)+discountBlock(d.discount)+(overdue?'<div class="section"><div class="list">'+row('Есть незакрытые ДЗ',unfinished+' не выполнено · '+overdue+' просрочено','проверить','danger')+'</div></div>':'')+'</div>';
 
  var study='<div class="view" id="view-study"><div class="top"><div><div class="brand">Моя <span>учёба</span></div><div class="kicker">'+esc(d.month_label)+'</div></div></div>'+
@@ -130,13 +159,15 @@ function render(d){
  section('📝 Пробники',probnikRows(d.probniki),m.probnik_count+' за месяц')+
  section('🧪 Тренажёры',trainerRows(d.trainers),m.trainer_sessions+' за месяц')+'</div>';
 
+ var ranking='<div class="view" id="view-ranking"><div class="top"><div><div class="brand">Рейтинг <span>курса</span></div><div class="kicker">С сентября по текущий день</div></div></div>'+rankingHome(d.ranking)+section('Мои показатели',rankingBreakdown(d.ranking),'по всем критериям')+section('Общий рейтинг',rankingLeaderboard(d.ranking,d.student.id),d.ranking.student_count+' учеников')+rankingFormula(d.ranking)+'</div>';
+
  var history=(d.kulek&&d.kulek.history||[]).slice().reverse().map(function(x){return row(esc(x.month),x.points+' из '+x.possible)}).join('');
  var kulek='<div class="view" id="view-kulek"><div class="top"><div><div class="brand">Мои <span>Кулёчки</span></div><div class="kicker">'+esc(d.month_label)+'</div></div></div>'+kulekBlock(d.kulek)+section('История',history)+'</div>';
 
  var weak=(d.weak_tasks||[]).length?row('Последний пробник','Повтори задания: №'+d.weak_tasks.map(esc).join(', №'),'повторить','warn'):'<div class="empty">По последнему пробнику нулевых заданий нет.</div>';
  var more='<div class="view" id="view-more"><div class="top"><div><div class="brand">Ещё</div><div class="kicker">Всё важное по курсу</div></div></div>'+
  section('💳 Оплата',paymentCard(d.payment))+section('🎥 Записи уроков',recordingsRows(d.recordings),(d.recordings||[]).length+' доступно')+section('🧠 Слабые места',weak)+'</div>';
- app.innerHTML=home+study+kulek+more;tabs.style.display='grid';
+ app.innerHTML=home+study+ranking+kulek+more;tabs.style.display='grid';
 }
 function switchView(name){
  document.querySelectorAll('.view').forEach(function(x){x.classList.toggle('active',x.id==='view-'+name)});
