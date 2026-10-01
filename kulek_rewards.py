@@ -208,6 +208,83 @@ def _discount_late_homework(student, month_key):
     return items
 
 
+def _discount_trainer_progress(student, month_key):
+    """Trainer progress for a month-close discount grace window.
+
+    For September 2026, keep the September trainer set alive through
+    05.10 21:00 and count completed sessions from 01.09 up to that cutoff.
+    This prevents the discount progress from resetting when October begins.
+    """
+    key = _month_key(month_key)
+    row = student_month(int(student[0]), key)
+    if not row:
+        return {"earned": 0, "total": 0, "items": []}
+
+    base_items = ((row.get("categories") or {}).get("trainers") or {}).get("items") or []
+    if key != SEPTEMBER_DISCOUNT_KEY:
+        return {
+            "earned": sum(1 for x in base_items if x.get("earned")),
+            "total": len(base_items),
+            "items": list(base_items),
+        }
+
+    telegram_id = student[5]
+    cutoff = _discount_cutoff(key)
+    start_dt = datetime(2026, 9, 1, 0, 0, tzinfo=bot.TIMEZONE)
+    items = []
+
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        table_names = {
+            str(x[0])
+            for x in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        for item in base_items:
+            code = str(item.get("code") or "")
+            table = TRAINER_TABLES.get(code, f"{code}_sessions")
+            sessions = int(item.get("sessions") or 0)
+            if (
+                telegram_id is not None
+                and cutoff is not None
+                and table in table_names
+                and re.fullmatch(r"[A-Za-z0-9_]+", table)
+            ):
+                try:
+                    sessions = int(
+                        conn.execute(
+                            f"""
+                            SELECT COUNT(*)
+                            FROM {table}
+                            WHERE telegram_user_id=?
+                              AND finished_at IS NOT NULL
+                              AND finished_at>=?
+                              AND finished_at<=?
+                            """,
+                            (
+                                int(telegram_id),
+                                start_dt.isoformat(),
+                                cutoff.isoformat(),
+                            ),
+                        ).fetchone()[0]
+                        or 0
+                    )
+                except sqlite3.OperationalError:
+                    sessions = int(item.get("sessions") or 0)
+
+            copied = dict(item)
+            copied["sessions"] = sessions
+            copied["earned"] = sessions >= 3
+            copied["remaining"] = max(0, 3 - sessions)
+            items.append(copied)
+
+    return {
+        "earned": sum(1 for x in items if x.get("earned")),
+        "total": len(items),
+        "items": items,
+    }
+
+
 def discount_status(student_id, month_key=SEPTEMBER_DISCOUNT_KEY):
     key = _month_key(month_key)
     student = next(
@@ -230,8 +307,9 @@ def discount_status(student_id, month_key=SEPTEMBER_DISCOUNT_KEY):
 
     final_earned = int(categories["final"]["earned"])
     final_total = int(categories["final"]["total"])
-    trainer_earned = int(categories["trainers"]["earned"])
-    trainer_total = int(categories["trainers"]["total"])
+    discount_trainers = _discount_trainer_progress(student, key)
+    trainer_earned = int(discount_trainers["earned"])
+    trainer_total = int(discount_trainers["total"])
     probnik_earned = int(categories["probnik"]["earned"])
     probnik_total = int(categories["probnik"]["total"])
 
@@ -278,7 +356,7 @@ def discount_status(student_id, month_key=SEPTEMBER_DISCOUNT_KEY):
             "done": trainer_earned == trainer_total,
             "missing": [
                 f"{x['title']}: ещё {x['remaining']} попыт."
-                for x in categories["trainers"].get("items") or []
+                for x in discount_trainers.get("items") or []
                 if not x.get("earned")
             ],
         },
