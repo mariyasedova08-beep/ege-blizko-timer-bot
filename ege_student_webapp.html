@@ -126,7 +126,7 @@ function progressRows(p){
  var finals=pair(p.final_previous,p.final_latest,'%');
  var hw=p.homework_on_time_percent==null?'пока нет ДЗ с дедлайном':p.homework_on_time_percent+'% · '+p.homework_on_time_earned+' из '+p.homework_on_time_total;
  var topics=String(p.topics_closed)+(p.topics_total?' из '+p.topics_total:'');
- return row('📝 Пробник','последний прошлого месяца → последний текущего',esc(prob))+
+ return row('📝 Пробник','входной → последний актуальный',esc(prob))+
         row('📚 Итоговые ДЗ','предпоследняя → последняя',esc(finals))+
         row('🏠 ДЗ вовремя',p.homework_on_time_total?'своевременная сдача':'пока без дедлайнов',esc(hw),p.homework_on_time_percent>=80?'ok':'')+
         row('🧪 Тренажёры','за текущий месяц',p.trainer_sessions+' тренировок')+
