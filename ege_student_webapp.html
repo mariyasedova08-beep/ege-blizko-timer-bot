@@ -114,6 +114,22 @@ function rankingFormula(r){
  if(!r)return '';
  return '<div class="rank-formula"><b>Как считается рейтинг</b><br>'+(r.weights||[]).map(function(x){return esc(x.label)+' — '+x.weight+'%'}).join(' · ')+'<br><br>По пробникам учитываются средний балл, участие и рост относительно себя. Если какого-то показателя на курсе ещё не было, его вес перераспределяется между доступными.</div>';
 }
+function progressRows(p){
+ if(!p)return '<div class="empty">Пока недостаточно данных для динамики.</div>';
+ var first=p.probnik_first,latest=p.probnik_latest,prob='пока нет результата';
+ if(latest!=null){
+   if(first!=null&&first!==latest){
+     var delta=Number(latest)-Number(first),sign=delta>0?'+':'';
+     prob=first+' → '+latest+' ('+sign+delta+')';
+   }else prob=latest+' бал.';
+ }
+ var hw=p.homework_on_time_percent==null?'пока нет ДЗ с дедлайном':p.homework_on_time_percent+'% · '+p.homework_on_time_earned+' из '+p.homework_on_time_total;
+ var topics=String(p.topics_closed)+(p.topics_total?' из '+p.topics_total:'');
+ return row('📝 Пробник','динамика за месяц',esc(prob))+
+        row('🏠 ДЗ вовремя',p.homework_on_time_total?'своевременная сдача':'пока без дедлайнов',esc(hw),p.homework_on_time_percent>=80?'ok':'')+
+        row('🧪 Тренажёры','за текущий месяц',p.trainer_sessions+' тренировок')+
+        row('✅ Уже закрыто тем','с начала курса',esc(topics),'ok');
+}
 function discountBlock(d){
  if(!d||!d.monthly_payment)return '';
  var rows=(d.conditions||[]).map(function(x){
@@ -149,6 +165,7 @@ function render(d){
  var home='<div class="view active" id="view-home"><div class="top"><div><div class="brand">ЕГЭ <span>БЛИЗКО</span></div><div class="kicker">Личный кабинет ученика</div></div><div class="avatar">🧪</div></div>'+
  '<div class="hero"><h1 class="hello">Привет, '+name+'! 💗</h1><div class="course">'+esc(d.student.course)+'</div>'+awardChip+'<div class="progress"><div style="width:'+Math.min(100,coursePct)+'%"></div></div><div class="progressline"><span>Урок '+c.lesson_number+' из '+c.total_lessons+'</span><span>'+c.days_left+' дн. до ЕГЭ</span></div></div>'+
  '<div class="grid"><div class="card"><b>'+m.homework_count+'</b><span>ДЗ сдано в '+esc(d.month_label)+'</span></div><div class="card"><b>'+(m.attendance_total?m.attendance_present+'/'+m.attendance_total:'—')+'</b><span>посещение за месяц</span></div><div class="card"><b>'+m.trainer_sessions+'</b><span>тренировок за месяц</span></div><div class="card"><b>'+(latest?(latest.secondary!=null?latest.secondary:(latest.primary!=null?latest.primary:'—')):'—')+'</b><span>последний пробник</span></div></div>'+
+ section('📈 Мой прогресс',progressRows(d.progress),esc(d.month_label))+
  section('Эта неделя',row('Домашние работы',w.homework_total?w.homework_done+' из '+w.homework_total:'пока нет обязательных',w.homework_total?pct(w.homework_done,w.homework_total)+'%':'')+row('Посещение',w.attendance_total?w.attendance_present+' из '+w.attendance_total:'ещё не отмечено',w.attendance_total?pct(w.attendance_present,w.attendance_total)+'%':'')+row('Тренажёры',w.trainer_sessions+' тренировок'+(w.trainer_accuracy!=null?' · '+w.trainer_accuracy+'%':'')))+
  rankingHome(d.ranking)+
  kulekBlock(d.kulek)+discountBlock(d.discount)+(overdue?'<div class="section"><div class="list">'+row('Есть незакрытые ДЗ',unfinished+' не выполнено · '+overdue+' просрочено','проверить','danger')+'</div></div>':'')+'</div>';
