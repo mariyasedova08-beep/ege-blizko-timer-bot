@@ -2503,7 +2503,7 @@ async def breakthrough_prompt_tick(context):
 
 async def monthly_close_tick(context):
     now = datetime.now(bot.TIMEZONE)
-    if now.day != 1 or now.time() < time(12, 0):
+    if now.day != 1 or now.time() < time(9, 0):
         return
     key = previous_month_key(_month_key())
 
@@ -3047,8 +3047,10 @@ def install():
         try:
             await previous_tick(context)
         finally:
-            await breakthrough_prompt_tick(context)
+            # On the 1st, freeze and publish Student of Month first at 09:00,
+            # then ask Maria to choose Breakthrough of Month.
             await monthly_close_tick(context)
+            await breakthrough_prompt_tick(context)
             await discount_draw_tick(context)
 
     live79.live7.friday_trivial_tick = tick
