@@ -3712,7 +3712,7 @@ def install():
 
     current = month_payload(_month_key(), force=True)
     print(
-        "Kulek rewards ready: 
+        "Kulek rewards ready: "
         f"month={current['month']} students={current['student_count']} "
         f"hw={current['homework_opportunities']} final={current['final_opportunities']} "
         f"trainers={current['trainer_opportunities']} probniki={current['probnik_opportunities']} "
