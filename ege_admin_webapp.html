@@ -112,24 +112,27 @@ out+='<div class="section"><div class="section-title"><strong>Быстрые р�
 document.getElementById('app').innerHTML=out;}
 function renderDay(d,title){document.getElementById('app').innerHTML=screenHeader(title,d.weekday+' · '+d.date)+'<div class="section"><div class="section-title"><strong>Расписание</strong></div><div class="list">'+(eventRows(d.events)||'<div class="empty">Событий нет</div>')+'</div></div>';}
 function renderStudents(d){
- var out=screenHeader('Ученики',d.total+' учеников · нажми на карточку для динамики');
- out+='<div class="section-note">Здесь нет рейтинга детей — только реальные показатели и изменение результатов.</div>';
- (d.items||[]).forEach(function(x){
-   var prob=x.probnik_latest==null?'—':fmtScore(x.probnik_latest);
-   var hw=fmtPct(x.homework_percent),att=fmtPct(x.attendance_percent);
-   var tr=x.trainer_accuracy_14d==null?'—':fmtPct(x.trainer_accuracy_14d);
-   out+='<div class="analytics-card" onclick="openView(\'student:'+x.id+'\')">';
-   out+='<div class="student-card-top"><div><div class="student-name">'+esc(x.name)+'</div><div class="student-meta">'+(x.linked?'Telegram подключён':'Telegram не привязан')+'</div></div><span class="badge '+(x.homework_missing?'bad':'ok')+'">'+(x.homework_missing?('долгов '+x.homework_missing):'без долгов')+'</span></div>';
-   out+='<div class="metric-grid">';
-   out+='<div class="metricbox"><b>'+prob+trendHtml(x.probnik_trend,' б.')+'</b><span>последний пробник · '+x.probnik_count+' работ</span></div>';
-   out+='<div class="metricbox"><b>'+hw+trendHtml(x.homework_trend,' п.п.')+'</b><span>обычные ДЗ · '+x.homework_done+'/'+x.homework_total+'</span></div>';
-   out+='<div class="metricbox"><b>'+att+trendHtml(x.attendance_trend,' п.п.')+'</b><span>посещаемость · '+x.attendance_present+'/'+x.attendance_total+'</span></div>';
-   out+='<div class="metricbox"><b>'+tr+trendHtml(x.trainer_trend,' п.п.')+'</b><span>тренажёры за 14 дней · '+x.trainer_sessions_14d+' сесс.</span></div>';
-   out+='</div>';
-   out+='<div class="row-sub" style="margin-top:10px">📚 Итоговые ДЗ: '+x.final_done+'/'+x.final_total+' · открыть динамику →</div>';
+ var r=d.ranking||{},ranked=r.items||[],byId={};
+ (d.items||[]).forEach(function(x){byId[String(x.id)]=x;});
+ var leader=r.leader||null;
+ var out=screenHeader('Рейтинг курса',d.total+' учеников · общий индекс по всем показателям');
+ if(leader){
+   out+='<div class="probnik-summary"><div class="probnik-head"><div><div class="row-title">🥇 Сейчас на 1 месте</div><div class="row-sub">'+esc(leader.name)+'</div></div><div><div class="score-big">'+fmtScore(leader.score)+'</div><div class="score-caption">из 100</div></div></div>';
+   out+='<div class="section-note" style="margin-top:12px">Рейтинг с сентября: ДЗ 20% · итоговые 15% · посещаемость 15% · тренажёры 15% · пробники 25% · работа на уроках 10%. По пробникам учитываются средний балл, участие и рост относительно себя.</div></div>';
+ }
+ ranked.forEach(function(rr){
+   var x=byId[String(rr.student_id)]||{},cc=rr.components||{};
+   function metric(code){
+     var m=cc[code]||{},v=m.value==null?'—':fmtScore(m.value)+'%',place=m.rank?m.rank+' место':'—';
+     return '<div class="metricbox"><b>'+v+'</b><span>'+esc(m.label||code)+' · '+place+'</span></div>';
+   }
+   out+='<div class="analytics-card" onclick="openView(\'student:'+rr.student_id+'\')">';
+   out+='<div class="student-card-top"><div><div class="student-name">'+(rr.rank===1?'🥇 ':rr.rank===2?'🥈 ':rr.rank===3?'🥉 ':'#'+rr.rank+' ')+esc(rr.name)+'</div><div class="student-meta">'+(x.linked?'Telegram подключён':'Telegram не привязан')+' · место '+rr.rank+' из '+r.student_count+'</div></div><div><div class="student-score">'+fmtScore(rr.score)+'</div><div class="score-caption">общий индекс</div></div></div>';
+   out+='<div class="metric-grid">'+metric('homework')+metric('final')+metric('attendance')+metric('trainers')+metric('probnik')+metric('practice')+'</div>';
+   out+='<div class="row-sub" style="margin-top:10px">Нажми → подробная динамика ученика</div>';
    out+='</div>';
  });
- if(!(d.items||[]).length)out+='<div class="list"><div class="empty">Учеников нет</div></div>';
+ if(!ranked.length)out+='<div class="list"><div class="empty">Пока недостаточно данных для рейтинга.</div></div>';
  document.getElementById('app').innerHTML=out;
 }
 function renderStudentDetail(d){
