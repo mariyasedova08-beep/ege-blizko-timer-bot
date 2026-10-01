@@ -2810,6 +2810,69 @@ async def breakthrough_prompt_tick(context):
         )
 
 
+async def announce_breakthrough_course(context, month_key):
+    key = _month_key(month_key)
+    data = month_payload(key, force=True, with_breakthrough=False)
+    winner = data.get("breakthrough_winner")
+    if not winner:
+        print(
+            f"Breakthrough course announce waiting: month={key} winner=none",
+            flush=True,
+        )
+        return False
+
+    chat_id = bot.os.getenv("CHAT_ID")
+    if not chat_id:
+        print(
+            f"Breakthrough course announce skipped: month={key} CHAT_ID missing",
+            flush=True,
+        )
+        return False
+
+    chat_id_int = int(chat_id)
+    kind = "breakthrough_course"
+    if _delivered(key, kind, chat_id_int):
+        return True
+
+    name = html.escape(str(winner["student_name"]))
+    text_value = (
+        f"🚀 <b>ПРОРЫВ {MONTH_NAMES[int(key.split('-')[1])].upper()} — {name}</b> 💗\n\n"
+        "Эта награда не за самый высокий балл, а за самый заметный рост "
+        "относительно самого себя за месяц: по пробникам, домашним работам, "
+        "тренажёрам и работе на уроках.\n\n"
+        "Поздравляем! Сентябрь — только начало. <b>ЕГЭ БЛИЗКО</b> 💗"
+    )
+    kwargs = {
+        "chat_id": chat_id_int,
+        "text": text_value,
+        "parse_mode": "HTML",
+    }
+    thread_id = bot.get_target_thread_id()
+    if thread_id:
+        kwargs["message_thread_id"] = int(thread_id)
+
+    await context.bot.send_message(**kwargs)
+    _mark_delivery(key, kind, chat_id_int)
+    print(
+        f"Breakthrough course announced: month={key} "
+        f"student_id={winner['student_id']} name={winner['student_name']}",
+        flush=True,
+    )
+    return True
+
+
+async def breakthrough_course_announce_tick(context):
+    # One-off September announcement requested by Maria; delivery table prevents duplicates.
+    if datetime.now(bot.TIMEZONE).date() >= date(2026, 10, 1):
+        try:
+            await announce_breakthrough_course(context, "2026-09")
+        except Exception as exc:
+            print(
+                f"Breakthrough course announce failed: {type(exc).__name__}: {exc}",
+                flush=True,
+            )
+
+
 async def monthly_close_tick(context):
     now = datetime.now(bot.TIMEZONE)
     if now.day != 1 or now.time() < time(9, 0):
@@ -3333,6 +3396,14 @@ def install():
             await query.edit_message_text(
                 admin_text(key), parse_mode="HTML", reply_markup=_admin_markup(key)
             )
+            try:
+                await announce_breakthrough_course(context, key)
+            except Exception as exc:
+                print(
+                    f"Breakthrough immediate course announce failed: "
+                    f"{type(exc).__name__}: {exc}",
+                    flush=True,
+                )
             return
 
         if data.startswith("cab:kulek:breakthrough:"):
@@ -3360,6 +3431,7 @@ def install():
             # then ask Maria to choose Breakthrough of Month.
             await monthly_close_tick(context)
             await breakthrough_prompt_tick(context)
+            await breakthrough_course_announce_tick(context)
             await discount_draw_tick(context)
 
     live79.live7.friday_trivial_tick = tick
