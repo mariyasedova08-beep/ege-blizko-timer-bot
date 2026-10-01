@@ -1082,15 +1082,27 @@ def student_progress_snapshot(student_id, month_key=None):
     cats = row.get("categories") or {}
     homework = cats.get("homework") or {}
     trainers = cats.get("trainers") or {}
-    probnik = cats.get("probnik") or {}
 
-    probnik_scores = [
+    # Mock-exam progress compares the latest result from the previous month
+    # with the latest result from the current month. This makes the monthly
+    # trend visible even when the current month has only one mock exam.
+    prev_key = previous_month_key(key)
+    prev_row = student_month(sid, prev_key)
+    prev_probnik = ((prev_row or {}).get("categories") or {}).get("probnik") or {}
+    cur_probnik = cats.get("probnik") or {}
+
+    prev_probnik_scores = [
         float(item["score"])
-        for item in (probnik.get("items") or [])
+        for item in (prev_probnik.get("items") or [])
         if item.get("score") is not None
     ]
-    probnik_first = probnik_scores[0] if probnik_scores else None
-    probnik_latest = probnik_scores[-1] if probnik_scores else None
+    cur_probnik_scores = [
+        float(item["score"])
+        for item in (cur_probnik.get("items") or [])
+        if item.get("score") is not None
+    ]
+    probnik_previous = prev_probnik_scores[-1] if prev_probnik_scores else None
+    probnik_latest = cur_probnik_scores[-1] if cur_probnik_scores else None
 
     hw_earned = int(homework.get("earned") or 0)
     hw_total = int(homework.get("total") or 0)
@@ -1103,6 +1115,7 @@ def student_progress_snapshot(student_id, month_key=None):
 
     topics_closed = 0
     topics_total = 0
+    final_scores = []
     for month in _months_from_course_start(key):
         month_row = student_month(sid, month)
         if not month_row:
@@ -1110,15 +1123,29 @@ def student_progress_snapshot(student_id, month_key=None):
         final_cat = (month_row.get("categories") or {}).get("final") or {}
         topics_closed += int(final_cat.get("earned") or 0)
         topics_total += int(final_cat.get("total") or 0)
+        for item in (final_cat.get("items") or []):
+            value = item.get("result_percent")
+            if value is not None:
+                final_scores.append(float(value))
+
+    final_previous = final_scores[-2] if len(final_scores) >= 2 else None
+    final_latest = final_scores[-1] if final_scores else None
 
     return {
         "month": key,
         "month_label": month_label(key),
-        "probnik_first": round(probnik_first, 1) if probnik_first is not None else None,
+        "probnik_previous": round(probnik_previous, 1) if probnik_previous is not None else None,
         "probnik_latest": round(probnik_latest, 1) if probnik_latest is not None else None,
         "probnik_delta": (
-            round(probnik_latest - probnik_first, 1)
-            if probnik_first is not None and probnik_latest is not None
+            round(probnik_latest - probnik_previous, 1)
+            if probnik_previous is not None and probnik_latest is not None
+            else None
+        ),
+        "final_previous": round(final_previous, 1) if final_previous is not None else None,
+        "final_latest": round(final_latest, 1) if final_latest is not None else None,
+        "final_delta": (
+            round(final_latest - final_previous, 1)
+            if final_previous is not None and final_latest is not None
             else None
         ),
         "homework_on_time_earned": hw_earned,
@@ -1137,24 +1164,32 @@ def _fmt_progress_number(value):
     return str(int(number)) if number.is_integer() else f"{number:g}"
 
 
+def _progress_pair_text(previous, latest, unit=""):
+    if latest is None:
+        return "пока нет результата"
+    if previous is None:
+        suffix = f" {unit}" if unit else ""
+        return f"{_fmt_progress_number(latest)}{suffix}"
+    delta = float(latest) - float(previous)
+    sign = "+" if delta > 0 else ""
+    suffix = f" {unit}" if unit else ""
+    return (
+        f"{_fmt_progress_number(previous)} → {_fmt_progress_number(latest)} "
+        f"({sign}{_fmt_progress_number(delta)}){suffix}"
+    )
+
+
 def student_weekly_progress_text(student_id, month_key=None):
     progress = student_progress_snapshot(student_id, month_key)
     if not progress:
         return None
 
-    first = progress["probnik_first"]
-    latest = progress["probnik_latest"]
-    if latest is None:
-        probnik_line = "пока нет результата"
-    elif first is not None and latest is not None and first != latest:
-        delta = latest - first
-        sign = "+" if delta > 0 else ""
-        probnik_line = (
-            f"{_fmt_progress_number(first)} → {_fmt_progress_number(latest)} "
-            f"({sign}{_fmt_progress_number(delta)})"
-        )
-    else:
-        probnik_line = f"{_fmt_progress_number(latest)} бал."
+    probnik_line = _progress_pair_text(
+        progress["probnik_previous"], progress["probnik_latest"]
+    )
+    final_line = _progress_pair_text(
+        progress["final_previous"], progress["final_latest"], "%"
+    )
 
     hw_percent = progress["homework_on_time_percent"]
     if hw_percent is None:
@@ -1172,6 +1207,7 @@ def student_weekly_progress_text(student_id, month_key=None):
     return (
         f"📈 <b>Твой прогресс · {html.escape(progress['month_label'])}</b>\n\n"
         f"📝 Пробник: <b>{html.escape(probnik_line)}</b>\n"
+        f"📚 Итоговые ДЗ: <b>{html.escape(final_line)}</b>\n"
         f"🏠 ДЗ вовремя: <b>{html.escape(homework_line)}</b>\n"
         f"🧪 Тренажёры: <b>{progress['trainer_sessions']} тренировок</b>\n"
         f"✅ Уже закрыто тем: <b>{html.escape(topics)}</b>\n\n"
