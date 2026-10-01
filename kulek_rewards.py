@@ -36,6 +36,7 @@ live56 = live79.live56
 BUTTON = "🐶 Кулёчки"
 _INSTALLED = False
 _CACHE = {}
+_RANKING_CACHE = {"at": 0.0, "key": "", "data": None}
 
 TRAINER_TABLES = {
     "trivial": "trivial_sessions",
@@ -1068,6 +1069,314 @@ def student_year_total(student_id, until_key=None):
         total += int(row["points"])
         history.append({"month": month, "points": int(row["points"]), "possible": int(row["possible"])})
     return total, history
+
+
+COURSE_RANKING_WEIGHTS = {
+    "homework": 20.0,
+    "final": 15.0,
+    "attendance": 15.0,
+    "trainers": 15.0,
+    "probnik": 25.0,
+    "practice": 10.0,
+}
+
+COURSE_RANKING_LABELS = {
+    "homework": "🏠 ДЗ вовремя",
+    "final": "📚 Итоговые 80%+",
+    "attendance": "🎓 Посещаемость",
+    "trainers": "🧪 Тренажёры",
+    "probnik": "📝 Пробники",
+    "practice": "👩‍🏫 Работа на уроках",
+}
+
+
+def _public_student_name(name):
+    parts = [x for x in str(name or "").strip().split() if x]
+    if not parts:
+        return "Ученик"
+    if len(parts) == 1:
+        return parts[0]
+    return f"{parts[0]} {parts[1][0]}."
+
+
+def _percent_value(earned, total):
+    if not total:
+        return None
+    return max(0.0, min(100.0, 100.0 * float(earned) / float(total)))
+
+
+def course_ranking(until_key=None, force=False):
+    """Live course leaderboard from Sep 2026 through the selected/current month.
+
+    Overall index uses every major course signal:
+    ordinary HW on time 20%, final HW >=80% 15%, attendance 15%,
+    trainer norms 15%, mock exams 25%, practical lesson awards 10%.
+    Missing course-wide categories have their weight redistributed.
+    """
+    key = _month_key(until_key)
+    now = datetime.now(bot.TIMEZONE)
+    cached = _RANKING_CACHE.get("data")
+    if (
+        not force
+        and cached is not None
+        and _RANKING_CACHE.get("key") == key
+        and now.timestamp() - float(_RANKING_CACHE.get("at") or 0) < 20
+    ):
+        return json.loads(json.dumps(cached, ensure_ascii=False))
+
+    months = _months_from_course_start(key)
+    month_data = {
+        month: month_payload(month, with_breakthrough=False)
+        for month in months
+    }
+    students = _student_rows()
+
+    aggregates = {}
+    for student in students:
+        sid = int(student[0])
+        aggregates[sid] = {
+            "student_id": sid,
+            "name": live34._shown_name(student),
+            "public_name": _public_student_name(live34._shown_name(student)),
+            "homework_earned": 0,
+            "homework_total": 0,
+            "final_earned": 0,
+            "final_total": 0,
+            "trainer_earned": 0,
+            "trainer_total": 0,
+            "practice_earned": 0,
+            "practice_total": 0,
+            "attendance_earned": 0,
+            "attendance_total": 0,
+            "probnik_scores": [],
+            "probnik_written": 0,
+            "probnik_total": 0,
+        }
+
+    for month in months:
+        data = month_data[month]
+        by_id = {int(x["id"]): x for x in data["students"]}
+        for sid, agg in aggregates.items():
+            row = by_id.get(sid)
+            if not row:
+                continue
+            cats = row["categories"]
+            agg["homework_earned"] += int(cats["homework"]["earned"])
+            agg["homework_total"] += int(cats["homework"]["total"])
+            agg["final_earned"] += int(cats["final"]["earned"])
+            agg["final_total"] += int(cats["final"]["total"])
+            agg["trainer_earned"] += int(cats["trainers"]["earned"])
+            agg["trainer_total"] += int(cats["trainers"]["total"])
+            agg["practice_earned"] += int(cats["practice"]["earned"])
+            agg["practice_total"] += int(cats["practice"]["total"])
+
+            pitems = cats["probnik"].get("items") or []
+            agg["probnik_total"] += int(cats["probnik"]["total"])
+            for item in pitems:
+                if item.get("score") is not None:
+                    agg["probnik_scores"].append(float(item["score"]))
+                    agg["probnik_written"] += 1
+
+            present, total = _attendance_month(sid, month)
+            agg["attendance_earned"] += int(present)
+            agg["attendance_total"] += int(total)
+
+    items = []
+    for sid, agg in aggregates.items():
+        components = {
+            "homework": _percent_value(
+                agg["homework_earned"], agg["homework_total"]
+            ),
+            "final": _percent_value(
+                agg["final_earned"], agg["final_total"]
+            ),
+            "attendance": _percent_value(
+                agg["attendance_earned"], agg["attendance_total"]
+            ),
+            "trainers": _percent_value(
+                agg["trainer_earned"], agg["trainer_total"]
+            ),
+            "practice": _percent_value(
+                agg["practice_earned"], agg["practice_total"]
+            ),
+        }
+
+        scores = list(agg["probnik_scores"])
+        probnik_value = None
+        probnik_detail = {
+            "written": agg["probnik_written"],
+            "total": agg["probnik_total"],
+            "average": None,
+            "progress": None,
+            "participation": _percent_value(
+                agg["probnik_written"], agg["probnik_total"]
+            ),
+        }
+        if agg["probnik_total"]:
+            participation = probnik_detail["participation"] or 0.0
+            if scores:
+                average = sum(scores) / len(scores)
+                probnik_detail["average"] = round(average, 1)
+                if len(scores) >= 2:
+                    delta = scores[-1] - scores[0]
+                    progress = max(0.0, min(100.0, 50.0 + delta * 2.5))
+                    probnik_detail["progress"] = round(delta, 1)
+                    probnik_value = (
+                        0.50 * average
+                        + 0.30 * participation
+                        + 0.20 * progress
+                    )
+                else:
+                    probnik_value = 0.70 * average + 0.30 * participation
+            else:
+                probnik_value = 0.0
+        components["probnik"] = (
+            max(0.0, min(100.0, probnik_value))
+            if probnik_value is not None
+            else None
+        )
+
+        available = [
+            code for code, value in components.items()
+            if value is not None
+        ]
+        available_weight = sum(
+            COURSE_RANKING_WEIGHTS[code] for code in available
+        )
+        score = 0.0
+        component_payload = {}
+        for code in COURSE_RANKING_WEIGHTS:
+            value = components.get(code)
+            effective_weight = (
+                100.0 * COURSE_RANKING_WEIGHTS[code] / available_weight
+                if value is not None and available_weight
+                else 0.0
+            )
+            detail = {}
+            if code == "homework":
+                detail = {
+                    "earned": agg["homework_earned"],
+                    "total": agg["homework_total"],
+                }
+            elif code == "final":
+                detail = {
+                    "earned": agg["final_earned"],
+                    "total": agg["final_total"],
+                }
+            elif code == "attendance":
+                detail = {
+                    "earned": agg["attendance_earned"],
+                    "total": agg["attendance_total"],
+                }
+            elif code == "trainers":
+                detail = {
+                    "earned": agg["trainer_earned"],
+                    "total": agg["trainer_total"],
+                }
+            elif code == "practice":
+                detail = {
+                    "earned": agg["practice_earned"],
+                    "total": agg["practice_total"],
+                }
+            elif code == "probnik":
+                detail = probnik_detail
+            component_payload[code] = {
+                "label": COURSE_RANKING_LABELS[code],
+                "value": round(value, 1) if value is not None else None,
+                "base_weight": COURSE_RANKING_WEIGHTS[code],
+                "effective_weight": round(effective_weight, 1),
+                "detail": detail,
+            }
+            if value is not None and available_weight:
+                score += value * COURSE_RANKING_WEIGHTS[code] / available_weight
+
+        items.append({
+            "student_id": sid,
+            "name": agg["name"],
+            "public_name": agg["public_name"],
+            "score": round(score, 1),
+            "components": component_payload,
+        })
+
+    items.sort(
+        key=lambda x: (
+            -float(x["score"]),
+            -(x["components"]["homework"]["value"] or -1),
+            -(x["components"]["probnik"]["value"] or -1),
+            x["name"].casefold(),
+        )
+    )
+    for index, item in enumerate(items, 1):
+        item["rank"] = index
+
+    for code in COURSE_RANKING_WEIGHTS:
+        ranked = sorted(
+            [x for x in items if x["components"][code]["value"] is not None],
+            key=lambda x: (
+                -float(x["components"][code]["value"]),
+                -float(x["score"]),
+                x["name"].casefold(),
+            ),
+        )
+        for index, item in enumerate(ranked, 1):
+            item["components"][code]["rank"] = index
+        for item in items:
+            item["components"][code].setdefault("rank", None)
+
+    payload = {
+        "course_start": "2026-09",
+        "through": key,
+        "student_count": len(items),
+        "weights": [
+            {
+                "code": code,
+                "label": COURSE_RANKING_LABELS[code],
+                "weight": weight,
+            }
+            for code, weight in COURSE_RANKING_WEIGHTS.items()
+        ],
+        "items": items,
+        "leader": items[0] if items else None,
+        "generated_at": now.isoformat(),
+    }
+    _RANKING_CACHE["at"] = now.timestamp()
+    _RANKING_CACHE["key"] = key
+    _RANKING_CACHE["data"] = payload
+    return json.loads(json.dumps(payload, ensure_ascii=False))
+
+
+def student_course_ranking(student_id, until_key=None):
+    sid = int(student_id)
+    data = course_ranking(until_key)
+    own = next(
+        (x for x in data["items"] if int(x["student_id"]) == sid),
+        None,
+    )
+    return {
+        "course_start": data["course_start"],
+        "through": data["through"],
+        "student_count": data["student_count"],
+        "weights": data["weights"],
+        "leader": (
+            {
+                "rank": data["leader"]["rank"],
+                "public_name": data["leader"]["public_name"],
+                "score": data["leader"]["score"],
+            }
+            if data.get("leader") else None
+        ),
+        "me": own,
+        "items": [
+            {
+                "rank": x["rank"],
+                "student_id": x["student_id"],
+                "public_name": x["public_name"],
+                "score": x["score"],
+            }
+            for x in data["items"]
+        ],
+        "generated_at": data["generated_at"],
+    }
 
 
 def _probnik_scores_for_student(student_id, month_key):
