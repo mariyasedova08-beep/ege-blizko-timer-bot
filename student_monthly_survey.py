@@ -431,54 +431,11 @@ def _build(self):
     return app
 
 
-def _temporary_analysis_snapshot():
-    key = "student_feedback_2026_10_01"
-    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        delivered = conn.execute(
-            "SELECT count(*) c FROM student_survey_deliveries WHERE survey_key=? AND status='sent'",
-            (key,),
-        ).fetchone()["c"]
-        started = conn.execute(
-            "SELECT count(*) c FROM student_survey_sessions WHERE survey_key=?",
-            (key,),
-        ).fetchone()["c"]
-        completed = conn.execute(
-            "SELECT count(*) c FROM student_survey_sessions WHERE survey_key=? AND completed_at IS NOT NULL",
-            (key,),
-        ).fetchone()["c"]
-        rows = conn.execute(
-            "SELECT telegram_user_id,question_key,answer_code,answer_text "
-            "FROM student_survey_answers WHERE survey_key=? "
-            "ORDER BY telegram_user_id,answered_at",
-            (key,),
-        ).fetchall()
-    ids = {}
-    data = []
-    for row in rows:
-        uid = int(row["telegram_user_id"])
-        if uid not in ids:
-            ids[uid] = len(ids) + 1
-        data.append((
-            ids[uid],
-            str(row["question_key"] or ""),
-            str(row["answer_code"] or ""),
-            str(row["answer_text"] or ""),
-        ))
-    print(
-        "SURVEY_ANALYSIS_SNAPSHOT "
-        f"delivered={delivered} started={started} completed={completed} "
-        f"answers={data!r}",
-        flush=True,
-    )
-
-
 def install():
     global _original_build, _installed
     if _installed:
         return
     ensure_tables()
-    _temporary_analysis_snapshot()
     _patch_cabinet()
     _original_build = ApplicationBuilder.build
     ApplicationBuilder.build = _build
