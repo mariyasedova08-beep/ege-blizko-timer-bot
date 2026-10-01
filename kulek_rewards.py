@@ -213,7 +213,8 @@ def _discount_trainer_progress(student, month_key):
 
     For September 2026, keep the September trainer set alive through
     05.10 21:00 and count completed sessions from 01.09 up to that cutoff.
-    This prevents the discount progress from resetting when October begins.
+    Match historical sessions by current Telegram ID and, when available,
+    by stored Telegram username/name so relinks do not erase September credit.
     """
     key = _month_key(month_key)
     row = student_month(int(student[0]), key)
@@ -228,12 +229,26 @@ def _discount_trainer_progress(student, month_key):
             "items": list(base_items),
         }
 
+    sid = int(student[0])
     telegram_id = student[5]
     cutoff = _discount_cutoff(key)
     start_dt = datetime(2026, 9, 1, 0, 0, tzinfo=bot.TIMEZONE)
     items = []
 
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        identity = conn.execute(
+            """
+            SELECT telegram_username,user_name,display_name
+            FROM students
+            WHERE id=?
+            """,
+            (sid,),
+        ).fetchone()
+        tg_username = str((identity or [None])[0] or "").strip().lstrip("@").casefold()
+        user_name = str((identity or [None, None])[1] or "").strip().casefold()
+        display_name = str((identity or [None, None, None])[2] or "").strip().casefold()
+        name_candidates = {x for x in (user_name, display_name) if x}
+
         table_names = {
             str(x[0])
             for x in conn.execute(
@@ -245,30 +260,47 @@ def _discount_trainer_progress(student, month_key):
             table = TRAINER_TABLES.get(code, f"{code}_sessions")
             sessions = int(item.get("sessions") or 0)
             if (
-                telegram_id is not None
-                and cutoff is not None
+                cutoff is not None
                 and table in table_names
                 and re.fullmatch(r"[A-Za-z0-9_]+", table)
             ):
                 try:
-                    sessions = int(
-                        conn.execute(
-                            f"""
-                            SELECT COUNT(*)
-                            FROM {table}
-                            WHERE telegram_user_id=?
-                              AND finished_at IS NOT NULL
-                              AND finished_at>=?
-                              AND finished_at<=?
-                            """,
-                            (
-                                int(telegram_id),
-                                start_dt.isoformat(),
-                                cutoff.isoformat(),
-                            ),
-                        ).fetchone()[0]
-                        or 0
-                    )
+                    columns = {
+                        str(x[1])
+                        for x in conn.execute(f"PRAGMA table_info({table})").fetchall()
+                    }
+                    identity_clauses = []
+                    params = []
+                    if telegram_id is not None and "telegram_user_id" in columns:
+                        identity_clauses.append("telegram_user_id=?")
+                        params.append(int(telegram_id))
+                    if tg_username and "telegram_username" in columns:
+                        identity_clauses.append(
+                            "lower(ltrim(coalesce(telegram_username,''),'@'))=?"
+                        )
+                        params.append(tg_username)
+                    if name_candidates and "telegram_name" in columns:
+                        placeholders = ",".join("?" for _ in name_candidates)
+                        identity_clauses.append(
+                            f"lower(trim(coalesce(telegram_name,''))) IN ({placeholders})"
+                        )
+                        params.extend(sorted(name_candidates))
+
+                    if identity_clauses:
+                        sessions = int(
+                            conn.execute(
+                                f"""
+                                SELECT COUNT(*)
+                                FROM {table}
+                                WHERE ({' OR '.join(identity_clauses)})
+                                  AND finished_at IS NOT NULL
+                                  AND finished_at>=?
+                                  AND finished_at<=?
+                                """,
+                                (*params, start_dt.isoformat(), cutoff.isoformat()),
+                            ).fetchone()[0]
+                            or 0
+                        )
                 except sqlite3.OperationalError:
                     sessions = int(item.get("sessions") or 0)
 
@@ -283,7 +315,6 @@ def _discount_trainer_progress(student, month_key):
         "total": len(items),
         "items": items,
     }
-
 
 def discount_status(student_id, month_key=SEPTEMBER_DISCOUNT_KEY):
     key = _month_key(month_key)
