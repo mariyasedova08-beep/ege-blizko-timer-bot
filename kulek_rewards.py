@@ -1083,26 +1083,21 @@ def student_progress_snapshot(student_id, month_key=None):
     homework = cats.get("homework") or {}
     trainers = cats.get("trainers") or {}
 
-    # Mock-exam progress compares the latest result from the previous month
-    # with the latest result from the current month. This makes the monthly
-    # trend visible even when the current month has only one mock exam.
-    prev_key = previous_month_key(key)
-    prev_row = student_month(sid, prev_key)
-    prev_probnik = ((prev_row or {}).get("categories") or {}).get("probnik") or {}
-    cur_probnik = cats.get("probnik") or {}
+    # Mock-exam progress always compares the entrance diagnostic
+    # (the first available mock score from the course start) with the latest
+    # available mock score up to the selected month.
+    all_probnik_scores = []
+    for month in _months_from_course_start(key):
+        month_row = student_month(sid, month)
+        if not month_row:
+            continue
+        probnik_cat = (month_row.get("categories") or {}).get("probnik") or {}
+        for item in (probnik_cat.get("items") or []):
+            if item.get("score") is not None:
+                all_probnik_scores.append(float(item["score"]))
 
-    prev_probnik_scores = [
-        float(item["score"])
-        for item in (prev_probnik.get("items") or [])
-        if item.get("score") is not None
-    ]
-    cur_probnik_scores = [
-        float(item["score"])
-        for item in (cur_probnik.get("items") or [])
-        if item.get("score") is not None
-    ]
-    probnik_previous = prev_probnik_scores[-1] if prev_probnik_scores else None
-    probnik_latest = cur_probnik_scores[-1] if cur_probnik_scores else None
+    probnik_previous = all_probnik_scores[0] if all_probnik_scores else None
+    probnik_latest = all_probnik_scores[-1] if all_probnik_scores else None
 
     hw_earned = int(homework.get("earned") or 0)
     hw_total = int(homework.get("total") or 0)
