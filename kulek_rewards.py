@@ -3687,9 +3687,32 @@ def install():
 
     live79.live7.friday_trivial_tick = tick
 
+    # TEMP diagnostic: inspect September discount trainer carry-over.
+    try:
+        for _student in _student_rows():
+            _sid = int(_student[0])
+            _name = live34._shown_name(_student)
+            _status = discount_status(_sid, SEPTEMBER_DISCOUNT_KEY)
+            if not _status:
+                continue
+            _trainer = next(
+                (x for x in _status.get("conditions", []) if x.get("code") == "trainers"),
+                None,
+            )
+            _detail = _discount_trainer_progress(_student, SEPTEMBER_DISCOUNT_KEY)
+            print(
+                "SEP_DISCOUNT_TRAINER_DIAG "
+                f"sid={_sid} name={_name!r} "
+                f"earned={(_trainer or {}).get('earned')}/{(_trainer or {}).get('total')} "
+                f"items={[(x.get('code'), x.get('sessions'), x.get('earned')) for x in _detail.get('items', [])]}",
+                flush=True,
+            )
+    except Exception as exc:
+        print(f"SEP_DISCOUNT_TRAINER_DIAG failed: {type(exc).__name__}: {exc}", flush=True)
+
     current = month_payload(_month_key(), force=True)
     print(
-        "Kulek rewards ready: "
+        "Kulek rewards ready: 
         f"month={current['month']} students={current['student_count']} "
         f"hw={current['homework_opportunities']} final={current['final_opportunities']} "
         f"trainers={current['trainer_opportunities']} probniki={current['probnik_opportunities']} "
