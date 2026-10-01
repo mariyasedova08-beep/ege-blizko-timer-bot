@@ -35,7 +35,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20260923-14"
+WEBAPP_BUILD = "20261001-course-ranking-1"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 MASCOT_PATH = Path(__file__).with_name("kulechek_mascot.jpg")
 _INSTALLED = False
@@ -1198,6 +1198,7 @@ def _view(name):
             "total": data["total"],
             "linked": data["linked"],
             "generated_at": data["generated_at"],
+            "ranking": kulek_rewards.course_ranking(),
         }
     if name.startswith("student:"):
         detail = _student_detail_payload(name.split(":", 1)[1])
