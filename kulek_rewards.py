@@ -1970,7 +1970,11 @@ def admin_text(month_key=None):
 
     month_candidates = student_of_month_candidates(key)
     if month_candidates:
-        lines.extend(["", "🏆 <b>Ученик месяца — объективный индекс</b>"])
+        lines.extend([
+            "",
+            "📊 <b>Топ-3 по индексу стабильности</b>",
+            "<i>Это кандидаты для расчёта, а не три «Ученика месяца».</i>",
+        ])
         for item in month_candidates[:3]:
             lines.append(
                 f"• {html.escape(item['name'])} — <b>{item['score']:g}/100</b>"
