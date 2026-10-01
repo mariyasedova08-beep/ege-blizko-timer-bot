@@ -1071,6 +1071,114 @@ def student_year_total(student_id, until_key=None):
     return total, history
 
 
+def student_progress_snapshot(student_id, month_key=None):
+    """Compact, student-facing progress snapshot for cabinet and weekly DM."""
+    sid = int(student_id)
+    key = _month_key(month_key)
+    row = student_month(sid, key)
+    if not row:
+        return None
+
+    cats = row.get("categories") or {}
+    homework = cats.get("homework") or {}
+    trainers = cats.get("trainers") or {}
+    probnik = cats.get("probnik") or {}
+
+    probnik_scores = [
+        float(item["score"])
+        for item in (probnik.get("items") or [])
+        if item.get("score") is not None
+    ]
+    probnik_first = probnik_scores[0] if probnik_scores else None
+    probnik_latest = probnik_scores[-1] if probnik_scores else None
+
+    hw_earned = int(homework.get("earned") or 0)
+    hw_total = int(homework.get("total") or 0)
+    hw_percent = round(100 * hw_earned / hw_total) if hw_total else None
+
+    trainer_sessions = sum(
+        int(item.get("sessions") or 0)
+        for item in (trainers.get("items") or [])
+    )
+
+    topics_closed = 0
+    topics_total = 0
+    for month in _months_from_course_start(key):
+        month_row = student_month(sid, month)
+        if not month_row:
+            continue
+        final_cat = (month_row.get("categories") or {}).get("final") or {}
+        topics_closed += int(final_cat.get("earned") or 0)
+        topics_total += int(final_cat.get("total") or 0)
+
+    return {
+        "month": key,
+        "month_label": month_label(key),
+        "probnik_first": round(probnik_first, 1) if probnik_first is not None else None,
+        "probnik_latest": round(probnik_latest, 1) if probnik_latest is not None else None,
+        "probnik_delta": (
+            round(probnik_latest - probnik_first, 1)
+            if probnik_first is not None and probnik_latest is not None
+            else None
+        ),
+        "homework_on_time_earned": hw_earned,
+        "homework_on_time_total": hw_total,
+        "homework_on_time_percent": hw_percent,
+        "trainer_sessions": trainer_sessions,
+        "topics_closed": topics_closed,
+        "topics_total": topics_total,
+    }
+
+
+def _fmt_progress_number(value):
+    if value is None:
+        return "—"
+    number = float(value)
+    return str(int(number)) if number.is_integer() else f"{number:g}"
+
+
+def student_weekly_progress_text(student_id, month_key=None):
+    progress = student_progress_snapshot(student_id, month_key)
+    if not progress:
+        return None
+
+    first = progress["probnik_first"]
+    latest = progress["probnik_latest"]
+    if latest is None:
+        probnik_line = "пока нет результата"
+    elif first is not None and latest is not None and first != latest:
+        delta = latest - first
+        sign = "+" if delta > 0 else ""
+        probnik_line = (
+            f"{_fmt_progress_number(first)} → {_fmt_progress_number(latest)} "
+            f"({sign}{_fmt_progress_number(delta)})"
+        )
+    else:
+        probnik_line = f"{_fmt_progress_number(latest)} бал."
+
+    hw_percent = progress["homework_on_time_percent"]
+    if hw_percent is None:
+        homework_line = "пока нет ДЗ с дедлайном"
+    else:
+        homework_line = (
+            f"{hw_percent}% "
+            f"({progress['homework_on_time_earned']} из {progress['homework_on_time_total']})"
+        )
+
+    topics = str(progress["topics_closed"])
+    if progress["topics_total"]:
+        topics += f" из {progress['topics_total']}"
+
+    return (
+        f"📈 <b>Твой прогресс · {html.escape(progress['month_label'])}</b>\n\n"
+        f"📝 Пробник: <b>{html.escape(probnik_line)}</b>\n"
+        f"🏠 ДЗ вовремя: <b>{html.escape(homework_line)}</b>\n"
+        f"🧪 Тренажёры: <b>{progress['trainer_sessions']} тренировок</b>\n"
+        f"✅ Уже закрыто тем: <b>{html.escape(topics)}</b>\n\n"
+        "Это не рейтинг с другими — это твой собственный прогресс 💗"
+    )
+
+
 COURSE_RANKING_WEIGHTS = {
     "homework": 20.0,
     "final": 15.0,
@@ -3004,6 +3112,39 @@ async def monthly_close_tick(context):
             )
 
 
+async def weekly_progress_tick(context):
+    """Send each linked student a month-to-date progress card every Sunday at 19:00."""
+    now = datetime.now(bot.TIMEZONE)
+    if now.weekday() != 6 or now.time() < time(19, 0):
+        return
+
+    month_key = _month_key()
+    week_key = now.strftime("%G-W%V")
+    kind = f"weekly_progress:{week_key}"
+
+    for student in _student_rows():
+        sid = int(student[0])
+        telegram_id = student[5]
+        if telegram_id is None or _delivered(month_key, kind, int(telegram_id)):
+            continue
+        text_value = student_weekly_progress_text(sid, month_key)
+        if not text_value:
+            continue
+        try:
+            await context.bot.send_message(
+                chat_id=int(telegram_id),
+                text=text_value,
+                parse_mode="HTML",
+            )
+            _mark_delivery(month_key, kind, int(telegram_id))
+        except Exception as exc:
+            print(
+                f"Weekly progress delivery failed sid={sid} "
+                f"error={type(exc).__name__}: {exc}",
+                flush=True,
+            )
+
+
 async def discount_draw_tick(context):
     now = datetime.now(bot.TIMEZONE)
     if now.date() != date(2026, 10, 5) or now.time() < time(21, 5):
@@ -3432,6 +3573,7 @@ def install():
             await monthly_close_tick(context)
             await breakthrough_prompt_tick(context)
             await breakthrough_course_announce_tick(context)
+            await weekly_progress_tick(context)
             await discount_draw_tick(context)
 
     live79.live7.friday_trivial_tick = tick
