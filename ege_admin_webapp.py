@@ -35,7 +35,7 @@ WEBAPP_URL = os.getenv(
     "EGE_ADMIN_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/admin-app" if PUBLIC_DOMAIN else "",
 ).strip()
-WEBAPP_BUILD = "20261001-course-ranking-1"
+WEBAPP_BUILD = "20261001-kulek-history-1"
 HTML_PATH = Path(__file__).with_name("ege_admin_webapp.html")
 MASCOT_PATH = Path(__file__).with_name("kulechek_mascot.jpg")
 _INSTALLED = False
@@ -1120,6 +1120,7 @@ def _home():
     probniki = _probnik_payload()
     final_hw = _final_homework_payload()
     kulek = _kulek_payload()
+    previous_kulek = _kulek_payload(kulek["previous_month"])
 
     lesson_number = bot.get_course_lesson_number(today)
     percent = round(100 * lesson_number / bot.TOTAL_LESSONS) if bot.TOTAL_LESSONS else 0
@@ -1171,6 +1172,16 @@ def _home():
             "student_count": kulek["student_count"],
             "student_of_month_leader": kulek.get("student_of_month_leader"),
             "student_of_month_winner": kulek.get("student_of_month_winner"),
+        },
+        "previous_kulek": {
+            "month": previous_kulek["month"],
+            "label": previous_kulek["label"],
+            "total_points": previous_kulek["total_points"],
+            "full_objective_count": previous_kulek["full_objective_count"],
+            "eligible_draw_count": previous_kulek["eligible_draw_count"],
+            "student_count": previous_kulek["student_count"],
+            "student_of_month_leader": previous_kulek.get("student_of_month_leader"),
+            "student_of_month_winner": previous_kulek.get("student_of_month_winner"),
         },
     }
 
