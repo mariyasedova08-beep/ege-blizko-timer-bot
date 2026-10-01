@@ -37,7 +37,7 @@ STUDENT_WEBAPP_URL = os.getenv(
     "EGE_STUDENT_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/student-app" if PUBLIC_DOMAIN else "",
 ).strip()
-STUDENT_WEBAPP_BUILD = "20261001-course-ranking-1"
+STUDENT_WEBAPP_BUILD = "20261001-weekly-progress-1"
 HTML_PATH = Path(__file__).with_name("ege_student_webapp.html")
 _INSTALLED = False
 _previous_get = None
@@ -459,6 +459,7 @@ def _payload(telegram_user_id):
         "awards": _student_month_awards(int(student[0])),
         "discount": kulek_rewards.active_discount_status(int(student[0])),
         "ranking": kulek_rewards.student_course_ranking(int(student[0])),
+        "progress": kulek_rewards.student_progress_snapshot(int(student[0])),
         "payment": _payment(telegram_user_id),
         "recordings": _recordings(),
         "weak_tasks": weak,
