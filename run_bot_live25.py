@@ -41,7 +41,10 @@ def ensure_lesson_day_before_table():
 
 
 def _lesson_time(lesson_date):
-    # Понедельник/среда — 18:30; воскресенье и специальная суббота — 10:00.
+    # Разовый перенос: воскресенье 04.10 — раньше обычного, в 08:40.
+    if lesson_date.isoformat() == "2026-10-04":
+        return "08:40"
+    # Понедельник/среда — 18:30; остальные воскресные/спец. субботние — 10:00.
     return "18:30" if lesson_date.weekday() in {0, 2} else "10:00"
 
 
@@ -90,8 +93,15 @@ def _lesson_message(lesson_number, lesson_date, lesson_time):
     if safe_passcode:
         zoom_lines.append(f"Код доступа: <b>{safe_passcode}</b>")
 
+    special_notice = (
+        "⏰ <b>ВАЖНО: завтра урок НЕ в 10:00, а в 08:40!</b>\n\n"
+        if lesson_date.isoformat() == "2026-10-04"
+        else ""
+    )
+
     return (
-        "💁‍♀️💁‍♀️💁‍♀️\n"
+        special_notice
+        + "💁‍♀️💁‍♀️💁‍♀️\n"
         f"В <b>{weekday} {date_text}</b> в <b>{lesson_time}</b> будет проходить ❤️ "
         f"<b>урок №{lesson_number} на платформе ZOOM!</b>\n\n"
         "📌 <b>На уроке у вас должны присутствовать:</b>\n"
