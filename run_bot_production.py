@@ -70,6 +70,9 @@ def main():
     live90.live79.live28.ensure_unanswered_reminder_tables()
     live90.live79.live31.live30.live3.ensure_attendance_tables()
     live90.live79.live31.live30.ensure_auto_attendance_table()
+
+    import attendance_correction_20260930
+    attendance_correction_20260930.seed()
     live90.live79.live31.ensure_personal_homework_reminder_table()
     live90.live79.live17.ensure_acid_tables()
     live90.live79.live24.live18.ensure_acid_reminder_table()
