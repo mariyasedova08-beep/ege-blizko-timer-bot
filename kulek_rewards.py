@@ -2674,8 +2674,11 @@ def _admin_markup(month_key=None):
     ]
     if key < _month_key():
         rows.append([InlineKeyboardButton("🎲 Рандомайзер скидки 5%", callback_data=f"cab:kulek:draw:{key}")])
+        rows.append([InlineKeyboardButton("🔎 Почему не прошли в розыгрыш", callback_data=f"cab:kulek:audit:{key}")])
     else:
         rows.append([InlineKeyboardButton("🎁 Кто сейчас проходит в розыгрыш", callback_data=f"cab:kulek:eligible:{key}")])
+        if key == SEPTEMBER_DISCOUNT_KEY:
+            rows.append([InlineKeyboardButton("🔎 Почему не прошли в розыгрыш", callback_data=f"cab:kulek:audit:{key}")])
     prev = previous_month_key(key)
     rows.append([
         InlineKeyboardButton("← месяц", callback_data=f"cab:kulek:month:{prev}"),
@@ -2848,6 +2851,68 @@ def _eligible_text(month_key):
     else:
         lines.append("Пока никто не выполнил все условия.")
     return "\n".join(lines)
+def _discount_audit_text(month_key):
+    key = _month_key(month_key)
+    lines = [
+        f"🔎 <b>Почему не прошли в розыгрыш — {month_label(key)}</b>",
+        "",
+        "Статус считается по тем же данным, что и сам розыгрыш.",
+        "",
+    ]
+    pool = {int(x["id"]): x for x in discount_draw_pool(key)}
+    students = []
+    for student in _student_rows():
+        sid = int(student[0])
+        status = discount_status(sid, key)
+        students.append((live34._shown_name(student), sid, status))
+    students.sort(key=lambda x: x[0].casefold())
+
+    for name, sid, status in students:
+        safe_name = html.escape(name)
+        if not status:
+            lines.extend([
+                f"<b>{safe_name}</b>",
+                "❌ Нет данных для расчёта.",
+                "",
+            ])
+            continue
+
+        if status.get("eligible"):
+            number = pool.get(sid, {}).get("number")
+            suffix = f" · №{number}" if number is not None else ""
+            lines.extend([
+                f"<b>{safe_name}</b>",
+                f"✅ Прошёл(а) в розыгрыш{suffix}.",
+                "",
+            ])
+            continue
+
+        lines.append(f"<b>{safe_name}</b>")
+        if not status.get("monthly_payment"):
+            lines.append("❌ Не помесячная оплата — в этом розыгрыше участвуют только помесячные.")
+
+        missing_any = False
+        for item in status.get("conditions") or []:
+            if item.get("done"):
+                continue
+            missing_any = True
+            earned = item.get("earned")
+            total = item.get("total")
+            label = html.escape(str(item.get("label") or "Условие"))
+            if total is not None:
+                lines.append(f"❌ {label}: <b>{earned}/{total}</b>")
+            else:
+                lines.append(f"❌ {label}")
+            for detail in (item.get("missing") or [])[:4]:
+                lines.append(f"   • {html.escape(str(detail))}")
+
+        if not missing_any and status.get("monthly_payment"):
+            lines.append("❌ Не выполнено одно из условий допуска.")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 
 
 def _breakthrough_markup(month_key):
@@ -3619,6 +3684,43 @@ def install():
                     [InlineKeyboardButton("← К Кулёчкам", callback_data=f"cab:kulek:month:{key}")]
                 ]),
             )
+            return
+
+        if data.startswith("cab:kulek:audit:"):
+            key = data.rsplit(":", 1)[1]
+            await query.answer()
+            text = _discount_audit_text(key)
+            rest = str(text or "")
+            first = True
+            while rest:
+                if len(rest) <= 3800:
+                    chunk = rest
+                    rest = ""
+                else:
+                    split_at = rest.rfind("\n\n", 0, 3800)
+                    if split_at < 1:
+                        split_at = rest.rfind("\n", 0, 3800)
+                    if split_at < 1:
+                        split_at = 3800
+                    chunk = rest[:split_at]
+                    rest = rest[split_at:].lstrip("\n")
+                if first:
+                    await query.edit_message_text(
+                        chunk,
+                        parse_mode="HTML",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("← К Кулёчкам", callback_data=f"cab:kulek:month:{key}")]
+                        ]) if not rest else None,
+                    )
+                    first = False
+                else:
+                    await query.message.reply_text(
+                        chunk,
+                        parse_mode="HTML",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("← К Кулёчкам", callback_data=f"cab:kulek:month:{key}")]
+                        ]) if not rest else None,
+                    )
             return
 
         if data.startswith("cab:kulek:draw:"):
