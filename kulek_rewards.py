@@ -99,6 +99,16 @@ def ensure_tables():
                 chosen_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS kulek_discount_draw_pool (
+                month_key TEXT NOT NULL,
+                participant_number INTEGER NOT NULL,
+                student_id INTEGER NOT NULL,
+                student_name TEXT NOT NULL,
+                frozen_at TEXT NOT NULL,
+                PRIMARY KEY(month_key, student_id),
+                UNIQUE(month_key, participant_number)
+            );
+
             CREATE TABLE IF NOT EXISTS kulek_monthly_deliveries (
                 month_key TEXT NOT NULL,
                 recipient_kind TEXT NOT NULL,
@@ -2088,6 +2098,99 @@ def toggle_practical_award(lesson_number, student_id):
     return awarded
 
 
+def discount_draw_pool(month_key=SEPTEMBER_DISCOUNT_KEY):
+    key = _month_key(month_key)
+    ensure_tables()
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        rows = conn.execute(
+            """
+            SELECT participant_number,student_id,student_name,frozen_at
+            FROM kulek_discount_draw_pool
+            WHERE month_key=?
+            ORDER BY participant_number
+            """,
+            (key,),
+        ).fetchall()
+    return [
+        {
+            "number": int(number),
+            "id": int(student_id),
+            "name": str(name),
+            "frozen_at": str(frozen_at),
+        }
+        for number, student_id, name, frozen_at in rows
+    ]
+
+
+def freeze_discount_pool(month_key=SEPTEMBER_DISCOUNT_KEY):
+    key = _month_key(month_key)
+    cutoff = _discount_cutoff(key)
+    if cutoff and datetime.now(bot.TIMEZONE) < cutoff:
+        return {
+            "ok": False,
+            "error": "draw_window_open",
+            "cutoff": cutoff.isoformat(),
+        }
+
+    existing = discount_draw_pool(key)
+    if existing:
+        return {"ok": True, "existing": True, "participants": existing}
+
+    data = month_payload(key, force=True, with_breakthrough=False)
+    eligible = []
+    for row in data["students"]:
+        status = discount_status(int(row["id"]), key)
+        if status and status["eligible"]:
+            eligible.append({"id": int(row["id"]), "name": str(row["name"])})
+
+    if not eligible:
+        return {"ok": False, "error": "no_eligible"}
+
+    # Numbers are deliberately neutral: alphabetical order only.
+    eligible.sort(key=lambda x: x["name"].casefold())
+    frozen_at = datetime.now(bot.TIMEZONE).isoformat()
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        for number, item in enumerate(eligible, 1):
+            conn.execute(
+                """
+                INSERT INTO kulek_discount_draw_pool(
+                    month_key,participant_number,student_id,student_name,frozen_at
+                ) VALUES(?,?,?,?,?)
+                """,
+                (key, number, item["id"], item["name"], frozen_at),
+            )
+        conn.commit()
+
+    participants = discount_draw_pool(key)
+    return {"ok": True, "existing": False, "participants": participants}
+
+
+def discount_pool_text(month_key=SEPTEMBER_DISCOUNT_KEY):
+    key = _month_key(month_key)
+    result = freeze_discount_pool(key)
+    if not result.get("ok"):
+        if result.get("error") == "draw_window_open":
+            return "🎁 Список участников будет зафиксирован 5 октября в 21:00."
+        return "🎁 После дедлайна нет участников, выполнивших все условия."
+    participants = result["participants"]
+    lines = [
+        "🎟 <b>Участники розыгрыша скидки 5%</b>",
+        "",
+        "Список зафиксирован. Номерки присвоены по алфавиту и не влияют на шанс:",
+        "",
+    ]
+    for item in participants:
+        lines.append(
+            f"<b>№{item['number']}</b> — {html.escape(item['name'])}"
+        )
+    lines.extend([
+        "",
+        f"Всего участников: <b>{len(participants)}</b>.",
+        "🎲 Победитель будет выбран случайно из этого зафиксированного списка.",
+    ])
+    return "\n".join(lines)
+
+
 def draw_discount(month_key=None):
     key = _month_key(month_key)
     current = _month_key()
@@ -2105,18 +2208,28 @@ def draw_discount(month_key=None):
     data = month_payload(key, force=True, with_breakthrough=False)
     existing = data.get("draw")
     if existing:
-        return {"ok": True, "existing": True, **existing}
+        pool = discount_draw_pool(key)
+        winner_number = next(
+            (x["number"] for x in pool if int(x["id"]) == int(existing["student_id"])),
+            None,
+        )
+        return {
+            "ok": True,
+            "existing": True,
+            **existing,
+            "winner_number": winner_number,
+            "eligible": pool,
+            "eligible_count": len(pool),
+        }
 
-    eligible = []
-    for row in data["students"]:
-        status = discount_status(int(row["id"]), key)
-        if status and status["eligible"]:
-            eligible.append(row)
-
-    if not eligible:
+    frozen = freeze_discount_pool(key)
+    if not frozen.get("ok"):
+        return frozen
+    pool = frozen["participants"]
+    if not pool:
         return {"ok": False, "error": "no_eligible"}
 
-    winner = secrets.choice(eligible)
+    winner = secrets.choice(pool)
     now = datetime.now(bot.TIMEZONE).isoformat()
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
         conn.execute(
@@ -2131,10 +2244,7 @@ def draw_discount(month_key=None):
                 int(winner["id"]),
                 str(winner["name"]),
                 5,
-                json.dumps(
-                    [{"id": int(x["id"]), "name": x["name"]} for x in eligible],
-                    ensure_ascii=False,
-                ),
+                json.dumps(pool, ensure_ascii=False),
                 now,
             ),
         )
@@ -2145,9 +2255,10 @@ def draw_discount(month_key=None):
         "existing": False,
         "student_id": int(winner["id"]),
         "winner_name": winner["name"],
+        "winner_number": int(winner["number"]),
         "discount_percent": 5,
-        "eligible_count": len(eligible),
-        "eligible": [{"id": int(x["id"]), "name": x["name"]} for x in eligible],
+        "eligible_count": len(pool),
+        "eligible": pool,
     }
 
 
@@ -2562,7 +2673,7 @@ def _admin_markup(month_key=None):
         [InlineKeyboardButton("🏆 Ученик месяца", callback_data=f"cab:kulek:studentmonth:{key}")],
     ]
     if key < _month_key():
-        rows.append([InlineKeyboardButton("🎁 Разыграть скидку 5%", callback_data=f"cab:kulek:draw:{key}")])
+        rows.append([InlineKeyboardButton("🎲 Рандомайзер скидки 5%", callback_data=f"cab:kulek:draw:{key}")])
     else:
         rows.append([InlineKeyboardButton("🎁 Кто сейчас проходит в розыгрыш", callback_data=f"cab:kulek:eligible:{key}")])
     prev = previous_month_key(key)
@@ -3286,87 +3397,38 @@ async def weekly_progress_tick(context):
 
 
 async def discount_draw_tick(context):
+    """At 21:00 freeze and publish the pool; Maria starts the random draw manually."""
     now = datetime.now(bot.TIMEZONE)
-    if now.date() != date(2026, 10, 5) or now.time() < time(21, 5):
+    if now.date() != date(2026, 10, 5) or now.time() < time(21, 0):
         return
 
     admin_id = bot.get_admin_id()
     delivery_id = int(admin_id or 0)
     if delivery_id and _delivered(
-        SEPTEMBER_DISCOUNT_KEY, "discount_draw_done", delivery_id
+        SEPTEMBER_DISCOUNT_KEY, "discount_pool_frozen", delivery_id
     ):
         return
 
-    result = draw_discount(SEPTEMBER_DISCOUNT_KEY)
+    result = freeze_discount_pool(SEPTEMBER_DISCOUNT_KEY)
     if not result.get("ok"):
         if result.get("error") == "draw_window_open":
             return
-        if delivery_id:
-            try:
-                await context.bot.send_message(
-                    chat_id=delivery_id,
-                    text=(
-                        "🎁 <b>Розыгрыш скидки 5% — сентябрь</b>\n\n"
-                        "После дедлайна нет учеников, которые одновременно "
-                        "выполнили все условия и имеют помесячную оплату."
-                    ),
-                    parse_mode="HTML",
-                )
-                _mark_delivery(
-                    SEPTEMBER_DISCOUNT_KEY, "discount_draw_done", delivery_id
-                )
-            except Exception:
-                pass
-        return
-
-    if result.get("existing"):
-        if delivery_id:
-            _mark_delivery(
-                SEPTEMBER_DISCOUNT_KEY, "discount_draw_done", delivery_id
-            )
-        return
-
-    eligible_names = [
-        str(x.get("name") or "")
-        for x in result.get("eligible") or []
-        if str(x.get("name") or "").strip()
-    ]
-    admin_text_value = (
-        "🎁 <b>Розыгрыш скидки 5% проведён</b>\n\n"
-        f"Участников: <b>{result.get('eligible_count', len(eligible_names))}</b>\n"
-        f"Победитель: <b>{html.escape(result['winner_name'])}</b>"
-    )
-    if eligible_names:
-        admin_text_value += (
-            "\n\nСписок участников:\n"
-            + "\n".join(f"• {html.escape(name)}" for name in eligible_names)
+        text_value = (
+            "🎁 <b>Розыгрыш скидки 5% — сентябрь</b>\n\n"
+            "После дедлайна нет учеников, которые одновременно "
+            "выполнили все условия и имеют помесячную оплату."
         )
+    else:
+        text_value = discount_pool_text(SEPTEMBER_DISCOUNT_KEY)
 
     if admin_id:
         try:
             await context.bot.send_message(
                 chat_id=int(admin_id),
-                text=admin_text_value,
-                parse_mode="HTML",
-            )
-        except Exception:
-            pass
-
-    student = next(
-        (
-            x for x in _student_rows()
-            if int(x[0]) == int(result["student_id"])
-        ),
-        None,
-    )
-    if student and student[5] is not None:
-        try:
-            await context.bot.send_message(
-                chat_id=int(student[5]),
                 text=(
-                    "🎁 <b>Ты выиграл(а) скидку 5%!</b>\n\n"
-                    "Скидка применяется к октябрьской оплате. "
-                    "Оплата — до 7 октября 💗"
+                    text_value
+                    + "\n\nНажми в <b>Кулёчки → Сентябрь → 🎲 Рандомайзер скидки 5%</b>, "
+                    "когда будешь готова провести розыгрыш."
                 ),
                 parse_mode="HTML",
             )
@@ -3378,12 +3440,7 @@ async def discount_draw_tick(context):
         try:
             kwargs = {
                 "chat_id": int(chat_id),
-                "text": (
-                    "🎁 <b>Розыгрыш скидки 5% за сентябрь проведён!</b>\n\n"
-                    f"В розыгрыше участвовали: <b>{result.get('eligible_count', 0)}</b> человек.\n"
-                    f"Победитель — <b>{html.escape(result['winner_name'])}</b> 💗\n\n"
-                    "Спасибо всем, кто дожал сентябрьские условия до конца."
-                ),
+                "text": text_value,
                 "parse_mode": "HTML",
             }
             thread_id = bot.get_target_thread_id()
@@ -3395,7 +3452,7 @@ async def discount_draw_tick(context):
 
     if delivery_id:
         _mark_delivery(
-            SEPTEMBER_DISCOUNT_KEY, "discount_draw_done", delivery_id
+            SEPTEMBER_DISCOUNT_KEY, "discount_pool_frozen", delivery_id
         )
 
 
@@ -3592,11 +3649,31 @@ def install():
                             chat_id=int(student[5]),
                             text=(
                                 "🎁 <b>Поздравляю!</b>\n\n"
-                                f"Ты выиграл(а) скидку <b>5%</b> на следующий месяц "
-                                f"в розыгрыше за {month_label(key)} 💗"
+                                f"Твой номер — <b>№{result.get('winner_number')}</b>.\n"
+                                f"Ты выиграл(а) скидку <b>5%</b> на октябрь 💗"
                             ),
                             parse_mode="HTML",
                         )
+                    except Exception:
+                        pass
+
+                chat_id = bot.os.getenv("CHAT_ID")
+                if chat_id:
+                    try:
+                        kwargs = {
+                            "chat_id": int(chat_id),
+                            "text": (
+                                "🎲 <b>РАНДОМАЙЗЕР ОСТАНОВЛЕН!</b>\n\n"
+                                f"Выпал номер <b>№{result.get('winner_number')}</b> 🎉\n"
+                                f"Победитель — <b>{html.escape(result['winner_name'])}</b> 💗\n\n"
+                                "Скидка <b>5%</b> применяется к октябрьской оплате."
+                            ),
+                            "parse_mode": "HTML",
+                        }
+                        thread_id = bot.get_target_thread_id()
+                        if thread_id:
+                            kwargs["message_thread_id"] = int(thread_id)
+                        await context.bot.send_message(**kwargs)
                     except Exception:
                         pass
             return
