@@ -45,6 +45,7 @@ TRAINER_TABLES = {
     "oxides": "oxides_sessions",
     "oxideprops": "oxide_properties_sessions",
     "nonmetals": "nonmetals_sessions",
+    "hydroxides": "hydroxides_sessions",
 }
 MONTH_NAMES = {
     1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель",
