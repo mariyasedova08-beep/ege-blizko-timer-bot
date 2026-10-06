@@ -55,8 +55,9 @@ def main():
     import hydroxides_trainer
     hydroxides_trainer.install()
 
-    # Personal 7-day launch campaign: 01–07.10 at 16:00 Moscow.
+    # Personal launch campaigns at 16:00 Moscow.
     import oxide_properties_campaign  # noqa: F401
+    import hydroxides_campaign  # noqa: F401
 
     import individual_trainer_daily
     import instagram_return_system
