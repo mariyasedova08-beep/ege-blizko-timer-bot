@@ -8,6 +8,7 @@ for channel subscribers from the existing admin trainer menu.
 import json
 import os
 import sqlite3
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime
@@ -813,6 +814,15 @@ def _announce_hydroxides_once():
             )
         else:
             print("Hydroxides channel announcement failed: Telegram not ok", flush=True)
+    except urllib.error.HTTPError as exc:
+        try:
+            body = exc.read().decode("utf-8", errors="replace")[:500]
+        except Exception:
+            body = ""
+        print(
+            f"Hydroxides channel announcement HTTP error: code={exc.code} body={body}",
+            flush=True,
+        )
     except Exception as exc:
         print(
             f"Hydroxides channel announcement error: {type(exc).__name__}",
