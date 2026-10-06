@@ -358,17 +358,24 @@ FACTS = (
     ),
 )
 
-if len(FACTS) != 50:
-    raise RuntimeError(f"Expected 50 hydroxide facts, got {len(FACTS)}")
+EXPECTED_FACT_COUNT = 58
+QUESTION_COUNT = 100
+
+if len(FACTS) != EXPECTED_FACT_COUNT:
+    raise RuntimeError(
+        f"Expected {EXPECTED_FACT_COUNT} hydroxide facts, got {len(FACTS)}"
+    )
 
 
 def _build_bank():
     bank = []
     index = 1
-    for p1, p2, correct, distractors in FACTS:
+    second_prompt_count = QUESTION_COUNT - len(FACTS)
+    for fact_index, (p1, p2, correct, distractors) in enumerate(FACTS):
         if len(distractors) != 3:
             raise RuntimeError(f"Invalid distractors for: {p1}")
-        for prompt in (p1, p2):
+        prompts = (p1, p2) if fact_index < second_prompt_count else (p1,)
+        for prompt in prompts:
             bank.append((f"hyd{index:03d}", prompt, correct, tuple(distractors)))
             index += 1
     return tuple(bank)
@@ -376,8 +383,11 @@ def _build_bank():
 
 HYDROXIDES_BANK = _build_bank()
 
-if len(HYDROXIDES_BANK) != 100:
-    raise RuntimeError(f"Hydroxides bank must contain 100 questions, got {len(HYDROXIDES_BANK)}")
+if len(HYDROXIDES_BANK) != QUESTION_COUNT:
+    raise RuntimeError(
+        f"Hydroxides bank must contain {QUESTION_COUNT} questions, "
+        f"got {len(HYDROXIDES_BANK)}"
+    )
 
 for qid, prompt, correct, distractors in HYDROXIDES_BANK:
     if not qid or not prompt or not correct or len(distractors) != 3:
