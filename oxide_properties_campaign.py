@@ -1,6 +1,6 @@
-"""Личная кампания тренажёра «Свойства оксидов» 01–07.10.2026.
+"""Личная кампания тренажёра «Свойства оксидов» 01–05.10.2026.
 
-Каждый день 01–07.10 в 16:00 МСК — личное напоминание активным ученикам.
+Каждый день 01–05.10 в 16:00 МСК — личное напоминание активным ученикам.
 Доставка идемпотентна: после рестарта одно и то же сообщение повторно не уйдёт.
 """
 import sqlite3
@@ -19,8 +19,6 @@ DM_DATES = {
     date(2026, 10, 3),
     date(2026, 10, 4),
     date(2026, 10, 5),
-    date(2026, 10, 6),
-    date(2026, 10, 7),
 }
 DM_TIME = time(16, 0)
 DM_END = time(17, 0)
@@ -255,6 +253,6 @@ async def combined_tick_with_oxide_properties_campaign(context):
 live7.friday_trivial_tick = combined_tick_with_oxide_properties_campaign
 ensure_campaign_table()
 print(
-    "Oxide properties campaign ready: dm=2026-10-01..07 16:00 Moscow",
+    "Oxide properties campaign ready: dm=2026-10-01..05 16:00 Moscow",
     flush=True,
 )
