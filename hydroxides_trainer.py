@@ -240,7 +240,7 @@ def _menu_markup(user_id):
             [
                 InlineKeyboardButton(
                     "🧪 Все 100 вопросов",
-                    callback_data="triv:hydroxides:start:80",
+                    callback_data="triv:hydroxides:start:100",
                 )
             ],
             [
@@ -543,7 +543,7 @@ def install():
             }
         ):
             await update.message.reply_text(
-                "🧪 Тренажёр «Свойства гидроксидов» открыт 💗",
+                "🌸 Тренажёр «Свойства гидроксидов» открыт 💗",
                 reply_markup=live7.STUDENT_KEYBOARD,
             )
             await show_menu(update, context)
@@ -569,7 +569,7 @@ def install():
 
     original_weekly_stats = live41._weekly_trainer_stats
 
-    def weekly_stats_with_oxide_properties(conn, telegram_id, now):
+    def weekly_stats_with_hydroxides(conn, telegram_id, now):
         sessions, questions, correct = original_weekly_stats(
             conn, telegram_id, now
         )
@@ -596,11 +596,11 @@ def install():
             correct + int(row[2] or 0),
         )
 
-    live41._weekly_trainer_stats = weekly_stats_with_oxide_properties
+    live41._weekly_trainer_stats = weekly_stats_with_hydroxides
 
     original_metric = live34._trainer_metric
 
-    def trainer_metric_with_oxide_properties(conn, student_row, now):
+    def trainer_metric_with_hydroxides(conn, student_row, now):
         metric = original_metric(conn, student_row, now)
         if metric is None:
             return None
@@ -632,7 +632,7 @@ def install():
             ),
         }
 
-    live34._trainer_metric = trainer_metric_with_oxide_properties
+    live34._trainer_metric = trainer_metric_with_hydroxides
 
     print(
         f"Hydroxides trainer installed: questions={len(HYDROXIDES_BANK)}",
