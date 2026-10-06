@@ -69,6 +69,11 @@ def ensure_tables():
                 updated_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS channel_trainer_announcements (
+                announcement_key TEXT PRIMARY KEY,
+                sent_at TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_channel_trainer_opens_user
             ON channel_trainer_opens(telegram_user_id, opened_at);
 
@@ -717,6 +722,104 @@ def _startup_selfcheck():
         )
 
 
+def _announcement_sent(key):
+    ensure_tables()
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        return bool(
+            conn.execute(
+                "SELECT 1 FROM channel_trainer_announcements WHERE announcement_key=? LIMIT 1",
+                (str(key),),
+            ).fetchone()
+        )
+
+
+def _mark_announcement_sent(key):
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO channel_trainer_announcements(announcement_key,sent_at)
+            VALUES(?,?)
+            """,
+            (str(key), datetime.now(bot.TIMEZONE).isoformat()),
+        )
+        conn.commit()
+
+
+def _announce_hydroxides_once():
+    key = "hydroxides-100-launch-2026-10-06"
+    if _announcement_sent(key):
+        return
+
+    token = os.getenv("BOT_TOKEN", "").strip()
+    if not token:
+        print("Hydroxides channel announcement skipped: missing bot token", flush=True)
+        return
+
+    try:
+        with urllib.request.urlopen(
+            f"https://api.telegram.org/bot{token}/getMe", timeout=15
+        ) as response:
+            me = json.load(response)
+        username = str((me.get("result") or {}).get("username") or "").strip()
+        if not username:
+            print("Hydroxides channel announcement skipped: bot username missing", flush=True)
+            return
+
+        trainer_url = f"https://t.me/{username}?start=hydroxides"
+        text = (
+            "🌸 <b>НОВЫЙ ТРЕНАЖЁР: СВОЙСТВА ГИДРОКСИДОВ</b>\n\n"
+            "100 вопросов по одной из самых важных тем неорганики:\n"
+            "— щёлочи и нерастворимые основания;\n"
+            "— амфотерные гидроксиды;\n"
+            "— реакции с кислотами, оксидами и солями;\n"
+            "— раствор или сплав;\n"
+            "— избыток реагента;\n"
+            "— цвета осадков и важные исключения;\n"
+            "— разложение и получение гидроксидов.\n\n"
+            "Можно пройти <b>10, 20, 40 вопросов или сразу все 100</b>. "
+            "Ошибки сохраняются отдельно — потом можно вернуться и добить именно их 💗\n\n"
+            "<b>Теория понятна → переходим к практике.</b>"
+        )
+        reply_markup = json.dumps(
+            {
+                "inline_keyboard": [[
+                    {"text": "🌸 Открыть тренажёр", "url": trainer_url}
+                ]]
+            },
+            ensure_ascii=False,
+        )
+        payload = urllib.parse.urlencode(
+            {
+                "chat_id": CHANNEL_USERNAME,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": "true",
+                "reply_markup": reply_markup,
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=payload,
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=20) as response:
+            result = json.load(response)
+        if result.get("ok"):
+            _mark_announcement_sent(key)
+            message_id = (result.get("result") or {}).get("message_id")
+            print(
+                f"Hydroxides channel announcement sent: message_id={message_id}",
+                flush=True,
+            )
+        else:
+            print("Hydroxides channel announcement failed: Telegram not ok", flush=True)
+    except Exception as exc:
+        print(
+            f"Hydroxides channel announcement error: {type(exc).__name__}",
+            flush=True,
+        )
+
+
 def install():
     global _INSTALLED
     global _previous_start_router, _previous_trivial_callback, _previous_cabinet_callback
@@ -735,4 +838,5 @@ def install():
     live23.cabinet_callback = cabinet_callback
 
     _startup_selfcheck()
+    _announce_hydroxides_once()
     _INSTALLED = True
