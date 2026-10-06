@@ -52,6 +52,9 @@ def main():
     import oxide_properties_trainer
     oxide_properties_trainer.install()
 
+    import hydroxides_trainer
+    hydroxides_trainer.install()
+
     # Personal 7-day launch campaign: 01–07.10 at 16:00 Moscow.
     import oxide_properties_campaign  # noqa: F401
 
@@ -169,6 +172,10 @@ def main():
     print(
         f"Oxide properties trainer ready: questions={len(oxide_properties_trainer.OXIDE_PROPERTIES_BANK)}; "
         "dm=2026-10-01..07 16:00 Moscow",
+        flush=True,
+    )
+    print(
+        f"Hydroxides trainer ready: questions={len(hydroxides_trainer.HYDROXIDES_BANK)}",
         flush=True,
     )
     print("CoreApp live sync receiver v2 ready", flush=True)
