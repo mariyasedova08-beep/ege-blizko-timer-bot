@@ -18,7 +18,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261007-lab-v4-boiling-gas"
+BUILD = "20261007-lab-v5-reference-layout"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -207,7 +207,31 @@ HTML = r'''<!doctype html>
 <style>
 :root{--pink:#f00087;--soft:#f4d9e6;--milk:#f8f5f2;--ink:#171719}
 *{box-sizing:border-box}body{margin:0;background:var(--milk);color:var(--ink);font:14px system-ui,-apple-system,sans-serif}
-.app{max-width:760px;margin:auto;padding:14px}.logo{color:var(--pink);font-weight:900}.tabs,.grid,.answers,.tools,.stats{display:grid;gap:8px}
+.app{max-width:1180px;margin:auto;padding:14px}.logo{color:var(--pink);font-weight:900}.tabs,.grid,.answers,.tools,.stats{display:grid;gap:8px}
+.lab-shell{display:grid;grid-template-columns:240px minmax(0,1fr) 210px;gap:12px;align-items:stretch}
+.lab-side,.lab-controls{background:#fff;border:1px solid #efc5da;border-radius:22px;padding:13px;box-shadow:0 8px 25px rgba(35,20,28,.05)}
+.lab-side h2,.lab-controls h2,.bench-head h2{margin:0 0 10px;font-size:16px}
+.reagent-list{display:flex;flex-direction:column;gap:7px;max-height:590px;overflow:auto;padding-right:2px}
+.reagent-item{width:100%;display:flex;align-items:center;gap:9px;text-align:left;padding:9px 10px;border-radius:14px;border:1px solid #eee1e8;background:#fff}
+.reagent-item:hover,.reagent-item:active{background:#fff5fa;border-color:#f1bad6}
+.drop-icon{width:24px;height:32px;position:relative;flex:0 0 24px}
+.drop-icon:before{content:"";position:absolute;left:5px;top:2px;width:13px;height:18px;border-radius:50% 50% 55% 55%;background:var(--rc);transform:rotate(45deg);box-shadow:inset 3px 3px 5px rgba(255,255,255,.55),0 2px 4px rgba(0,0,0,.08)}
+.rformula{font-weight:900;font-size:13px}.rcat{font-size:10px;color:#8b8387;margin-top:2px}
+.lab-bench{background:linear-gradient(180deg,#fff 0 68%,#f2ece8 68% 73%,#d7c0ad 73% 100%);border:1px solid #eadfe4;border-radius:22px;min-height:565px;padding:14px;position:relative;overflow:hidden;box-shadow:0 8px 25px rgba(35,20,28,.05)}
+.bench-head{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.bench-hint{font-size:11px;color:#81797d}
+.rack-wrap{position:absolute;left:7%;right:7%;bottom:88px}
+.rack-board{position:absolute;left:-2%;right:-2%;top:82px;height:26px;border-radius:9px;background:linear-gradient(#7f6653,#4c392d);box-shadow:0 7px 12px rgba(64,40,28,.25);z-index:0}
+.rack-board:before,.rack-board:after{content:"";position:absolute;top:20px;width:16px;height:100px;background:linear-gradient(90deg,#705642,#4d382c);border-radius:4px}
+.rack-board:before{left:5%}.rack-board:after{right:5%}
+.rack{position:relative;z-index:2;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;align-items:end;padding:0 9%}
+.lab-controls .control-stack{display:flex;flex-direction:column;gap:8px}
+.lab-controls button{width:100%}
+.selected-card{background:#fff7fb;border:1px solid #f1c8dc;border-radius:16px;padding:10px;margin-bottom:10px}
+.selected-card b{display:block;font-size:12px}.selected-card span{display:block;font-size:10px;color:#7f777b;margin-top:3px}
+.lab-result{margin-top:12px;padding:12px;border-radius:15px;background:#fff4f9;border:1px solid #f1c8dc;min-height:74px;line-height:1.4}
+.mode-note{font-size:10px;color:#8b8387;margin-top:8px}
+
 .tabs{grid-template-columns:repeat(4,1fr);margin:12px 0}.tabs button{font-size:12px}
 button{border:1px solid #efc5da;background:#fff;border-radius:14px;padding:11px 9px;font-weight:800;color:#222}
 button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.page.on{display:block}
@@ -251,7 +275,8 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .unknown{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.unknown button.on{background:var(--pink);color:#fff}
 select{width:100%;padding:8px;border:1px solid #efc5da;border-radius:10px;background:#fff}.guess p{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:6px}
 h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
-@media(max-width:520px){.tabs{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr 1fr}.rack{gap:6px}.tube{height:155px}.app{padding:10px}}
+@media(max-width:820px){.lab-shell{grid-template-columns:1fr}.lab-side{order:2}.lab-bench{order:1;min-height:430px}.lab-controls{order:3}.rack-wrap{bottom:74px}.reagent-list{max-height:none;display:grid;grid-template-columns:1fr 1fr}.rack{gap:10px}.tube{height:165px}}
+@media(max-width:520px){.tabs{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr 1fr}.rack{gap:6px;padding:0 5%}.tube{height:150px}.app{padding:10px}.reagent-list{grid-template-columns:1fr 1fr}.lab-bench{min-height:390px}.lab-side,.lab-controls,.lab-bench{border-radius:18px}}
 </style></head><body><div class="app">
 <div class="logo">ЕГЭ БЛИЗКО</div><h1>🧪 Лаборатория</h1>
 <div class="tabs">
@@ -262,10 +287,26 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 </div>
 
 <section id="free" class="page on">
-<div class="card"><div id="tubes" class="rack"></div>
-<div class="tools"><button id="heat">🔥 нагреть</button><button id="clear">🧽 очистить</button></div>
-<div id="result" class="result">Выбери пробирку и добавь реактивы.</div></div>
-<div class="card"><h2>Реактивы</h2><div id="reagents" class="grid"></div></div>
+<div class="lab-shell">
+  <aside class="lab-side">
+    <h2>Реактивы</h2>
+    <div class="mode-note">Нажми на вещество — оно добавится в выбранную пробирку.</div>
+    <div id="reagents" class="reagent-list"></div>
+  </aside>
+  <main class="lab-bench">
+    <div class="bench-head"><div><h2>Рабочий стол</h2><div class="bench-hint">Выбери пробирку и проведи опыт</div></div><div class="logo">ЕГЭ БЛИЗКО</div></div>
+    <div class="rack-wrap"><div class="rack-board"></div><div id="tubes" class="rack"></div></div>
+  </main>
+  <aside class="lab-controls">
+    <h2>Действия</h2>
+    <div class="selected-card"><b>Выбрана пробирка <span id="selectedTubeLabel">1</span></b><span>Добавь до двух реактивов</span></div>
+    <div class="control-stack">
+      <button id="heat">🔥 Нагреть</button>
+      <button id="clear">🧽 Очистить</button>
+    </div>
+    <div id="result" class="lab-result">Выбери пробирку и добавь реактивы.</div>
+  </aside>
+</div>
 </section>
 
 <section id="work" class="page"><div class="card">
@@ -346,13 +387,14 @@ function renderTubes(){
  tubes.forEach((v,i)=>{
   const wrap=document.createElement("div");
   wrap.innerHTML=tubeHTML(v,i,i===selectedTube,tubeHeat[i])+'<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+(v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>';
-  wrap.onclick=()=>{selectedTube=i;renderTubes()};box.appendChild(wrap);
+  wrap.onclick=()=>{selectedTube=i;const lab=document.getElementById("selectedTubeLabel");if(lab)lab.textContent=String(i+1);renderTubes()};box.appendChild(wrap);
  });
 }
 function renderReagents(){
  const box=document.getElementById("reagents");box.innerHTML="";
  Object.entries(data.reagents).forEach(([id,v])=>{
-  const b=document.createElement("button");b.innerHTML=v[0]+"<small>"+v[1]+"</small>";
+  const b=document.createElement("button");b.className="reagent-item";
+  b.innerHTML='<span class="drop-icon" style="--rc:'+v[2]+'"></span><span><div class="rformula">'+v[0]+'</div><div class="rcat">'+v[1]+'</div></span>';
   b.onclick=()=>add(id);box.appendChild(b);
  });
 }
