@@ -47,7 +47,7 @@ SCHEDULE = (
     ("lesson:12", "2026-10-04", "08:40", "lesson", 12, "ПРАКТИКА №28"),
     ("lesson:13", "2026-10-05", "18:30", "lesson", 13, "ПРАКТИКА — оксиды"),
     ("lesson:14", "2026-10-07", "18:30", "lesson", 14, "Химические свойства гидроксидов и способы их получения"),
-    ("lesson:15", "2026-10-11", "10:00", "lesson", 15, "Расчётные задачи на массу конечного раствора. Избыток и недостаток"),
+    ("lesson:15", "2026-10-11", "11:30", "lesson", 15, "Расчётные задачи на массу конечного раствора. Избыток и недостаток"),
     ("lesson:16", "2026-10-12", "18:30", "lesson", 16, "ПРАКТИКА — гидроксиды"),
     ("lesson:17", "2026-10-14", "18:30", "lesson", 17, "Химические свойства средних солей и способы их получения"),
     ("lesson:18", "2026-10-18", "10:00", "lesson", 18, "№34 — масса конечного раствора"),
@@ -103,14 +103,22 @@ def ensure_course_schedule_table():
                 """,
                 (key, event_date, event_time, event_type, lesson_number, topic, now, now),
             )
-        # Разовый перенос по просьбе Марии: 04.10 урок №12 в 08:40.
+        # Разовые переносы по просьбе Марии.
         # SCHEDULE вставляется через INSERT OR IGNORE, поэтому обновляем уже
-        # существующую production-запись отдельно.
+        # существующие production-записи отдельно.
         conn.execute(
             """
             UPDATE course_schedule
             SET event_time='08:40', updated_at=?
             WHERE schedule_key='lesson:12' AND event_date='2026-10-04'
+            """,
+            (now,),
+        )
+        conn.execute(
+            """
+            UPDATE course_schedule
+            SET event_time='11:30', updated_at=?
+            WHERE schedule_key='lesson:15' AND event_date='2026-10-11'
             """,
             (now,),
         )
