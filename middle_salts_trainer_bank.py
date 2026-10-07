@@ -405,8 +405,8 @@ FACTS = (
     ),
 )
 
-if len(FACTS) != 50:
-    raise RuntimeError(f"Expected 50 middle-salt facts, got {len(FACTS)}")
+if len(FACTS) != 66:
+    raise RuntimeError(f"Expected 66 middle-salt facts, got {len(FACTS)}")
 
 
 def _build_bank():
