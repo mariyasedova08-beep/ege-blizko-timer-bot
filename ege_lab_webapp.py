@@ -18,7 +18,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261007-lab-v7-reaction-card"
+BUILD = "20261007-lab-v8-tube-callout"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -230,6 +230,13 @@ HTML = r'''<!doctype html>
 .rack-board:before,.rack-board:after{content:"";position:absolute;top:20px;width:16px;height:100px;background:linear-gradient(90deg,#705642,#4d382c);border-radius:4px}
 .rack-board:before{left:5%}.rack-board:after{right:5%}
 .rack{position:relative;z-index:2;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;align-items:end;padding:0 9%}
+.tube-slot{position:relative;min-width:0}
+.tube-callout{position:absolute;z-index:30;width:300px;left:50%;bottom:calc(100% + 18px);transform:translateX(-50%);pointer-events:none}
+.tube-callout.edge-left{left:0;transform:none}
+.tube-callout.edge-right{left:auto;right:0;transform:none}
+.tube-callout .reaction-card{margin:0;box-shadow:0 14px 34px rgba(240,0,135,.22)}
+.tube-callout:after{content:"";position:absolute;left:50%;bottom:-10px;width:18px;height:18px;background:#f9dce9;border-right:2px solid #f00087;border-bottom:2px solid #f00087;transform:translateX(-50%) rotate(45deg)}
+.tube-callout.edge-left:after{left:21%}.tube-callout.edge-right:after{left:79%}
 .lab-controls .control-stack{display:flex;flex-direction:column;gap:8px}
 .lab-controls button{width:100%}
 .selected-card{background:#fff7fb;border:1px solid #f1c8dc;border-radius:16px;padding:10px;margin-bottom:10px}
@@ -241,7 +248,7 @@ HTML = r'''<!doctype html>
 .reaction-status{display:inline-flex;align-items:center;gap:6px;background:#f00087;color:#fff;font-size:11px;font-weight:950;border-radius:999px;padding:6px 9px}
 .reaction-card.no-visible .reaction-status{background:#8e858a}
 .reaction-sign{font-size:15px;font-weight:950;line-height:1.25;color:#171719;margin-bottom:8px}
-.reaction-equation{background:rgba(255,255,255,.82);border:1px solid rgba(240,0,135,.22);border-radius:13px;padding:10px;font-size:14px;font-weight:900;line-height:1.45;letter-spacing:.01em;overflow-wrap:anywhere}
+.reaction-equation{background:rgba(255,255,255,.82);border:1px solid rgba(240,0,135,.22);border-radius:13px;padding:9px 10px;font-size:13px;font-weight:900;line-height:1.25;letter-spacing:0;white-space:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
 .reaction-note{font-size:10px;color:#7c7277;margin-top:7px}
 @keyframes reactionPop{0%{transform:scale(.97);opacity:.35}100%{transform:scale(1);opacity:1}}
 .mode-note{font-size:10px;color:#8b8387;margin-top:8px}
@@ -289,7 +296,7 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .unknown{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.unknown button.on{background:var(--pink);color:#fff}
 select{width:100%;padding:8px;border:1px solid #efc5da;border-radius:10px;background:#fff}.guess p{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:6px}
 h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
-@media(max-width:820px){.lab-shell{grid-template-columns:1fr}.lab-side{order:2}.lab-bench{order:1;min-height:430px}.lab-controls{order:3}.rack-wrap{bottom:74px}.reagent-list{max-height:none;display:grid;grid-template-columns:1fr 1fr}.rack{gap:10px}.tube{height:165px}}
+@media(max-width:820px){.lab-shell{grid-template-columns:1fr}.lab-side{order:2}.lab-bench{order:1;min-height:520px}.lab-controls{order:3}.rack-wrap{bottom:74px}.reagent-list{max-height:none;display:grid;grid-template-columns:1fr 1fr}.rack{gap:10px}.tube{height:165px}.tube-callout{width:min(300px,82vw)}}
 @media(max-width:520px){.tabs{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr 1fr}.rack{gap:6px;padding:0 5%}.tube{height:150px}.app{padding:10px}.reagent-list{grid-template-columns:1fr 1fr}.lab-bench{min-height:390px}.lab-side,.lab-controls,.lab-bench{border-radius:18px}}
 </style></head><body><div class="app">
 <div class="logo">ЕГЭ БЛИЗКО</div><h1>🧪 Лаборатория</h1>
@@ -414,8 +421,14 @@ function tubeHTML(v,i,active,heated){
 function renderTubes(){
  const box=document.getElementById("tubes");box.innerHTML="";
  tubes.forEach((v,i)=>{
-  const wrap=document.createElement("div");
-  wrap.innerHTML=tubeHTML(v,i,i===selectedTube,tubeHeat[i])+'<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+(v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>';
+  const wrap=document.createElement("div");wrap.className="tube-slot";
+  const x=v.length===2?reactionExpected(v[0],v[1]):null;
+  let callout="";
+  if(i===selectedTube&&v.length===2){
+    const cls=i===0?" edge-left":i===3?" edge-right":"";
+    callout='<div class="tube-callout'+cls+'">'+reactionResultHTML(x,tubeHeat[i])+'</div>';
+  }
+  wrap.innerHTML=callout+tubeHTML(v,i,i===selectedTube,tubeHeat[i])+'<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+(v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>';
   wrap.onclick=()=>{selectedTube=i;const lab=document.getElementById("selectedTubeLabel");if(lab)lab.textContent=String(i+1);renderTubes()};box.appendChild(wrap);
  });
 }
@@ -452,7 +465,7 @@ function add(id){
  tubes[selectedTube].push(id);
  if(tubes[selectedTube].length===2){
   let x=reactionExpected(tubes[selectedTube][0],tubes[selectedTube][1]);
-  document.getElementById("result").innerHTML=reactionResultHTML(x,false);
+  document.getElementById("result").innerHTML=x?(x.heat?"Нужен нагрев 🔥":"Карточка реакции показана над пробиркой ↑"):"Этот опыт пока не добавлен в базу";
   if(x&&!x.heat)api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()});
  }
  renderTubes();
@@ -460,7 +473,7 @@ function add(id){
 document.getElementById("heat").onclick=()=>{
  let v=tubes[selectedTube];tubeHeat[selectedTube]=true;
  let x=v.length===2?findReaction(v[0],v[1],true):null;
- if(x){document.getElementById("result").innerHTML=reactionResultHTML(x,true);api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()})}
+ if(x){document.getElementById("result").innerHTML="Карточка реакции показана над пробиркой ↑";api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()})}
  else if(v.length===2){document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🔥 Нагрев</span></div><div class="reaction-sign">При нагревании видимого изменения нет.</div></div>'}
  renderTubes();
 };
