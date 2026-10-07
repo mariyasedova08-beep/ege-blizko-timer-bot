@@ -18,7 +18,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261007-lab-v9-mobile-focus"
+BUILD = "20261007-lab-v10-students"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -398,12 +398,13 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 </div>
 <script>
 const tg=Telegram.WebApp;tg.ready();tg.expand();
+const labQs=new URLSearchParams(location.search),labLaunch=labQs.get("launch")||"";
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все";
 let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 
 function key(a,b){return [a,b].sort().join("|")}
 function reagent(id){return reagentMap.get(id)}
-function api(payload){return fetch("/lab-app/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({init_data:tg.initData},payload))}).then(r=>r.json())}
+function api(payload){return fetch("/lab-app/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({init_data:tg.initData,launch:labLaunch},payload))}).then(r=>r.json())}
 function findReaction(a,b,heated){let x=reactionMap.get(key(a,b));return x&&(!x.heat||heated)?x:null}
 function reactionExpected(a,b){return reactionMap.get(key(a,b))||null}
 function reactionResultHTML(x,heated=false){
@@ -616,6 +617,12 @@ def do_post(self):
             raise ValueError("bad length")
         request=json.loads(self.rfile.read(length).decode("utf-8"))
         uid=validate_init_data(request.get("init_data"))
+        if not uid and request.get("launch"):
+            try:
+                import ege_student_webapp
+                uid=ege_student_webapp._validate_launch_token(request.get("launch"))
+            except Exception:
+                uid=None
         action=request.get("action")
         if action=="load":
             # The chemistry content is public. Outside Telegram the page opens
