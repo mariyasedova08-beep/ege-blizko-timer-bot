@@ -55,6 +55,9 @@ def main():
     import hydroxides_trainer
     hydroxides_trainer.install()
 
+    import middle_salts_trainer
+    middle_salts_trainer.install()
+
     # Personal launch campaigns at 16:00 Moscow.
     import oxide_properties_campaign  # noqa: F401
     import hydroxides_campaign  # noqa: F401
@@ -179,6 +182,10 @@ def main():
     )
     print(
         f"Hydroxides trainer ready: questions={len(hydroxides_trainer.HYDROXIDES_BANK)}",
+        flush=True,
+    )
+    print(
+        f"Middle salts trainer ready: questions={len(middle_salts_trainer.MIDDLE_SALTS_BANK)}",
         flush=True,
     )
     print("CoreApp live sync receiver v2 ready", flush=True)
