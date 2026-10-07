@@ -18,7 +18,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261007-lab-v10-students"
+BUILD = "20261007-lab-v11-oge"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -296,6 +296,17 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .grid{grid-template-columns:repeat(3,1fr)}.grid button small{display:block;color:#777;font-weight:600;margin-top:3px}
 .tools,.answers{grid-template-columns:1fr 1fr}.result{padding:10px;background:#fff3f9;border-radius:13px;margin-top:8px;min-height:44px}
 .stats{grid-template-columns:1fr 1fr}.stat{background:#fff;border:1px solid #efc5da;border-radius:16px;padding:14px}.stat b{font-size:28px;color:var(--pink);display:block}
+.oge-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 12px}
+.oge-switch button{padding:12px}.oge-switch button.on{background:var(--pink);color:#fff;border-color:var(--pink)}
+.oge-task{background:#fff;border:1px solid #efc5da;border-radius:20px;padding:14px}
+.oge-kicker{font-size:11px;color:var(--pink);font-weight:900;margin-bottom:5px}.oge-title{font-size:18px;font-weight:950;line-height:1.2}
+.oge-pair{margin-top:12px;padding:12px;border-radius:15px;background:#fff7fb;border:1px solid #f1c8dc;font-weight:900;font-size:15px}
+.oge-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.oge-options button{min-height:48px;text-align:left}
+.oge-options button.correct{background:#edf8f1;border-color:#a8d5b9}.oge-options button.wrong{background:#fff0f2;border-color:#e6a9b4}
+.oge-demo{display:flex;justify-content:center;gap:28px;align-items:flex-end;margin:16px 0 6px;min-height:230px}
+.oge-demo-one{width:106px}.oge-demo-two{width:106px}.oge-demo .tube{height:190px}
+.oge-demo-label{text-align:center;font-size:11px;font-weight:900;margin-top:5px}
+.oge-feedback{margin-top:10px}.oge-next{margin-top:10px;width:100%}
 .unknown{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.unknown button.on{background:var(--pink);color:#fff}
 select{width:100%;padding:8px;border:1px solid #efc5da;border-radius:10px;background:#fff}.guess p{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:6px}
 h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
@@ -338,6 +349,7 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
  .tube-slot.active-slot{width:110px}
  .tube-slot.active-slot .tube{height:210px}
  .reagent-list{grid-template-columns:1fr 1fr}
+ .oge-options{grid-template-columns:1fr}.oge-demo{gap:12px}.oge-demo-two{width:96px}.oge-demo .tube{height:170px}
  .logo{font-size:11px;width:auto;height:auto;padding:7px 9px;border-radius:999px}
 }
 </style></head><body><div class="app">
@@ -345,6 +357,7 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 <div class="tabs">
 <button class="on" data-page="free">Свободный опыт</button>
 <button data-page="work">Лаб. работа</button>
+<button data-page="oge">ОГЭ</button>
 <button data-page="exam">Экзамен</button>
 <button data-page="stats">Прогресс</button>
 </div>
@@ -389,6 +402,14 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 <div id="guesses" class="guess"></div><button id="check" class="primary">Проверить</button><div id="workResult" class="result"></div>
 </div></section>
 
+<section id="oge" class="page"><div class="card">
+<div class="oge-switch">
+  <button id="oge12Tab" class="on">№12 · Признак реакции</button>
+  <button id="oge17Tab">№17 · Различение веществ</button>
+</div>
+<div id="ogeBox"></div>
+</div></section>
+
 <section id="exam" class="page"><div class="card">
 <h2 id="pair"></h2><p>Что увидишь после смешивания?</p><div id="answers" class="answers"></div>
 <div id="examResult" class="result"></div><button id="next">Следующая</button>
@@ -401,6 +422,7 @@ const tg=Telegram.WebApp;tg.ready();tg.expand();
 const labQs=new URLSearchParams(location.search),labLaunch=labQs.get("launch")||"";
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все";
 let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
+let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
 
 function key(a,b){return [a,b].sort().join("|")}
 function reagent(id){return reagentMap.get(id)}
@@ -561,6 +583,77 @@ document.getElementById("check").onclick=()=>{
  if(n===5)api({action:"event",type:"labwork"}).then(j=>{data.stats=j.stats;renderStats()});
 };
 
+const OGE12=[
+ {a:"ki",b:"agno3",pair:"KI + AgNO₃",options:["выделение газа без запаха","выделение газа с запахом","выпадение белого осадка","выпадение жёлтого осадка"],correct:3},
+ {a:"hcl",b:"na2so3",pair:"HCl + Na₂SO₃",options:["выпадение белого осадка","выделение бесцветного газа с запахом","изменение цвета раствора","видимые признаки отсутствуют"],correct:1},
+ {a:"cuso4",b:"naoh",pair:"CuSO₄ + NaOH",options:["выпадение белого осадка","выпадение голубого осадка","выделение газа","видимые признаки отсутствуют"],correct:1},
+ {a:"fecl3",b:"naoh",pair:"FeCl₃ + NaOH",options:["выпадение бурого осадка","выпадение голубого осадка","выделение газа","видимые признаки отсутствуют"],correct:0},
+ {a:"naoh",b:"hno3",pair:"NaOH + HNO₃",options:["выделение газа","видимые признаки отсутствуют","растворение осадка","образование осадка"],correct:1},
+ {a:"na2co3",b:"cacl2",pair:"Na₂CO₃ + CaCl₂",options:["выделение газа","видимые признаки отсутствуют","растворение осадка","образование осадка"],correct:3}
+];
+const OGE17=[
+ {left:"na2co3",right:"na2sio3",leftName:"Na₂CO₃",rightName:"Na₂SiO₃",options:[["hcl","HCl"],["naoh","NaOH"],["agno3","AgNO₃"],["bacl2","BaCl₂"]],correct:"hcl",heat:false},
+ {left:"nh4cl",right:"nacl",leftName:"NH₄Cl",rightName:"NaCl",options:[["naoh","NaOH"],["agno3","AgNO₃"],["hcl","HCl"],["bacl2","BaCl₂"]],correct:"naoh",heat:true}
+];
+function ogeTube(pair,heated,label){
+ return '<div class="oge-demo-two">'+tubeHTML(pair,0,false,heated)+'<div class="oge-demo-label">'+label+'</div></div>';
+}
+function renderOge(){
+ ogeLocked=false;
+ document.getElementById("oge12Tab").classList.toggle("on",ogeMode===12);
+ document.getElementById("oge17Tab").classList.toggle("on",ogeMode===17);
+ if(ogeMode===12){
+   const q=OGE12[ogeIndex12%OGE12.length],box=document.getElementById("ogeBox");
+   box.innerHTML='<div class="oge-task"><div class="oge-kicker">ОГЭ · задание №12</div><div class="oge-title">Какой признак реакции наблюдается?</div><div class="oge-pair">'+q.pair+'</div><div id="ogeOptions" class="oge-options"></div><div id="ogeDemo" class="oge-demo"></div><div id="ogeFeedback" class="oge-feedback"></div><button id="ogeNext" class="oge-next" style="display:none">Следующее</button></div>';
+   q.options.forEach((label,i)=>{
+     const b=document.createElement("button");b.textContent=(i+1)+") "+label;b.onclick=()=>answerOge12(i);document.getElementById("ogeOptions").appendChild(b);
+   });
+   document.getElementById("ogeNext").onclick=()=>{ogeIndex12++;renderOge()};
+ } else {
+   const q=OGE17[ogeIndex17%OGE17.length],box=document.getElementById("ogeBox");
+   box.innerHTML='<div class="oge-task"><div class="oge-kicker">ОГЭ · задание №17</div><div class="oge-title">Каким реактивом можно различить вещества?</div><div class="oge-pair">'+q.leftName+' и '+q.rightName+'</div><div id="ogeOptions" class="oge-options"></div><div id="ogeDemo" class="oge-demo"></div><div id="ogeFeedback" class="oge-feedback"></div><button id="ogeNext" class="oge-next" style="display:none">Следующее</button></div>';
+   q.options.forEach(([id,label],i)=>{
+     const b=document.createElement("button");b.textContent=(i+1)+") "+label;b.onclick=()=>answerOge17(id,b);document.getElementById("ogeOptions").appendChild(b);
+   });
+   document.getElementById("ogeNext").onclick=()=>{ogeIndex17++;renderOge()};
+ }
+}
+function markOgeButtons(correctIndex,chosenIndex){
+ [...document.getElementById("ogeOptions").children].forEach((b,i)=>{
+   if(i===correctIndex)b.classList.add("correct");else if(i===chosenIndex)b.classList.add("wrong");
+   b.disabled=true;
+ });
+}
+function answerOge12(choice){
+ if(ogeLocked)return;ogeLocked=true;
+ const q=OGE12[ogeIndex12%OGE12.length],ok=choice===q.correct,x=reactionExpected(q.a,q.b);
+ markOgeButtons(q.correct,choice);
+ document.getElementById("ogeDemo").innerHTML='<div class="oge-demo-one">'+tubeHTML([q.a,q.b],0,false,true)+'</div>';
+ document.getElementById("ogeFeedback").innerHTML=(ok?'✅ <b>Верно.</b> ':'❌ <b>Смотри на опыт.</b> ')+reactionResultHTML(x,true);
+ document.getElementById("ogeNext").style.display="block";
+ api({action:"event",type:"prediction",correct:ok}).then(j=>{data.stats=j.stats;renderStats()});
+}
+function answerOge17(id,btn){
+ if(ogeLocked)return;ogeLocked=true;
+ const q=OGE17[ogeIndex17%OGE17.length],ok=id===q.correct,ci=q.options.findIndex(x=>x[0]===q.correct),chosen=q.options.findIndex(x=>x[0]===id);
+ markOgeButtons(ci,chosen);
+ const lx=reactionExpected(q.left,id),rx=reactionExpected(q.right,id);
+ document.getElementById("ogeDemo").innerHTML=ogeTube([q.left,id],q.heat,q.leftName+' + '+btn.textContent.replace(/^\d+\)\s*/,''))+ogeTube([q.right,id],q.heat,q.rightName+' + '+btn.textContent.replace(/^\d+\)\s*/,''));
+ let expl='';
+ if(ok){
+   expl='<b>✅ Реактив подходит.</b><br>В пробирках наблюдаются разные признаки, поэтому вещества можно различить.';
+ }else{
+   expl='<b>❌ Этот реактив не даёт надёжного различия.</b><br>Сравни, что происходит в обеих пробирках.';
+ }
+ document.getElementById("ogeFeedback").innerHTML='<div class="result">'+expl+'</div>'+
+   '<div style="margin-top:8px">'+(lx?reactionResultHTML(lx,q.heat):'<div class="result">С '+q.leftName+' видимого признака нет.</div>')+'</div>'+
+   '<div style="margin-top:8px">'+(rx?reactionResultHTML(rx,q.heat):'<div class="result">С '+q.rightName+' видимого признака нет.</div>')+'</div>';
+ document.getElementById("ogeNext").style.display="block";
+ api({action:"event",type:"prediction",correct:ok}).then(j=>{data.stats=j.stats;renderStats()});
+}
+document.getElementById("oge12Tab").onclick=()=>{ogeMode=12;renderOge()};
+document.getElementById("oge17Tab").onclick=()=>{ogeMode=17;renderOge()};
+
 function nextExam(){
  locked=false;document.getElementById("examResult").textContent="";
  const pool=data.reactions.filter(x=>!x.heat&&["p","g","c","n"].includes(x.t));
@@ -587,7 +680,7 @@ function renderStats(){
 }
 document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{
  document.querySelectorAll("[data-page]").forEach(x=>x.classList.remove("on"));document.querySelectorAll(".page").forEach(x=>x.classList.remove("on"));
- b.classList.add("on");document.getElementById(b.dataset.page).classList.add("on");if(b.dataset.page==="exam"&&!exam)nextExam();
+ b.classList.add("on");document.getElementById(b.dataset.page).classList.add("on");if(b.dataset.page==="exam"&&!exam)nextExam();if(b.dataset.page==="oge")renderOge();
 });
 api({action:"load"}).then(j=>{
  if(!j.ok){document.body.innerHTML="<p>Не удалось открыть лабораторию.</p>";return}
