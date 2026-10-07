@@ -18,7 +18,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261007-lab-v11-oge"
+BUILD = "20261007-lab-v12-ege24"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -307,6 +307,14 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .oge-demo-one{width:106px}.oge-demo-two{width:106px}.oge-demo .tube{height:190px}
 .oge-demo-label{text-align:center;font-size:11px;font-weight:900;margin-top:5px}
 .oge-feedback{margin-top:10px}.oge-next{margin-top:10px;width:100%}
+.ege-switch{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 12px}
+.ege-switch button{padding:11px 8px;font-size:11px}.ege-switch button.on{background:var(--pink);color:#fff;border-color:var(--pink)}
+.ege-match-grid{display:grid;gap:9px;margin-top:12px}.ege-match-row{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px;align-items:center;background:#fff7fb;border:1px solid #f1c8dc;border-radius:14px;padding:10px}
+.ege-match-row b{font-size:13px}.ege-match-row select{width:100%;min-height:42px;border-radius:11px;border:1px solid #e7c6d6;background:#fff;padding:0 8px;font-weight:900}
+.ege-choice-list{display:grid;gap:7px;margin-top:10px}.ege-choice{background:#fff;border:1px solid #eadfe4;border-radius:13px;padding:9px 10px;font-size:12px}
+.ege-explain{margin-top:10px;display:grid;gap:8px}.ege-mini{display:grid;grid-template-columns:74px minmax(0,1fr);gap:10px;align-items:center;background:#fff;border:1px solid #eadfe4;border-radius:14px;padding:9px}
+.ege-mini .tube{height:112px;width:58px;margin:auto}.ege-mini-text{font-size:11px;line-height:1.4}.ege-mini-text b{font-size:12px}
+
 .unknown{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.unknown button.on{background:var(--pink);color:#fff}
 select{width:100%;padding:8px;border:1px solid #efc5da;border-radius:10px;background:#fff}.guess p{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:6px}
 h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
@@ -350,6 +358,7 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
  .tube-slot.active-slot .tube{height:210px}
  .reagent-list{grid-template-columns:1fr 1fr}
  .oge-options{grid-template-columns:1fr}.oge-demo{gap:12px}.oge-demo-two{width:96px}.oge-demo .tube{height:170px}
+ .ege-switch{grid-template-columns:1fr}.ege-match-row{grid-template-columns:1fr 82px}.ege-mini{grid-template-columns:64px minmax(0,1fr)}
  .logo{font-size:11px;width:auto;height:auto;padding:7px 9px;border-radius:999px}
 }
 </style></head><body><div class="app">
@@ -358,6 +367,7 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 <button class="on" data-page="free">Свободный опыт</button>
 <button data-page="work">Лаб. работа</button>
 <button data-page="oge">ОГЭ</button>
+<button data-page="ege">ЕГЭ</button>
 <button data-page="exam">Экзамен</button>
 <button data-page="stats">Прогресс</button>
 </div>
@@ -410,6 +420,15 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 <div id="ogeBox"></div>
 </div></section>
 
+<section id="ege" class="page"><div class="card">
+<div class="ege-switch">
+  <button id="ege24Tab" class="on">№24</button>
+  <button id="egeSignsTab">Признаки</button>
+  <button id="egeQualityTab">Качественные реакции</button>
+</div>
+<div id="egeBox"></div>
+</div></section>
+
 <section id="exam" class="page"><div class="card">
 <h2 id="pair"></h2><p>Что увидишь после смешивания?</p><div id="answers" class="answers"></div>
 <div id="examResult" class="result"></div><button id="next">Следующая</button>
@@ -423,6 +442,7 @@ const labQs=new URLSearchParams(location.search),labLaunch=labQs.get("launch")||
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все";
 let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
+let egeMode="24",egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;
 
 function key(a,b){return [a,b].sort().join("|")}
 function reagent(id){return reagentMap.get(id)}
@@ -583,6 +603,97 @@ document.getElementById("check").onclick=()=>{
  if(n===5)api({action:"event",type:"labwork"}).then(j=>{data.stats=j.stats;renderStats()});
 };
 
+const EGE24=[
+ {kind:"signs",title:"Задание №24 · признаки реакции",pairs:[
+   ["AgNO₃ + NaCl","agno3","nacl"],["CuSO₄ + NaOH","cuso4","naoh"],["FeCl₃ + NaOH","fecl3","naoh"],["Na₂CO₃ + HNO₃","na2co3","hno3"]
+  ],options:["белый осадок","голубой осадок","бурый осадок","выделение бесцветного газа","видимые признаки отсутствуют"],answers:[1,2,3,4]},
+ {kind:"quality",title:"Задание №24 · качественное различение",pairs:[
+   ["Na₂SiO₃ и Na₂CO₃","na2sio3","na2co3"],["Na₂SO₄ и Na₂SO₃","na2so4","na2so3"],["NaCl и KI","nacl","ki"],["FeSO₄ и FeCl₃","feso4","fecl3"]
+  ],options:[["hcl","HCl"],["bacl2","BaCl₂"],["agno3","AgNO₃"],["naoh","NaOH"],["h2so4","H₂SO₄"]],answers:["hcl","hcl","agno3","naoh"]}
+];
+const EGESIGNS=[
+ ["agno3","nacl","AgNO₃ + NaCl"],["cuso4","naoh","CuSO₄ + NaOH"],["fecl3","naoh","FeCl₃ + NaOH"],["feso4","naoh","FeSO₄ + NaOH"],
+ ["na2co3","hno3","Na₂CO₃ + HNO₃"],["na2so3","h2so4","Na₂SO₃ + H₂SO₄"],["na2sio3","hcl","Na₂SiO₃ + HCl"],["k2cro4","hcl","K₂CrO₄ + HCl"]
+];
+const EGEQUALITY=[
+ {left:"na2sio3",right:"na2co3",leftName:"Na₂SiO₃",rightName:"Na₂CO₃",options:[["hcl","HCl"],["naoh","NaOH"],["agno3","AgNO₃"],["bacl2","BaCl₂"]],correct:"hcl"},
+ {left:"na2so4",right:"na2so3",leftName:"Na₂SO₄",rightName:"Na₂SO₃",options:[["hcl","HCl"],["agno3","AgNO₃"],["naoh","NaOH"],["kbr","KBr"]],correct:"hcl"},
+ {left:"nacl",right:"ki",leftName:"NaCl",rightName:"KI",options:[["agno3","AgNO₃"],["naoh","NaOH"],["h2so4","H₂SO₄"],["bacl2","BaCl₂"]],correct:"agno3"},
+ {left:"feso4",right:"fecl3",leftName:"FeSO₄",rightName:"FeCl₃",options:[["naoh","NaOH"],["hcl","HCl"],["agno3","AgNO₃"],["na2so4","Na₂SO₄"]],correct:"naoh"}
+];
+function setEgeMode(mode){
+ egeMode=mode;egeLocked=false;
+ document.getElementById("ege24Tab").classList.toggle("on",mode==="24");
+ document.getElementById("egeSignsTab").classList.toggle("on",mode==="signs");
+ document.getElementById("egeQualityTab").classList.toggle("on",mode==="quality");
+ renderEge();
+}
+function renderEge(){
+ const box=document.getElementById("egeBox");egeLocked=false;
+ if(egeMode==="24")return renderEge24(box);
+ if(egeMode==="signs")return renderEgeSigns(box);
+ return renderEgeQuality(box);
+}
+function renderEge24(box){
+ const q=EGE24[egeIndex24%EGE24.length];
+ let rows='',choices='';
+ if(q.kind==="signs"){
+   q.pairs.forEach((p,i)=>{rows+='<div class="ege-match-row"><b>'+"АБВГ"[i]+') '+p[0]+'</b><select id="ege24sel'+i+'"><option value="">—</option>'+q.options.map((o,n)=>'<option value="'+(n+1)+'">'+(n+1)+'</option>').join("")+'</select></div>'});
+   choices=q.options.map((o,i)=>'<div class="ege-choice"><b>'+(i+1)+')</b> '+o+'</div>').join("");
+ }else{
+   q.pairs.forEach((p,i)=>{rows+='<div class="ege-match-row"><b>'+"АБВГ"[i]+') '+p[0]+'</b><select id="ege24sel'+i+'"><option value="">—</option>'+q.options.map((o,n)=>'<option value="'+o[0]+'">'+(n+1)+'</option>').join("")+'</select></div>'});
+   choices=q.options.map((o,i)=>'<div class="ege-choice"><b>'+(i+1)+')</b> '+o[1]+'</div>').join("");
+ }
+ box.innerHTML='<div class="oge-task"><div class="oge-kicker">ЕГЭ · №24</div><div class="oge-title">'+q.title+'</div><div class="ege-match-grid">'+rows+'</div><div class="ege-choice-list">'+choices+'</div><button id="ege24Check" class="primary" style="margin-top:12px;width:100%">Проверить</button><div id="ege24Feedback" class="ege-explain"></div><button id="ege24Next" class="oge-next" style="display:none">Следующее задание</button></div>';
+ document.getElementById("ege24Check").onclick=()=>checkEge24(q);
+ document.getElementById("ege24Next").onclick=()=>{egeIndex24++;renderEge()};
+}
+function checkEge24(q){
+ if(egeLocked)return;egeLocked=true;
+ let ok=true,html='';
+ q.pairs.forEach((p,i)=>{
+   const val=document.getElementById("ege24sel"+i).value,ans=q.answers[i];
+   if(String(val)!==String(ans))ok=false;
+   if(q.kind==="signs"){
+     const x=reactionExpected(p[1],p[2]);
+     html+='<div class="ege-mini"><div>'+tubeHTML([p[1],p[2]],0,false,true)+'</div><div class="ege-mini-text"><b>'+"АБВГ"[i]+') '+p[0]+'</b><br>'+reactionResultHTML(x,true)+'</div></div>';
+   }else{
+     const tool=ans,lx=reactionExpected(p[1],tool),rx=reactionExpected(p[2],tool);
+     html+='<div class="ege-mini"><div>🧪</div><div class="ege-mini-text"><b>'+"АБВГ"[i]+') '+p[0]+' → '+reagent(tool)[0]+'</b><br>'+(lx?lx.sign:"без видимого признака")+' / '+(rx?rx.sign:"без видимого признака")+'</div></div>';
+   }
+ });
+ document.getElementById("ege24Feedback").innerHTML='<div class="result">'+(ok?'✅ Всё верно.':'❌ Есть ошибки — посмотри, что реально происходит в пробирках.')+'</div>'+html;
+ document.getElementById("ege24Next").style.display="block";
+ api({action:"event",type:"prediction",correct:ok}).then(j=>{data.stats=j.stats;renderStats()});
+}
+function renderEgeSigns(box){
+ const [a,b,label]=EGESIGNS[egeSignsIndex%EGESIGNS.length],x=reactionExpected(a,b);
+ const options=["образование осадка","выделение газа","изменение цвета","без видимого признака"];
+ const correct=x.t==="p"||x.t==="x"?0:x.t==="g"?1:x.t==="c"?2:3;
+ box.innerHTML='<div class="oge-task"><div class="oge-kicker">ЕГЭ · признаки реакций</div><div class="oge-title">Что наблюдается в ходе реакции?</div><div class="oge-pair">'+label+'</div><div id="egeSignsOptions" class="oge-options"></div><div id="egeSignsDemo" class="oge-demo"></div><div id="egeSignsFeedback"></div><button id="egeSignsNext" class="oge-next" style="display:none">Следующая</button></div>';
+ options.forEach((o,i)=>{const bt=document.createElement("button");bt.textContent=(i+1)+") "+o;bt.onclick=()=>{if(egeLocked)return;egeLocked=true;[...document.getElementById("egeSignsOptions").children].forEach((z,n)=>{z.disabled=true;if(n===correct)z.classList.add("correct");else if(n===i)z.classList.add("wrong")});document.getElementById("egeSignsDemo").innerHTML='<div class="oge-demo-one">'+tubeHTML([a,b],0,false,true)+'</div>';document.getElementById("egeSignsFeedback").innerHTML=(i===correct?'✅ <b>Верно.</b>':'❌ <b>Смотри на опыт.</b>')+reactionResultHTML(x,true);document.getElementById("egeSignsNext").style.display="block";api({action:"event",type:"prediction",correct:i===correct}).then(j=>{data.stats=j.stats;renderStats()})};document.getElementById("egeSignsOptions").appendChild(bt)});
+ document.getElementById("egeSignsNext").onclick=()=>{egeSignsIndex++;renderEge()};
+}
+function renderEgeQuality(box){
+ const q=EGEQUALITY[egeQualityIndex%EGEQUALITY.length];
+ box.innerHTML='<div class="oge-task"><div class="oge-kicker">ЕГЭ · качественные реакции</div><div class="oge-title">Чем можно различить эти вещества?</div><div class="oge-pair">'+q.leftName+' и '+q.rightName+'</div><div id="egeQualityOptions" class="oge-options"></div><div id="egeQualityDemo" class="oge-demo"></div><div id="egeQualityFeedback"></div><button id="egeQualityNext" class="oge-next" style="display:none">Следующая</button></div>';
+ q.options.forEach(([id,label],i)=>{const bt=document.createElement("button");bt.textContent=(i+1)+") "+label;bt.onclick=()=>answerEgeQuality(q,id,i);document.getElementById("egeQualityOptions").appendChild(bt)});
+ document.getElementById("egeQualityNext").onclick=()=>{egeQualityIndex++;renderEge()};
+}
+function answerEgeQuality(q,id,chosen){
+ if(egeLocked)return;egeLocked=true;
+ const ci=q.options.findIndex(x=>x[0]===q.correct),ok=id===q.correct;
+ [...document.getElementById("egeQualityOptions").children].forEach((z,n)=>{z.disabled=true;if(n===ci)z.classList.add("correct");else if(n===chosen)z.classList.add("wrong")});
+ const lx=reactionExpected(q.left,id),rx=reactionExpected(q.right,id);
+ document.getElementById("egeQualityDemo").innerHTML=ogeTube([q.left,id],true,q.leftName+' + '+reagent(id)[0])+ogeTube([q.right,id],true,q.rightName+' + '+reagent(id)[0]);
+ document.getElementById("egeQualityFeedback").innerHTML='<div class="result">'+(ok?'✅ Реактив позволяет различить вещества.':'❌ Этим реактивом надёжно различить вещества нельзя.')+'</div><div style="margin-top:8px">'+(lx?reactionResultHTML(lx,true):'<div class="result">'+q.leftName+': видимого признака нет.</div>')+'</div><div style="margin-top:8px">'+(rx?reactionResultHTML(rx,true):'<div class="result">'+q.rightName+': видимого признака нет.</div>')+'</div>';
+ document.getElementById("egeQualityNext").style.display="block";
+ api({action:"event",type:"prediction",correct:ok}).then(j=>{data.stats=j.stats;renderStats()});
+}
+document.getElementById("ege24Tab").onclick=()=>setEgeMode("24");
+document.getElementById("egeSignsTab").onclick=()=>setEgeMode("signs");
+document.getElementById("egeQualityTab").onclick=()=>setEgeMode("quality");
+
 const OGE12=[
  {a:"ki",b:"agno3",pair:"KI + AgNO₃",options:["выделение газа без запаха","выделение газа с запахом","выпадение белого осадка","выпадение жёлтого осадка"],correct:3},
  {a:"hcl",b:"na2so3",pair:"HCl + Na₂SO₃",options:["выпадение белого осадка","выделение бесцветного газа с запахом","изменение цвета раствора","видимые признаки отсутствуют"],correct:1},
@@ -680,7 +791,7 @@ function renderStats(){
 }
 document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{
  document.querySelectorAll("[data-page]").forEach(x=>x.classList.remove("on"));document.querySelectorAll(".page").forEach(x=>x.classList.remove("on"));
- b.classList.add("on");document.getElementById(b.dataset.page).classList.add("on");if(b.dataset.page==="exam"&&!exam)nextExam();if(b.dataset.page==="oge")renderOge();
+ b.classList.add("on");document.getElementById(b.dataset.page).classList.add("on");if(b.dataset.page==="exam"&&!exam)nextExam();if(b.dataset.page==="oge")renderOge();if(b.dataset.page==="ege")renderEge();
 });
 api({action:"load"}).then(j=>{
  if(!j.ok){document.body.innerHTML="<p>Не удалось открыть лабораторию.</p>";return}
