@@ -64,6 +64,11 @@ REACTIONS = [
     ("agno3","ki","AgNO₃ + KI → AgI↓ + KNO₃","p","жёлтый AgI","#f8fbff","#f4d534","",0),
     ("agno3","na2co3","2AgNO₃ + Na₂CO₃ → Ag₂CO₃↓ + 2NaNO₃","p","жёлтый Ag₂CO₃","#f8fbff","#e6cf44","",0),
     ("agno3","na2s","2AgNO₃ + Na₂S → Ag₂S↓ + 2NaNO₃","p","чёрный Ag₂S","#f8fbff","#151515","",0),
+    ("agno3","fecl3","3AgNO₃ + FeCl₃ → 3AgCl↓ + Fe(NO₃)₃","p","белый AgCl","#fff3e8","#ffffff","",0),
+    ("agno3","alcl3","3AgNO₃ + AlCl₃ → 3AgCl↓ + Al(NO₃)₃","p","белый AgCl","#f8fbff","#ffffff","",0),
+    ("agno3","nh4cl","AgNO₃ + NH₄Cl → AgCl↓ + NH₄NO₃","p","белый AgCl","#f8fbff","#ffffff","",0),
+    ("agno3","cacl2","2AgNO₃ + CaCl₂ → 2AgCl↓ + Ca(NO₃)₂","p","белый AgCl","#f8fbff","#ffffff","",0),
+    ("agno3","bacl2","2AgNO₃ + BaCl₂ → 2AgCl↓ + Ba(NO₃)₂","p","белый AgCl","#f8fbff","#ffffff","",0),
     ("bacl2","h2so4","BaCl₂ + H₂SO₄ → BaSO₄↓ + 2HCl","p","белый BaSO₄","#f8fbff","#ffffff","",0),
     ("bacl2","na2so4","BaCl₂ + Na₂SO₄ → BaSO₄↓ + 2NaCl","p","белый BaSO₄","#f8fbff","#ffffff","",0),
     ("bacl2","na2co3","BaCl₂ + Na₂CO₃ → BaCO₃↓ + 2NaCl","p","белый BaCO₃","#f8fbff","#ffffff","",0),
@@ -282,7 +287,7 @@ function add(id){
  tubes[selectedTube].push(id);
  if(tubes[selectedTube].length===2){
   let x=reactionExpected(tubes[selectedTube][0],tubes[selectedTube][1]);
-  document.getElementById("result").innerHTML=x?(x.heat?"Нужно нагреть":"<b>"+x.sign+"</b><br>"+x.eq):"Видимого признака реакции нет";
+  document.getElementById("result").innerHTML=x?(x.heat?"Нужно нагреть":"<b>"+x.sign+"</b><br>"+x.eq):"Этот опыт пока не добавлен в базу";
   if(x&&!x.heat)api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()});
  }
  renderTubes();
