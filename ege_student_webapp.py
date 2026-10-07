@@ -37,7 +37,7 @@ STUDENT_WEBAPP_URL = os.getenv(
     "EGE_STUDENT_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/student-app" if PUBLIC_DOMAIN else "",
 ).strip()
-STUDENT_WEBAPP_BUILD = "20261007-lab-button-students"
+STUDENT_WEBAPP_BUILD = "20261007-lab-button-students-v2"
 HTML_PATH = Path(__file__).with_name("ege_student_webapp.html")
 _INSTALLED = False
 _previous_get = None
@@ -538,6 +538,20 @@ def _launcher_url(telegram_user_id):
         f"&v={STUDENT_WEBAPP_BUILD}"
     )
 
+def _lab_launcher_url(telegram_user_id):
+    domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
+    base = os.getenv(
+        "EGE_LAB_WEBAPP_URL",
+        f"https://{domain}/lab-app" if domain else "",
+    ).strip()
+    if not base:
+        return ""
+    sep = "&" if "?" in base else "?"
+    return (
+        f"{base}{sep}launch={_launch_token(telegram_user_id)}"
+        f"&v=20261007-lab-v10-students"
+    )
+
 
 def _patch_student_cabinet():
     global _previous_markup, _previous_callback, _previous_show
@@ -568,6 +582,18 @@ def _patch_student_cabinet():
                 web_app=WebAppInfo(url=_webapp_url()),
             )],
         )
+        lab_url = _lab_launcher_url(uid)
+        if lab_url and not any(
+            getattr(button, "url", "") == lab_url
+            for row in rows for button in row
+        ):
+            rows.insert(
+                1,
+                [InlineKeyboardButton(
+                    "🧪 Лаборатория",
+                    url=lab_url,
+                )],
+            )
         return InlineKeyboardMarkup(rows)
 
     async def show_student_cabinet_with_webapp(update, context, student=None, edit=False):
