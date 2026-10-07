@@ -18,7 +18,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261007-lab-v8-tube-callout"
+BUILD = "20261007-lab-v9-mobile-focus"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -231,6 +231,9 @@ HTML = r'''<!doctype html>
 .rack-board:before{left:5%}.rack-board:after{right:5%}
 .rack{position:relative;z-index:2;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;align-items:end;padding:0 9%}
 .tube-slot{position:relative;min-width:0}
+.mobile-tube-picker{display:none;gap:7px;justify-content:center;margin:12px 0 4px}
+.mobile-tube-picker button{width:42px;height:42px;padding:0;border-radius:13px;font-size:14px}
+.mobile-tube-picker button.on{background:var(--pink);color:#fff;border-color:var(--pink)}
 .tube-callout{position:absolute;z-index:30;width:300px;left:50%;bottom:calc(100% + 18px);transform:translateX(-50%);pointer-events:none}
 .tube-callout.edge-left{left:0;transform:none}
 .tube-callout.edge-right{left:auto;right:0;transform:none}
@@ -296,8 +299,47 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .unknown{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.unknown button.on{background:var(--pink);color:#fff}
 select{width:100%;padding:8px;border:1px solid #efc5da;border-radius:10px;background:#fff}.guess p{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:6px}
 h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
-@media(max-width:820px){.lab-shell{grid-template-columns:1fr}.lab-side{order:2}.lab-bench{order:1;min-height:520px}.lab-controls{order:3}.rack-wrap{bottom:74px}.reagent-list{max-height:none;display:grid;grid-template-columns:1fr 1fr}.rack{gap:10px}.tube{height:165px}.tube-callout{width:min(300px,82vw)}}
-@media(max-width:520px){.tabs{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr 1fr}.rack{gap:6px;padding:0 5%}.tube{height:150px}.app{padding:10px}.reagent-list{grid-template-columns:1fr 1fr}.lab-bench{min-height:390px}.lab-side,.lab-controls,.lab-bench{border-radius:18px}}
+@media(max-width:820px){
+ .app{padding:10px 10px 90px}
+ .tabs{display:flex;overflow-x:auto;gap:7px;margin:10px -2px 12px;padding:0 2px 3px;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tabs button{flex:0 0 auto;padding:9px 12px;font-size:11px}
+ .lab-shell{grid-template-columns:1fr;gap:9px}
+ .lab-bench{order:1;min-height:500px;padding:12px;border-radius:19px}
+ .lab-controls{order:2;padding:11px;border-radius:18px}
+ .lab-side{order:3;padding:11px;border-radius:18px}
+ .bench-head{align-items:flex-start}.bench-hint{max-width:220px}
+ .mobile-tube-picker{display:flex}
+ .rack-wrap{left:0;right:0;bottom:70px}
+ .rack-board{left:20%;right:20%;top:95px}
+ .rack-board:before{left:8%}.rack-board:after{right:8%}
+ .rack{display:block;padding:0}
+ .tube-slot{display:none}
+ .tube-slot.active-slot{display:block;width:118px;margin:0 auto}
+ .tube-slot.active-slot .tube{height:220px}
+ .tube-slot.active-slot .tubeSmall{font-size:10px;min-height:22px}
+ .tube-slot.active-slot .tubeLabel{display:none}
+ .tube-callout{width:min(330px,90vw);bottom:calc(100% + 16px)}
+ .tube-callout.edge-left,.tube-callout.edge-right{left:50%;right:auto;transform:translateX(-50%)}
+ .tube-callout.edge-left:after,.tube-callout.edge-right:after{left:50%}
+ .reaction-card{padding:10px;border-radius:15px}.reaction-sign{font-size:13px;margin-bottom:6px}.reaction-equation{font-size:12px;padding:8px}.reaction-status{font-size:10px;padding:5px 8px}
+ .control-stack{display:grid!important;grid-template-columns:1fr 1fr;gap:7px}
+ .lab-result{min-height:0;padding:9px;font-size:12px}
+ .selected-card{padding:8px;margin-bottom:8px}
+ .reagent-filters{display:flex;overflow-x:auto;grid-template-columns:none;gap:6px;margin:8px -1px 10px;padding:0 1px 2px;scrollbar-width:none}.reagent-filters::-webkit-scrollbar{display:none}
+ .reagent-filter{flex:0 0 auto;padding:7px 10px}
+ .reagent-list{max-height:none;display:grid;grid-template-columns:1fr 1fr;gap:7px;overflow:visible}
+ .reagent-group{display:contents}
+ .reagent-group-title{grid-column:1/-1;margin:6px 0 0}
+ .reagent-item{padding:8px;min-height:62px}
+ .drop-icon{width:20px;height:28px;flex-basis:20px}.drop-icon:before{width:11px;height:16px;left:4px}
+ .rformula{font-size:12px}.rcat{font-size:9px}
+}
+@media(max-width:520px){
+ .lab-bench{min-height:480px}
+ .tube-slot.active-slot{width:110px}
+ .tube-slot.active-slot .tube{height:210px}
+ .reagent-list{grid-template-columns:1fr 1fr}
+ .logo{font-size:11px;width:auto;height:auto;padding:7px 9px;border-radius:999px}
+}
 </style></head><body><div class="app">
 <div class="logo">ЕГЭ БЛИЗКО</div><h1>🧪 Лаборатория</h1>
 <div class="tabs">
@@ -322,6 +364,9 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
   </aside>
   <main class="lab-bench">
     <div class="bench-head"><div><h2>Рабочий стол</h2><div class="bench-hint">Выбери пробирку и проведи опыт</div></div><div class="logo">ЕГЭ БЛИЗКО</div></div>
+    <div id="mobileTubePicker" class="mobile-tube-picker">
+      <button class="on" data-tube="0">1</button><button data-tube="1">2</button><button data-tube="2">3</button><button data-tube="3">4</button>
+    </div>
     <div class="rack-wrap"><div class="rack-board"></div><div id="tubes" class="rack"></div></div>
   </main>
   <aside class="lab-controls">
@@ -421,7 +466,7 @@ function tubeHTML(v,i,active,heated){
 function renderTubes(){
  const box=document.getElementById("tubes");box.innerHTML="";
  tubes.forEach((v,i)=>{
-  const wrap=document.createElement("div");wrap.className="tube-slot";
+  const wrap=document.createElement("div");wrap.className="tube-slot"+(i===selectedTube?" active-slot":"");
   const x=v.length===2?reactionExpected(v[0],v[1]):null;
   let callout="";
   if(i===selectedTube&&v.length===2){
@@ -429,8 +474,13 @@ function renderTubes(){
     callout='<div class="tube-callout'+cls+'">'+reactionResultHTML(x,tubeHeat[i])+'</div>';
   }
   wrap.innerHTML=callout+tubeHTML(v,i,i===selectedTube,tubeHeat[i])+'<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+(v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>';
-  wrap.onclick=()=>{selectedTube=i;const lab=document.getElementById("selectedTubeLabel");if(lab)lab.textContent=String(i+1);renderTubes()};box.appendChild(wrap);
+  wrap.onclick=()=>{selectedTube=i;syncTubePicker();renderTubes()};box.appendChild(wrap);
  });
+}
+function syncTubePicker(){
+ const lab=document.getElementById("selectedTubeLabel");if(lab)lab.textContent=String(selectedTube+1);
+ const root=document.getElementById("mobileTubePicker");if(!root)return;
+ root.querySelectorAll("[data-tube]").forEach(btn=>btn.classList.toggle("on",Number(btn.dataset.tube)===selectedTube));
 }
 function renderReagents(){
  const box=document.getElementById("reagents");box.innerHTML="";
@@ -448,6 +498,13 @@ function renderReagents(){
    });
    box.appendChild(group);
  });
+}
+function setupMobileTubePicker(){
+ const root=document.getElementById("mobileTubePicker");if(!root)return;
+ root.querySelectorAll("[data-tube]").forEach(btn=>{
+   btn.onclick=()=>{selectedTube=Number(btn.dataset.tube);syncTubePicker();renderTubes();};
+ });
+ syncTubePicker();
 }
 function setupReagentFilters(){
  const root=document.getElementById("reagentFilters");if(!root)return;
@@ -534,7 +591,7 @@ document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{
 api({action:"load"}).then(j=>{
  if(!j.ok){document.body.innerHTML="<p>Не удалось открыть лабораторию.</p>";return}
  data=j.data;Object.entries(data.reagents).forEach(x=>reagentMap.set(x[0],x[1]));data.reactions.forEach(x=>reactionMap.set(key(x.a,x.b),x));
- renderTubes();renderReagents();setupReagentFilters();setupLab();renderStats();
+ renderTubes();renderReagents();setupMobileTubePicker();setupReagentFilters();setupLab();renderStats();
 });
 </script></body></html>'''
 
