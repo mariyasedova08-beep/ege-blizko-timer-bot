@@ -36,6 +36,8 @@ SPECIAL_STATS_TABLES = {
     "nonmetals": "nonmetals_sessions",
     "oxides": "oxides_sessions",
     "oxideprops": "oxide_properties_sessions",
+    "hydroxides": "hydroxides_sessions",
+    "middlesalts": "middle_salts_sessions",
 }
 
 _INSTALLED = False
