@@ -18,7 +18,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261007-lab-v1"
+BUILD = "20261007-lab-v2-realistic"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -212,9 +212,29 @@ HTML = r'''<!doctype html>
 button{border:1px solid #efc5da;background:#fff;border-radius:14px;padding:11px 9px;font-weight:800;color:#222}
 button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.page.on{display:block}
 .card{background:#fff;border:1px solid #efc5da;border-radius:20px;padding:14px;margin-top:10px}
-.rack{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.tube{height:185px;border:3px solid #ccd1d9;border-top:0;border-radius:0 0 28px 28px;position:relative;overflow:hidden;background:#fff}
-.tube.on{border-color:var(--pink)}.liq,.ppt{position:absolute;bottom:0;left:3px;right:3px;height:0}.ppt{z-index:2}
-.tubeLabel{text-align:center;font-weight:800;margin-top:4px}.tubeSmall{text-align:center;font-size:11px;color:#777;min-height:28px}
+.rack{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tube{height:185px;border:2px solid rgba(127,137,151,.52);border-top:0;border-radius:0 0 30px 30px;position:relative;overflow:hidden;background:linear-gradient(90deg,rgba(255,255,255,.92) 0 13%,rgba(226,233,241,.35) 18%,rgba(255,255,255,.72) 50%,rgba(214,224,235,.35) 82%,rgba(255,255,255,.9) 100%);box-shadow:inset 5px 0 8px rgba(255,255,255,.75),inset -5px 0 7px rgba(109,122,140,.12),0 5px 12px rgba(54,42,51,.10);transition:.22s}
+.tube:before{content:"";position:absolute;z-index:8;left:-3px;right:-3px;top:-2px;height:12px;border:2px solid rgba(120,130,143,.52);border-radius:50%;background:rgba(255,255,255,.75);box-shadow:inset 0 -2px 2px rgba(113,126,143,.12)}
+.tube:after{content:"";position:absolute;z-index:7;left:13%;top:14px;width:10%;height:72%;border-radius:8px;background:linear-gradient(rgba(255,255,255,.75),rgba(255,255,255,.08));filter:blur(.2px);pointer-events:none}
+.tube.on{border-color:var(--pink);box-shadow:inset 5px 0 8px rgba(255,255,255,.75),inset -5px 0 7px rgba(109,122,140,.12),0 0 0 2px rgba(240,0,135,.11),0 6px 16px rgba(240,0,135,.16)}
+.liq{position:absolute;bottom:0;left:2px;right:2px;height:0;z-index:1;transition:height .5s ease,background 1.1s ease;box-shadow:inset 0 8px 11px rgba(255,255,255,.24),inset 0 -8px 10px rgba(0,0,0,.06)}
+.liq:before{content:"";position:absolute;left:0;right:0;top:-5px;height:10px;border-radius:50%;background:inherit;filter:brightness(1.08);box-shadow:inset 0 2px 3px rgba(255,255,255,.58),0 1px 1px rgba(0,0,0,.10)}
+.pptLayer{position:absolute;z-index:3;left:3px;right:3px;bottom:2px;height:54%;pointer-events:none;overflow:hidden;border-radius:0 0 24px 24px}
+.particle{position:absolute;bottom:var(--b);left:var(--l);width:var(--s);height:var(--s);background:var(--pc);opacity:.90;filter:drop-shadow(0 1px 1px rgba(0,0,0,.13));animation:settle .9s cubic-bezier(.2,.7,.3,1) both}
+.particle.floc{border-radius:44% 56% 48% 52%;transform:rotate(var(--r)) scaleX(1.45);filter:blur(.25px) drop-shadow(0 1px 1px rgba(0,0,0,.11))}
+.particle.gel{border-radius:50% 44% 52% 46%;opacity:.62;filter:blur(1.2px);transform:scaleX(1.8)}
+.particle.crystal{border-radius:2px;transform:rotate(var(--r));opacity:.94;box-shadow:0 0 2px rgba(255,255,255,.45)}
+.particle.fine{border-radius:50%;opacity:.72;filter:blur(.35px)}
+@keyframes settle{from{transform:translateY(-75px) scale(.55);opacity:.1}to{opacity:.88}}
+.bubbleLayer{position:absolute;z-index:5;left:3px;right:3px;bottom:2px;height:58%;overflow:hidden;border-radius:0 0 24px 24px;pointer-events:none}
+.bubble{position:absolute;bottom:-12px;left:var(--l);width:var(--s);height:var(--s);border:1.4px solid rgba(255,255,255,.95);border-radius:50%;background:rgba(255,255,255,.11);box-shadow:inset 1px 1px 2px rgba(255,255,255,.7),0 0 1px rgba(50,70,90,.45);animation:rise var(--d) linear infinite;animation-delay:var(--delay)}
+@keyframes rise{0%{transform:translateY(0) translateX(0) scale(.65);opacity:.1}15%{opacity:.9}70%{transform:translateY(-78px) translateX(var(--drift)) scale(1)}100%{transform:translateY(-118px) translateX(calc(var(--drift)*.4)) scale(1.12);opacity:0}}
+.heatShimmer{position:absolute;z-index:6;left:12%;right:12%;top:11%;height:24%;background:repeating-linear-gradient(90deg,transparent 0 7px,rgba(240,0,135,.08) 8px 9px,transparent 10px 15px);filter:blur(3px);animation:shimmer .9s ease-in-out infinite alternate}
+@keyframes shimmer{to{transform:translateY(-4px) skewX(-4deg);opacity:.35}}
+.reactionGlow{position:absolute;z-index:4;inset:38% 4px 4px;border-radius:10px 10px 24px 24px;box-shadow:inset 0 0 18px rgba(255,255,255,.6);animation:flash 1s ease-out}
+@keyframes flash{0%{background:rgba(255,255,255,.8)}100%{background:transparent}}
+.tubeLabel{text-align:center;font-weight:800;margin-top:5px}.tubeSmall{text-align:center;font-size:11px;color:#777;min-height:30px}
+.labVisual{display:flex;justify-content:center;margin:12px 0}.labVisual .tube{width:92px;height:190px}
 .grid{grid-template-columns:repeat(3,1fr)}.grid button small{display:block;color:#777;font-weight:600;margin-top:3px}
 .tools,.answers{grid-template-columns:1fr 1fr}.result{padding:10px;background:#fff3f9;border-radius:13px;margin-top:8px;min-height:44px}
 .stats{grid-template-columns:1fr 1fr}.stat{background:#fff;border:1px solid #efc5da;border-radius:16px;padding:14px}.stat b{font-size:28px;color:var(--pink);display:block}
@@ -242,7 +262,7 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 <h2>Определи 5 неизвестных</h2>
 <p>CuSO₄, FeCl₃, Na₂CO₃, NaCl и Na₂SO₄. Используй минимум проб.</p>
 <div id="unknowns" class="unknown"></div><h3>Реактив</h3><div id="labTools" class="tools"></div>
-<button id="test" class="primary">Провести пробу</button><div id="labLog" class="result">Пока ни одной пробы.</div>
+<button id="test" class="primary">Провести пробу</button><div id="labVisual" class="labVisual"></div><div id="labLog" class="result">Пока ни одной пробы.</div>
 <div id="guesses" class="guess"></div><button id="check" class="primary">Проверить</button><div id="workResult" class="result"></div>
 </div></section>
 
@@ -256,22 +276,52 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 <script>
 const tg=Telegram.WebApp;tg.ready();tg.expand();
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0;
-let tubes=[[],[],[],[]], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
+let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 
 function key(a,b){return [a,b].sort().join("|")}
 function reagent(id){return reagentMap.get(id)}
 function api(payload){return fetch("/lab-app/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({init_data:tg.initData},payload))}).then(r=>r.json())}
 function findReaction(a,b,heated){let x=reactionMap.get(key(a,b));return x&&(!x.heat||heated)?x:null}
 function reactionExpected(a,b){return reactionMap.get(key(a,b))||null}
-
+function pptTexture(x){
+ const s=(x&&x.sign||"").toLowerCase();
+ if(s.includes("студенист"))return "gel";
+ if(s.includes("agcl"))return "floc";
+ if(s.includes("baso₄")||s.includes("baso4")||s.includes("caco₃")||s.includes("caso₃"))return "fine";
+ if(s.includes("pbi₂")||s.includes("agi")||s.includes("agbr")||s.includes("bacro₄"))return "crystal";
+ if(s.includes("fe(oh)₃"))return "floc";
+ return "fine";
+}
+function precipitateHTML(x){
+ if(!x||!x.ppt)return "";
+ const cls=pptTexture(x),parts=[];
+ for(let n=0;n<24;n++){
+  const l=(5+(n*37)%88), b=(2+(n*17)%30), s=(cls==="gel"?11+(n%5)*4:cls==="floc"?7+(n%5)*3:4+(n%4)*2), r=((n*31)%90-45)+"deg";
+  parts.push('<i class="particle '+cls+'" style="--l:'+l+'%;--b:'+b+'%;--s:'+s+'px;--r:'+r+';--pc:'+x.ppt+'"></i>');
+ }
+ return '<div class="pptLayer">'+parts.join("")+'</div>';
+}
+function bubblesHTML(x){
+ if(!x||!x.gas)return "";
+ const parts=[];
+ for(let n=0;n<18;n++){
+   parts.push('<i class="bubble" style="--l:'+(8+(n*29)%82)+'%;--s:'+(5+(n%5)*2)+'px;--d:'+(1.5+(n%5)*.23)+'s;--delay:-'+((n%7)*.22)+'s;--drift:'+(((n%3)-1)*9)+'px"></i>');
+ }
+ return '<div class="bubbleLayer">'+parts.join("")+'</div>';
+}
+function tubeHTML(v,i,active,heated){
+ const x=v.length===2?findReaction(v[0],v[1],heated):null;
+ const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
+ const sol=x?x.sol:base;
+ const reactionVisual=x?(precipitateHTML(x)+bubblesHTML(x)+'<i class="reactionGlow"></i>'):"";
+ const shimmer=(heated&&v.length)?'<i class="heatShimmer"></i>':"";
+ return '<div class="tube '+(active?'on':'')+'"><i class="liq" style="height:'+(v.length?58:0)+'%;background:'+sol+'"></i>'+reactionVisual+shimmer+'</div>';
+}
 function renderTubes(){
  const box=document.getElementById("tubes");box.innerHTML="";
  tubes.forEach((v,i)=>{
-  const x=v.length===2?findReaction(v[0],v[1],false):null;
-  const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
-  const sol=x?x.sol:base, ppt=x?x.ppt:"";
   const wrap=document.createElement("div");
-  wrap.innerHTML='<div class="tube '+(i===selectedTube?'on':'')+'"><i class="liq" style="height:'+(v.length?55:0)+'%;background:'+sol+'"></i>'+(ppt?'<i class="ppt" style="height:20%;background:'+ppt+'"></i>':'')+'</div><div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+(v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>';
+  wrap.innerHTML=tubeHTML(v,i,i===selectedTube,tubeHeat[i])+'<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+(v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>';
   wrap.onclick=()=>{selectedTube=i;renderTubes()};box.appendChild(wrap);
  });
 }
@@ -284,6 +334,7 @@ function renderReagents(){
 }
 function add(id){
  if(tubes[selectedTube].length>=2)return;
+ tubeHeat[selectedTube]=false;
  tubes[selectedTube].push(id);
  if(tubes[selectedTube].length===2){
   let x=reactionExpected(tubes[selectedTube][0],tubes[selectedTube][1]);
@@ -293,11 +344,13 @@ function add(id){
  renderTubes();
 }
 document.getElementById("heat").onclick=()=>{
- let v=tubes[selectedTube],x=v.length===2?findReaction(v[0],v[1],true):null;
+ let v=tubes[selectedTube];tubeHeat[selectedTube]=true;
+ let x=v.length===2?findReaction(v[0],v[1],true):null;
  if(x){document.getElementById("result").innerHTML="<b>"+x.sign+"</b><br>"+x.eq;api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()})}
+ else if(v.length===2){document.getElementById("result").textContent="При нагревании видимого изменения нет."}
  renderTubes();
 };
-document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];document.getElementById("result").textContent="Пробирка очищена.";renderTubes()};
+document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeHeat[selectedTube]=false;document.getElementById("result").textContent="Пробирка очищена.";renderTubes()};
 
 function setupLab(){
  unknownOrder=[...data.lab].sort(()=>Math.random()-.5);
@@ -307,13 +360,14 @@ function setupLab(){
  data.tools.forEach(id=>{const b=document.createElement("button");b.textContent=reagent(id)[0];b.onclick=()=>{toolSelected=id;[...tools.children].forEach(q=>q.classList.remove("on"));b.classList.add("on")};tools.appendChild(b)});
  const guesses=document.getElementById("guesses");guesses.innerHTML="";
  "ABCDE".split("").forEach((label,i)=>{const p=document.createElement("p");p.innerHTML="<b>"+label+"</b><select id='guess"+i+"'><option></option>"+data.lab.map(id=>"<option value='"+id+"'>"+reagent(id)[0]+"</option>").join("")+"</select>";guesses.appendChild(p)});
- document.getElementById("labLog").textContent="Пока ни одной пробы.";document.getElementById("workResult").textContent="";attempts=0;
+ document.getElementById("labLog").textContent="Пока ни одной пробы.";document.getElementById("workResult").textContent="";document.getElementById("labVisual").innerHTML="";attempts=0;
 }
 document.getElementById("test").onclick=()=>{
  if(!toolSelected)return;
  attempts++;
  const unknown=unknownOrder[unknownSelected],x=findReaction(unknown,toolSelected,true);
  const label="ABCDE"[unknownSelected]+" + "+reagent(toolSelected)[0]+" — "+(x?x.sign:"без видимого признака");
+ document.getElementById("labVisual").innerHTML=tubeHTML([unknown,toolSelected],0,false,true);
  document.getElementById("labLog").innerHTML+=("<br>"+attempts+". "+label);
 };
 document.getElementById("check").onclick=()=>{
