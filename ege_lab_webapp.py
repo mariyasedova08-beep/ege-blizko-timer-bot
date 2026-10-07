@@ -378,18 +378,28 @@ def do_post(self):
             raise ValueError("bad length")
         request=json.loads(self.rfile.read(length).decode("utf-8"))
         uid=validate_init_data(request.get("init_data"))
-        if not uid:
-            return self._send_json(401,{"ok":False,"error":"unauthorized"})
         action=request.get("action")
         if action=="load":
+            # The chemistry content is public. Outside Telegram the page opens
+            # in preview mode; inside Telegram we additionally load/save stats.
+            preview_stats={
+                "experiments":0,"predictions":0,"correct_predictions":0,
+                "labworks_completed":0,"accuracy":0,
+            }
             return self._send_json(200,{"ok":True,"data":{
                 "reagents":REAGENTS,
                 "reactions":reaction_payload(),
                 "lab":["cuso4","fecl3","na2co3","nacl","na2so4"],
                 "tools":["naoh","hcl","agno3","bacl2"],
-                "stats":stats(uid),
+                "stats":stats(uid) if uid else preview_stats,
+                "preview":not bool(uid),
             }})
         if action=="event":
+            if not uid:
+                return self._send_json(200,{"ok":True,"stats":{
+                    "experiments":0,"predictions":0,"correct_predictions":0,
+                    "labworks_completed":0,"accuracy":0,
+                }})
             return self._send_json(200,{"ok":True,"stats":record_event(uid,request.get("type"),bool(request.get("correct")))})
         return self._send_json(400,{"ok":False,"error":"bad_action"})
     except Exception as exc:
@@ -422,7 +432,27 @@ def install():
         return InlineKeyboardMarkup(rows)
 
     public._hub_markup=hub_markup
+
+    # Maria asked to open the laboratory from her own cabinet too.
+    live23=live90.live79.live23
+    previous_admin_markup=live23.cabinet_markup
+
+    def admin_markup():
+        base=previous_admin_markup()
+        rows=[list(row) for row in base.inline_keyboard]
+        if URL and not any(
+            getattr(button,"web_app",None)
+            and getattr(getattr(button,"web_app",None),"url","").startswith(URL)
+            for row in rows for button in row
+        ):
+            rows.insert(
+                1 if rows else 0,
+                [InlineKeyboardButton("🧪 Лаборатория",web_app=WebAppInfo(url=webapp_url()))],
+            )
+        return InlineKeyboardMarkup(rows)
+
+    live23.cabinet_markup=admin_markup
     print(
-        f"EGE lab ready: reagents={len(REAGENTS)} reactions={len(REACTIONS)} url={URL or 'missing'}",
+        f"EGE lab ready: reagents={len(REAGENTS)} reactions={len(REACTIONS)} url={URL or 'missing'} admin_button=1",
         flush=True,
     )
