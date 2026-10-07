@@ -243,6 +243,10 @@ def main():
     import public_channel_trainers
     public_channel_trainers.install()
 
+    # Interactive chemistry laboratory inside EGE BLIZKO trainers.
+    import ege_lab_webapp
+    ege_lab_webapp.install()
+
     # Direct Google Sheets payment sync. Install after all runtime wrappers so
     # /sheets/payment-sync remains the outermost HTTP route.
     import payment_google_sheets_sync  # noqa: F401
