@@ -537,8 +537,8 @@ def install():
             and context.args[0].lower()
             in {
                 "middlesalts",
-                "hydroxideprops",
-                "свойствагидроксидов",
+                "middlesaltprops",
+                "свойствасолей",
             }
         ):
             await update.message.reply_text(
