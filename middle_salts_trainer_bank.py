@@ -412,10 +412,12 @@ if len(FACTS) != 50:
 def _build_bank():
     bank = []
     index = 1
-    for p1, p2, correct, distractors in FACTS:
+    # 66 разных фактов из конспекта + 34 альтернативные формулировки = 100 вопросов.
+    for fact_index, (p1, p2, correct, distractors) in enumerate(FACTS):
         if len(distractors) != 3:
             raise RuntimeError(f"Invalid distractors for: {p1}")
-        for prompt in (p1, p2):
+        prompts = (p1, p2) if fact_index < 34 else (p1,)
+        for prompt in prompts:
             bank.append((f"ms{index:03d}", prompt, correct, tuple(distractors)))
             index += 1
     return tuple(bank)
