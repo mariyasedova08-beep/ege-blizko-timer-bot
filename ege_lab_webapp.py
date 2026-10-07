@@ -18,7 +18,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261007-lab-v3-gas-visible"
+BUILD = "20261007-lab-v4-boiling-gas"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -226,7 +226,12 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .particle.crystal{border-radius:2px;transform:rotate(var(--r));opacity:.94;box-shadow:0 0 2px rgba(255,255,255,.45)}
 .particle.fine{border-radius:50%;opacity:.72;filter:blur(.35px)}
 @keyframes settle{from{transform:translateY(-75px) scale(.55);opacity:.1}to{opacity:.88}}
-.bubbleLayer{position:absolute;z-index:6;left:3px;right:3px;bottom:2px;height:78%;overflow:visible;border-radius:0 0 24px 24px;pointer-events:none}
+.bubbleLayer{position:absolute;z-index:6;left:3px;right:3px;bottom:2px;height:82%;overflow:visible;border-radius:0 0 24px 24px;pointer-events:none}
+.bubbleLayer.strong:before{content:"";position:absolute;left:6%;right:6%;bottom:6%;height:36%;border-radius:50%;background:radial-gradient(ellipse at center,rgba(255,255,255,.72) 0 16%,rgba(255,255,255,.24) 17% 48%,rgba(255,255,255,0) 70%);filter:blur(2px);animation:boilPulse .55s ease-in-out infinite alternate}
+.boilLayer{position:absolute;z-index:5;left:4px;right:4px;bottom:2px;height:59%;overflow:hidden;border-radius:0 0 24px 24px;pointer-events:none}
+.boilCell{position:absolute;bottom:2px;left:var(--l);width:var(--w);height:var(--h);border-radius:50% 50% 40% 40%;background:radial-gradient(ellipse at 50% 75%,rgba(255,255,255,.46),rgba(255,255,255,.08) 55%,transparent 70%);filter:blur(.4px);animation:boilCell var(--d) ease-in-out infinite;animation-delay:var(--delay)}
+@keyframes boilCell{0%{transform:translateY(8px) scale(.75,.55);opacity:.2}40%{opacity:.85}100%{transform:translateY(-20px) scale(1.12,.95);opacity:.05}}
+@keyframes boilPulse{from{transform:scale(.88,.7);opacity:.35}to{transform:scale(1.08,1.0);opacity:.8}}
 .bubble{position:absolute;bottom:4px;left:var(--l);width:var(--s);height:var(--s);border:2.2px solid rgba(255,255,255,.98);border-radius:50%;background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.92) 0 16%,rgba(255,255,255,.28) 17% 42%,rgba(255,255,255,.07) 43% 100%);box-shadow:0 0 0 1px rgba(80,105,130,.26),inset -2px -2px 4px rgba(80,105,130,.16),0 2px 5px rgba(40,55,70,.15);animation:rise var(--d) ease-in infinite;animation-delay:var(--delay)}
 .surfaceFizz{position:absolute;z-index:7;left:10%;right:10%;bottom:56%;height:16px;pointer-events:none}
 .surfaceFizz i{position:absolute;bottom:0;left:var(--l);width:var(--s);height:var(--s);border-radius:50%;border:1.8px solid rgba(255,255,255,.98);background:rgba(255,255,255,.36);box-shadow:0 0 0 1px rgba(70,90,110,.2);animation:pop 1.15s ease-out infinite;animation-delay:var(--delay)}
@@ -308,18 +313,25 @@ function precipitateHTML(x){
 }
 function bubblesHTML(x){
  if(!x||!x.gas)return "";
- const parts=[],fizz=[];
- for(let n=0;n<28;n++){
-   parts.push('<i class="bubble" style="--l:'+(5+(n*23)%90)+'%;--s:'+(7+(n%6)*2.2)+'px;--d:'+(1.15+(n%5)*.18)+'s;--delay:-'+((n%9)*.16)+'s;--drift:'+(((n%5)-2)*8)+'px"></i>');
+ const parts=[],fizz=[],boil=[];
+ const strong=["CO₂","SO₂","H₂S"].includes(x.gas);
+ const count=strong?42:30;
+ for(let n=0;n<count;n++){
+   parts.push('<i class="bubble" style="--l:'+(4+(n*23)%91)+'%;--s:'+(strong?8+(n%7)*2.4:7+(n%6)*2.2)+'px;--d:'+(strong?.88+(n%5)*.12:1.12+(n%5)*.17)+'s;--delay:-'+((n%11)*.13)+'s;--drift:'+(((n%5)-2)*8)+'px"></i>');
  }
- for(let n=0;n<10;n++){
-   fizz.push('<i style="--l:'+(4+(n*31)%90)+'%;--s:'+(4+(n%4)*2)+'px;--delay:-'+((n%6)*.18)+'s"></i>');
+ for(let n=0;n<(strong?16:10);n++){
+   fizz.push('<i style="--l:'+(3+(n*31)%92)+'%;--s:'+(4+(n%5)*2.2)+'px;--delay:-'+((n%7)*.14)+'s"></i>');
+ }
+ if(strong){
+   for(let n=0;n<11;n++){
+     boil.push('<i class="boilCell" style="--l:'+(2+(n*17)%86)+'%;--w:'+(16+(n%4)*7)+'px;--h:'+(10+(n%4)*4)+'px;--d:'+(0.55+(n%4)*.11)+'s;--delay:-'+((n%5)*.12)+'s"></i>');
+   }
  }
  let gasColor='rgba(255,255,255,.55)';
- if(x.gas==="SO₂")gasColor='rgba(220,225,230,.42)';
- if(x.gas==="H₂S")gasColor='rgba(205,210,205,.34)';
- if(x.gas==="NH₃")gasColor='rgba(235,235,255,.38)';
- return '<div class="bubbleLayer">'+parts.join("")+'</div><div class="surfaceFizz">'+fizz.join("")+'</div><div class="gasPlume" style="--gasColor:'+gasColor+'"></div>';
+ if(x.gas==="SO₂")gasColor='rgba(220,225,230,.44)';
+ if(x.gas==="H₂S")gasColor='rgba(205,210,205,.36)';
+ if(x.gas==="NH₃")gasColor='rgba(235,235,255,.40)';
+ return (strong?'<div class="boilLayer">'+boil.join("")+'</div>':'')+'<div class="bubbleLayer '+(strong?'strong':'')+'">'+parts.join("")+'</div><div class="surfaceFizz">'+fizz.join("")+'</div><div class="gasPlume" style="--gasColor:'+gasColor+'"></div>';
 }
 function tubeHTML(v,i,active,heated){
  const x=v.length===2?findReaction(v[0],v[1],heated):null;
