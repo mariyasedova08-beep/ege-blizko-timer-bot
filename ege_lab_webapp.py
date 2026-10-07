@@ -18,7 +18,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261007-lab-v5-reference-layout"
+BUILD = "20261007-lab-v6-reagent-groups"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -211,6 +211,11 @@ HTML = r'''<!doctype html>
 .lab-shell{display:grid;grid-template-columns:240px minmax(0,1fr) 210px;gap:12px;align-items:stretch}
 .lab-side,.lab-controls{background:#fff;border:1px solid #efc5da;border-radius:22px;padding:13px;box-shadow:0 8px 25px rgba(35,20,28,.05)}
 .lab-side h2,.lab-controls h2,.bench-head h2{margin:0 0 10px;font-size:16px}
+.reagent-filters{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:10px 0 12px}
+.reagent-filter{border:1px solid #f0cadc;background:#fff8fb;color:#4c4046;border-radius:999px;padding:8px 7px;font-size:11px;font-weight:900}
+.reagent-filter.on{background:var(--pink);color:#fff;border-color:var(--pink)}
+.reagent-group{margin:4px 0 12px}
+.reagent-group-title{font-size:11px;font-weight:950;color:#2d2629;background:#f8e6ef;border-radius:999px;padding:7px 10px;margin:4px 0 7px;display:inline-flex}
 .reagent-list{display:flex;flex-direction:column;gap:7px;max-height:590px;overflow:auto;padding-right:2px}
 .reagent-item{width:100%;display:flex;align-items:center;gap:9px;text-align:left;padding:9px 10px;border-radius:14px;border:1px solid #eee1e8;background:#fff}
 .reagent-item:hover,.reagent-item:active{background:#fff5fa;border-color:#f1bad6}
@@ -291,6 +296,12 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
   <aside class="lab-side">
     <h2>Реактивы</h2>
     <div class="mode-note">Нажми на вещество — оно добавится в выбранную пробирку.</div>
+    <div id="reagentFilters" class="reagent-filters">
+      <button class="reagent-filter on" data-cat="Все">Все</button>
+      <button class="reagent-filter" data-cat="Кислоты">Кислоты</button>
+      <button class="reagent-filter" data-cat="Основания">Основания</button>
+      <button class="reagent-filter" data-cat="Соли">Соли</button>
+    </div>
     <div id="reagents" class="reagent-list"></div>
   </aside>
   <main class="lab-bench">
@@ -326,7 +337,7 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 </div>
 <script>
 const tg=Telegram.WebApp;tg.ready();tg.expand();
-let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0;
+let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все";
 let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 
 function key(a,b){return [a,b].sort().join("|")}
@@ -392,10 +403,29 @@ function renderTubes(){
 }
 function renderReagents(){
  const box=document.getElementById("reagents");box.innerHTML="";
- Object.entries(data.reagents).forEach(([id,v])=>{
-  const b=document.createElement("button");b.className="reagent-item";
-  b.innerHTML='<span class="drop-icon" style="--rc:'+v[2]+'"></span><span><div class="rformula">'+v[0]+'</div><div class="rcat">'+v[1]+'</div></span>';
-  b.onclick=()=>add(id);box.appendChild(b);
+ const order=["Кислоты","Основания","Соли"];
+ order.forEach(cat=>{
+   if(selectedReagentCategory!=="Все"&&selectedReagentCategory!==cat)return;
+   const entries=Object.entries(data.reagents).filter(([id,v])=>v[1]===cat);
+   if(!entries.length)return;
+   const group=document.createElement("div");group.className="reagent-group";
+   const title=document.createElement("div");title.className="reagent-group-title";title.textContent=cat;group.appendChild(title);
+   entries.forEach(([id,v])=>{
+     const b=document.createElement("button");b.className="reagent-item";
+     b.innerHTML='<span class="drop-icon" style="--rc:'+v[2]+'"></span><span><div class="rformula">'+v[0]+'</div><div class="rcat">'+v[1]+'</div></span>';
+     b.onclick=()=>add(id);group.appendChild(b);
+   });
+   box.appendChild(group);
+ });
+}
+function setupReagentFilters(){
+ const root=document.getElementById("reagentFilters");if(!root)return;
+ root.querySelectorAll("[data-cat]").forEach(btn=>{
+   btn.onclick=()=>{
+     selectedReagentCategory=btn.dataset.cat;
+     root.querySelectorAll("[data-cat]").forEach(x=>x.classList.toggle("on",x===btn));
+     renderReagents();
+   };
  });
 }
 function add(id){
@@ -473,7 +503,7 @@ document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{
 api({action:"load"}).then(j=>{
  if(!j.ok){document.body.innerHTML="<p>Не удалось открыть лабораторию.</p>";return}
  data=j.data;Object.entries(data.reagents).forEach(x=>reagentMap.set(x[0],x[1]));data.reactions.forEach(x=>reactionMap.set(key(x.a,x.b),x));
- renderTubes();renderReagents();setupLab();renderStats();
+ renderTubes();renderReagents();setupReagentFilters();setupLab();renderStats();
 });
 </script></body></html>'''
 
