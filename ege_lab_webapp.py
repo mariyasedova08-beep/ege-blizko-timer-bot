@@ -1,0 +1,423 @@
+"""Interactive chemistry laboratory Mini App for EGE BLIZKO."""
+import hashlib
+import hmac
+import json
+import os
+import sqlite3
+import time
+from datetime import datetime
+from urllib.parse import parse_qsl, urlparse
+
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+
+import run_bot_live90 as live90
+
+bot = live90.bot
+DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
+URL = os.getenv(
+    "EGE_LAB_WEBAPP_URL",
+    f"https://{DOMAIN}/lab-app" if DOMAIN else "",
+).strip()
+BUILD = "20261007-lab-v1"
+_INSTALLED = False
+_previous_get = None
+_previous_post = None
+_previous_hub = None
+
+# id -> (formula, category, solution colour)
+REAGENTS = {
+    "hcl": ("HCl", "Кислоты", "#f8fbff"),
+    "h2so4": ("H₂SO₄", "Кислоты", "#f8fbff"),
+    "hno3": ("HNO₃", "Кислоты", "#f8fbff"),
+    "naoh": ("NaOH", "Основания", "#f8fbff"),
+    "koh": ("KOH", "Основания", "#f8fbff"),
+    "nh3": ("NH₃·H₂O", "Основания", "#f8fbff"),
+    "agno3": ("AgNO₃", "Соли", "#f8fbff"),
+    "bacl2": ("BaCl₂", "Соли", "#f8fbff"),
+    "cacl2": ("CaCl₂", "Соли", "#f8fbff"),
+    "cuso4": ("CuSO₄", "Соли", "#42baf5"),
+    "feso4": ("FeSO₄", "Соли", "#bfe7c5"),
+    "fecl3": ("FeCl₃", "Соли", "#d99d2b"),
+    "znso4": ("ZnSO₄", "Соли", "#f8fbff"),
+    "alcl3": ("AlCl₃", "Соли", "#f8fbff"),
+    "pbno3": ("Pb(NO₃)₂", "Соли", "#f8fbff"),
+    "na2co3": ("Na₂CO₃", "Соли", "#f8fbff"),
+    "na2so3": ("Na₂SO₃", "Соли", "#f8fbff"),
+    "na2s": ("Na₂S", "Соли", "#f8fbff"),
+    "na2sio3": ("Na₂SiO₃", "Соли", "#f8fbff"),
+    "ki": ("KI", "Соли", "#f8fbff"),
+    "kbr": ("KBr", "Соли", "#f8fbff"),
+    "k2cro4": ("K₂CrO₄", "Соли", "#f5d532"),
+    "k2cr2o7": ("K₂Cr₂O₇", "Соли", "#ef7c2d"),
+    "kmno4": ("KMnO₄", "Соли", "#b32a9a"),
+    "nh4cl": ("NH₄Cl", "Соли", "#f8fbff"),
+    "nacl": ("NaCl", "Соли", "#f8fbff"),
+    "na2so4": ("Na₂SO₄", "Соли", "#f8fbff"),
+}
+
+# a, b, equation, kind(p precipitate/g gas/c colour/n no visible/x combo),
+# observation, solution colour, precipitate colour, gas, heat_required
+REACTIONS = [
+    ("agno3","hcl","AgNO₃ + HCl → AgCl↓ + HNO₃","p","белый AgCl","#f8fbff","#ffffff","",0),
+    ("agno3","nacl","AgNO₃ + NaCl → AgCl↓ + NaNO₃","p","белый AgCl","#f8fbff","#ffffff","",0),
+    ("agno3","kbr","AgNO₃ + KBr → AgBr↓ + KNO₃","p","кремовый AgBr","#f8fbff","#eadb9a","",0),
+    ("agno3","ki","AgNO₃ + KI → AgI↓ + KNO₃","p","жёлтый AgI","#f8fbff","#f4d534","",0),
+    ("agno3","na2co3","2AgNO₃ + Na₂CO₃ → Ag₂CO₃↓ + 2NaNO₃","p","жёлтый Ag₂CO₃","#f8fbff","#e6cf44","",0),
+    ("agno3","na2s","2AgNO₃ + Na₂S → Ag₂S↓ + 2NaNO₃","p","чёрный Ag₂S","#f8fbff","#151515","",0),
+    ("bacl2","h2so4","BaCl₂ + H₂SO₄ → BaSO₄↓ + 2HCl","p","белый BaSO₄","#f8fbff","#ffffff","",0),
+    ("bacl2","na2so4","BaCl₂ + Na₂SO₄ → BaSO₄↓ + 2NaCl","p","белый BaSO₄","#f8fbff","#ffffff","",0),
+    ("bacl2","na2co3","BaCl₂ + Na₂CO₃ → BaCO₃↓ + 2NaCl","p","белый BaCO₃","#f8fbff","#ffffff","",0),
+    ("bacl2","na2so3","BaCl₂ + Na₂SO₃ → BaSO₃↓ + 2NaCl","p","белый BaSO₃","#f8fbff","#ffffff","",0),
+    ("bacl2","k2cro4","BaCl₂ + K₂CrO₄ → BaCrO₄↓ + 2KCl","p","жёлтый BaCrO₄","#f8fbff","#f2d327","",0),
+    ("cacl2","na2co3","CaCl₂ + Na₂CO₃ → CaCO₃↓ + 2NaCl","p","белый CaCO₃","#f8fbff","#ffffff","",0),
+    ("cacl2","na2so3","CaCl₂ + Na₂SO₃ → CaSO₃↓ + 2NaCl","p","белый CaSO₃","#f8fbff","#ffffff","",0),
+    ("cacl2","na2sio3","CaCl₂ + Na₂SiO₃ → CaSiO₃↓ + 2NaCl","p","белый CaSiO₃","#f8fbff","#ffffff","",0),
+    ("cuso4","naoh","CuSO₄ + 2NaOH → Cu(OH)₂↓ + Na₂SO₄","p","голубой Cu(OH)₂","#d9f4ff","#39bced","",0),
+    ("cuso4","koh","CuSO₄ + 2KOH → Cu(OH)₂↓ + K₂SO₄","p","голубой Cu(OH)₂","#d9f4ff","#39bced","",0),
+    ("cuso4","na2s","CuSO₄ + Na₂S → CuS↓ + Na₂SO₄","p","чёрный CuS","#f8fbff","#151515","",0),
+    ("feso4","naoh","FeSO₄ + 2NaOH → Fe(OH)₂↓ + Na₂SO₄","p","светло-зелёный Fe(OH)₂","#eef7ee","#89b98e","",0),
+    ("feso4","koh","FeSO₄ + 2KOH → Fe(OH)₂↓ + K₂SO₄","p","светло-зелёный Fe(OH)₂","#eef7ee","#89b98e","",0),
+    ("feso4","na2s","FeSO₄ + Na₂S → FeS↓ + Na₂SO₄","p","чёрный FeS","#f8fbff","#181818","",0),
+    ("fecl3","naoh","FeCl₃ + 3NaOH → Fe(OH)₃↓ + 3NaCl","p","бурый Fe(OH)₃","#fff3e8","#9a4a2b","",0),
+    ("fecl3","koh","FeCl₃ + 3KOH → Fe(OH)₃↓ + 3KCl","p","бурый Fe(OH)₃","#fff3e8","#9a4a2b","",0),
+    ("fecl3","nh3","FeCl₃ + 3NH₃·H₂O → Fe(OH)₃↓ + 3NH₄Cl","p","бурый Fe(OH)₃","#fff3e8","#9a4a2b","",0),
+    ("fecl3","na2co3","2FeCl₃ + 3Na₂CO₃ + 3H₂O → 2Fe(OH)₃↓ + 3CO₂↑ + 6NaCl","x","бурый осадок + CO₂","#fff3e8","#9a4a2b","CO₂",0),
+    ("znso4","naoh","ZnSO₄ + 2NaOH → Zn(OH)₂↓ + Na₂SO₄","p","белый Zn(OH)₂","#f8fbff","#ffffff","",0),
+    ("znso4","koh","ZnSO₄ + 2KOH → Zn(OH)₂↓ + K₂SO₄","p","белый Zn(OH)₂","#f8fbff","#ffffff","",0),
+    ("znso4","na2s","ZnSO₄ + Na₂S → ZnS↓ + Na₂SO₄","p","белый ZnS","#f8fbff","#ffffff","",0),
+    ("alcl3","naoh","AlCl₃ + 3NaOH → Al(OH)₃↓ + 3NaCl","p","белый студенистый Al(OH)₃","#f8fbff","#ffffff","",0),
+    ("alcl3","koh","AlCl₃ + 3KOH → Al(OH)₃↓ + 3KCl","p","белый студенистый Al(OH)₃","#f8fbff","#ffffff","",0),
+    ("alcl3","na2s","2AlCl₃ + 3Na₂S + 6H₂O → 2Al(OH)₃↓ + 3H₂S↑ + 6NaCl","x","белый осадок + H₂S","#f8fbff","#ffffff","H₂S",0),
+    ("pbno3","ki","Pb(NO₃)₂ + 2KI → PbI₂↓ + 2KNO₃","p","ярко-жёлтый PbI₂","#f8fbff","#f4c928","",0),
+    ("pbno3","kbr","Pb(NO₃)₂ + 2KBr → PbBr₂↓ + 2KNO₃","p","белый PbBr₂","#f8fbff","#f6f1d8","",0),
+    ("pbno3","h2so4","Pb(NO₃)₂ + H₂SO₄ → PbSO₄↓ + 2HNO₃","p","белый PbSO₄","#f8fbff","#ffffff","",0),
+    ("pbno3","na2s","Pb(NO₃)₂ + Na₂S → PbS↓ + 2NaNO₃","p","чёрный PbS","#f8fbff","#151515","",0),
+    ("na2co3","hcl","Na₂CO₃ + 2HCl → 2NaCl + CO₂↑ + H₂O","g","пузырьки CO₂","#f8fbff","","CO₂",0),
+    ("na2co3","h2so4","Na₂CO₃ + H₂SO₄ → Na₂SO₄ + CO₂↑ + H₂O","g","пузырьки CO₂","#f8fbff","","CO₂",0),
+    ("na2co3","hno3","Na₂CO₃ + 2HNO₃ → 2NaNO₃ + CO₂↑ + H₂O","g","пузырьки CO₂","#f8fbff","","CO₂",0),
+    ("na2so3","hcl","Na₂SO₃ + 2HCl → 2NaCl + SO₂↑ + H₂O","g","SO₂, резкий запах","#f8fbff","","SO₂",0),
+    ("na2so3","h2so4","Na₂SO₃ + H₂SO₄ → Na₂SO₄ + SO₂↑ + H₂O","g","SO₂, резкий запах","#f8fbff","","SO₂",0),
+    ("na2s","hcl","Na₂S + 2HCl → 2NaCl + H₂S↑","g","H₂S, неприятный запах","#f8fbff","","H₂S",0),
+    ("na2s","h2so4","Na₂S + H₂SO₄ → Na₂SO₄ + H₂S↑","g","H₂S, неприятный запах","#f8fbff","","H₂S",0),
+    ("na2sio3","hcl","Na₂SiO₃ + 2HCl → H₂SiO₃↓ + 2NaCl","p","белый студенистый H₂SiO₃","#f8fbff","#ffffff","",0),
+    ("na2sio3","h2so4","Na₂SiO₃ + H₂SO₄ → H₂SiO₃↓ + Na₂SO₄","p","белый студенистый H₂SiO₃","#f8fbff","#ffffff","",0),
+    ("nh4cl","naoh","NH₄Cl + NaOH —t°→ NaCl + NH₃↑ + H₂O","g","NH₃ после нагревания","#f8fbff","","NH₃",1),
+    ("nh4cl","koh","NH₄Cl + KOH —t°→ KCl + NH₃↑ + H₂O","g","NH₃ после нагревания","#f8fbff","","NH₃",1),
+    ("k2cro4","hcl","2K₂CrO₄ + 2HCl ⇄ K₂Cr₂O₇ + 2KCl + H₂O","c","жёлтый → оранжевый","#ef7c2d","","",0),
+    ("k2cr2o7","naoh","K₂Cr₂O₇ + 2NaOH ⇄ K₂CrO₄ + Na₂CrO₄ + H₂O","c","оранжевый → жёлтый","#f5d532","","",0),
+    ("k2cr2o7","koh","K₂Cr₂O₇ + 2KOH ⇄ 2K₂CrO₄ + H₂O","c","оранжевый → жёлтый","#f5d532","","",0),
+    ("kmno4","na2so3","2KMnO₄ + 3Na₂SO₃ + H₂O → 2MnO₂↓ + 3Na₂SO₄ + 2KOH","p","бурый MnO₂","#f3eee6","#69432e","",0),
+    ("hcl","naoh","HCl + NaOH → NaCl + H₂O","n","без видимого признака","#f8fbff","","",0),
+    ("hcl","koh","HCl + KOH → KCl + H₂O","n","без видимого признака","#f8fbff","","",0),
+    ("h2so4","naoh","H₂SO₄ + 2NaOH → Na₂SO₄ + 2H₂O","n","без видимого признака","#f8fbff","","",0),
+    ("h2so4","koh","H₂SO₄ + 2KOH → K₂SO₄ + 2H₂O","n","без видимого признака","#f8fbff","","",0),
+    ("hno3","naoh","HNO₃ + NaOH → NaNO₃ + H₂O","n","без видимого признака","#f8fbff","","",0),
+    ("hno3","koh","HNO₃ + KOH → KNO₃ + H₂O","n","без видимого признака","#f8fbff","","",0),
+]
+
+def pair_key(a, b):
+    return "|".join(sorted((a, b)))
+
+def reaction_payload():
+    return [
+        {"a":a,"b":b,"eq":eq,"t":kind,"sign":sign,"sol":sol,"ppt":ppt,"gas":gas,"heat":bool(heat)}
+        for a,b,eq,kind,sign,sol,ppt,gas,heat in REACTIONS
+    ]
+
+def ensure_tables():
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS ege_lab_stats(
+                uid INTEGER PRIMARY KEY,
+                experiments INTEGER NOT NULL DEFAULT 0,
+                predictions INTEGER NOT NULL DEFAULT 0,
+                correct INTEGER NOT NULL DEFAULT 0,
+                labworks INTEGER NOT NULL DEFAULT 0,
+                updated TEXT
+            )"""
+        )
+        conn.commit()
+
+def stats(uid):
+    ensure_tables()
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT experiments,predictions,correct,labworks FROM ege_lab_stats WHERE uid=?",
+            (int(uid),),
+        ).fetchone()
+    a,b,c,d = map(int, row or (0,0,0,0))
+    return {
+        "experiments": a,
+        "predictions": b,
+        "correct_predictions": c,
+        "labworks_completed": d,
+        "accuracy": round(100*c/b) if b else 0,
+    }
+
+def record_event(uid, event_type, correct=False):
+    ensure_tables()
+    now = datetime.now(bot.TIMEZONE).isoformat()
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        conn.execute(
+            """INSERT INTO ege_lab_stats(uid,updated) VALUES(?,?)
+               ON CONFLICT(uid) DO UPDATE SET updated=excluded.updated""",
+            (int(uid), now),
+        )
+        if event_type == "experiment":
+            conn.execute("UPDATE ege_lab_stats SET experiments=experiments+1 WHERE uid=?", (int(uid),))
+        elif event_type == "prediction":
+            conn.execute(
+                "UPDATE ege_lab_stats SET predictions=predictions+1,correct=correct+? WHERE uid=?",
+                (1 if correct else 0, int(uid)),
+            )
+        elif event_type == "labwork":
+            conn.execute("UPDATE ege_lab_stats SET labworks=labworks+1 WHERE uid=?", (int(uid),))
+        conn.commit()
+    return stats(uid)
+
+def validate_init_data(raw, max_age=86400):
+    try:
+        fields = dict(parse_qsl(str(raw or ""), keep_blank_values=True))
+        received = fields.pop("hash", "")
+        token = os.getenv("BOT_TOKEN", "")
+        if not received or not token:
+            return None
+        check = "\n".join(f"{k}={v}" for k,v in sorted(fields.items()))
+        secret = hmac.new(b"WebAppData", token.encode(), hashlib.sha256).digest()
+        expected = hmac.new(secret, check.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(received, expected):
+            return None
+        now = int(time.time())
+        auth = int(fields.get("auth_date") or 0)
+        if auth <= 0 or auth > now + 300 or now - auth > max_age:
+            return None
+        user = json.loads(fields.get("user") or "{}")
+        return int(user["id"])
+    except Exception:
+        return None
+
+HTML = r'''<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--pink:#f00087;--soft:#f4d9e6;--milk:#f8f5f2;--ink:#171719}
+*{box-sizing:border-box}body{margin:0;background:var(--milk);color:var(--ink);font:14px system-ui,-apple-system,sans-serif}
+.app{max-width:760px;margin:auto;padding:14px}.logo{color:var(--pink);font-weight:900}.tabs,.grid,.answers,.tools,.stats{display:grid;gap:8px}
+.tabs{grid-template-columns:repeat(4,1fr);margin:12px 0}.tabs button{font-size:12px}
+button{border:1px solid #efc5da;background:#fff;border-radius:14px;padding:11px 9px;font-weight:800;color:#222}
+button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.page.on{display:block}
+.card{background:#fff;border:1px solid #efc5da;border-radius:20px;padding:14px;margin-top:10px}
+.rack{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.tube{height:185px;border:3px solid #ccd1d9;border-top:0;border-radius:0 0 28px 28px;position:relative;overflow:hidden;background:#fff}
+.tube.on{border-color:var(--pink)}.liq,.ppt{position:absolute;bottom:0;left:3px;right:3px;height:0}.ppt{z-index:2}
+.tubeLabel{text-align:center;font-weight:800;margin-top:4px}.tubeSmall{text-align:center;font-size:11px;color:#777;min-height:28px}
+.grid{grid-template-columns:repeat(3,1fr)}.grid button small{display:block;color:#777;font-weight:600;margin-top:3px}
+.tools,.answers{grid-template-columns:1fr 1fr}.result{padding:10px;background:#fff3f9;border-radius:13px;margin-top:8px;min-height:44px}
+.stats{grid-template-columns:1fr 1fr}.stat{background:#fff;border:1px solid #efc5da;border-radius:16px;padding:14px}.stat b{font-size:28px;color:var(--pink);display:block}
+.unknown{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.unknown button.on{background:var(--pink);color:#fff}
+select{width:100%;padding:8px;border:1px solid #efc5da;border-radius:10px;background:#fff}.guess p{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:6px}
+h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
+@media(max-width:520px){.tabs{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr 1fr}.rack{gap:6px}.tube{height:155px}.app{padding:10px}}
+</style></head><body><div class="app">
+<div class="logo">ЕГЭ БЛИЗКО</div><h1>🧪 Лаборатория</h1>
+<div class="tabs">
+<button class="on" data-page="free">Свободный опыт</button>
+<button data-page="work">Лаб. работа</button>
+<button data-page="exam">Экзамен</button>
+<button data-page="stats">Прогресс</button>
+</div>
+
+<section id="free" class="page on">
+<div class="card"><div id="tubes" class="rack"></div>
+<div class="tools"><button id="heat">🔥 нагреть</button><button id="clear">🧽 очистить</button></div>
+<div id="result" class="result">Выбери пробирку и добавь реактивы.</div></div>
+<div class="card"><h2>Реактивы</h2><div id="reagents" class="grid"></div></div>
+</section>
+
+<section id="work" class="page"><div class="card">
+<h2>Определи 5 неизвестных</h2>
+<p>CuSO₄, FeCl₃, Na₂CO₃, NaCl и Na₂SO₄. Используй минимум проб.</p>
+<div id="unknowns" class="unknown"></div><h3>Реактив</h3><div id="labTools" class="tools"></div>
+<button id="test" class="primary">Провести пробу</button><div id="labLog" class="result">Пока ни одной пробы.</div>
+<div id="guesses" class="guess"></div><button id="check" class="primary">Проверить</button><div id="workResult" class="result"></div>
+</div></section>
+
+<section id="exam" class="page"><div class="card">
+<h2 id="pair"></h2><p>Что увидишь после смешивания?</p><div id="answers" class="answers"></div>
+<div id="examResult" class="result"></div><button id="next">Следующая</button>
+</div></section>
+
+<section id="stats" class="page"><div class="card"><h2>Мой прогресс</h2><div id="statsBox" class="stats"></div></div></section>
+</div>
+<script>
+const tg=Telegram.WebApp;tg.ready();tg.expand();
+let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0;
+let tubes=[[],[],[],[]], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
+
+function key(a,b){return [a,b].sort().join("|")}
+function reagent(id){return reagentMap.get(id)}
+function api(payload){return fetch("/lab-app/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({init_data:tg.initData},payload))}).then(r=>r.json())}
+function findReaction(a,b,heated){let x=reactionMap.get(key(a,b));return x&&(!x.heat||heated)?x:null}
+function reactionExpected(a,b){return reactionMap.get(key(a,b))||null}
+
+function renderTubes(){
+ const box=document.getElementById("tubes");box.innerHTML="";
+ tubes.forEach((v,i)=>{
+  const x=v.length===2?findReaction(v[0],v[1],false):null;
+  const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
+  const sol=x?x.sol:base, ppt=x?x.ppt:"";
+  const wrap=document.createElement("div");
+  wrap.innerHTML='<div class="tube '+(i===selectedTube?'on':'')+'"><i class="liq" style="height:'+(v.length?55:0)+'%;background:'+sol+'"></i>'+(ppt?'<i class="ppt" style="height:20%;background:'+ppt+'"></i>':'')+'</div><div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+(v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>';
+  wrap.onclick=()=>{selectedTube=i;renderTubes()};box.appendChild(wrap);
+ });
+}
+function renderReagents(){
+ const box=document.getElementById("reagents");box.innerHTML="";
+ Object.entries(data.reagents).forEach(([id,v])=>{
+  const b=document.createElement("button");b.innerHTML=v[0]+"<small>"+v[1]+"</small>";
+  b.onclick=()=>add(id);box.appendChild(b);
+ });
+}
+function add(id){
+ if(tubes[selectedTube].length>=2)return;
+ tubes[selectedTube].push(id);
+ if(tubes[selectedTube].length===2){
+  let x=reactionExpected(tubes[selectedTube][0],tubes[selectedTube][1]);
+  document.getElementById("result").innerHTML=x?(x.heat?"Нужно нагреть":"<b>"+x.sign+"</b><br>"+x.eq):"Видимого признака реакции нет";
+  if(x&&!x.heat)api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()});
+ }
+ renderTubes();
+}
+document.getElementById("heat").onclick=()=>{
+ let v=tubes[selectedTube],x=v.length===2?findReaction(v[0],v[1],true):null;
+ if(x){document.getElementById("result").innerHTML="<b>"+x.sign+"</b><br>"+x.eq;api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()})}
+ renderTubes();
+};
+document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];document.getElementById("result").textContent="Пробирка очищена.";renderTubes()};
+
+function setupLab(){
+ unknownOrder=[...data.lab].sort(()=>Math.random()-.5);
+ const u=document.getElementById("unknowns");u.innerHTML="";
+ "ABCDE".split("").forEach((label,i)=>{const b=document.createElement("button");b.textContent=label;b.onclick=()=>{unknownSelected=i;[...u.children].forEach((q,n)=>q.classList.toggle("on",n===i))};u.appendChild(b)});u.children[0].classList.add("on");
+ const tools=document.getElementById("labTools");tools.innerHTML="";
+ data.tools.forEach(id=>{const b=document.createElement("button");b.textContent=reagent(id)[0];b.onclick=()=>{toolSelected=id;[...tools.children].forEach(q=>q.classList.remove("on"));b.classList.add("on")};tools.appendChild(b)});
+ const guesses=document.getElementById("guesses");guesses.innerHTML="";
+ "ABCDE".split("").forEach((label,i)=>{const p=document.createElement("p");p.innerHTML="<b>"+label+"</b><select id='guess"+i+"'><option></option>"+data.lab.map(id=>"<option value='"+id+"'>"+reagent(id)[0]+"</option>").join("")+"</select>";guesses.appendChild(p)});
+ document.getElementById("labLog").textContent="Пока ни одной пробы.";document.getElementById("workResult").textContent="";attempts=0;
+}
+document.getElementById("test").onclick=()=>{
+ if(!toolSelected)return;
+ attempts++;
+ const unknown=unknownOrder[unknownSelected],x=findReaction(unknown,toolSelected,true);
+ const label="ABCDE"[unknownSelected]+" + "+reagent(toolSelected)[0]+" — "+(x?x.sign:"без видимого признака");
+ document.getElementById("labLog").innerHTML+=("<br>"+attempts+". "+label);
+};
+document.getElementById("check").onclick=()=>{
+ let n=0;for(let i=0;i<5;i++)if(document.getElementById("guess"+i).value===unknownOrder[i])n++;
+ document.getElementById("workResult").textContent="Верно "+n+"/5";
+ if(n===5)api({action:"event",type:"labwork"}).then(j=>{data.stats=j.stats;renderStats()});
+};
+
+function nextExam(){
+ locked=false;document.getElementById("examResult").textContent="";
+ const pool=data.reactions.filter(x=>!x.heat&&["p","g","c","n"].includes(x.t));
+ exam=pool[Math.floor(Math.random()*pool.length)];
+ document.getElementById("pair").textContent=reagent(exam.a)[0]+" + "+reagent(exam.b)[0];
+ const box=document.getElementById("answers");box.innerHTML="";
+ [["p","осадок"],["g","газ"],["c","изменение цвета"],["n","без видимого признака"]].forEach(([v,label])=>{
+  const b=document.createElement("button");b.textContent=label;b.onclick=()=>answerExam(v);box.appendChild(b)
+ });
+}
+function answerExam(v){
+ if(locked)return;locked=true;const ok=v===exam.t;
+ document.getElementById("examResult").innerHTML=(ok?"✅ ":"❌ ")+exam.sign+"<br>"+exam.eq;
+ api({action:"event",type:"prediction",correct:ok}).then(j=>{data.stats=j.stats;renderStats()});
+}
+document.getElementById("next").onclick=nextExam;
+
+function renderStats(){
+ const s=data.stats;document.getElementById("statsBox").innerHTML=
+ '<div class="stat"><b>'+s.experiments+'</b>опытов</div>'+
+ '<div class="stat"><b>'+s.predictions+'</b>прогнозов</div>'+
+ '<div class="stat"><b>'+s.accuracy+'%</b>точность</div>'+
+ '<div class="stat"><b>'+s.labworks_completed+'</b>лабораторных</div>';
+}
+document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{
+ document.querySelectorAll("[data-page]").forEach(x=>x.classList.remove("on"));document.querySelectorAll(".page").forEach(x=>x.classList.remove("on"));
+ b.classList.add("on");document.getElementById(b.dataset.page).classList.add("on");if(b.dataset.page==="exam"&&!exam)nextExam();
+});
+api({action:"load"}).then(j=>{
+ if(!j.ok){document.body.innerHTML="<p>Не удалось открыть лабораторию.</p>";return}
+ data=j.data;Object.entries(data.reagents).forEach(x=>reagentMap.set(x[0],x[1]));data.reactions.forEach(x=>reactionMap.set(key(x.a,x.b),x));
+ renderTubes();renderReagents();setupLab();renderStats();
+});
+</script></body></html>'''
+
+def do_get(self):
+    if urlparse(self.path).path != "/lab-app":
+        return _previous_get(self)
+    body = HTML.encode("utf-8")
+    self.send_response(200)
+    self.send_header("Content-Type","text/html; charset=utf-8")
+    self.send_header("Content-Length",str(len(body)))
+    self.send_header("Cache-Control","no-store")
+    self.send_header("X-Content-Type-Options","nosniff")
+    self.end_headers()
+    self.wfile.write(body)
+
+def do_post(self):
+    if urlparse(self.path).path != "/lab-app/api":
+        return _previous_post(self)
+    try:
+        length=int(self.headers.get("Content-Length","0"))
+        if length<=0 or length>50000:
+            raise ValueError("bad length")
+        request=json.loads(self.rfile.read(length).decode("utf-8"))
+        uid=validate_init_data(request.get("init_data"))
+        if not uid:
+            return self._send_json(401,{"ok":False,"error":"unauthorized"})
+        action=request.get("action")
+        if action=="load":
+            return self._send_json(200,{"ok":True,"data":{
+                "reagents":REAGENTS,
+                "reactions":reaction_payload(),
+                "lab":["cuso4","fecl3","na2co3","nacl","na2so4"],
+                "tools":["naoh","hcl","agno3","bacl2"],
+                "stats":stats(uid),
+            }})
+        if action=="event":
+            return self._send_json(200,{"ok":True,"stats":record_event(uid,request.get("type"),bool(request.get("correct")))})
+        return self._send_json(400,{"ok":False,"error":"bad_action"})
+    except Exception as exc:
+        print(f"EGE lab api error: {type(exc).__name__}: {exc}",flush=True)
+        return self._send_json(400,{"ok":False,"error":"bad_request"})
+
+def webapp_url():
+    sep="&" if "?" in URL else "?"
+    return f"{URL}{sep}v={BUILD}"
+
+def install():
+    global _INSTALLED,_previous_get,_previous_post,_previous_hub
+    if _INSTALLED:
+        return
+    _INSTALLED=True
+    ensure_tables()
+    _previous_get=bot.CoreAppWebhookHandler.do_GET
+    _previous_post=bot.CoreAppWebhookHandler.do_POST
+    bot.CoreAppWebhookHandler.do_GET=do_get
+    bot.CoreAppWebhookHandler.do_POST=do_post
+
+    import public_channel_trainers as public
+    _previous_hub=public._hub_markup
+
+    async def hub_markup(context):
+        markup=await _previous_hub(context)
+        rows=[list(row) for row in markup.inline_keyboard]
+        if URL and not any(getattr(b,"web_app",None) for row in rows for b in row):
+            rows.insert(0,[InlineKeyboardButton("🧪 Лаборатория",web_app=WebAppInfo(url=webapp_url()))])
+        return InlineKeyboardMarkup(rows)
+
+    public._hub_markup=hub_markup
+    print(
+        f"EGE lab ready: reagents={len(REAGENTS)} reactions={len(REACTIONS)} url={URL or 'missing'}",
+        flush=True,
+    )
