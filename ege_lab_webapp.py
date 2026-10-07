@@ -18,7 +18,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261007-lab-v6-reagent-groups"
+BUILD = "20261007-lab-v7-reaction-card"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -235,6 +235,15 @@ HTML = r'''<!doctype html>
 .selected-card{background:#fff7fb;border:1px solid #f1c8dc;border-radius:16px;padding:10px;margin-bottom:10px}
 .selected-card b{display:block;font-size:12px}.selected-card span{display:block;font-size:10px;color:#7f777b;margin-top:3px}
 .lab-result{margin-top:12px;padding:12px;border-radius:15px;background:#fff4f9;border:1px solid #f1c8dc;min-height:74px;line-height:1.4}
+.reaction-card{margin-top:4px;border-radius:18px;border:2px solid #f00087;background:linear-gradient(145deg,#fff8fc,#f9dce9);padding:13px;box-shadow:0 10px 24px rgba(240,0,135,.14);animation:reactionPop .34s ease-out}
+.reaction-card.no-visible{border-color:#cfc6cb;background:#fff}
+.reaction-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+.reaction-status{display:inline-flex;align-items:center;gap:6px;background:#f00087;color:#fff;font-size:11px;font-weight:950;border-radius:999px;padding:6px 9px}
+.reaction-card.no-visible .reaction-status{background:#8e858a}
+.reaction-sign{font-size:15px;font-weight:950;line-height:1.25;color:#171719;margin-bottom:8px}
+.reaction-equation{background:rgba(255,255,255,.82);border:1px solid rgba(240,0,135,.22);border-radius:13px;padding:10px;font-size:14px;font-weight:900;line-height:1.45;letter-spacing:.01em;overflow-wrap:anywhere}
+.reaction-note{font-size:10px;color:#7c7277;margin-top:7px}
+@keyframes reactionPop{0%{transform:scale(.97);opacity:.35}100%{transform:scale(1);opacity:1}}
 .mode-note{font-size:10px;color:#8b8387;margin-top:8px}
 
 .tabs{grid-template-columns:repeat(4,1fr);margin:12px 0}.tabs button{font-size:12px}
@@ -345,6 +354,15 @@ function reagent(id){return reagentMap.get(id)}
 function api(payload){return fetch("/lab-app/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({init_data:tg.initData},payload))}).then(r=>r.json())}
 function findReaction(a,b,heated){let x=reactionMap.get(key(a,b));return x&&(!x.heat||heated)?x:null}
 function reactionExpected(a,b){return reactionMap.get(key(a,b))||null}
+function reactionResultHTML(x,heated=false){
+ if(!x)return '<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот опыт пока не добавлен в базу.</div></div>';
+ if(x.heat&&!heated)return '<div class="reaction-card"><div class="reaction-head"><span class="reaction-status">🔥 Нужен нагрев</span></div><div class="reaction-sign">Без нагревания видимого результата не показываем.</div><div class="reaction-equation">'+x.eq+'</div></div>';
+ const noVisible=x.t==="n";
+ const icon=x.t==="p"?"⬇️":x.t==="g"?"🫧":x.t==="c"?"🎨":x.t==="x"?"✨":"✓";
+ const title=noVisible?"Реакция протекает":"Реакция протекает";
+ const sign=noVisible?"Без видимого признака":x.sign;
+ return '<div class="reaction-card '+(noVisible?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">Признак: '+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+(noVisible?'<div class="reaction-note">Реакция есть, но визуального эффекта в пробирке нет.</div>':'')+'</div>';
+}
 function pptTexture(x){
  const s=(x&&x.sign||"").toLowerCase();
  if(s.includes("студенист"))return "gel";
@@ -434,7 +452,7 @@ function add(id){
  tubes[selectedTube].push(id);
  if(tubes[selectedTube].length===2){
   let x=reactionExpected(tubes[selectedTube][0],tubes[selectedTube][1]);
-  document.getElementById("result").innerHTML=x?(x.heat?"Нужно нагреть":"<b>"+x.sign+"</b><br>"+x.eq):"Этот опыт пока не добавлен в базу";
+  document.getElementById("result").innerHTML=reactionResultHTML(x,false);
   if(x&&!x.heat)api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()});
  }
  renderTubes();
@@ -442,11 +460,11 @@ function add(id){
 document.getElementById("heat").onclick=()=>{
  let v=tubes[selectedTube];tubeHeat[selectedTube]=true;
  let x=v.length===2?findReaction(v[0],v[1],true):null;
- if(x){document.getElementById("result").innerHTML="<b>"+x.sign+"</b><br>"+x.eq;api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()})}
- else if(v.length===2){document.getElementById("result").textContent="При нагревании видимого изменения нет."}
+ if(x){document.getElementById("result").innerHTML=reactionResultHTML(x,true);api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()})}
+ else if(v.length===2){document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🔥 Нагрев</span></div><div class="reaction-sign">При нагревании видимого изменения нет.</div></div>'}
  renderTubes();
 };
-document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeHeat[selectedTube]=false;document.getElementById("result").textContent="Пробирка очищена.";renderTubes()};
+document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeHeat[selectedTube]=false;document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🧽 Готово</span></div><div class="reaction-sign">Пробирка очищена.</div></div>';renderTubes()};
 
 function setupLab(){
  unknownOrder=[...data.lab].sort(()=>Math.random()-.5);
