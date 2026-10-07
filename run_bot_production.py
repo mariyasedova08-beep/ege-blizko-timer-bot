@@ -88,6 +88,8 @@ def main():
     import polina_salary_tasks
     polina_salary_tasks.seed()
 
+    import timeweb_migration_task  # noqa: F401
+
     import prepodmin_roadmap_tasks
     prepodmin_roadmap_tasks.seed()
 
