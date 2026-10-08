@@ -546,7 +546,7 @@ function bubblesHTML(x){
  if(x.gas==="SO₂")gasColor='rgba(220,225,230,.44)';
  if(x.gas==="H₂S")gasColor='rgba(205,210,205,.36)';
  if(x.gas==="NH₃")gasColor='rgba(235,235,255,.40)';
- if(x.gas==="NO₂")gasColor='rgba(151,78,42,.52)';
+ if(x.gas==="NO₂")gasColor='rgba(196,88,22,.90)';
  if(x.gas==="Cl₂")gasColor='rgba(190,210,92,.46)';
  return (strong?'<div class="boilLayer">'+boil.join("")+'</div>':'')+'<div class="bubbleLayer '+(strong?'strong':'')+'">'+parts.join("")+'</div><div class="surfaceFizz">'+fizz.join("")+'</div><div class="gasPlume" style="--gasColor:'+gasColor+'"></div>';
 }
