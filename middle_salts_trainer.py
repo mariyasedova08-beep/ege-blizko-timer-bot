@@ -8,6 +8,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMa
 
 import run_bot_live85
 from middle_salts_trainer_bank import MIDDLE_SALTS_BANK
+import trainer_session_persistence as trainer_sessions
 
 live85 = run_bot_live85
 live79 = live85.live79
@@ -191,6 +192,7 @@ def _start_session(context, user, mode):
         "choices": [],
         "correct_index": None,
     }
+    trainer_sessions.save("middlesalts", user.id, context.user_data["middle_salts_session"])
     return True
 
 
@@ -291,6 +293,7 @@ async def _send_current_question(update, context, edit=False):
     session["choices"] = choices
     session["correct_index"] = choices.index(correct)
     context.user_data["middle_salts_session"] = session
+    trainer_sessions.save("middlesalts", update.effective_user.id, session)
 
     text = (
         "🧂 Свойства средних солей\n\n"
@@ -334,6 +337,7 @@ async def _finish(update, context, edit=False):
     else:
         lines += ["", "🔥 Без ошибок! Отличная работа."]
     context.user_data.pop("middle_salts_session", None)
+    trainer_sessions.delete("middlesalts", update.effective_user.id)
 
     markup = InlineKeyboardMarkup(
         [
@@ -378,6 +382,7 @@ async def callback(update, context):
 
     if data == "triv:middlesalts:menu":
         context.user_data.pop("middle_salts_session", None)
+        trainer_sessions.delete("middlesalts", update.effective_user.id)
         await show_menu(update, context, edit=True)
         return
 
@@ -424,8 +429,10 @@ async def callback(update, context):
         if len(parts) != 5:
             return
         token, choice_text = parts[3], parts[4]
-        session = context.user_data.get("middle_salts_session")
-        if not session or session.get("token") != token:
+        session = trainer_sessions.restore_if_matches(
+            context, "middle_salts_session", "middlesalts", update.effective_user.id, token
+        )
+        if not session:
             await query.edit_message_text(
                 "Эта тренировка уже закончилась. Открой новую через меню тренажёра."
             )
@@ -456,6 +463,7 @@ async def callback(update, context):
 
         session["index"] += 1
         context.user_data["middle_salts_session"] = session
+    trainer_sessions.save("middlesalts", update.effective_user.id, session)
         await query.edit_message_text(
             result,
             reply_markup=InlineKeyboardMarkup(
@@ -471,8 +479,10 @@ async def callback(update, context):
 
     if data.startswith("triv:middlesalts:next:"):
         token = data.rsplit(":", 1)[-1]
-        session = context.user_data.get("middle_salts_session")
-        if not session or session.get("token") != token:
+        session = trainer_sessions.restore_if_matches(
+            context, "middle_salts_session", "middlesalts", update.effective_user.id, token
+        )
+        if not session:
             await show_menu(update, context, edit=True)
             return
         await _send_current_question(update, context, edit=True)
