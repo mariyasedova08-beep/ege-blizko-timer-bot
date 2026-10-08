@@ -3,6 +3,7 @@ import json
 import os
 import sqlite3
 import threading
+import tempfile
 from datetime import datetime, date, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -439,6 +440,44 @@ class CoreAppWebhookHandler(BaseHTTPRequestHandler):
         if parsed.path == "/health":
             self._send_json(200, {"ok": True, "service": "ege-blizko-timer-bot"})
             return
+
+        # Temporary migration-only SQLite backup endpoint.
+        # Auth is header-only so the secret does not appear in URLs/access logs.
+        if parsed.path == "/admin/migration-db-backup":
+            expected = os.getenv("COREAPP_DIAG_SECRET", "").strip()
+            supplied = self.headers.get("X-Migration-Secret", "").strip()
+            if not expected or supplied != expected:
+                self._send_json(401, {"ok": False, "error": "unauthorized"})
+                return
+            temp_path = None
+            try:
+                fd, temp_path = tempfile.mkstemp(prefix="ege-migration-", suffix=".db")
+                os.close(fd)
+                with sqlite3.connect(COREAPP_DB_PATH) as source:
+                    with sqlite3.connect(temp_path) as target:
+                        source.backup(target)
+                with open(temp_path, "rb") as handle:
+                    body = handle.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header(
+                    "Content-Disposition",
+                    'attachment; filename="ege-blizko-coreapp.db"',
+                )
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as exc:
+                print("Migration DB backup error:", type(exc).__name__, flush=True)
+                self._send_json(500, {"ok": False, "error": "backup_failed"})
+            finally:
+                if temp_path:
+                    try:
+                        os.unlink(temp_path)
+                    except OSError:
+                        pass
+            return
+
         self._send_json(404, {"ok": False, "error": "not_found"})
 
     def do_POST(self):
