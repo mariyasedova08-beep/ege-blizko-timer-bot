@@ -20,7 +20,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261008-lab-v15-reagent-search"
+BUILD = "20261008-lab-v16-compact-bench"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -242,7 +242,7 @@ HTML = r'''<!doctype html>
 .drop-icon{width:24px;height:32px;position:relative;flex:0 0 24px}
 .drop-icon:before{content:"";position:absolute;left:5px;top:2px;width:13px;height:18px;border-radius:50% 50% 55% 55%;background:var(--rc);transform:rotate(45deg);box-shadow:inset 3px 3px 5px rgba(255,255,255,.55),0 2px 4px rgba(0,0,0,.08)}
 .rformula{font-weight:900;font-size:13px}.rcat{font-size:10px;color:#8b8387;margin-top:2px}
-.lab-bench{background:linear-gradient(180deg,#fff 0 68%,#f2ece8 68% 73%,#d7c0ad 73% 100%);border:1px solid #eadfe4;border-radius:22px;min-height:565px;padding:14px;position:relative;overflow:hidden;box-shadow:0 8px 25px rgba(35,20,28,.05)}
+.lab-bench{background:linear-gradient(180deg,#fff 0 68%,#f2ece8 68% 73%,#d7c0ad 73% 100%);border:1px solid #eadfe4;border-radius:22px;min-height:565px;padding:14px;position:relative;overflow:hidden;box-shadow:0 8px 25px rgba(35,20,28,.05);align-self:start;width:100%}
 .bench-head{display:flex;justify-content:space-between;gap:10px;align-items:center}
 .bench-hint{font-size:11px;color:#81797d}
 .rack-wrap{position:absolute;left:7%;right:7%;bottom:88px}
