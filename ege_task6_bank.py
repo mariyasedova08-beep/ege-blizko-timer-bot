@@ -1,116 +1,41 @@
-"""Pilot bank for the interactive EGE chemistry task 6 trainer.
+"""Full interactive bank for EGE chemistry task 6.
 
-The wording is transcribed from the user-provided "6_zadania.pdf" (pages 1-4).
-Answers and experiment metadata are authored for the trainer.
+Source wording and answer choices are transcribed from the user-provided
+6_zadania.pdf (30 pages). Answer keys and experiment wiring are authored
+for the EGE BLIZKO virtual laboratory.
+
+One source item (page 15, task 2) contains an internal wording conflict; it is
+kept with needs_review=True and an explicit source note rather than silently
+correcting the worksheet.
 """
+import base64
+import json
+import zlib
 
-TASK6_BANK = [
-    {
-        "id":"t6_001",
-        "text":"Даны две пробирки с осадком гидроксида алюминия. В одну из них добавили раствор вещества X, а в другую – раствор вещества Y. В результате в каждой из пробирок наблюдали растворение осадка. При этом в пробирке с раствором вещества Y произошла реакция, которую описывает сокращённое ионное уравнение Al(OH)₃ + 3H⁺ = Al³⁺ + 3H₂O. Выберите вещества X и Y.",
-        "base_x":"aloh3","base_y":"aloh3",
-        "options":[["h2so4","серная кислота"],["nahco3","гидрокарбонат натрия"],["koh","гидроксид калия"],["nh4cl","хлорид аммония"],["hf","фтороводород"]],
-        "answer_x":"koh","answer_y":"h2so4","heat_x":False,"heat_y":False,"excess_x":"","excess_y":"",
-        "why":"Al(OH)₃ амфотерен: растворяется в избытке щёлочи и в сильной кислоте. Ионное уравнение с H⁺ соответствует H₂SO₄.",
-    },
-    {
-        "id":"t6_002",
-        "text":"Даны две пробирки с раствором гидроксида кальция. В одну добавили раствор сильного электролита X, а в другую – раствор слабого электролита Y. В каждой пробирке наблюдали образование осадка. Выберите X и Y.",
-        "base_x":"caoh2","base_y":"caoh2",
-        "options":[["baco3","BaCO₃"],["hf","HF"],["hno3","HNO₃"],["ch3cooh","CH₃COOH"],["cah2po4_2","Ca(H₂PO₄)₂"]],
-        "answer_x":"cah2po4_2","answer_y":"hf","heat_x":False,"heat_y":False,"excess_x":"","excess_y":"",
-        "why":"Ca(H₂PO₄)₂ — электролит и даёт малорастворимый фосфат кальция; HF — слабый электролит и образует CaF₂.",
-    },
-    {
-        "id":"t6_003",
-        "text":"Даны две пробирки с осадком гидроксида цинка. В одну добавили раствор сильной кислоты X, а в другую – раствор сильного электролита Y. В каждой пробирке наблюдали растворение осадка. Выберите X и Y.",
-        "base_x":"znoh2","base_y":"znoh2",
-        "options":[["hf","фтороводородная кислота"],["lioh","гидроксид лития"],["nh3","аммиак"],["h2so4","серная кислота"],["na2so4","сульфат натрия"]],
-        "answer_x":"h2so4","answer_y":"lioh","heat_x":False,"heat_y":False,"excess_x":"","excess_y":"",
-        "why":"Zn(OH)₂ амфотерен. Сильная кислота H₂SO₄ растворяет осадок; избыток LiOH переводит его в растворимый гидроксокомплекс.",
-    },
-    {
-        "id":"t6_004",
-        "text":"Даны две пробирки с раствором хлорида железа(II). С веществом X образовалось нерастворимое основание. С веществом Y реакцию описывает Fe²⁺ + 2F⁻ = FeF₂. Выберите X и Y.",
-        "base_x":"fecl2","base_y":"fecl2",
-        "options":[["hf","фтороводородная кислота"],["agno3","нитрат серебра"],["nh4no3","нитрат аммония"],["lioh","гидроксид лития"],["kf","фторид калия"]],
-        "answer_x":"lioh","answer_y":"kf","heat_x":False,"heat_y":False,"excess_x":"","excess_y":"",
-        "why":"LiOH осаждает Fe(OH)₂, а KF даёт ионы F⁻ для образования FeF₂.",
-    },
-    {
-        "id":"t6_005",
-        "text":"В пробирки с растворами веществ X и Y пропускали аммиак. В пробирке X образовался белый осадок, а в пробирке Y реакция не сопровождалась видимыми признаками. Выберите X и Y.",
-        "base_x":"nh3","base_y":"nh3",
-        "options":[["nabr","бромид натрия"],["k2so3","сульфит калия"],["nh42co3","карбонат аммония"],["h2so4","серная кислота"],["ali3","иодид алюминия"]],
-        "answer_x":"ali3","answer_y":"h2so4","heat_x":False,"heat_y":False,"excess_x":"","excess_y":"",
-        "why":"NH₃·H₂O осаждает белый Al(OH)₃ из соли алюминия; с H₂SO₄ идёт нейтрализация без видимого признака.",
-    },
-    {
-        "id":"t6_006",
-        "text":"Даны две пробирки с раствором гидрокарбоната кальция. С веществом X наблюдали выделение газа, а с веществом Y — выпадение осадка. Выберите X и Y.",
-        "base_x":"cahco3_2","base_y":"cahco3_2",
-        "options":[["co2","CO₂"],["hno3","HNO₃"],["nh4oac","CH₃COONH₄"],["caoh2","Ca(OH)₂"],["baco3","BaCO₃"]],
-        "answer_x":"hno3","answer_y":"caoh2","heat_x":False,"heat_y":False,"excess_x":"","excess_y":"",
-        "why":"Кислота разлагает HCO₃⁻ с выделением CO₂, а Ca(OH)₂ переводит гидрокарбонат в CaCO₃↓.",
-    },
-    {
-        "id":"t6_007",
-        "text":"В одну пробирку с раствором гидроксида кальция добавили X и наблюдали осадок. В другую добавили Y; реакцию описывает H⁺ + OH⁻ = H₂O. Выберите X и Y.",
-        "base_x":"caoh2","base_y":"caoh2",
-        "options":[["hno2","азотистая кислота"],["cuno3","нитрат меди(II)"],["nh4cl","хлорид аммония"],["hi","иодоводородная кислота"],["koac","ацетат калия"]],
-        "answer_x":"cuno3","answer_y":"hi","heat_x":False,"heat_y":False,"excess_x":"","excess_y":"",
-        "why":"Cu²⁺ образует Cu(OH)₂↓, а HI — сильная кислота, поэтому нейтрализация описывается H⁺ + OH⁻ = H₂O.",
-    },
-    {
-        "id":"t6_008",
-        "text":"В одну пробирку с раствором гидроксида бария добавили сильный электролит X и получили нерастворимое основание. В другую добавили сильный электролит Y и получили нерастворимую соль. Выберите X и Y.",
-        "base_x":"baoh2","base_y":"baoh2",
-        "options":[["na2hpo4","гидрофосфат натрия"],["hno2","азотистая кислота"],["cucl2","хлорид меди(II)"],["nh4no3","нитрат аммония"],["agi","иодид серебра"]],
-        "answer_x":"cucl2","answer_y":"na2hpo4","heat_x":False,"heat_y":False,"excess_x":"","excess_y":"",
-        "why":"CuCl₂ даёт Cu(OH)₂↓, а Na₂HPO₄ — малорастворимый BaHPO₄.",
-    },
-    {
-        "id":"t6_009",
-        "text":"В одну пробирку с раствором хлорида аммония добавили X и нагрели — выделился газ с резким запахом. В другую добавили Y — выпал осадок. Выберите X и Y.",
-        "base_x":"nh4cl","base_y":"nh4cl",
-        "options":[["agi","иодид серебра"],["koh","гидроксид калия"],["pbno3","нитрат свинца(II)"],["hno3","азотная кислота"],["k2so3","сульфит калия"]],
-        "answer_x":"koh","answer_y":"pbno3","heat_x":True,"heat_y":False,"excess_x":"","excess_y":"",
-        "why":"NH₄⁺ + OH⁻ при нагревании даёт NH₃↑; Pb²⁺ с Cl⁻ образует PbCl₂↓.",
-    },
-    {
-        "id":"t6_010",
-        "text":"Даны две пробирки с раствором хлорида магния. С веществом X образовался нерастворимый гидроксид, а с веществом Y — нерастворимая соль. Выберите X и Y.",
-        "base_x":"mgcl2","base_y":"mgcl2",
-        "options":[["caso4","CaSO₄"],["na3po4","Na₃PO₄"],["koac","CH₃COOK"],["cuno3","Cu(NO₃)₂"],["baoh2","Ba(OH)₂"]],
-        "answer_x":"baoh2","answer_y":"na3po4","heat_x":False,"heat_y":False,"excess_x":"","excess_y":"",
-        "why":"Ba(OH)₂ осаждает Mg(OH)₂, а PO₄³⁻ — Mg₃(PO₄)₂.",
-    },
-    {
-        "id":"t6_011",
-        "text":"В одну пробирку с раствором хлорида меди(II) добавили X и получили осадок красного цвета. В другую добавили раствор Y и получили нерастворимую соль. Выберите X и Y.",
-        "base_x":"cucl2","base_y":"cucl2",
-        "options":[["zno","оксид цинка"],["ag","серебро"],["agf","фторид серебра"],["zn","цинк"],["kbr","бромид калия"]],
-        "answer_x":"zn","answer_y":"agf","heat_x":False,"heat_y":False,"excess_x":"","excess_y":"",
-        "why":"Zn вытесняет Cu — появляется красно-бурая медь; AgF даёт Ag⁺, который осаждает AgCl.",
-    },
-    {
-        "id":"t6_012",
-        "text":"Даны две пробирки с раствором хлорида алюминия. В одну добавили сильный электролит X, в другую — слабый электролит Y. В каждой пробирке наблюдали образование осадка. Выберите X и Y.",
-        "base_x":"alcl3","base_y":"alcl3",
-        "options":[["feoh2","гидроксид железа(II)"],["agno3","нитрат серебра"],["nh3","аммиак"],["hi","иодоводород"],["nano3","нитрат натрия"]],
-        "answer_x":"agno3","answer_y":"nh3","heat_x":False,"heat_y":False,"excess_x":"","excess_y":"",
-        "why":"AgNO₃ — сильный электролит и осаждает AgCl; NH₃·H₂O — слабый электролит и осаждает Al(OH)₃.",
-    },
-]
+_DATA = """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"""
+TASK6_BANK = json.loads(zlib.decompress(base64.b64decode(_DATA)).decode("utf-8"))
+
 
 def validate_task6_bank(known_reagents):
+    errors = []
     for task in TASK6_BANK:
-        if task["base_x"] not in known_reagents or task["base_y"] not in known_reagents:
-            raise RuntimeError(f"Task6 unknown base: {task['id']}")
-        ids=[x[0] for x in task["options"]]
+        ids = [x[0] for x in task["options"]]
         for reagent_id in ids:
             if reagent_id not in known_reagents:
-                raise RuntimeError(f"Task6 unknown option {reagent_id}: {task['id']}")
+                errors.append(f"{task['id']}: unknown option {reagent_id}")
         if task["answer_x"] not in ids or task["answer_y"] not in ids:
-            raise RuntimeError(f"Task6 bad answer: {task['id']}")
+            errors.append(f"{task['id']}: answer outside options")
+        for exp in task.get("experiments", []):
+            pair = exp.get("pair") or []
+            if len(pair) != 2:
+                errors.append(f"{task['id']}: bad experiment pair")
+                continue
+            for token in pair:
+                if token not in {"$X", "$Y"} and token not in known_reagents:
+                    errors.append(f"{task['id']}: unknown experiment reagent {token}")
+            excess = exp.get("excess", "")
+            if excess and excess not in {"$X", "$Y"} and excess not in known_reagents:
+                errors.append(f"{task['id']}: unknown excess reagent {excess}")
+    if errors:
+        raise RuntimeError("Task6 bank errors: " + "; ".join(errors[:20]))
     return True
