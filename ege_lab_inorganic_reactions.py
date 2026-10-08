@@ -145,6 +145,28 @@ EXTRA_REACTIONS = [
     ("i2","naoh","3I₂ + 6NaOH —t°→ 5NaI + NaIO₃ + 3H₂O","c","при нагревании окраска иода исчезает","#f8fbff","","",1),
     ("s","naoh","3S + 6NaOH —t°→ 2Na₂S + Na₂SO₃ + 3H₂O","c","при нагревании сера растворяется в щёлочи","#f8fbff","","",1),
 
+    # EGE task 6 pilot reactions (uploaded worksheet, pages 1-4)
+    ("aloh3","koh","Al(OH)₃ + KOH → K[Al(OH)₄]","c","белый студенистый Al(OH)₃ растворяется в избытке KOH","#f8fbff","","",0),
+    ("caoh2","cah2po4_2","Ca(H₂PO₄)₂ + 2Ca(OH)₂ → Ca₃(PO₄)₂↓ + 4H₂O","p","образуется белый осадок Ca₃(PO₄)₂","#f8fbff","#ffffff","",0),
+    ("caoh2","hf","Ca(OH)₂ + 2HF → CaF₂↓ + 2H₂O","p","образуется белый осадок CaF₂","#f8fbff","#ffffff","",0),
+    ("znoh2","lioh","Zn(OH)₂ + 2LiOH → Li₂[Zn(OH)₄]","c","белый Zn(OH)₂ растворяется в избытке LiOH","#f8fbff","","",0),
+    ("fecl2","lioh","FeCl₂ + 2LiOH → Fe(OH)₂↓ + 2LiCl","p","образуется светло-зелёный осадок Fe(OH)₂","#eef7ee","#89b98e","",0),
+    ("fecl2","kf","FeCl₂ + 2KF → FeF₂↓ + 2KCl","p","образуется светлый осадок FeF₂","#f8fbff","#f2f2ee","",0),
+    ("ali3","nh3","AlI₃ + 3NH₃·H₂O → Al(OH)₃↓ + 3NH₄I","p","образуется белый студенистый осадок Al(OH)₃","#f8fbff","#ffffff","",0),
+    ("h2so4","nh3","H₂SO₄ + 2NH₃·H₂O → (NH₄)₂SO₄ + 2H₂O","n","реакция протекает без видимого признака","#f8fbff","","",0),
+    ("cahco3_2","hno3","Ca(HCO₃)₂ + 2HNO₃ → Ca(NO₃)₂ + 2CO₂↑ + 2H₂O","g","выделяются пузырьки CO₂","#f8fbff","","CO₂",0),
+    ("cahco3_2","caoh2","Ca(HCO₃)₂ + Ca(OH)₂ → 2CaCO₃↓ + 2H₂O","p","образуется белый осадок CaCO₃","#f8fbff","#ffffff","",0),
+    ("caoh2","cuno3","Ca(OH)₂ + Cu(NO₃)₂ → Cu(OH)₂↓ + Ca(NO₃)₂","p","образуется голубой осадок Cu(OH)₂","#eaf7ff","#39bced","",0),
+    ("caoh2","hi","Ca(OH)₂ + 2HI → CaI₂ + 2H₂O","n","реакция нейтрализации без видимого признака","#f8fbff","","",0),
+    ("baoh2","cucl2","Ba(OH)₂ + CuCl₂ → Cu(OH)₂↓ + BaCl₂","p","образуется голубой осадок Cu(OH)₂","#eaf7ff","#39bced","",0),
+    ("baoh2","na2hpo4","Ba(OH)₂ + Na₂HPO₄ → BaHPO₄↓ + 2NaOH","p","образуется белый осадок BaHPO₄","#f8fbff","#ffffff","",0),
+    ("nh4cl","pbno3","2NH₄Cl + Pb(NO₃)₂ → PbCl₂↓ + 2NH₄NO₃","p","образуется белый осадок PbCl₂","#f8fbff","#ffffff","",0),
+    ("mgcl2","baoh2","MgCl₂ + Ba(OH)₂ → Mg(OH)₂↓ + BaCl₂","p","образуется белый осадок Mg(OH)₂","#f8fbff","#ffffff","",0),
+    ("mgcl2","na3po4","3MgCl₂ + 2Na₃PO₄ → Mg₃(PO₄)₂↓ + 6NaCl","p","образуется белый осадок Mg₃(PO₄)₂","#f8fbff","#ffffff","",0),
+    ("cucl2","agf","CuCl₂ + 2AgF → 2AgCl↓ + CuF₂","p","образуется белый осадок AgCl","#d9f4ff","#ffffff","",0),
+    ("alcl3","agno3","AlCl₃ + 3AgNO₃ → 3AgCl↓ + Al(NO₃)₃","p","образуется белый осадок AgCl","#f8fbff","#ffffff","",0),
+    ("alcl3","nh3","AlCl₃ + 3NH₃·H₂O → Al(OH)₃↓ + 3NH₄Cl","p","образуется белый студенистый осадок Al(OH)₃","#f8fbff","#ffffff","",0),
+
     # Oxides + water
     ("na2o","h2o","Na₂O + H₂O → 2NaOH","n","образуется щёлочь","#f8fbff","","",0),
     ("k2o","h2o","K₂O + H₂O → 2KOH","n","образуется щёлочь","#f8fbff","","",0),
