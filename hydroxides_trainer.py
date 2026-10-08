@@ -464,7 +464,7 @@ async def callback(update, context):
 
         session["index"] += 1
         context.user_data["hydroxides_session"] = session
-    trainer_sessions.save("hydroxides", update.effective_user.id, session)
+        trainer_sessions.save("hydroxides", update.effective_user.id, session)
         await query.edit_message_text(
             result,
             reply_markup=InlineKeyboardMarkup(
