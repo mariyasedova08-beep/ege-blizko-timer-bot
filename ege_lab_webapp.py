@@ -20,7 +20,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261008-lab-v13-inorganic"
+BUILD = "20261008-lab-v14-solid-dissolution"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -295,6 +295,8 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 @keyframes boilCell{0%{transform:translateY(8px) scale(.75,.55);opacity:.2}40%{opacity:.85}100%{transform:translateY(-20px) scale(1.12,.95);opacity:.05}}
 @keyframes boilPulse{from{transform:scale(.88,.7);opacity:.35}to{transform:scale(1.08,1.0);opacity:.8}}
 .bubble{position:absolute;bottom:4px;left:var(--l);width:var(--s);height:var(--s);border:2.2px solid rgba(255,255,255,.98);border-radius:50%;background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.92) 0 16%,rgba(255,255,255,.28) 17% 42%,rgba(255,255,255,.07) 43% 100%);box-shadow:0 0 0 1px rgba(80,105,130,.26),inset -2px -2px 4px rgba(80,105,130,.16),0 2px 5px rgba(40,55,70,.15);animation:rise var(--d) ease-in infinite;animation-delay:var(--delay)}
+.solidBed{position:absolute;left:12%;right:12%;bottom:6%;height:26%;z-index:5;pointer-events:none}
+.solidChunk{position:absolute;left:var(--l);bottom:var(--b);width:var(--s);height:calc(var(--s)*.62);background:var(--sc);border-radius:35% 45% 38% 48%;transform:rotate(var(--r));box-shadow:inset 2px 2px 3px rgba(255,255,255,.48),0 1px 2px rgba(0,0,0,.16)}
 .surfaceFizz{position:absolute;z-index:7;left:10%;right:10%;bottom:56%;height:16px;pointer-events:none}
 .surfaceFizz i{position:absolute;bottom:0;left:var(--l);width:var(--s);height:var(--s);border-radius:50%;border:1.8px solid rgba(255,255,255,.98);background:rgba(255,255,255,.36);box-shadow:0 0 0 1px rgba(70,90,110,.2);animation:pop 1.15s ease-out infinite;animation-delay:var(--delay)}
 .gasPlume{position:absolute;z-index:7;left:18%;right:18%;top:8px;height:44%;pointer-events:none;opacity:.72;filter:blur(4px);background:radial-gradient(ellipse at center,var(--gasColor) 0 25%,rgba(255,255,255,0) 70%);animation:plume 1.8s ease-in-out infinite alternate}
@@ -525,13 +527,26 @@ function bubblesHTML(x){
  if(x.gas==="NH₃")gasColor='rgba(235,235,255,.40)';
  return (strong?'<div class="boilLayer">'+boil.join("")+'</div>':'')+'<div class="bubbleLayer '+(strong?'strong':'')+'">'+parts.join("")+'</div><div class="surfaceFizz">'+fizz.join("")+'</div><div class="gasPlume" style="--gasColor:'+gasColor+'"></div>';
 }
+function solidReagentHTML(v,x){
+ if(!v.length||x)return "";
+ const solids=v.filter(id=>String((reagent(id)||[])[3]||"").includes("тв."));
+ if(!solids.length)return "";
+ const id=solids[solids.length-1],r=reagent(id),parts=[];
+ for(let n=0;n<18;n++){
+   parts.push('<i class="solidChunk" style="--l:'+(3+(n*29)%82)+'%;--b:'+(1+(n*13)%18)+'%;--s:'+(8+(n%5)*3)+'px;--r:'+(((n*31)%80)-40)+'deg;--sc:'+r[2]+'"></i>');
+ }
+ return '<div class="solidBed">'+parts.join("")+'</div>';
+}
 function tubeHTML(v,i,active,heated,excess=""){
  const x=v.length===2?findReaction(v[0],v[1],heated,excess):null;
  const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
  const sol=x?x.sol:base;
+ const hasLiquid=v.some(id=>!String((reagent(id)||[])[3]||"").includes("тв."));
+ const liquidHeight=x?58:(hasLiquid?58:0);
+ const solids=solidReagentHTML(v,x);
  const reactionVisual=x?(precipitateHTML(x)+bubblesHTML(x)+'<i class="reactionGlow"></i>'):"";
  const shimmer=(heated&&v.length)?'<i class="heatShimmer"></i>':"";
- return '<div class="tube '+(active?'on':'')+'"><i class="liq" style="height:'+(v.length?58:0)+'%;background:'+sol+'"></i>'+reactionVisual+shimmer+'</div>';
+ return '<div class="tube '+(active?'on':'')+'"><i class="liq" style="height:'+liquidHeight+'%;background:'+sol+'"></i>'+solids+reactionVisual+shimmer+'</div>';
 }
 function renderTubes(){
  const box=document.getElementById("tubes");box.innerHTML="";
