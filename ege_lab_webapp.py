@@ -20,7 +20,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261008-lab-v18-no2-bubbles-scroll"
+BUILD = "20261008-lab-v19-metal-nonmetal-filters"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -414,7 +414,8 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
     <div class="reagent-search-hint">Можно вводить обычные цифры: CuSO4 найдёт CuSO₄.</div>
     <div id="reagentFilters" class="reagent-filters">
       <button class="reagent-filter on" data-cat="Все">Все</button>
-      <button class="reagent-filter" data-cat="Простые вещества">Простые</button>
+      <button class="reagent-filter" data-cat="Металлы">Металлы</button>
+      <button class="reagent-filter" data-cat="Неметаллы">Неметаллы</button>
       <button class="reagent-filter" data-cat="Оксиды">Оксиды</button>
       <button class="reagent-filter" data-cat="Гидроксиды">Гидроксиды</button>
       <button class="reagent-filter" data-cat="Кислоты">Кислоты</button>
@@ -616,7 +617,7 @@ function reagentMatchesSearch(id,v){
 }
 function renderReagents(){
  const box=document.getElementById("reagents");box.innerHTML="";
- const order=["Простые вещества","Оксиды","Гидроксиды","Кислоты","Соли","Прочее"];
+ const order=["Металлы","Неметаллы","Оксиды","Гидроксиды","Кислоты","Соли","Прочее"];
  let shown=0;
  order.forEach(cat=>{
    if(!selectedReagentSearch&&selectedReagentCategory!=="Все"&&selectedReagentCategory!==cat)return;
