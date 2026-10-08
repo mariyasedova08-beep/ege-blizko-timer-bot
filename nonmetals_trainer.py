@@ -13,6 +13,7 @@ from telegram.ext import ApplicationBuilder
 
 import run_bot_live85
 from nonmetals_trainer_bank import NONMETALS_BANK
+import trainer_session_persistence as trainer_sessions
 
 live85 = run_bot_live85
 live79 = live85.live79
@@ -167,6 +168,7 @@ def _start_session(context, user, mode):
         "choices": [],
         "correct_index": None,
     }
+    trainer_sessions.save("nonmetals", user.id, context.user_data["nonmetals_session"])
     return True
 
 
@@ -232,6 +234,7 @@ async def _send_current_question(update, context, edit=False):
     session["choices"] = choices
     session["correct_index"] = choices.index(correct)
     context.user_data["nonmetals_session"] = session
+    trainer_sessions.save("nonmetals", update.effective_user.id, session)
 
     text = f"⚛️ Неметаллы\n\nВопрос {session['index'] + 1}/{len(session['ids'])}\n\n{prompt}"
     rows = [
@@ -260,6 +263,7 @@ async def _finish_nonmetals_session(update, context, edit=False):
     else:
         lines += ["", "🔥 Без ошибок! Отличная работа."]
     context.user_data.pop("nonmetals_session", None)
+    trainer_sessions.delete("nonmetals", update.effective_user.id)
     markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("❌ Повторить ошибки", callback_data="triv:nonmetals:start:errors")],
         [InlineKeyboardButton("⚡ Ещё 10 вопросов", callback_data="triv:nonmetals:start:10")],
@@ -280,6 +284,7 @@ async def nonmetals_callback(update, context):
 
     if data == "triv:nonmetals:menu":
         context.user_data.pop("nonmetals_session", None)
+        trainer_sessions.delete("nonmetals", update.effective_user.id)
         await show_nonmetals_menu(update, context, edit=True)
         return
 
@@ -313,8 +318,10 @@ async def nonmetals_callback(update, context):
         if len(parts) != 5:
             return
         token, choice_text = parts[3], parts[4]
-        session = context.user_data.get("nonmetals_session")
-        if not session or session.get("token") != token:
+        session = trainer_sessions.restore_if_matches(
+            context, "nonmetals_session", "nonmetals", update.effective_user.id, token
+        )
+        if not session:
             await query.edit_message_text(
                 "Эта тренировка уже закончилась. Открой новую через меню тренажёра."
             )
@@ -340,6 +347,7 @@ async def nonmetals_callback(update, context):
             result = f"❌ Не совсем.\n\nПравильный ответ: {correct_answer}"
         session["index"] += 1
         context.user_data["nonmetals_session"] = session
+    trainer_sessions.save("nonmetals", update.effective_user.id, session)
         await query.edit_message_text(
             result,
             reply_markup=InlineKeyboardMarkup([[
@@ -350,8 +358,10 @@ async def nonmetals_callback(update, context):
 
     if data.startswith("triv:nonmetals:next:"):
         token = data.rsplit(":", 1)[-1]
-        session = context.user_data.get("nonmetals_session")
-        if not session or session.get("token") != token:
+        session = trainer_sessions.restore_if_matches(
+            context, "nonmetals_session", "nonmetals", update.effective_user.id, token
+        )
+        if not session:
             await show_nonmetals_menu(update, context, edit=True)
             return
         await _send_current_question(update, context, edit=True)
