@@ -22,7 +22,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261008-lab-v22-task6-full83"
+BUILD = "20261009-lab-autumn-nav-v1"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -420,8 +420,146 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
  .task6-selects,.task6-actions,.task6-demo{grid-template-columns:1fr}
  .logo{font-size:11px;width:auto;height:auto;padding:7px 9px;border-radius:999px}
 }
+
+/* Autumn student-app visual system */
+:root{
+  --pink:#C86F4A;
+  --soft:#F6E5DC;
+  --milk:#FBF6F0;
+  --ink:#211916;
+  --rose-deep:#A7463F;
+  --terracotta:#C86F4A;
+  --latte:#EAD5C2;
+  --line-autumn:#E8D2C6;
+  --paper-autumn:#FFFDFC;
+  --muted-autumn:#81736D;
+}
+body{
+  background:
+    radial-gradient(circle at 100% 0%,rgba(200,111,74,.10),transparent 22%),
+    radial-gradient(circle at 0% 55%,rgba(234,213,194,.28),transparent 28%),
+    linear-gradient(180deg,#FCF8F3 0%,#F8F1E9 100%);
+  color:var(--ink);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  font-weight:400
+}
+.app{max-width:1240px;padding:18px 16px 34px}
+.lab-topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+.lab-brand{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:650;color:var(--rose-deep);letter-spacing:.02em}
+.lab-brand:before{content:"🍂";font-size:15px}
+.lab-nav{display:flex;gap:8px;flex-wrap:wrap}
+.lab-nav a,.lab-nav button{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  min-height:38px;padding:8px 12px;border-radius:999px;
+  border:1px solid var(--line-autumn);background:rgba(255,253,252,.86);
+  color:#6E4A3E;text-decoration:none;font-size:12px;font-weight:550;
+  box-shadow:0 5px 16px rgba(92,61,47,.05)
+}
+.lab-nav a:hover,.lab-nav button:hover{background:#FFF7F2;border-color:#DDBBA9}
+.lab-title-wrap{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin:6px 2px 8px}
+.lab-title-wrap h1{
+  margin:0;font-family:Georgia,"Times New Roman",serif;
+  font-size:32px;font-weight:500;letter-spacing:-.02em;color:#211916
+}
+.lab-title-note{font-size:11px;color:var(--muted-autumn);padding-bottom:5px}
+.logo{
+  color:var(--rose-deep);font-weight:650;letter-spacing:.02em;
+  width:max-content;padding:7px 10px;border-radius:999px;
+  background:rgba(255,253,252,.72);border:1px solid #E9D2C5
+}
+.tabs{gap:9px;margin:13px 0 15px}
+.tabs button{
+  background:rgba(255,253,252,.9);border:1px solid #E7CFC1;
+  color:#3B302C;border-radius:16px;padding:12px 10px;
+  font-size:12px;font-weight:550;box-shadow:0 5px 15px rgba(92,61,47,.035)
+}
+button.on,button.primary,.tabs button.on{
+  background:linear-gradient(145deg,#B95C49,#C87857);
+  border-color:#B95C49;color:#fff;box-shadow:0 7px 18px rgba(167,70,63,.14)
+}
+button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
+.lab-shell{grid-template-columns:250px minmax(0,1fr) 220px;gap:14px}
+.lab-side,.lab-controls,.card{
+  background:linear-gradient(155deg,rgba(255,253,252,.98),rgba(250,242,237,.94));
+  border:1px solid #E8D4C8;box-shadow:0 10px 28px rgba(92,61,47,.055)
+}
+.lab-side,.lab-controls{border-radius:24px;padding:14px}
+.lab-side h2,.lab-controls h2,.bench-head h2{font-size:16px;font-weight:600;color:#2B211D}
+.mode-note,.bench-hint,.reagent-search-hint,.rcat{color:var(--muted-autumn);font-weight:400}
+.reagent-search input{
+  border-color:#E4CEC2;background:#FFFDFC;color:#2B211D;
+  font-weight:500;box-shadow:none
+}
+.reagent-search input:focus{border-color:#C77A5B;box-shadow:0 0 0 2px rgba(200,111,74,.10)}
+.reagent-search button{background:#FFFDFC;border-color:#E4CEC2}
+.reagent-filter{
+  border-color:#E5CEC2;background:#FFF9F5;color:#5C4941;
+  font-size:11px;font-weight:550
+}
+.reagent-filter.on{background:#B95C49;color:#fff;border-color:#B95C49}
+.reagent-group-title{
+  font-size:11px;font-weight:600;color:#5C443A;background:#F4E3D9;
+  border:1px solid #E8D2C6
+}
+.reagent-item{
+  border-color:#EBDED6;background:rgba(255,253,252,.94);border-radius:15px
+}
+.reagent-item:hover,.reagent-item:active{background:#FFF5EF;border-color:#DDBAA8}
+.rformula{font-weight:600}
+.lab-bench{
+  background:
+    linear-gradient(180deg,#FFFDFC 0 68%,#F4ECE6 68% 73%,#D9BEA8 73% 100%);
+  border-color:#E7D5CB;border-radius:25px;
+  box-shadow:0 12px 32px rgba(92,61,47,.06)
+}
+.bench-head .logo{font-size:10px;background:#FFF8F3}
+.selected-card,.lab-result{
+  background:rgba(255,249,245,.9);border-color:#E4CFC3
+}
+.selected-card b{font-weight:600}.selected-card span{color:var(--muted-autumn)}
+.lab-controls button{border-radius:15px;background:#FFFDFC;border-color:#E4CEC2}
+.lab-controls button:hover{background:#FFF5EF}
+.reaction-card{
+  border-color:#C66E54;background:linear-gradient(145deg,#FFFDFC,#F5DED2);
+  box-shadow:0 10px 24px rgba(166,81,59,.13)
+}
+.reaction-status{background:#B95C49;font-weight:600}
+.reaction-sign{font-weight:600;color:#211916}
+.reaction-equation{font-weight:550;border-color:rgba(184,92,73,.22)}
+.tube-callout .reaction-card{box-shadow:0 14px 34px rgba(166,81,59,.16)}
+.tube-callout:after{background:#F5DED2;border-right-color:#C66E54;border-bottom-color:#C66E54}
+.mobile-tube-picker button.on{background:#B95C49;border-color:#B95C49}
+.tube.on{border-color:#C66E54;box-shadow:inset 5px 0 8px rgba(255,255,255,.75),inset -5px 0 7px rgba(109,122,140,.12),0 0 0 2px rgba(198,110,84,.12),0 5px 12px rgba(54,42,51,.10)}
+.task6-text,.task6-select-card,.task6-demo-card,.oge-task,.ege-task{
+  border-color:#E7D2C6;background:#FFFDFC
+}
+.task6-option{border-color:#E9DAD2;background:#FFFDFC}
+.task6-select-card select{border-color:#E7D4CA}
+.task6-source-note{background:#FFF4DF;border-color:#E7C87A}
+@media(max-width:820px){
+  .lab-topbar{align-items:flex-start}
+  .lab-title-wrap{align-items:flex-start}
+  .lab-title-note{display:none}
+  .lab-title-wrap h1{font-size:28px}
+  .lab-nav{justify-content:flex-end}
+}
+@media(max-width:520px){
+  .lab-topbar{gap:8px}
+  .lab-nav a,.lab-nav button{padding:7px 9px;font-size:11px}
+  .lab-title-wrap h1{font-size:26px}
+}
 </style></head><body><div class="app">
-<div class="logo">ЕГЭ БЛИЗКО</div><h1>🧪 Лаборатория</h1>
+<div class="lab-topbar">
+  <div class="lab-brand">ЕГЭ БЛИЗКО</div>
+  <div class="lab-nav">
+    <button id="labBackHistory" type="button">← Назад</button>
+    <a id="labBackCabinet" href="#">⌂ В кабинет</a>
+  </div>
+</div>
+<div class="lab-title-wrap">
+  <div><h1>🧪 Лаборатория</h1><div class="lab-title-note">Опыты, тренажёры и экзаменационная практика</div></div>
+  <div class="logo">ЕГЭ БЛИЗКО</div>
+</div>
 <div class="tabs">
 <button class="on" data-page="free">Свободный опыт</button>
 <button data-page="work">Лаб. работа</button>
@@ -510,6 +648,18 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 <script>
 const tg=Telegram.WebApp;tg.ready();tg.expand();
 const labQs=new URLSearchParams(location.search),labLaunch=labQs.get("launch")||"";
+
+const labBackCabinet=document.getElementById("labBackCabinet");
+const labBackHistory=document.getElementById("labBackHistory");
+if(labBackCabinet){
+  labBackCabinet.href="/student-app"+(labLaunch?("?launch="+encodeURIComponent(labLaunch)):"");
+}
+if(labBackHistory){
+  labBackHistory.onclick=function(){
+    if(history.length>1){history.back()}
+    else if(labBackCabinet){location.href=labBackCabinet.href}
+  };
+}
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все", selectedReagentSearch="";
 let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
