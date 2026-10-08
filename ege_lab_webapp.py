@@ -20,7 +20,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261008-lab-v19-metal-nonmetal-filters"
+BUILD = "20261008-lab-v20-metal-salt-experiments"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -310,6 +310,10 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .boilLayer.no2 .boilCell{background:radial-gradient(ellipse at 50% 75%,rgba(217,113,62,.62),rgba(150,61,25,.28) 55%,transparent 72%)}
 .solidBed{position:absolute;left:12%;right:12%;bottom:6%;height:26%;z-index:5;pointer-events:none}
 .solidChunk{position:absolute;left:var(--l);bottom:var(--b);width:var(--s);height:calc(var(--s)*.62);background:var(--sc);border-radius:35% 45% 38% 48%;transform:rotate(var(--r));box-shadow:inset 2px 2px 3px rgba(255,255,255,.48),0 1px 2px rgba(0,0,0,.16)}
+.metalReactionBed{position:absolute;z-index:5;left:10%;right:10%;bottom:5%;height:30%;pointer-events:none}
+.metalPiece{position:absolute;left:12%;right:12%;bottom:5%;height:34%;border-radius:45% 52% 42% 50%;background:var(--metalColor);box-shadow:inset 4px 4px 7px rgba(255,255,255,.34),inset -3px -3px 6px rgba(0,0,0,.16),0 2px 4px rgba(0,0,0,.18)}
+.metalCrystal{position:absolute;left:var(--l);bottom:var(--b);width:var(--s);height:var(--s);background:var(--depositColor);border-radius:28% 58% 36% 60%;transform:rotate(var(--r));box-shadow:inset 1px 1px 2px rgba(255,255,255,.65),0 1px 2px rgba(0,0,0,.28);animation:depositGrow .65s ease-out both}
+@keyframes depositGrow{from{transform:rotate(var(--r)) scale(.15);opacity:.1}to{transform:rotate(var(--r)) scale(1);opacity:1}}
 .surfaceFizz{position:absolute;z-index:7;left:10%;right:10%;bottom:56%;height:16px;pointer-events:none}
 .surfaceFizz i{position:absolute;bottom:0;left:var(--l);width:var(--s);height:var(--s);border-radius:50%;border:1.8px solid rgba(255,255,255,.98);background:rgba(255,255,255,.36);box-shadow:0 0 0 1px rgba(70,90,110,.2);animation:pop 1.15s ease-out infinite;animation-delay:var(--delay)}
 .gasPlume{position:absolute;z-index:7;left:18%;right:18%;top:8px;height:44%;pointer-events:none;opacity:.72;filter:blur(4px);background:radial-gradient(ellipse at center,var(--gasColor) 0 25%,rgba(255,255,255,0) 70%);animation:plume 1.8s ease-in-out infinite alternate}
@@ -569,6 +573,16 @@ function solidReagentHTML(v,x){
  }
  return '<div class="solidBed">'+parts.join("")+'</div>';
 }
+function metalDepositHTML(v,x){
+ if(!x||!x.ppt)return "";
+ const metalId=v.find(id=>String((reagent(id)||[])[1]||"")==="Металлы");
+ if(!metalId)return "";
+ const m=reagent(metalId),crystals=[];
+ for(let n=0;n<22;n++){
+   crystals.push('<i class="metalCrystal" style="--l:'+(12+(n*31)%70)+'%;--b:'+(8+(n*17)%30)+'%;--s:'+(4+(n%5)*3)+'px;--r:'+(((n*37)%100)-50)+'deg;--depositColor:'+x.ppt+'"></i>');
+ }
+ return '<div class="metalReactionBed"><i class="metalPiece" style="--metalColor:'+m[2]+'"></i>'+crystals.join("")+'</div>';
+}
 function tubeHTML(v,i,active,heated,excess=""){
  const x=v.length===2?findReaction(v[0],v[1],heated,excess):null;
  const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
@@ -579,7 +593,9 @@ function tubeHTML(v,i,active,heated,excess=""){
  });
  const liquidHeight=x&&x.t!=="z"?58:(hasLiquid?58:0);
  const solids=solidReagentHTML(v,x);
- const reactionVisual=x&&x.t!=="z"?(precipitateHTML(x)+bubblesHTML(x)+'<i class="reactionGlow"></i>'):"";
+ const hasMetalDeposit=!!(x&&x.ppt&&v.some(id=>String((reagent(id)||[])[1]||"")==="Металлы"));
+ const deposit=hasMetalDeposit?metalDepositHTML(v,x):"";
+ const reactionVisual=x&&x.t!=="z"?((hasMetalDeposit?"":precipitateHTML(x))+bubblesHTML(x)+deposit+'<i class="reactionGlow"></i>'):"";
  const shimmer=(heated&&v.length)?'<i class="heatShimmer"></i>':"";
  return '<div class="tube '+(active?'on':'')+'"><i class="liq" style="height:'+liquidHeight+'%;background:'+sol+'"></i>'+solids+reactionVisual+shimmer+'</div>';
 }
