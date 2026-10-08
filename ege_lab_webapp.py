@@ -14,6 +14,7 @@ import run_bot_live90 as live90
 from ege_lab_substances import REAGENTS as LAB_REAGENTS, category_counts
 from ege_lab_inorganic_reactions import EXTRA_REACTIONS, REACTION_VARIANTS, validate_reactions
 from ege_task6_bank import TASK6_BANK, validate_task6_bank
+from ege_task6_reactions import TASK6_REACTIONS, TASK6_VARIANTS, validate_task6_reactions
 
 bot = live90.bot
 DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
@@ -21,7 +22,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261008-lab-v21-ege-task6-pilot"
+BUILD = "20261008-lab-v22-task6-full83"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -128,7 +129,9 @@ REACTIONS = [
 ]
 
 REACTIONS.extend(EXTRA_REACTIONS)
+REACTIONS.extend(TASK6_REACTIONS)
 validate_reactions(set(REAGENTS))
+validate_task6_reactions(set(REAGENTS))
 validate_task6_bank(set(REAGENTS))
 
 def pair_key(a, b):
@@ -143,6 +146,7 @@ def reaction_payload():
         for a,b,eq,kind,sign,sol,ppt,gas,heat in REACTIONS
     ]
     payload.extend(dict(item) for item in REACTION_VARIANTS)
+    payload.extend(dict(item) for item in TASK6_VARIANTS)
     return payload
 
 def ensure_tables():
@@ -370,6 +374,8 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 .task6-demo .reaction-card{margin-top:8px}
 .task6-answer{margin-top:10px}
 .task6-why{margin-top:8px;padding:10px;border-radius:13px;background:#fff7fb;border:1px solid #f1c8dc;line-height:1.4}
+.task6-source-note{margin-top:8px;padding:10px;border-radius:13px;background:#fff7df;border:1px solid #e8c977;color:#5d4a1c;font-size:12px;line-height:1.4}
+.task6-exp-hint{font-size:11px;color:#81797d;margin-top:8px}
 @media(max-width:820px){
  .app{padding:10px 10px 90px}
  .tabs{display:flex;overflow-x:auto;gap:7px;margin:10px -2px 12px;padding:0 2px 3px;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tabs button{flex:0 0 auto;padding:9px 12px;font-size:11px}
@@ -790,64 +796,112 @@ function renderEge(){
 function task6Options(q,selected=""){
  return '<option value="">— выбери вещество —</option>'+q.options.map((o,i)=>'<option value="'+o[0]+'" '+(selected===o[0]?'selected':'')+'>'+(i+1)+') '+o[1]+'</option>').join("");
 }
+function task6ResolveToken(token,sx,sy){
+ if(token==="$X")return sx;
+ if(token==="$Y")return sy;
+ return token||"";
+}
+function task6ResolveExperiment(exp,sx,sy){
+ return {
+   a:task6ResolveToken(exp.pair[0],sx,sy),
+   b:task6ResolveToken(exp.pair[1],sx,sy),
+   heat:!!exp.heat,
+   excess:task6ResolveToken(exp.excess||"",sx,sy),
+   label:exp.label||"Опыт"
+ };
+}
+function task6NeedsSelection(exp,sx,sy){
+ const raw=(exp.pair||[]).concat([exp.excess||""]);
+ if(raw.includes("$X")&&!sx)return "X";
+ if(raw.includes("$Y")&&!sy)return "Y";
+ return "";
+}
+function task6SourceNote(q){
+ if(!q.needs_review)return "";
+ return '<div class="task6-source-note"><b>⚠️ Примечание к источнику.</b> '+(q.source_note||"Формулировка этого задания в исходном файле требует проверки.")+'</div>';
+}
 function renderEgeTask6(box){
  const q=data.task6[egeTask6Index%data.task6.length];
  const opts=q.options.map((o,i)=>'<div class="task6-option"><b>'+(i+1)+')</b> '+o[1]+'</div>').join("");
+ const expButtons=(q.experiments||[]).map((exp,i)=>'<button type="button" class="task6-exp-btn" data-exp="'+i+'">🧪 '+(exp.label||("Опыт "+(i+1)))+'</button>').join("");
  box.innerHTML='<div class="oge-task">'+
    '<div class="oge-kicker">ЕГЭ · задание 6 · виртуальный эксперимент</div>'+
-   '<div class="task6-progress">Задание '+((egeTask6Index%data.task6.length)+1)+' из '+data.task6.length+'</div>'+
+   '<div class="task6-progress">Задание '+((egeTask6Index%data.task6.length)+1)+' из '+data.task6.length+' · страница '+q.source_page+' исходника</div>'+
    '<div class="task6-text">'+q.text+'</div>'+
+   task6SourceNote(q)+
    '<div class="task6-option-list">'+opts+'</div>'+
    '<div class="task6-selects">'+
      '<div class="task6-select-card"><b>Вещество X</b><select id="task6x">'+task6Options(q)+'</select></div>'+
      '<div class="task6-select-card"><b>Вещество Y</b><select id="task6y">'+task6Options(q)+'</select></div>'+
    '</div>'+
-   '<div class="task6-actions"><button id="task6ExpX">🧪 Провести опыт X</button><button id="task6ExpY">🧪 Провести опыт Y</button></div>'+
+   '<div class="task6-exp-hint">Можно проверять гипотезы до ответа: выбери X/Y и проведи описанные в условии опыты.</div>'+
+   '<div id="task6Actions" class="task6-actions">'+expButtons+'</div>'+
    '<div id="task6Demo" class="task6-demo"></div>'+
    '<button id="task6Check" class="primary task6-answer" style="width:100%">Проверить ответ</button>'+
    '<div id="task6Feedback"></div>'+
    '<button id="task6Next" class="oge-next" style="display:none">Следующее задание</button>'+
  '</div>';
- document.getElementById("task6ExpX").onclick=()=>runTask6Experiment(q,"x");
- document.getElementById("task6ExpY").onclick=()=>runTask6Experiment(q,"y");
+ document.querySelectorAll(".task6-exp-btn").forEach(btn=>{
+   btn.onclick=()=>runTask6Experiment(q,Number(btn.dataset.exp));
+ });
  document.getElementById("task6Check").onclick=()=>checkTask6(q);
  document.getElementById("task6Next").onclick=()=>{egeTask6Index++;renderEge()};
 }
-function task6ExperimentCard(q,side,choice){
- const base=side==="x"?q.base_x:q.base_y;
- const heated=!!(side==="x"?q.heat_x:q.heat_y);
- const excess=side==="x"?q.excess_x:q.excess_y;
- const x=findReaction(base,choice,heated,excess||"");
- const baseLabel=reagent(base)?reagent(base)[0]:base;
- const choiceLabel=reagent(choice)?reagent(choice)[0]:choice;
- const tube=tubeHTML([base,choice],0,false,heated,excess||"");
- return '<div class="task6-demo-card"><div class="task6-demo-title">Пробирка '+side.toUpperCase()+': '+baseLabel+' + '+choiceLabel+(heated?' · нагрев':'')+'</div>'+tube+(x?reactionResultHTML(x,heated):'<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот сочетание ещё не моделируется в пилотной базе.</div></div>')+'</div>';
+function task6ExperimentCard(q,expIndex,sx,sy){
+ const exp=q.experiments[expIndex],resolved=task6ResolveExperiment(exp,sx,sy);
+ const x=findReaction(resolved.a,resolved.b,resolved.heat,resolved.excess||"");
+ const aLabel=reagent(resolved.a)?reagent(resolved.a)[0]:resolved.a;
+ const bLabel=reagent(resolved.b)?reagent(resolved.b)[0]:resolved.b;
+ const tube=tubeHTML([resolved.a,resolved.b],0,false,resolved.heat,resolved.excess||"");
+ const condition=(resolved.heat?" · нагрев":"")+(resolved.excess?" · избыток "+(reagent(resolved.excess)?reagent(resolved.excess)[0]:resolved.excess):"");
+ const result=x
+   ? reactionResultHTML(x,resolved.heat)
+   : '<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот выбранный вариант опыта пока не смоделирован. Это не означает, что реакция не идёт.</div></div>';
+ return '<div class="task6-demo-card"><div class="task6-demo-title">'+resolved.label+': '+aLabel+' + '+bLabel+condition+'</div>'+tube+result+'</div>';
 }
-function runTask6Experiment(q,side){
- const select=document.getElementById(side==="x"?"task6x":"task6y"),choice=select.value;
- if(!choice){document.getElementById("task6Feedback").innerHTML='<div class="result">Сначала выбери вещество '+side.toUpperCase()+'.</div>';return}
+function runTask6Experiment(q,expIndex){
+ const sx=document.getElementById("task6x").value,sy=document.getElementById("task6y").value;
+ const exp=q.experiments[expIndex],need=task6NeedsSelection(exp,sx,sy);
+ if(need){
+   document.getElementById("task6Feedback").innerHTML='<div class="result">Сначала выбери вещество '+need+'.</div>';
+   return;
+ }
  const demo=document.getElementById("task6Demo");
- const old=demo.querySelector('[data-side="'+side+'"]');
- const wrap=document.createElement("div");wrap.dataset.side=side;wrap.innerHTML=task6ExperimentCard(q,side,choice);
+ const selector='[data-exp="'+expIndex+'"]';
+ const old=demo.querySelector(selector);
+ const wrap=document.createElement("div");
+ wrap.dataset.exp=String(expIndex);
+ wrap.innerHTML=task6ExperimentCard(q,expIndex,sx,sy);
  if(old)old.replaceWith(wrap);else demo.appendChild(wrap);
  api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()});
 }
 function checkTask6(q){
  if(egeLocked)return;
  const sx=document.getElementById("task6x").value,sy=document.getElementById("task6y").value;
- if(!sx||!sy){document.getElementById("task6Feedback").innerHTML='<div class="result">Выбери и X, и Y.</div>';return}
+ if(!sx||!sy){
+   document.getElementById("task6Feedback").innerHTML='<div class="result">Выбери и X, и Y.</div>';
+   return;
+ }
  egeLocked=true;
  const ok=sx===q.answer_x&&sy===q.answer_y;
  const correctX=q.options.find(x=>x[0]===q.answer_x),correctY=q.options.find(x=>x[0]===q.answer_y);
- document.getElementById("task6Demo").innerHTML=
-   '<div data-side="x">'+task6ExperimentCard(q,"x",q.answer_x)+'</div>'+
-   '<div data-side="y">'+task6ExperimentCard(q,"y",q.answer_y)+'</div>';
+ document.getElementById("task6x").value=q.answer_x;
+ document.getElementById("task6y").value=q.answer_y;
+ document.getElementById("task6Demo").innerHTML=(q.experiments||[]).map((exp,i)=>
+   '<div data-exp="'+i+'">'+task6ExperimentCard(q,i,q.answer_x,q.answer_y)+'</div>'
+ ).join("");
+ const review=q.needs_review
+   ? '<div class="task6-source-note"><b>⚠️ Это задание не учитывается как надёжный эталон.</b> В исходнике есть внутренняя неоднозначность формулировки.</div>'
+   : '';
  document.getElementById("task6Feedback").innerHTML=
-   '<div class="result">'+(ok?'✅ Верно.':'❌ Пока нет. Правильная пара: X — '+correctX[1]+', Y — '+correctY[1]+'.')+'</div>'+
-   '<div class="task6-why"><b>Почему:</b> '+q.why+'</div>';
+   '<div class="result">'+(ok?'✅ Верно.':'❌ Пока нет. Правильная пара по химической логике: X — '+correctX[1]+', Y — '+correctY[1]+'.')+'</div>'+
+   '<div class="task6-why"><b>Разбор:</b> посмотри на оба правильных опыта выше — признаки реакции должны совпасть с условием задания.</div>'+
+   review;
  document.getElementById("task6Check").disabled=true;
  document.getElementById("task6Next").style.display="block";
- api({action:"event",type:"prediction",correct:ok}).then(j=>{data.stats=j.stats;renderStats()});
+ if(!q.needs_review){
+   api({action:"event",type:"prediction",correct:ok}).then(j=>{data.stats=j.stats;renderStats()});
+ }
 }
 function renderEge24(box){
  const q=EGE24[egeIndex24%EGE24.length];
