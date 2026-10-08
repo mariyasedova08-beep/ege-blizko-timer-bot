@@ -20,7 +20,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261008-lab-v14-solid-dissolution"
+BUILD = "20261008-lab-v15-reagent-search"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -225,6 +225,12 @@ HTML = r'''<!doctype html>
 .lab-shell{display:grid;grid-template-columns:240px minmax(0,1fr) 210px;gap:12px;align-items:stretch}
 .lab-side,.lab-controls{background:#fff;border:1px solid #efc5da;border-radius:22px;padding:13px;box-shadow:0 8px 25px rgba(35,20,28,.05)}
 .lab-side h2,.lab-controls h2,.bench-head h2{margin:0 0 10px;font-size:16px}
+.reagent-search{display:grid;grid-template-columns:minmax(0,1fr) 38px;gap:6px;margin:10px 0 8px}
+.reagent-search input{width:100%;min-width:0;border:1px solid #efc5da;background:#fff;border-radius:13px;padding:10px 11px;font:700 13px system-ui,-apple-system,sans-serif;color:#171719;outline:none}
+.reagent-search input:focus{border-color:#f00087;box-shadow:0 0 0 2px rgba(240,0,135,.10)}
+.reagent-search button{padding:0;width:38px;height:38px;border-radius:12px;font-size:15px}
+.reagent-search-hint{font-size:10px;color:#8b8387;margin:0 0 8px}
+.reagent-empty{padding:14px 10px;border:1px dashed #efc5da;border-radius:14px;background:#fff8fb;color:#746a6f;font-size:12px;text-align:center}
 .reagent-filters{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:10px 0 12px}
 .reagent-filter{border:1px solid #f0cadc;background:#fff8fb;color:#4c4046;border-radius:999px;padding:8px 7px;font-size:11px;font-weight:900}
 .reagent-filter.on{background:var(--pink);color:#fff;border-color:var(--pink)}
@@ -394,6 +400,11 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
     <h2>Реактивы</h2>
     <div class="mode-note">Нажми на вещество — оно добавится в выбранную пробирку.</div>
     <div id="labCoverage" class="mode-note">Загружаю ЕГЭ-каталог…</div>
+    <div class="reagent-search">
+      <input id="reagentSearch" type="search" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Например: CuSO4">
+      <button id="reagentSearchClear" type="button" aria-label="Очистить поиск">✕</button>
+    </div>
+    <div class="reagent-search-hint">Можно вводить обычные цифры: CuSO4 найдёт CuSO₄.</div>
     <div id="reagentFilters" class="reagent-filters">
       <button class="reagent-filter on" data-cat="Все">Все</button>
       <button class="reagent-filter" data-cat="Оксиды">Оксиды</button>
@@ -459,7 +470,7 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 <script>
 const tg=Telegram.WebApp;tg.ready();tg.expand();
 const labQs=new URLSearchParams(location.search),labLaunch=labQs.get("launch")||"";
-let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все";
+let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все", selectedReagentSearch="";
 let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
 let egeMode="24",egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;
@@ -568,13 +579,27 @@ function syncTubePicker(){
  const root=document.getElementById("mobileTubePicker");if(!root)return;
  root.querySelectorAll("[data-tube]").forEach(btn=>btn.classList.toggle("on",Number(btn.dataset.tube)===selectedTube));
 }
+function normalizeReagentSearch(value){
+ const subs={"₀":"0","₁":"1","₂":"2","₃":"3","₄":"4","₅":"5","₆":"6","₇":"7","₈":"8","₉":"9"};
+ return String(value||"").toLowerCase().replace(/[₀₁₂₃₄₅₆₇₈₉]/g,ch=>subs[ch]).replace(/[\s·.]/g,"");
+}
+function reagentMatchesSearch(id,v){
+ const q=normalizeReagentSearch(selectedReagentSearch);
+ if(!q)return true;
+ const formula=normalizeReagentSearch(v[0]);
+ const name=normalizeReagentSearch(v[4]||"");
+ const rid=normalizeReagentSearch(id);
+ return formula.includes(q)||name.includes(q)||rid.includes(q);
+}
 function renderReagents(){
  const box=document.getElementById("reagents");box.innerHTML="";
  const order=["Оксиды","Гидроксиды","Кислоты","Соли","Прочее"];
+ let shown=0;
  order.forEach(cat=>{
-   if(selectedReagentCategory!=="Все"&&selectedReagentCategory!==cat)return;
-   const entries=Object.entries(data.reagents).filter(([id,v])=>v[1]===cat);
+   if(!selectedReagentSearch&&selectedReagentCategory!=="Все"&&selectedReagentCategory!==cat)return;
+   const entries=Object.entries(data.reagents).filter(([id,v])=>v[1]===cat&&reagentMatchesSearch(id,v));
    if(!entries.length)return;
+   shown+=entries.length;
    const group=document.createElement("div");group.className="reagent-group";
    const title=document.createElement("div");title.className="reagent-group-title";title.textContent=cat;group.appendChild(title);
    entries.forEach(([id,v])=>{
@@ -584,6 +609,11 @@ function renderReagents(){
    });
    box.appendChild(group);
  });
+ if(!shown){
+   const empty=document.createElement("div");empty.className="reagent-empty";
+   empty.textContent="Вещество не найдено. Проверь формулу или попробуй ввести её без индексов.";
+   box.appendChild(empty);
+ }
 }
 function setupMobileTubePicker(){
  const root=document.getElementById("mobileTubePicker");if(!root)return;
@@ -601,6 +631,15 @@ function setupReagentFilters(){
      renderReagents();
    };
  });
+}
+function setupReagentSearch(){
+ const input=document.getElementById("reagentSearch"),clear=document.getElementById("reagentSearchClear");
+ if(!input||!clear)return;
+ const apply=()=>{selectedReagentSearch=input.value.trim();renderReagents()};
+ input.addEventListener("input",apply);
+ input.addEventListener("search",apply);
+ input.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();apply();input.blur()}});
+ clear.onclick=()=>{input.value="";selectedReagentSearch="";renderReagents();input.focus()};
 }
 function add(id){
  if(tubes[selectedTube].length>=2)return;
@@ -849,7 +888,7 @@ api({action:"load"}).then(j=>{
  data=j.data;Object.entries(data.reagents).forEach(x=>reagentMap.set(x[0],x[1]));
  data.reactions.forEach(x=>{const k=key(x.a,x.b);if(!reactionMap.has(k))reactionMap.set(k,[]);reactionMap.get(k).push(x)});
  const cv=document.getElementById("labCoverage");if(cv&&data.coverage)cv.textContent="В текущем ЕГЭ-каталоге: "+data.coverage.substances+" веществ · "+data.coverage.reactions+" реакций/условий.";
- renderTubes();renderReagents();setupMobileTubePicker();setupReagentFilters();setupLab();renderStats();
+ renderTubes();renderReagents();setupMobileTubePicker();setupReagentFilters();setupReagentSearch();setupLab();renderStats();
 });
 </script></body></html>'''
 
