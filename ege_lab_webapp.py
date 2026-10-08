@@ -20,7 +20,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261008-lab-v16-compact-bench"
+BUILD = "20261008-lab-v17-simple-substances"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -407,6 +407,7 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
     <div class="reagent-search-hint">Можно вводить обычные цифры: CuSO4 найдёт CuSO₄.</div>
     <div id="reagentFilters" class="reagent-filters">
       <button class="reagent-filter on" data-cat="Все">Все</button>
+      <button class="reagent-filter" data-cat="Простые вещества">Простые</button>
       <button class="reagent-filter" data-cat="Оксиды">Оксиды</button>
       <button class="reagent-filter" data-cat="Гидроксиды">Гидроксиды</button>
       <button class="reagent-filter" data-cat="Кислоты">Кислоты</button>
@@ -485,18 +486,27 @@ function reactionExpected(a,b,excess=""){
  return list.find(x=>!x.excess)||list[0]||null;
 }
 function findReaction(a,b,heated,excess=""){
- const x=reactionExpected(a,b,excess);
- return x&&(!x.heat||heated)?x:null;
+ const list=reactionVariants(a,b);
+ const eligible=excess ? list.filter(x=>x.excess===excess) : list.filter(x=>!x.excess);
+ if(heated){
+   const hot=eligible.find(x=>x.heat);
+   if(hot)return hot;
+ }
+ const cold=eligible.find(x=>!x.heat);
+ if(cold)return cold;
+ const fallback=eligible[0]||null;
+ return fallback&&(!fallback.heat||heated)?fallback:null;
 }
 function reactionResultHTML(x,heated=false){
  if(!x)return '<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот опыт пока не добавлен в базу.</div></div>';
  if(x.heat&&!heated)return '<div class="reaction-card"><div class="reaction-head"><span class="reaction-status">🔥 Нужен нагрев</span></div><div class="reaction-sign">Без нагревания видимого результата не показываем.</div><div class="reaction-equation">'+x.eq+'</div></div>';
- const noVisible=x.t==="n";
- const icon=x.t==="p"?"⬇️":x.t==="g"?"🫧":x.t==="c"?"🎨":x.t==="x"?"✨":"✓";
- const title=noVisible?"Реакция протекает":"Реакция протекает";
- const sign=noVisible?"Без видимого признака":x.sign;
+ const noVisible=x.t==="n", noReaction=x.t==="z";
+ const icon=x.t==="p"?"⬇️":x.t==="g"?"🫧":x.t==="c"?"🎨":x.t==="x"?"✨":noReaction?"⛔":"✓";
+ const title=noReaction?"Реакция не идёт":"Реакция протекает";
+ const sign=noReaction?x.sign:(noVisible?"Без видимого признака":x.sign);
  const condition=x.condition?'<div class="reaction-note">Условие: '+x.condition+'</div>':'';
- return '<div class="reaction-card '+(noVisible?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">Признак: '+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+condition+(noVisible?'<div class="reaction-note">Реакция есть, но визуального эффекта в пробирке нет.</div>':'')+'</div>';
+ const note=noReaction?'<div class="reaction-note">Смесь остаётся без химического превращения в указанных условиях.</div>':(noVisible?'<div class="reaction-note">Реакция есть, но визуального эффекта в пробирке нет.</div>':'');
+ return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+condition+note+'</div>';
 }
 function pptTexture(x){
  const s=(x&&x.sign||"").toLowerCase();
@@ -519,7 +529,7 @@ function precipitateHTML(x){
 function bubblesHTML(x){
  if(!x||!x.gas)return "";
  const parts=[],fizz=[],boil=[];
- const strong=["CO₂","SO₂","H₂S"].includes(x.gas);
+ const strong=["CO₂","SO₂","H₂S","NO₂"].includes(x.gas);
  const count=strong?42:30;
  for(let n=0;n<count;n++){
    parts.push('<i class="bubble" style="--l:'+(4+(n*23)%91)+'%;--s:'+(strong?8+(n%7)*2.4:7+(n%6)*2.2)+'px;--d:'+(strong?.88+(n%5)*.12:1.12+(n%5)*.17)+'s;--delay:-'+((n%11)*.13)+'s;--drift:'+(((n%5)-2)*8)+'px"></i>');
@@ -536,6 +546,8 @@ function bubblesHTML(x){
  if(x.gas==="SO₂")gasColor='rgba(220,225,230,.44)';
  if(x.gas==="H₂S")gasColor='rgba(205,210,205,.36)';
  if(x.gas==="NH₃")gasColor='rgba(235,235,255,.40)';
+ if(x.gas==="NO₂")gasColor='rgba(151,78,42,.52)';
+ if(x.gas==="Cl₂")gasColor='rgba(190,210,92,.46)';
  return (strong?'<div class="boilLayer">'+boil.join("")+'</div>':'')+'<div class="bubbleLayer '+(strong?'strong':'')+'">'+parts.join("")+'</div><div class="surfaceFizz">'+fizz.join("")+'</div><div class="gasPlume" style="--gasColor:'+gasColor+'"></div>';
 }
 function solidReagentHTML(v,x){
@@ -552,10 +564,13 @@ function tubeHTML(v,i,active,heated,excess=""){
  const x=v.length===2?findReaction(v[0],v[1],heated,excess):null;
  const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
  const sol=x?x.sol:base;
- const hasLiquid=v.some(id=>!String((reagent(id)||[])[3]||"").includes("тв."));
- const liquidHeight=x?58:(hasLiquid?58:0);
+ const hasLiquid=v.some(id=>{
+   const st=String((reagent(id)||[])[3]||"");
+   return !st.includes("тв.")&&!st.includes("газ");
+ });
+ const liquidHeight=x&&x.t!=="z"?58:(hasLiquid?58:0);
  const solids=solidReagentHTML(v,x);
- const reactionVisual=x?(precipitateHTML(x)+bubblesHTML(x)+'<i class="reactionGlow"></i>'):"";
+ const reactionVisual=x&&x.t!=="z"?(precipitateHTML(x)+bubblesHTML(x)+'<i class="reactionGlow"></i>'):"";
  const shimmer=(heated&&v.length)?'<i class="heatShimmer"></i>':"";
  return '<div class="tube '+(active?'on':'')+'"><i class="liq" style="height:'+liquidHeight+'%;background:'+sol+'"></i>'+solids+reactionVisual+shimmer+'</div>';
 }
@@ -593,7 +608,7 @@ function reagentMatchesSearch(id,v){
 }
 function renderReagents(){
  const box=document.getElementById("reagents");box.innerHTML="";
- const order=["Оксиды","Гидроксиды","Кислоты","Соли","Прочее"];
+ const order=["Простые вещества","Оксиды","Гидроксиды","Кислоты","Соли","Прочее"];
  let shown=0;
  order.forEach(cat=>{
    if(!selectedReagentSearch&&selectedReagentCategory!=="Все"&&selectedReagentCategory!==cat)return;
