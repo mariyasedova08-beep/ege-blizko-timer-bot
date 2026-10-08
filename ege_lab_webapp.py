@@ -13,6 +13,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 import run_bot_live90 as live90
 from ege_lab_substances import REAGENTS as LAB_REAGENTS, category_counts
 from ege_lab_inorganic_reactions import EXTRA_REACTIONS, REACTION_VARIANTS, validate_reactions
+from ege_task6_bank import TASK6_BANK, validate_task6_bank
 
 bot = live90.bot
 DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
@@ -20,7 +21,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261008-lab-v20-metal-salt-experiments"
+BUILD = "20261008-lab-v21-ege-task6-pilot"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -128,6 +129,7 @@ REACTIONS = [
 
 REACTIONS.extend(EXTRA_REACTIONS)
 validate_reactions(set(REAGENTS))
+validate_task6_bank(set(REAGENTS))
 
 def pair_key(a, b):
     return "|".join(sorted((a, b)))
@@ -351,6 +353,23 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .unknown{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.unknown button.on{background:var(--pink);color:#fff}
 select{width:100%;padding:8px;border:1px solid #efc5da;border-radius:10px;background:#fff}.guess p{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:6px}
 h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
+.task6-progress{font-size:11px;color:#81797d;margin-bottom:8px}
+.task6-text{font-size:14px;line-height:1.45;font-weight:750;background:#fff8fb;border:1px solid #f1c8dc;border-radius:15px;padding:12px}
+.task6-option-list{display:grid;grid-template-columns:1fr;gap:6px;margin-top:10px}
+.task6-option{padding:8px 10px;border:1px solid #eadde4;border-radius:12px;background:#fff;font-size:12px}
+.task6-selects{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.task6-select-card{border:1px solid #efc5da;border-radius:14px;padding:9px;background:#fff}
+.task6-select-card b{display:block;margin-bottom:5px}
+.task6-select-card select{width:100%;min-height:42px;border:1px solid #e7d7df;border-radius:10px;background:#fff;padding:8px;font-size:13px}
+.task6-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.task6-actions button{width:100%}
+.task6-demo{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.task6-demo-card{min-width:0;background:#fff;border:1px solid #eadfe4;border-radius:16px;padding:10px}
+.task6-demo-title{font-size:12px;font-weight:900;margin-bottom:7px}
+.task6-demo .tube{width:86px;height:150px;margin:0 auto 6px}
+.task6-demo .reaction-card{margin-top:8px}
+.task6-answer{margin-top:10px}
+.task6-why{margin-top:8px;padding:10px;border-radius:13px;background:#fff7fb;border:1px solid #f1c8dc;line-height:1.4}
 @media(max-width:820px){
  .app{padding:10px 10px 90px}
  .tabs{display:flex;overflow-x:auto;gap:7px;margin:10px -2px 12px;padding:0 2px 3px;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tabs button{flex:0 0 auto;padding:9px 12px;font-size:11px}
@@ -392,6 +411,7 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
  .reagent-list{grid-template-columns:1fr 1fr}
  .oge-options{grid-template-columns:1fr}.oge-demo{gap:12px}.oge-demo-two{width:96px}.oge-demo .tube{height:170px}
  .ege-switch{grid-template-columns:1fr}.ege-match-row{grid-template-columns:1fr 82px}.ege-mini{grid-template-columns:64px minmax(0,1fr)}
+ .task6-selects,.task6-actions,.task6-demo{grid-template-columns:1fr}
  .logo{font-size:11px;width:auto;height:auto;padding:7px 9px;border-radius:999px}
 }
 </style></head><body><div class="app">
@@ -466,7 +486,8 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 
 <section id="ege" class="page"><div class="card">
 <div class="ege-switch">
-  <button id="ege24Tab" class="on">№24</button>
+  <button id="ege6Tab" class="on">№6 · Опыты</button>
+  <button id="ege24Tab">№24</button>
   <button id="egeSignsTab">Признаки</button>
   <button id="egeQualityTab">Качественные реакции</button>
 </div>
@@ -486,7 +507,7 @@ const labQs=new URLSearchParams(location.search),labLaunch=labQs.get("launch")||
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все", selectedReagentSearch="";
 let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
-let egeMode="24",egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;
+let egeMode="6",egeTask6Index=0,egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;
 
 function key(a,b){return [a,b].sort().join("|")}
 function reagent(id){return reagentMap.get(id)}
@@ -753,6 +774,7 @@ const EGEQUALITY=[
 ];
 function setEgeMode(mode){
  egeMode=mode;egeLocked=false;
+ document.getElementById("ege6Tab").classList.toggle("on",mode==="6");
  document.getElementById("ege24Tab").classList.toggle("on",mode==="24");
  document.getElementById("egeSignsTab").classList.toggle("on",mode==="signs");
  document.getElementById("egeQualityTab").classList.toggle("on",mode==="quality");
@@ -760,9 +782,72 @@ function setEgeMode(mode){
 }
 function renderEge(){
  const box=document.getElementById("egeBox");egeLocked=false;
+ if(egeMode==="6")return renderEgeTask6(box);
  if(egeMode==="24")return renderEge24(box);
  if(egeMode==="signs")return renderEgeSigns(box);
  return renderEgeQuality(box);
+}
+function task6Options(q,selected=""){
+ return '<option value="">— выбери вещество —</option>'+q.options.map((o,i)=>'<option value="'+o[0]+'" '+(selected===o[0]?'selected':'')+'>'+(i+1)+') '+o[1]+'</option>').join("");
+}
+function renderEgeTask6(box){
+ const q=data.task6[egeTask6Index%data.task6.length];
+ const opts=q.options.map((o,i)=>'<div class="task6-option"><b>'+(i+1)+')</b> '+o[1]+'</div>').join("");
+ box.innerHTML='<div class="oge-task">'+
+   '<div class="oge-kicker">ЕГЭ · задание 6 · виртуальный эксперимент</div>'+
+   '<div class="task6-progress">Задание '+((egeTask6Index%data.task6.length)+1)+' из '+data.task6.length+'</div>'+
+   '<div class="task6-text">'+q.text+'</div>'+
+   '<div class="task6-option-list">'+opts+'</div>'+
+   '<div class="task6-selects">'+
+     '<div class="task6-select-card"><b>Вещество X</b><select id="task6x">'+task6Options(q)+'</select></div>'+
+     '<div class="task6-select-card"><b>Вещество Y</b><select id="task6y">'+task6Options(q)+'</select></div>'+
+   '</div>'+
+   '<div class="task6-actions"><button id="task6ExpX">🧪 Провести опыт X</button><button id="task6ExpY">🧪 Провести опыт Y</button></div>'+
+   '<div id="task6Demo" class="task6-demo"></div>'+
+   '<button id="task6Check" class="primary task6-answer" style="width:100%">Проверить ответ</button>'+
+   '<div id="task6Feedback"></div>'+
+   '<button id="task6Next" class="oge-next" style="display:none">Следующее задание</button>'+
+ '</div>';
+ document.getElementById("task6ExpX").onclick=()=>runTask6Experiment(q,"x");
+ document.getElementById("task6ExpY").onclick=()=>runTask6Experiment(q,"y");
+ document.getElementById("task6Check").onclick=()=>checkTask6(q);
+ document.getElementById("task6Next").onclick=()=>{egeTask6Index++;renderEge()};
+}
+function task6ExperimentCard(q,side,choice){
+ const base=side==="x"?q.base_x:q.base_y;
+ const heated=!!(side==="x"?q.heat_x:q.heat_y);
+ const excess=side==="x"?q.excess_x:q.excess_y;
+ const x=findReaction(base,choice,heated,excess||"");
+ const baseLabel=reagent(base)?reagent(base)[0]:base;
+ const choiceLabel=reagent(choice)?reagent(choice)[0]:choice;
+ const tube=tubeHTML([base,choice],0,false,heated,excess||"");
+ return '<div class="task6-demo-card"><div class="task6-demo-title">Пробирка '+side.toUpperCase()+': '+baseLabel+' + '+choiceLabel+(heated?' · нагрев':'')+'</div>'+tube+(x?reactionResultHTML(x,heated):'<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот сочетание ещё не моделируется в пилотной базе.</div></div>')+'</div>';
+}
+function runTask6Experiment(q,side){
+ const select=document.getElementById(side==="x"?"task6x":"task6y"),choice=select.value;
+ if(!choice){document.getElementById("task6Feedback").innerHTML='<div class="result">Сначала выбери вещество '+side.toUpperCase()+'.</div>';return}
+ const demo=document.getElementById("task6Demo");
+ const old=demo.querySelector('[data-side="'+side+'"]');
+ const wrap=document.createElement("div");wrap.dataset.side=side;wrap.innerHTML=task6ExperimentCard(q,side,choice);
+ if(old)old.replaceWith(wrap);else demo.appendChild(wrap);
+ api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()});
+}
+function checkTask6(q){
+ if(egeLocked)return;
+ const sx=document.getElementById("task6x").value,sy=document.getElementById("task6y").value;
+ if(!sx||!sy){document.getElementById("task6Feedback").innerHTML='<div class="result">Выбери и X, и Y.</div>';return}
+ egeLocked=true;
+ const ok=sx===q.answer_x&&sy===q.answer_y;
+ const correctX=q.options.find(x=>x[0]===q.answer_x),correctY=q.options.find(x=>x[0]===q.answer_y);
+ document.getElementById("task6Demo").innerHTML=
+   '<div data-side="x">'+task6ExperimentCard(q,"x",q.answer_x)+'</div>'+
+   '<div data-side="y">'+task6ExperimentCard(q,"y",q.answer_y)+'</div>';
+ document.getElementById("task6Feedback").innerHTML=
+   '<div class="result">'+(ok?'✅ Верно.':'❌ Пока нет. Правильная пара: X — '+correctX[1]+', Y — '+correctY[1]+'.')+'</div>'+
+   '<div class="task6-why"><b>Почему:</b> '+q.why+'</div>';
+ document.getElementById("task6Check").disabled=true;
+ document.getElementById("task6Next").style.display="block";
+ api({action:"event",type:"prediction",correct:ok}).then(j=>{data.stats=j.stats;renderStats()});
 }
 function renderEge24(box){
  const q=EGE24[egeIndex24%EGE24.length];
@@ -820,6 +905,7 @@ function answerEgeQuality(q,id,chosen){
  document.getElementById("egeQualityNext").style.display="block";
  api({action:"event",type:"prediction",correct:ok}).then(j=>{data.stats=j.stats;renderStats()});
 }
+document.getElementById("ege6Tab").onclick=()=>setEgeMode("6");
 document.getElementById("ege24Tab").onclick=()=>setEgeMode("24");
 document.getElementById("egeSignsTab").onclick=()=>setEgeMode("signs");
 document.getElementById("egeQualityTab").onclick=()=>setEgeMode("quality");
@@ -973,6 +1059,7 @@ def do_post(self):
                 "coverage":{"substances":len(REAGENTS),"reactions":len(reaction_payload()),"categories":category_counts()},
                 "lab":["cuso4","fecl3","na2co3","nacl","na2so4"],
                 "tools":["naoh","hcl","agno3","bacl2"],
+                "task6":TASK6_BANK,
                 "stats":stats(uid) if uid else preview_stats,
                 "preview":not bool(uid),
             }})
