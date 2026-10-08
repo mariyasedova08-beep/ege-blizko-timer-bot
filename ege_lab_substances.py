@@ -3,15 +3,45 @@
 Tuple shape exposed to the Mini App:
 (formula, category, visual_colour, state, russian_name)
 
-The first expansion focuses on inorganic compounds used throughout the
-EGE chemistry syllabus: oxides, hydroxides, acids and salts.  Simple
-substances and organics are added in later catalogue stages so we do not
-show bottles that have no implemented chemistry yet.
+The catalogue covers the core EGE inorganic set: simple substances, oxides,
+hydroxides, acids and salts. Organic classes are added in a later stage.
 """
 
 REAGENTS = {
     # Water / service reagent
     "h2o": ("H₂O", "Прочее", "#eaf7ff", "ж.", "вода"),
+
+    # Simple substances — core EGE inorganic set
+    # Metals
+    "na": ("Na", "Простые вещества", "#c9cdd2", "тв.", "натрий"),
+    "k": ("K", "Простые вещества", "#c9cdd2", "тв.", "калий"),
+    "ca": ("Ca", "Простые вещества", "#c7cbd0", "тв.", "кальций"),
+    "ba": ("Ba", "Простые вещества", "#c7cbd0", "тв.", "барий"),
+    "mg": ("Mg", "Простые вещества", "#cfd3d7", "тв.", "магний"),
+    "al": ("Al", "Простые вещества", "#d6d9dc", "тв.", "алюминий"),
+    "zn": ("Zn", "Простые вещества", "#aeb4ba", "тв.", "цинк"),
+    "cr": ("Cr", "Простые вещества", "#9da5aa", "тв.", "хром"),
+    "fe": ("Fe", "Простые вещества", "#8d9398", "тв.", "железо"),
+    "ni": ("Ni", "Простые вещества", "#a6acaa", "тв.", "никель"),
+    "sn": ("Sn", "Простые вещества", "#b9bdc0", "тв.", "олово"),
+    "pb": ("Pb", "Простые вещества", "#777d83", "тв.", "свинец"),
+    "cu": ("Cu", "Простые вещества", "#b96f4a", "тв.", "медь"),
+    "hg": ("Hg", "Простые вещества", "#c7cbd0", "ж.", "ртуть"),
+    "ag": ("Ag", "Простые вещества", "#d8dadd", "тв.", "серебро"),
+    "au": ("Au", "Простые вещества", "#d5ad32", "тв.", "золото"),
+
+    # Nonmetals
+    "h2": ("H₂", "Простые вещества", "#f8fbff", "газ", "водород"),
+    "o2": ("O₂", "Простые вещества", "#f8fbff", "газ", "кислород"),
+    "n2": ("N₂", "Простые вещества", "#f8fbff", "газ", "азот"),
+    "c": ("C", "Простые вещества", "#202020", "тв.", "углерод"),
+    "si": ("Si", "Простые вещества", "#55595d", "тв.", "кремний"),
+    "p": ("P", "Простые вещества", "#9e3f35", "тв.", "фосфор"),
+    "s": ("S", "Простые вещества", "#e0ca32", "тв.", "сера"),
+    "f2": ("F₂", "Простые вещества", "#e8e79e", "газ", "фтор"),
+    "cl2": ("Cl₂", "Простые вещества", "#c4d56a", "газ", "хлор"),
+    "br2": ("Br₂", "Простые вещества", "#9d4b2f", "ж.", "бром"),
+    "i2": ("I₂", "Простые вещества", "#4a354f", "тв.", "иод"),
 
     # Acids
     "hcl": ("HCl", "Кислоты", "#f8fbff", "р-р", "соляная кислота"),
