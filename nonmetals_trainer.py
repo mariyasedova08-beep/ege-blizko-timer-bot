@@ -347,7 +347,7 @@ async def nonmetals_callback(update, context):
             result = f"❌ Не совсем.\n\nПравильный ответ: {correct_answer}"
         session["index"] += 1
         context.user_data["nonmetals_session"] = session
-    trainer_sessions.save("nonmetals", update.effective_user.id, session)
+        trainer_sessions.save("nonmetals", update.effective_user.id, session)
         await query.edit_message_text(
             result,
             reply_markup=InlineKeyboardMarkup([[
