@@ -20,7 +20,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261008-lab-v17-simple-substances"
+BUILD = "20261008-lab-v18-no2-bubbles-scroll"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -254,11 +254,11 @@ HTML = r'''<!doctype html>
 .mobile-tube-picker{display:none;gap:7px;justify-content:center;margin:12px 0 4px}
 .mobile-tube-picker button{width:42px;height:42px;padding:0;border-radius:13px;font-size:14px}
 .mobile-tube-picker button.on{background:var(--pink);color:#fff;border-color:var(--pink)}
-.tube-callout{position:absolute;z-index:30;width:300px;left:50%;bottom:calc(100% + 18px);transform:translateX(-50%);pointer-events:none}
+.tube-callout{position:absolute;z-index:30;width:300px;left:50%;bottom:calc(100% + 18px);transform:translateX(-50%);pointer-events:auto}
 .tube-callout.edge-left{left:0;transform:none}
 .tube-callout.edge-right{left:auto;right:0;transform:none}
 .tube-callout .reaction-card{margin:0;box-shadow:0 14px 34px rgba(240,0,135,.22)}
-.tube-callout:after{content:"";position:absolute;left:50%;bottom:-10px;width:18px;height:18px;background:#f9dce9;border-right:2px solid #f00087;border-bottom:2px solid #f00087;transform:translateX(-50%) rotate(45deg)}
+.tube-callout:after{content:"";position:absolute;left:50%;bottom:-10px;width:18px;height:18px;background:#f9dce9;border-right:2px solid #f00087;border-bottom:2px solid #f00087;transform:translateX(-50%) rotate(45deg);pointer-events:none}
 .tube-callout.edge-left:after{left:21%}.tube-callout.edge-right:after{left:79%}
 .lab-controls .control-stack{display:flex;flex-direction:column;gap:8px}
 .lab-controls button{width:100%}
@@ -271,7 +271,11 @@ HTML = r'''<!doctype html>
 .reaction-status{display:inline-flex;align-items:center;gap:6px;background:#f00087;color:#fff;font-size:11px;font-weight:950;border-radius:999px;padding:6px 9px}
 .reaction-card.no-visible .reaction-status{background:#8e858a}
 .reaction-sign{font-size:15px;font-weight:950;line-height:1.25;color:#171719;margin-bottom:8px}
-.reaction-equation{background:rgba(255,255,255,.82);border:1px solid rgba(240,0,135,.22);border-radius:13px;padding:9px 10px;font-size:13px;font-weight:900;line-height:1.25;letter-spacing:0;white-space:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
+.reaction-equation{background:rgba(255,255,255,.82);border:1px solid rgba(240,0,135,.22);border-radius:13px;padding:9px 10px;font-size:13px;font-weight:900;line-height:1.25;letter-spacing:0;white-space:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-x;cursor:grab;scrollbar-width:auto;scrollbar-color:#8f878b #f6edf2}
+.reaction-equation:active{cursor:grabbing}
+.reaction-equation::-webkit-scrollbar{height:10px}
+.reaction-equation::-webkit-scrollbar-track{background:#f6edf2;border-radius:999px}
+.reaction-equation::-webkit-scrollbar-thumb{background:#8f878b;border-radius:999px;border:2px solid #f6edf2}
 .reaction-note{font-size:10px;color:#7c7277;margin-top:7px}
 @keyframes reactionPop{0%{transform:scale(.97);opacity:.35}100%{transform:scale(1);opacity:1}}
 .mode-note{font-size:10px;color:#8b8387;margin-top:8px}
@@ -301,6 +305,9 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 @keyframes boilCell{0%{transform:translateY(8px) scale(.75,.55);opacity:.2}40%{opacity:.85}100%{transform:translateY(-20px) scale(1.12,.95);opacity:.05}}
 @keyframes boilPulse{from{transform:scale(.88,.7);opacity:.35}to{transform:scale(1.08,1.0);opacity:.8}}
 .bubble{position:absolute;bottom:4px;left:var(--l);width:var(--s);height:var(--s);border:2.2px solid rgba(255,255,255,.98);border-radius:50%;background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.92) 0 16%,rgba(255,255,255,.28) 17% 42%,rgba(255,255,255,.07) 43% 100%);box-shadow:0 0 0 1px rgba(80,105,130,.26),inset -2px -2px 4px rgba(80,105,130,.16),0 2px 5px rgba(40,55,70,.15);animation:rise var(--d) ease-in infinite;animation-delay:var(--delay)}
+.bubbleLayer.no2 .bubble{border-color:rgba(150,64,24,.96);background:radial-gradient(circle at 32% 28%,rgba(255,221,195,.92) 0 14%,rgba(202,92,38,.64) 15% 48%,rgba(137,55,22,.34) 49% 100%);box-shadow:0 0 0 1px rgba(114,43,16,.50),inset -2px -2px 4px rgba(108,40,15,.34),0 2px 6px rgba(92,37,17,.28)}
+.surfaceFizz.no2 i{border-color:rgba(153,65,24,.95);background:rgba(198,86,34,.62);box-shadow:0 0 0 1px rgba(108,43,17,.42)}
+.boilLayer.no2 .boilCell{background:radial-gradient(ellipse at 50% 75%,rgba(217,113,62,.62),rgba(150,61,25,.28) 55%,transparent 72%)}
 .solidBed{position:absolute;left:12%;right:12%;bottom:6%;height:26%;z-index:5;pointer-events:none}
 .solidChunk{position:absolute;left:var(--l);bottom:var(--b);width:var(--s);height:calc(var(--s)*.62);background:var(--sc);border-radius:35% 45% 38% 48%;transform:rotate(var(--r));box-shadow:inset 2px 2px 3px rgba(255,255,255,.48),0 1px 2px rgba(0,0,0,.16)}
 .surfaceFizz{position:absolute;z-index:7;left:10%;right:10%;bottom:56%;height:16px;pointer-events:none}
@@ -548,7 +555,8 @@ function bubblesHTML(x){
  if(x.gas==="NH₃")gasColor='rgba(235,235,255,.40)';
  if(x.gas==="NO₂")gasColor='rgba(196,88,22,.90)';
  if(x.gas==="Cl₂")gasColor='rgba(190,210,92,.46)';
- return (strong?'<div class="boilLayer">'+boil.join("")+'</div>':'')+'<div class="bubbleLayer '+(strong?'strong':'')+'">'+parts.join("")+'</div><div class="surfaceFizz">'+fizz.join("")+'</div><div class="gasPlume" style="--gasColor:'+gasColor+'"></div>';
+ const gasClass=x.gas==="NO₂"?" no2":"";
+ return (strong?'<div class="boilLayer'+gasClass+'">'+boil.join("")+'</div>':'')+'<div class="bubbleLayer '+(strong?'strong':'')+gasClass+'">'+parts.join("")+'</div><div class="surfaceFizz'+gasClass+'">'+fizz.join("")+'</div><div class="gasPlume" style="--gasColor:'+gasColor+'"></div>';
 }
 function solidReagentHTML(v,x){
  if(!v.length||x)return "";
