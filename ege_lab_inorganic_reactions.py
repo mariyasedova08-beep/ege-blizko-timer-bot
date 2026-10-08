@@ -94,6 +94,19 @@ EXTRA_REACTIONS = [
     ("zncl2","naoh","ZnCl₂ + 2NaOH → Zn(OH)₂↓ + 2NaCl","p","белый Zn(OH)₂","#f8fbff","#ffffff","",0),
     ("znno3","naoh","Zn(NO₃)₂ + 2NaOH → Zn(OH)₂↓ + 2NaNO₃","p","белый Zn(OH)₂","#f8fbff","#ffffff","",0),
 
+    # Gas-forming salts + acids / alkalis
+    ("k2co3","hcl","K₂CO₃ + 2HCl → 2KCl + CO₂↑ + H₂O","g","бурное выделение пузырьков CO₂","#f8fbff","","CO₂",0),
+    ("k2co3","h2so4","K₂CO₃ + H₂SO₄ → K₂SO₄ + CO₂↑ + H₂O","g","бурное выделение пузырьков CO₂","#f8fbff","","CO₂",0),
+    ("k2co3","hno3","K₂CO₃ + 2HNO₃ → 2KNO₃ + CO₂↑ + H₂O","g","бурное выделение пузырьков CO₂","#f8fbff","","CO₂",0),
+    ("k2so3","hcl","K₂SO₃ + 2HCl → 2KCl + SO₂↑ + H₂O","g","выделяются пузырьки SO₂","#f8fbff","","SO₂",0),
+    ("k2so3","h2so4","K₂SO₃ + H₂SO₄ → K₂SO₄ + SO₂↑ + H₂O","g","выделяются пузырьки SO₂","#f8fbff","","SO₂",0),
+    ("k2s","hcl","K₂S + 2HCl → 2KCl + H₂S↑","g","выделяются пузырьки H₂S","#f8fbff","","H₂S",0),
+    ("k2s","h2so4","K₂S + H₂SO₄(разб.) → K₂SO₄ + H₂S↑","g","выделяются пузырьки H₂S","#f8fbff","","H₂S",0),
+    ("nh4cl","naoh","NH₄Cl + NaOH —t°→ NaCl + NH₃↑ + H₂O","g","при нагревании выделяется NH₃","#f8fbff","","NH₃",1),
+    ("nh4cl","koh","NH₄Cl + KOH —t°→ KCl + NH₃↑ + H₂O","g","при нагревании выделяется NH₃","#f8fbff","","NH₃",1),
+    ("nh4no3","koh","NH₄NO₃ + KOH —t°→ KNO₃ + NH₃↑ + H₂O","g","при нагревании выделяется NH₃","#f8fbff","","NH₃",1),
+    ("nh42so4","koh","(NH₄)₂SO₄ + 2KOH —t°→ K₂SO₄ + 2NH₃↑ + 2H₂O","g","при нагревании выделяется NH₃","#f8fbff","","NH₃",1),
+
     # Carbonates / hydrogen carbonate + acids
     ("nahco3","hcl","NaHCO₃ + HCl → NaCl + CO₂↑ + H₂O","g","пузырьки CO₂","#f8fbff","","CO₂",0),
     ("nahco3","h2so4","2NaHCO₃ + H₂SO₄ → Na₂SO₄ + 2CO₂↑ + 2H₂O","g","пузырьки CO₂","#f8fbff","","CO₂",0),
