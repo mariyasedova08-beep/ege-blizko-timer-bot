@@ -7,6 +7,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 import run_bot_live59
 from oxides_trainer_bank import OXIDES_BANK
+import trainer_session_persistence as trainer_sessions
 
 live59 = run_bot_live59
 live58 = live59.live58
@@ -169,6 +170,7 @@ def _start_session(context, user, mode):
         "choices": [],
         "correct_index": None,
     }
+    trainer_sessions.save("oxides", user.id, context.user_data["oxides_session"])
     return True
 
 
@@ -229,6 +231,7 @@ async def _send_current_question(update, context, edit=False):
     session["choices"] = choices
     session["correct_index"] = correct_index
     context.user_data["oxides_session"] = session
+    trainer_sessions.save("oxides", update.effective_user.id, session)
     text = f"🧪 Оксиды\n\nВопрос {session['index'] + 1}/{len(session['ids'])}\n\n{prompt}"
     rows = [[InlineKeyboardButton(choice, callback_data=f"triv:oxides:a:{session['token']}:{i}")] for i, choice in enumerate(choices)]
     rows.append([InlineKeyboardButton("← В меню", callback_data="triv:oxides:menu")])
@@ -253,6 +256,7 @@ async def _finish_oxides_session(update, context, edit=False):
     else:
         lines.extend(["", "🔥 Без ошибок! Отличная работа."])
     context.user_data.pop("oxides_session", None)
+    trainer_sessions.delete("oxides", update.effective_user.id)
     markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("❌ Повторить ошибки", callback_data="triv:oxides:start:errors")],
         [InlineKeyboardButton("⚡ Ещё 10 вопросов", callback_data="triv:oxides:start:10")],
@@ -272,6 +276,7 @@ async def oxides_callback(update, context):
     data = str(query.data or "")
     if data == "triv:oxides:menu":
         context.user_data.pop("oxides_session", None)
+        trainer_sessions.delete("oxides", update.effective_user.id)
         await show_oxides_menu(update, context, edit=True)
         return
     if data == "triv:oxides:stats":
@@ -297,8 +302,10 @@ async def oxides_callback(update, context):
         if len(parts) != 5:
             return
         token, choice_text = parts[3], parts[4]
-        session = context.user_data.get("oxides_session")
-        if not session or session.get("token") != token:
+        session = trainer_sessions.restore_if_matches(
+            context, "oxides_session", "oxides", update.effective_user.id, token
+        )
+        if not session:
             await query.edit_message_text("Эта тренировка уже закончилась. Открой новую через меню тренажёра.")
             return
         try:
@@ -321,6 +328,7 @@ async def oxides_callback(update, context):
             result = f"❌ Не совсем.\n\nПравильный ответ: {correct_answer}"
         session["index"] += 1
         context.user_data["oxides_session"] = session
+        trainer_sessions.save("oxides", update.effective_user.id, session)
         await query.edit_message_text(
             result,
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Дальше ➡️", callback_data=f"triv:oxides:next:{session['token']}")]]),
@@ -328,8 +336,10 @@ async def oxides_callback(update, context):
         return
     if data.startswith("triv:oxides:next:"):
         token = data.rsplit(":", 1)[-1]
-        session = context.user_data.get("oxides_session")
-        if not session or session.get("token") != token:
+        session = trainer_sessions.restore_if_matches(
+            context, "oxides_session", "oxides", update.effective_user.id, token
+        )
+        if not session:
             await show_oxides_menu(update, context, edit=True)
             return
         await _send_current_question(update, context, edit=True)
