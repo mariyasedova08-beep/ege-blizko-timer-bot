@@ -37,7 +37,7 @@ STUDENT_WEBAPP_URL = os.getenv(
     "EGE_STUDENT_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/student-app" if PUBLIC_DOMAIN else "",
 ).strip()
-STUDENT_WEBAPP_BUILD = "20261007-lab-button-students-v2"
+STUDENT_WEBAPP_BUILD = "20261009-autumn-cabinet-v1"
 HTML_PATH = Path(__file__).with_name("ege_student_webapp.html")
 _INSTALLED = False
 _previous_get = None
