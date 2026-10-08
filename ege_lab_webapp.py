@@ -11,6 +11,8 @@ from urllib.parse import parse_qsl, urlparse
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 import run_bot_live90 as live90
+from ege_lab_substances import REAGENTS as LAB_REAGENTS, category_counts
+from ege_lab_inorganic_reactions import EXTRA_REACTIONS, REACTION_VARIANTS, validate_reactions
 
 bot = live90.bot
 DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
@@ -18,7 +20,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261007-lab-v12-ege24"
+BUILD = "20261008-lab-v13-inorganic"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -54,6 +56,10 @@ REAGENTS = {
     "nacl": ("NaCl", "Соли", "#f8fbff"),
     "na2so4": ("Na₂SO₄", "Соли", "#f8fbff"),
 }
+
+# The standalone catalogue is now authoritative; the legacy inline block above
+# remains temporarily for a low-risk migration and is overridden here.
+REAGENTS = dict(LAB_REAGENTS)
 
 # a, b, equation, kind(p precipitate/g gas/c colour/n no visible/x combo),
 # observation, solution colour, precipitate colour, gas, heat_required
@@ -120,14 +126,22 @@ REACTIONS = [
     ("hno3","koh","HNO₃ + KOH → KNO₃ + H₂O","n","без видимого признака","#f8fbff","","",0),
 ]
 
+REACTIONS.extend(EXTRA_REACTIONS)
+validate_reactions(set(REAGENTS))
+
 def pair_key(a, b):
     return "|".join(sorted((a, b)))
 
 def reaction_payload():
-    return [
-        {"a":a,"b":b,"eq":eq,"t":kind,"sign":sign,"sol":sol,"ppt":ppt,"gas":gas,"heat":bool(heat)}
+    payload = [
+        {
+            "a":a,"b":b,"eq":eq,"t":kind,"sign":sign,"sol":sol,
+            "ppt":ppt,"gas":gas,"heat":bool(heat),"excess":"","condition":""
+        }
         for a,b,eq,kind,sign,sol,ppt,gas,heat in REACTIONS
     ]
+    payload.extend(dict(item) for item in REACTION_VARIANTS)
+    return payload
 
 def ensure_tables():
     with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
@@ -377,11 +391,14 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
   <aside class="lab-side">
     <h2>Реактивы</h2>
     <div class="mode-note">Нажми на вещество — оно добавится в выбранную пробирку.</div>
+    <div id="labCoverage" class="mode-note">Загружаю ЕГЭ-каталог…</div>
     <div id="reagentFilters" class="reagent-filters">
       <button class="reagent-filter on" data-cat="Все">Все</button>
+      <button class="reagent-filter" data-cat="Оксиды">Оксиды</button>
+      <button class="reagent-filter" data-cat="Гидроксиды">Гидроксиды</button>
       <button class="reagent-filter" data-cat="Кислоты">Кислоты</button>
-      <button class="reagent-filter" data-cat="Основания">Основания</button>
       <button class="reagent-filter" data-cat="Соли">Соли</button>
+      <button class="reagent-filter" data-cat="Прочее">Прочее</button>
     </div>
     <div id="reagents" class="reagent-list"></div>
   </aside>
@@ -394,8 +411,9 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
   </main>
   <aside class="lab-controls">
     <h2>Действия</h2>
-    <div class="selected-card"><b>Выбрана пробирка <span id="selectedTubeLabel">1</span></b><span>Добавь до двух реактивов</span></div>
+    <div class="selected-card"><b>Выбрана пробирка <span id="selectedTubeLabel">1</span></b><span>Добавь до двух реактивов; для нужных реакций можно выбрать избыток.</span></div>
     <div class="control-stack">
+      <button id="excess">➕ Последний реактив в избытке</button>
       <button id="heat">🔥 Нагреть</button>
       <button id="clear">🧽 Очистить</button>
     </div>
@@ -440,15 +458,23 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
 const tg=Telegram.WebApp;tg.ready();tg.expand();
 const labQs=new URLSearchParams(location.search),labLaunch=labQs.get("launch")||"";
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все";
-let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
+let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
 let egeMode="24",egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;
 
 function key(a,b){return [a,b].sort().join("|")}
 function reagent(id){return reagentMap.get(id)}
 function api(payload){return fetch("/lab-app/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({init_data:tg.initData,launch:labLaunch},payload))}).then(r=>r.json())}
-function findReaction(a,b,heated){let x=reactionMap.get(key(a,b));return x&&(!x.heat||heated)?x:null}
-function reactionExpected(a,b){return reactionMap.get(key(a,b))||null}
+function reactionVariants(a,b){return reactionMap.get(key(a,b))||[]}
+function reactionExpected(a,b,excess=""){
+ const list=reactionVariants(a,b);
+ if(excess){const exact=list.find(x=>x.excess===excess);if(exact)return exact}
+ return list.find(x=>!x.excess)||list[0]||null;
+}
+function findReaction(a,b,heated,excess=""){
+ const x=reactionExpected(a,b,excess);
+ return x&&(!x.heat||heated)?x:null;
+}
 function reactionResultHTML(x,heated=false){
  if(!x)return '<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот опыт пока не добавлен в базу.</div></div>';
  if(x.heat&&!heated)return '<div class="reaction-card"><div class="reaction-head"><span class="reaction-status">🔥 Нужен нагрев</span></div><div class="reaction-sign">Без нагревания видимого результата не показываем.</div><div class="reaction-equation">'+x.eq+'</div></div>';
@@ -456,7 +482,8 @@ function reactionResultHTML(x,heated=false){
  const icon=x.t==="p"?"⬇️":x.t==="g"?"🫧":x.t==="c"?"🎨":x.t==="x"?"✨":"✓";
  const title=noVisible?"Реакция протекает":"Реакция протекает";
  const sign=noVisible?"Без видимого признака":x.sign;
- return '<div class="reaction-card '+(noVisible?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">Признак: '+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+(noVisible?'<div class="reaction-note">Реакция есть, но визуального эффекта в пробирке нет.</div>':'')+'</div>';
+ const condition=x.condition?'<div class="reaction-note">Условие: '+x.condition+'</div>':'';
+ return '<div class="reaction-card '+(noVisible?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">Признак: '+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+condition+(noVisible?'<div class="reaction-note">Реакция есть, но визуального эффекта в пробирке нет.</div>':'')+'</div>';
 }
 function pptTexture(x){
  const s=(x&&x.sign||"").toLowerCase();
@@ -498,8 +525,8 @@ function bubblesHTML(x){
  if(x.gas==="NH₃")gasColor='rgba(235,235,255,.40)';
  return (strong?'<div class="boilLayer">'+boil.join("")+'</div>':'')+'<div class="bubbleLayer '+(strong?'strong':'')+'">'+parts.join("")+'</div><div class="surfaceFizz">'+fizz.join("")+'</div><div class="gasPlume" style="--gasColor:'+gasColor+'"></div>';
 }
-function tubeHTML(v,i,active,heated){
- const x=v.length===2?findReaction(v[0],v[1],heated):null;
+function tubeHTML(v,i,active,heated,excess=""){
+ const x=v.length===2?findReaction(v[0],v[1],heated,excess):null;
  const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
  const sol=x?x.sol:base;
  const reactionVisual=x?(precipitateHTML(x)+bubblesHTML(x)+'<i class="reactionGlow"></i>'):"";
@@ -510,13 +537,14 @@ function renderTubes(){
  const box=document.getElementById("tubes");box.innerHTML="";
  tubes.forEach((v,i)=>{
   const wrap=document.createElement("div");wrap.className="tube-slot"+(i===selectedTube?" active-slot":"");
-  const x=v.length===2?reactionExpected(v[0],v[1]):null;
+  const x=v.length===2?reactionExpected(v[0],v[1],tubeExcess[i]):null;
   let callout="";
   if(i===selectedTube&&v.length===2){
     const cls=i===0?" edge-left":i===3?" edge-right":"";
     callout='<div class="tube-callout'+cls+'">'+reactionResultHTML(x,tubeHeat[i])+'</div>';
   }
-  wrap.innerHTML=callout+tubeHTML(v,i,i===selectedTube,tubeHeat[i])+'<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+(v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>';
+  const excessLabel=tubeExcess[i]?'<div class="tubeSmall">избыток: '+reagent(tubeExcess[i])[0]+'</div>':'';
+  wrap.innerHTML=callout+tubeHTML(v,i,i===selectedTube,tubeHeat[i],tubeExcess[i])+'<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+(v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>'+excessLabel;
   wrap.onclick=()=>{selectedTube=i;syncTubePicker();renderTubes()};box.appendChild(wrap);
  });
 }
@@ -527,7 +555,7 @@ function syncTubePicker(){
 }
 function renderReagents(){
  const box=document.getElementById("reagents");box.innerHTML="";
- const order=["Кислоты","Основания","Соли"];
+ const order=["Оксиды","Гидроксиды","Кислоты","Соли","Прочее"];
  order.forEach(cat=>{
    if(selectedReagentCategory!=="Все"&&selectedReagentCategory!==cat)return;
    const entries=Object.entries(data.reagents).filter(([id,v])=>v[1]===cat);
@@ -536,7 +564,7 @@ function renderReagents(){
    const title=document.createElement("div");title.className="reagent-group-title";title.textContent=cat;group.appendChild(title);
    entries.forEach(([id,v])=>{
      const b=document.createElement("button");b.className="reagent-item";
-     b.innerHTML='<span class="drop-icon" style="--rc:'+v[2]+'"></span><span><div class="rformula">'+v[0]+'</div><div class="rcat">'+v[1]+'</div></span>';
+     b.innerHTML='<span class="drop-icon" style="--rc:'+v[2]+'"></span><span><div class="rformula">'+v[0]+'</div><div class="rcat">'+v[1]+(v[3]?' · '+v[3]:'')+'</div></span>';
      b.onclick=()=>add(id);group.appendChild(b);
    });
    box.appendChild(group);
@@ -561,23 +589,31 @@ function setupReagentFilters(){
 }
 function add(id){
  if(tubes[selectedTube].length>=2)return;
- tubeHeat[selectedTube]=false;
+ tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";
  tubes[selectedTube].push(id);
  if(tubes[selectedTube].length===2){
-  let x=reactionExpected(tubes[selectedTube][0],tubes[selectedTube][1]);
+  let x=reactionExpected(tubes[selectedTube][0],tubes[selectedTube][1],"");
   document.getElementById("result").innerHTML=x?(x.heat?"Нужен нагрев 🔥":"Карточка реакции показана над пробиркой ↑"):"Этот опыт пока не добавлен в базу";
   if(x&&!x.heat)api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()});
  }
  renderTubes();
 }
+document.getElementById("excess").onclick=()=>{
+ const v=tubes[selectedTube];
+ if(v.length!==2){document.getElementById("result").textContent="Сначала добавь два реактива.";return}
+ tubeExcess[selectedTube]=v[v.length-1];
+ const x=reactionExpected(v[0],v[1],tubeExcess[selectedTube]);
+ document.getElementById("result").innerHTML=x&&x.excess?"Показываю реакцию при избытке "+reagent(tubeExcess[selectedTube])[0]+".":"Для этой пары отдельный результат избытка пока не требуется.";
+ renderTubes();
+};
 document.getElementById("heat").onclick=()=>{
  let v=tubes[selectedTube];tubeHeat[selectedTube]=true;
- let x=v.length===2?findReaction(v[0],v[1],true):null;
+ let x=v.length===2?findReaction(v[0],v[1],true,tubeExcess[selectedTube]):null;
  if(x){document.getElementById("result").innerHTML="Карточка реакции показана над пробиркой ↑";api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()})}
  else if(v.length===2){document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🔥 Нагрев</span></div><div class="reaction-sign">При нагревании видимого изменения нет.</div></div>'}
  renderTubes();
 };
-document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeHeat[selectedTube]=false;document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🧽 Готово</span></div><div class="reaction-sign">Пробирка очищена.</div></div>';renderTubes()};
+document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🧽 Готово</span></div><div class="reaction-sign">Пробирка очищена.</div></div>';renderTubes()};
 
 function setupLab(){
  unknownOrder=[...data.lab].sort(()=>Math.random()-.5);
@@ -795,7 +831,9 @@ document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{
 });
 api({action:"load"}).then(j=>{
  if(!j.ok){document.body.innerHTML="<p>Не удалось открыть лабораторию.</p>";return}
- data=j.data;Object.entries(data.reagents).forEach(x=>reagentMap.set(x[0],x[1]));data.reactions.forEach(x=>reactionMap.set(key(x.a,x.b),x));
+ data=j.data;Object.entries(data.reagents).forEach(x=>reagentMap.set(x[0],x[1]));
+ data.reactions.forEach(x=>{const k=key(x.a,x.b);if(!reactionMap.has(k))reactionMap.set(k,[]);reactionMap.get(k).push(x)});
+ const cv=document.getElementById("labCoverage");if(cv&&data.coverage)cv.textContent="В текущем ЕГЭ-каталоге: "+data.coverage.substances+" веществ · "+data.coverage.reactions+" реакций/условий.";
  renderTubes();renderReagents();setupMobileTubePicker();setupReagentFilters();setupLab();renderStats();
 });
 </script></body></html>'''
@@ -838,6 +876,7 @@ def do_post(self):
             return self._send_json(200,{"ok":True,"data":{
                 "reagents":REAGENTS,
                 "reactions":reaction_payload(),
+                "coverage":{"substances":len(REAGENTS),"reactions":len(reaction_payload()),"categories":category_counts()},
                 "lab":["cuso4","fecl3","na2co3","nacl","na2so4"],
                 "tools":["naoh","hcl","agno3","bacl2"],
                 "stats":stats(uid) if uid else preview_stats,
