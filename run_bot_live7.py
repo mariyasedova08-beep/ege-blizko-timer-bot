@@ -6,6 +6,7 @@ import sqlite3
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import CallbackQueryHandler
+import trainer_session_persistence as trainer_sessions
 
 import run_bot_live6
 
@@ -258,6 +259,7 @@ def start_session_context(context, user, mode):
         "correct_choice": None,
         "awaiting_manual": False,
     }
+    trainer_sessions.save("trivial", user.id, context.user_data["trivial_session"])
     return True
 
 
@@ -326,6 +328,7 @@ async def send_current_question(update, context, edit=False):
     if question["direction"] == "manual":
         session["awaiting_manual"] = True
         context.user_data["trivial_session"] = session
+        trainer_sessions.save("trivial", update.effective_user.id, session)
         if edit and update.callback_query:
             await update.callback_query.edit_message_text(prompt + "\n\nНапиши ответ сообщением 👇")
         else:
@@ -337,6 +340,7 @@ async def send_current_question(update, context, edit=False):
     session["correct_choice"] = correct_choice
     session["awaiting_manual"] = False
     context.user_data["trivial_session"] = session
+    trainer_sessions.save("trivial", update.effective_user.id, session)
     rows = [[InlineKeyboardButton(value, callback_data=f"triv:a:{session['token']}:{i}")] for i, value in enumerate(choices)]
     rows.append([InlineKeyboardButton("← В меню", callback_data="triv:menu")])
     keyboard = InlineKeyboardMarkup(rows)
@@ -373,6 +377,7 @@ async def finish_trivial_session(update, context, edit=False):
         [InlineKeyboardButton("📊 Моя статистика", callback_data="triv:stats")],
     ])
     context.user_data.pop("trivial_session", None)
+    trainer_sessions.delete("trivial", update.effective_user.id)
     text = "\n".join(lines)
     if edit and update.callback_query:
         await update.callback_query.edit_message_text(text, reply_markup=keyboard)
@@ -483,6 +488,7 @@ async def trivial_callback(update, context):
 
     if data == "triv:menu":
         context.user_data.pop("trivial_session", None)
+        trainer_sessions.delete("trivial", update.effective_user.id)
         await show_trivial_menu(update, context, edit=True)
         return
     if data == "triv:stats":
@@ -512,8 +518,10 @@ async def trivial_callback(update, context):
         if len(parts) != 4:
             return
         _, _, token, choice_text = parts
-        session = context.user_data.get("trivial_session")
-        if not session or session.get("token") != token:
+        session = trainer_sessions.restore_if_matches(
+            context, "trivial_session", "trivial", update.effective_user.id, token
+        )
+        if not session:
             await query.edit_message_text("Эта тренировка уже закончилась. Открой новую: /trivial")
             return
         try:
@@ -540,6 +548,7 @@ async def trivial_callback(update, context):
             result = f"❌ Не совсем.\n\nПравильный ответ: {answer}"
         session["index"] += 1
         context.user_data["trivial_session"] = session
+        trainer_sessions.save("trivial", update.effective_user.id, session)
         await query.edit_message_text(
             result,
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Дальше ➡️", callback_data=f"triv:next:{session['token']}")]]),
@@ -547,15 +556,20 @@ async def trivial_callback(update, context):
         return
     if data.startswith("triv:next:"):
         token = data.split(":", 2)[2]
-        session = context.user_data.get("trivial_session")
-        if not session or session.get("token") != token:
+        session = trainer_sessions.restore_if_matches(
+            context, "trivial_session", "trivial", update.effective_user.id, token
+        )
+        if not session:
             await show_trivial_menu(update, context, edit=True)
             return
         await send_current_question(update, context, edit=True)
 
 
 async def handle_manual_answer(update, context):
-    session = context.user_data.get("trivial_session")
+    session = context.user_data.get("trivial_session") or trainer_sessions.load("trivial", update.effective_user.id)
+    if session:
+        context.user_data["trivial_session"] = session
+    trainer_sessions.save("trivial", update.effective_user.id, session)
     if not session or not session.get("awaiting_manual"):
         return False
     if session["index"] >= len(session["questions"]):
