@@ -6,16 +6,17 @@ which is process memory.  This helper mirrors active session state into the
 existing persistent SQLite database so a learner can continue after a restart.
 """
 import json
+import os
 import sqlite3
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
-import run_bot_live90 as live90
-
-bot = live90.bot
+DB_PATH = os.getenv("COREAPP_DB_PATH", "/tmp/coreapp_webhooks.db")
+TIMEZONE = ZoneInfo("Europe/Moscow")
 
 
 def ensure_table():
-    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS trainer_active_sessions (
@@ -35,8 +36,8 @@ def save(trainer, user_id, session):
         return
     ensure_table()
     payload = json.dumps(session, ensure_ascii=False, separators=(",", ":"))
-    now = datetime.now(bot.TIMEZONE).isoformat()
-    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+    now = datetime.now(TIMEZONE).isoformat()
+    with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             """
             INSERT INTO trainer_active_sessions(
@@ -53,7 +54,7 @@ def save(trainer, user_id, session):
 
 def load(trainer, user_id):
     ensure_table()
-    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         row = conn.execute(
             """
             SELECT session_json
@@ -73,7 +74,7 @@ def load(trainer, user_id):
 
 def delete(trainer, user_id):
     ensure_table()
-    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             "DELETE FROM trainer_active_sessions WHERE trainer=? AND telegram_user_id=?",
             (str(trainer), int(user_id)),
