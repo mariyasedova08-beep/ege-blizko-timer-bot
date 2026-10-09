@@ -991,7 +991,8 @@ if(labBackHistory){
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все", selectedReagentSearch="";
 let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
-let egeMode="6",egeTask6Index=0,egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;\nlet task6Session=null,task6Progress=null,task6SelectedX="",task6SelectedY="",task6Target="x",task6PendingSession=null;
+let egeMode="6",egeTask6Index=0,egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;
+let task6Session=null,task6Progress=null,task6SelectedX="",task6SelectedY="",task6Target="x",task6PendingSession=null;
 
 function key(a,b){return [a,b].sort().join("|")}
 function reagent(id){return reagentMap.get(id)}
