@@ -1,7 +1,7 @@
 """Personal metals reminders for Olya (10–14 October 2026, 17:00 Moscow).
 
 Targets only the active individual student whose first name is Olya/Olga.
-Delivery is idempotent per day and includes the existing metals trainer link.
+Delivery is idempotent per day, runs only in the 17:00–17:10 window, and includes the existing metals trainer link.
 """
 import re
 import sqlite3
@@ -16,7 +16,7 @@ live7 = live90.live7
 
 DM_DATES = {date(2026, 10, day) for day in range(10, 15)}
 DM_TIME = time(17, 0)
-DM_END = time(18, 0)
+DM_END = time(17, 10)
 
 
 def ensure_campaign_table():
