@@ -23,7 +23,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261009-oge23-general-lab-visuals-v1"
+BUILD = "20261009-oge23-bottle-order-v1"
 
 def _oge12_bank_payload():
     try:
@@ -2047,9 +2047,8 @@ function oge23TableCell(task,rowIndex,bottleIndex){
    (oge23Mode==="learn"&&item.active?'<small>'+item.text+'</small>':'')+'</div>';
 }
 function oge23BottleHead(task,index){
- const chosen=oge23Conclusion[index],b=task.bottles.find(x=>x.id===chosen);
- const candidates=task.bottles.map(x=>oge23Knowledge(x.id).formula).join(" / ");
- return '<span class="oge23-head-main">Склянка №'+(index+1)+'</span><span class="oge23-head-sub">'+(b?oge23Knowledge(b.id).formula+' · '+oge23Knowledge(b.id).name:'кандидаты: '+candidates)+'</span>';
+ const b=task.bottles[index],k=oge23Knowledge(b.id);
+ return '<span class="oge23-head-main">Склянка №'+(index+1)+'</span><span class="oge23-head-sub">'+k.formula+' · '+k.name+'</span>';
 }
 function oge23ConclusionSelect(task,index){
  const current=oge23Conclusion[index]||"",other=oge23Conclusion[index?0:1]||"";
