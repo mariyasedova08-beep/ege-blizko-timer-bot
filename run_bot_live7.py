@@ -522,7 +522,9 @@ async def trivial_callback(update, context):
             context, "trivial_session", "trivial", update.effective_user.id, token
         )
         if not session:
-            await query.edit_message_text("Эта тренировка уже закончилась. Открой новую: /trivial")
+            # Old inline buttons may outlive a restarted or replaced quiz session.
+            # Return the learner to a working menu instead of a dead-end message.
+            await show_trivial_menu(update, context, edit=True)
             return
         try:
             choice_index = int(choice_text)
