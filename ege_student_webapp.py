@@ -24,6 +24,7 @@ import payment_student_ui
 import payment_schedule
 import lesson_recordings
 import kulek_rewards
+import ege_task6_progress
 
 bot = live90.bot
 live79 = live90.live79
@@ -37,7 +38,7 @@ STUDENT_WEBAPP_URL = os.getenv(
     "EGE_STUDENT_WEBAPP_URL",
     f"https://{PUBLIC_DOMAIN}/student-app" if PUBLIC_DOMAIN else "",
 ).strip()
-STUDENT_WEBAPP_BUILD = "20261009-autumn-cabinet-v1"
+STUDENT_WEBAPP_BUILD = "20261009-task6-progress-v2"
 HTML_PATH = Path(__file__).with_name("ege_student_webapp.html")
 _INSTALLED = False
 _previous_get = None
@@ -279,6 +280,29 @@ def _trainer_rows(student):
     return rows
 
 
+def _task6_progress(telegram_user_id):
+    try:
+        return ege_task6_progress.progress(bot.COREAPP_DB_PATH, int(telegram_user_id))
+    except Exception as exc:
+        print(
+            f"EGE task6 cabinet progress error: {type(exc).__name__}: {exc}",
+            flush=True,
+        )
+        return {
+            "total": 83,
+            "answered": 0,
+            "correct_tasks": 0,
+            "checks": 0,
+            "correct_checks": 0,
+            "accuracy": 0,
+            "first_try_correct": 0,
+            "first_try_accuracy": 0,
+            "error_task_ids": [],
+            "error_count": 0,
+            "weak_types": [],
+        }
+
+
 def _kulek(student):
     sid = int(student[0])
     row = kulek_rewards.student_month(sid)
@@ -455,6 +479,7 @@ def _payload(telegram_user_id):
         "homework": _homework(student),
         "probniki": probniki,
         "trainers": _trainer_rows(student),
+        "task6": _task6_progress(telegram_user_id),
         "kulek": _kulek(student),
         "awards": _student_month_awards(int(student[0])),
         "discount": kulek_rewards.active_discount_status(int(student[0])),
@@ -549,7 +574,7 @@ def _lab_launcher_url(telegram_user_id):
     sep = "&" if "?" in base else "?"
     return (
         f"{base}{sep}launch={_launch_token(telegram_user_id)}"
-        f"&v=20261007-lab-v10-students"
+        f"&v=20261009-task6-full-trainer-v3"
     )
 
 
