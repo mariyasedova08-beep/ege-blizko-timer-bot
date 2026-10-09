@@ -23,7 +23,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261009-oge23-full-27-v1"
+BUILD = "20261009-oge23-experiment-table-v1"
 
 def _oge12_bank_payload():
     try:
@@ -415,6 +415,33 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .oge23-mini-tube.gas .oge23-mini-bubbles{display:block}
 .oge23-mini-tube.dissolve .oge23-mini-liquid{background:rgba(237,246,250,.20)}
 .oge23-task-title{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.oge23-task-title .oge-title{max-width:760px}
+.oge23-table-title{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin:2px 0 8px}
+.oge23-table-title b{font-size:13px}.oge23-table-title span{font-size:10px;color:#8a7a72}
+.oge23-exp-table{overflow:hidden;border:1px solid #dfcfc5;border-radius:15px;background:#fff;margin-top:8px}
+.oge23-exp-row{display:grid;grid-template-columns:minmax(120px,.9fr) minmax(120px,1fr) minmax(120px,1fr);min-height:58px;border-top:1px solid #eadfd8}
+.oge23-exp-row:first-child{border-top:0}
+.oge23-exp-row.head{min-height:48px;background:#f7eee8;font-size:10px;font-weight:750;color:#564943;text-transform:uppercase;letter-spacing:.02em}
+.oge23-exp-cell{display:flex;align-items:center;justify-content:center;min-width:0;padding:8px;border-left:1px solid #eadfd8;text-align:center}
+.oge23-exp-cell:first-child{border-left:0;justify-content:flex-start;text-align:left}
+.oge23-exp-reagent b{display:block;font-size:13px;margin-bottom:2px}.oge23-exp-reagent span{display:block;font-size:9px;line-height:1.2;color:#8e7e76}
+.oge23-exp-row.unused{background:#fbf8f6;color:#9b8d86}.oge23-exp-row.unused .oge23-exp-reagent{opacity:.55}
+.oge23-exp-btn{width:100%;min-height:38px;padding:7px 6px!important;border-radius:10px!important;font-size:10px!important;font-weight:650!important}
+.oge23-exp-result{width:100%;padding:7px 6px;border-radius:10px;background:#f4eee9;border:1px solid #e6d8cf;font-size:10px;line-height:1.25;color:#594d47}
+.oge23-exp-result.positive{background:#f2f8f3;border-color:#bfd8c5;color:#355743}
+.oge23-exp-result.none{background:#f6f4f2;color:#83766f}
+.oge23-exp-result.hidden{background:#fff8ef;border-color:#ead4b8;color:#735d43}
+.oge23-exp-result small{display:block;margin-top:3px;font-size:8px;color:#95867f}
+.oge23-reset-row{display:flex;justify-content:flex-end;margin-top:8px}.oge23-reset-row button{min-height:38px}
+@media(max-width:620px){
+ .oge23-table-title{align-items:flex-start;flex-direction:column;gap:2px}
+ .oge23-exp-row{grid-template-columns:30% 35% 35%;min-height:64px}
+ .oge23-exp-row.head{min-height:44px}
+ .oge23-exp-cell{padding:6px 4px}
+ .oge23-exp-reagent b{font-size:11px}.oge23-exp-reagent span{font-size:8px}
+ .oge23-exp-btn{min-height:36px!important;padding:6px 3px!important;font-size:9px!important}
+ .oge23-exp-result{padding:6px 3px;font-size:8.5px;line-height:1.2}
+ .oge23-exp-result small{font-size:7.5px}
+}
 
 .oge23-chip{padding:5px 8px;border-radius:999px;background:#f2e3da;border:1px solid #e5cec1;font-size:9px;color:#6c554b}
 @media(max-width:520px){
@@ -1885,10 +1912,7 @@ function oge23Observation(task,bottleIndex,tool){
  return {text:active?exp.observation:"Видимых изменений нет.",exp:exp,active:active};
 }
 function oge23BottleHTML(task,index){
- const obs=oge23Tests[index]||{},buttons=oge23Selected.map(tool=>{
-  const r=oge23Reagent(task,tool),done=Object.prototype.hasOwnProperty.call(obs,tool);
-  return '<button type="button" data-oge23-test="'+index+'" data-tool="'+tool+'" '+(done?'disabled':'')+'>'+(done?'✓ ':'🧪 ')+r.formula+'</button>';
- }).join("");
+ const obs=oge23Tests[index]||{};
  const observations=Object.entries(obs).map(([tool,item])=>{
    const r=oge23Reagent(task,tool),show=oge23Mode==="learn"||item.revealed;
    return '<div class="oge23-observation"><strong>'+r.formula+' · '+r.name+'</strong>'+
@@ -1896,8 +1920,58 @@ function oge23BottleHTML(task,index){
     '</div>';
  }).join("");
  return '<div class="oge23-bottle"><div class="oge23-bottle-title">Склянка №'+(index+1)+'</div>'+
-  '<div class="oge23-glass"></div><div class="oge23-bottle-actions">'+buttons+'</div>'+
-  '<div class="oge23-observations">'+observations+'</div></div>';
+  '<div class="oge23-glass"></div>'+
+  '<div class="oge23-observations">'+(observations||'<div class="oge23-step-note" style="text-align:center">Опытов пока нет</div>')+'</div></div>';
+}
+function oge23ShortResult(item){
+ if(!item)return "";
+ if(oge23Mode==="exam"&&!item.revealed)return "✓ Опыт проведён";
+ if(!item.active)return "Нет видимых изменений";
+ const s=String(item.text||"").toLowerCase(),kind=item.exp&&item.exp.kind;
+ if(kind==="gas"){
+   if(s.includes("резким")||s.includes("запах"))return "🫧 Газ с запахом";
+   if(s.includes("co₂")||s.includes("co2"))return "🫧 Выделяется CO₂";
+   if(s.includes("h₂")||s.includes("h2"))return "🫧 Выделяется H₂";
+   return "🫧 Выделяется газ";
+ }
+ if(kind==="ppt"){
+   if(s.includes("голуб"))return "⬇ Голубой осадок";
+   if(s.includes("бур"))return "⬇ Бурый осадок";
+   if(s.includes("жёл")||s.includes("желт"))return "⬇ Жёлтый осадок";
+   if(s.includes("серо-зел"))return "⬇ Серо-зелёный осадок";
+   return "⬇ Белый осадок";
+ }
+ if(kind==="dissolve")return "✨ Растворение";
+ return item.text||"Есть изменения";
+}
+function oge23TableCell(task,bottleIndex,reagent){
+ const selected=oge23Selected.includes(reagent.id),item=(oge23Tests[bottleIndex]||{})[reagent.id];
+ if(!selected)return '<div class="oge23-exp-result none">не выбран</div>';
+ if(!item)return '<button type="button" class="oge23-exp-btn" data-oge23-grid-test="'+bottleIndex+'" data-tool="'+reagent.id+'">+ Добавить</button>';
+ const hidden=oge23Mode==="exam"&&!item.revealed;
+ const cls=hidden?"hidden":(item.active?"positive":"none");
+ const short=oge23ShortResult(item);
+ return '<div class="oge23-exp-result '+cls+'">'+short+
+   ((!hidden&&item.active)?'<small>'+item.text+'</small>':'')+'</div>';
+}
+function oge23ExperimentTable(task){
+ return '<div class="oge23-table-title"><b>Таблица эксперимента</b><span>Выбирай ячейку: реактив → нужная склянка</span></div>'+
+  '<div class="oge23-exp-table">'+
+   '<div class="oge23-exp-row head"><div class="oge23-exp-cell">Реактивы</div><div class="oge23-exp-cell">Склянка №1</div><div class="oge23-exp-cell">Склянка №2</div></div>'+
+   task.reagents.map(r=>{
+    const unused=!oge23Selected.includes(r.id);
+    return '<div class="oge23-exp-row '+(unused?'unused':'')+'">'+
+     '<div class="oge23-exp-cell oge23-exp-reagent"><div><b>'+r.formula+'</b><span>'+r.name+'</span></div></div>'+
+     '<div class="oge23-exp-cell">'+oge23TableCell(task,0,r)+'</div>'+
+     '<div class="oge23-exp-cell">'+oge23TableCell(task,1,r)+'</div>'+
+     '</div>';
+   }).join("")+
+  '</div>';
+}
+function oge23RunTest(task,bottleIndex,tool){
+ const o=oge23Observation(task,bottleIndex,tool);
+ oge23Tests[bottleIndex][tool]={text:o.text,exp:o.exp,active:o.active,revealed:oge23Mode==="learn"};
+ renderOge23();
 }
 function renderOge23(){
  const bank=oge23Bank(),box=document.getElementById("ogeBox");
@@ -1953,20 +2027,19 @@ function renderOge23(){
 function renderOge23Experiment(task){
  const root=document.getElementById("oge23Experiment");
  root.innerHTML='<div class="oge23-step"><h3>2. Проведи опыты</h3><div class="oge23-step-note">'+
-  (oge23Mode==="learn"?'Добавляй выбранные реактивы в обе склянки и сравнивай признаки.':'В экзаменационном режиме сначала зафиксируй наблюдение самостоятельно, затем можешь открыть признак.')+
-  '</div><div class="oge23-lab">'+oge23BottleHTML(task,0)+oge23BottleHTML(task,1)+'</div>'+
+  (oge23Mode==="learn"?'В таблице нажимай «Добавить» на пересечении нужного реактива и склянки. Результат сразу останется в этой ячейке.':'В таблице выбирай, какой реактив добавить в какую склянку. До открытия признаков таблица фиксирует только факт проведённого опыта.')+
+  '</div>'+oge23ExperimentTable(task)+
+  '<div class="oge23-lab">'+oge23BottleHTML(task,0)+oge23BottleHTML(task,1)+'</div>'+
   (oge23Mode==="exam"?'<button id="oge23RevealObs" class="oge23-mainbtn" type="button">Показать признаки проведённых опытов</button>':'')+
+  '<div class="oge23-reset-row"><button id="oge23ResetExperiments" type="button">↺ Очистить опыты</button></div>'+
   '<div class="oge23-progress"><span class="oge23-chip">Склянка 1: '+Object.keys(oge23Tests[0]).length+' опыт(а)</span><span class="oge23-chip">Склянка 2: '+Object.keys(oge23Tests[1]).length+' опыт(а)</span></div></div>';
- root.querySelectorAll("[data-oge23-test]").forEach(btn=>{
-   btn.onclick=()=>{
-    const i=Number(btn.dataset.oge23Test),tool=btn.dataset.tool;
-    const o=oge23Observation(task,i,tool);
-    oge23Tests[i][tool]={text:o.text,exp:o.exp,active:o.active,revealed:oge23Mode==="learn"};
-    renderOge23();
-   };
+ root.querySelectorAll("[data-oge23-grid-test]").forEach(btn=>{
+   btn.onclick=()=>oge23RunTest(task,Number(btn.dataset.oge23GridTest),btn.dataset.tool);
  });
  const reveal=document.getElementById("oge23RevealObs");
  if(reveal)reveal.onclick=()=>{oge23Tests.forEach(t=>Object.values(t).forEach(x=>x.revealed=true));renderOge23()};
+ const reset=document.getElementById("oge23ResetExperiments");
+ if(reset)reset.onclick=()=>{oge23Tests=[{},{}];oge23Identified=false;renderOge23()};
  const enough=task.correct_reagents.every(tool=>oge23Tests[0][tool]&&oge23Tests[1][tool]);
  if(enough)renderOge23Identify(task);
 }
