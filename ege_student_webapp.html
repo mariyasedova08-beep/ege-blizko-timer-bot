@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F8F5F2">
-<title>ЕГЭ БЛИЗКО — личный кабинет · autumn v3</title>
+<title>ЕГЭ БЛИЗКО — личный кабинет · autumn v4-lab-button</title>
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 <style>
 :root{
@@ -57,8 +57,13 @@ button,a,select,input{font:inherit}
   width:46px;height:46px;border-radius:16px;
   background:linear-gradient(145deg,#FFF,#F2D9CC);
   display:grid;place-items:center;font-size:22px;
-  border:1px solid #E9CFC1;box-shadow:var(--shadow-soft)
+  border:1px solid #E9CFC1;box-shadow:var(--shadow-soft);
+  text-decoration:none;color:inherit;cursor:pointer;
+  transition:transform .16s ease,box-shadow .16s ease,background .16s ease
 }
+.avatar:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(92,61,47,.10);background:linear-gradient(145deg,#FFF,#EFD7CA)}
+.avatar:active{transform:scale(.96)}
+
 
 .hero{
   position:relative;overflow:hidden;
@@ -368,7 +373,8 @@ function render(d){
  var name=esc(d.student.first_name||d.student.name),c=d.course,w=d.week,m=d.month,coursePct=c.total_lessons?pct(c.lesson_number,c.total_lessons):0;
  var hm=d.homework||[],unfinished=hm.filter(function(x){return !x.done}).length,overdue=hm.filter(function(x){return !x.done&&x.overdue}).length,latest=(d.probniki||[])[0];
  var latestAward=(d.awards||[])[0]||null,awardChip=latestAward?'<div class="award-chip">🏆 Ученик месяца · '+esc(latestAward.label)+'</div>':'';
- var home='<div class="view active" id="view-home"><div class="top"><div><div class="brand">ЕГЭ <span>БЛИЗКО</span></div><div class="kicker">Личный кабинет ученика</div></div><div class="avatar">🧪</div></div>'+
+ var labUrl='/lab-app?launch='+encodeURIComponent(launch)+'&v=20261009-lab-mobile-v2';
+ var home='<div class="view active" id="view-home"><div class="top"><div><div class="brand">ЕГЭ <span>БЛИЗКО</span></div><div class="kicker">Личный кабинет ученика</div></div><a class="avatar" href="'+labUrl+'" aria-label="Открыть лабораторию" title="Лаборатория">🧪</a></div>'+
  '<div class="hero"><div class="kicker" style="margin:0 0 8px;color:var(--rose-deep);font-weight:600">🍂 Осенний кабинет</div><h1 class="hello">Привет, '+name+'! 💗</h1><div class="course">'+esc(d.student.course)+'</div>'+awardChip+'<div class="progress"><div style="width:'+Math.min(100,coursePct)+'%"></div></div><div class="progressline"><span>Урок '+c.lesson_number+' из '+c.total_lessons+'</span><span>'+c.days_left+' дн. до ЕГЭ</span></div></div>'+
  '<div class="grid"><div class="card"><div class="metric-icon">🎀</div><b>'+m.homework_count+'</b><span>ДЗ сдано в '+esc(d.month_label)+'</span></div><div class="card"><div class="metric-icon">🍂</div><b>'+(m.attendance_total?m.attendance_present+'/'+m.attendance_total:'—')+'</b><span>посещение за месяц</span></div><div class="card"><div class="metric-icon">☕</div><b>'+m.trainer_sessions+'</b><span>тренировок за месяц</span></div><div class="card"><div class="metric-icon">🍁</div><b>'+(latest?(latest.secondary!=null?latest.secondary:(latest.primary!=null?latest.primary:'—')):'—')+'</b><span>последний пробник</span></div></div>'+
  section('📈 Мой прогресс',progressRows(d.progress),esc(d.month_label))+
@@ -376,7 +382,6 @@ function render(d){
  rankingHome(d.ranking)+
  kulekBlock(d.kulek)+discountBlock(d.discount)+(overdue?'<div class="section"><div class="list">'+row('Есть незакрытые ДЗ',unfinished+' не выполнено · '+overdue+' просрочено','проверить','danger')+'</div></div>':'')+'</div>';
 
- var labUrl='/lab-app?launch='+encodeURIComponent(launch)+'&v=20261007-lab-v10-students';
  var labEntry='<a class="lab-entry" href="'+labUrl+'"><div class="lab-entry-main"><div class="lab-entry-icon">🧪</div><div><div class="lab-entry-title">Лаборатория</div><div class="lab-entry-sub">Смешивай реактивы, наблюдай признаки и тренируй качественные реакции</div></div></div><div class="lab-entry-go">›</div></a>';
  var study='<div class="view" id="view-study"><div class="top"><div><div class="brand">Моя <span>учёба</span></div><div class="kicker">'+esc(d.month_label)+'</div></div></div>'+labEntry+
  section('🏠 Домашние работы',homeworkRows(d.homework),unfinished+' не выполнено')+
