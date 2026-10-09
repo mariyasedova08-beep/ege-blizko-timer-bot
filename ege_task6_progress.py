@@ -269,8 +269,7 @@ def record_answer(db_path, uid, task_id, answer_x, answer_y, tz):
             # Advance the resumable session after a checked answer.
             conn.execute(
                 """UPDATE ege_task6_sessions
-                   SET current_index=MIN(current_index+1,
-                       COALESCE(json_array_length(order_json),current_index+1)),
+                   SET current_index=current_index+1,
                        selected_x='',selected_y='',updated=?
                    WHERE uid=?""",
                 (now, int(uid)),
