@@ -23,7 +23,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261009-task6-training-v2"
+BUILD = "20261009-task6-full-trainer-v3"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -772,6 +772,104 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
     font-size:8px!important;
   }
 }
+
+/* Task 6 full trainer */
+.task6-shell{display:grid;gap:11px}
+.task6-toolbar{
+  display:flex;align-items:center;justify-content:space-between;gap:9px;flex-wrap:wrap;
+  padding:10px 11px;border:1px solid #E8D4C8;border-radius:17px;
+  background:linear-gradient(145deg,#FFFDFC,#F8ECE5)
+}
+.task6-modes{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.task6-modes::-webkit-scrollbar{display:none}
+.task6-mode{
+  flex:0 0 auto;border:1px solid #E3CABC;background:#FFFDFC;color:#62483E;
+  border-radius:999px;padding:7px 10px;font-size:10px;font-weight:550
+}
+.task6-mode.on{background:#B95C49;color:#fff;border-color:#B95C49}
+.task6-summary{font-size:10px;color:#796A64;line-height:1.35}
+.task6-weak{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.task6-weak span{font-size:9px;padding:5px 7px;border-radius:999px;background:#F4E4DB;color:#795246}
+.task6-start{
+  padding:17px;border:1px solid #E6D2C6;border-radius:20px;
+  background:linear-gradient(145deg,#FFFDFC,#F7E8E0)
+}
+.task6-start h3{margin:0 0 6px;font-family:Georgia,"Times New Roman",serif;font-size:21px;font-weight:500}
+.task6-start p{margin:0;color:#7C6F69;font-size:12px;line-height:1.5}
+.task6-start-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}
+.task6-start-grid button{min-height:48px;font-weight:550}
+.task6-counter{display:flex;justify-content:space-between;gap:9px;align-items:center;color:#82756E;font-size:10px}
+.task6-question{
+  padding:15px;border:1px solid #E6D3C8;border-radius:20px;
+  background:#FFFDFC;line-height:1.53;font-size:14px;font-weight:450
+}
+.task6-answer-slots{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.task6-slot{
+  min-height:59px;text-align:left;border:1px solid #E4CEC1!important;
+  background:#FFFDFC!important;border-radius:17px!important;padding:10px 11px!important;
+  color:#2D231F!important
+}
+.task6-slot.on{border-color:#B95C49!important;box-shadow:0 0 0 2px rgba(185,92,73,.09)}
+.task6-slot-letter{
+  display:inline-grid;place-items:center;width:24px;height:24px;border-radius:9px;
+  background:#F2DED3;color:#8F4639;font-size:11px;font-weight:650;margin-right:7px
+}
+.task6-slot.on .task6-slot-letter{background:#B95C49;color:#fff}
+.task6-slot-value{font-size:12px;font-weight:600}
+.task6-slot-hint{display:block;margin:5px 0 0 32px;font-size:9px;color:#8A7C75;font-weight:400}
+.task6-option-list{display:grid;grid-template-columns:1fr;gap:7px;margin-top:0}
+.task6-option-card{
+  position:relative;display:grid!important;grid-template-columns:30px minmax(0,1fr) auto;
+  align-items:center;gap:9px;width:100%;text-align:left!important;
+  min-height:55px;padding:9px 10px!important;border-radius:16px!important;
+  border:1px solid #E9DAD2!important;background:#FFFDFC!important;color:#2A211D!important
+}
+.task6-option-card.selected-x,.task6-option-card.selected-y{border-color:#C98668!important;background:#FFF7F2!important}
+.task6-option-card.selected-x.selected-y{border-color:#A7463F!important}
+.task6-option-no{display:grid;place-items:center;width:27px;height:27px;border-radius:9px;background:#F4E6DE;font-size:10px;font-weight:600;color:#765044}
+.task6-option-formula{font-size:14px;font-weight:600;line-height:1.2}
+.task6-option-name{font-size:9px;color:#897B74;margin-top:3px;line-height:1.25}
+.task6-option-tags{display:flex;gap:4px;align-items:center}
+.task6-option-tag{display:grid;place-items:center;min-width:23px;height:23px;padding:0 6px;border-radius:8px;background:#B95C49;color:#fff;font-size:9px;font-weight:650}
+.task6-exp-hint{font-size:10px;color:#81736D;line-height:1.4}
+.task6-actions{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.task6-actions button{min-height:44px}
+.task6-demo{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.task6-demo-card{min-width:0;background:#FFFDFC;border:1px solid #E6D4C9;border-radius:18px;padding:10px}
+.task6-demo-title{font-size:10px;font-weight:600;margin-bottom:7px;line-height:1.3}
+.task6-demo .tube{width:74px;height:145px;margin:0 auto 7px}
+.task6-observation{
+  margin-top:8px;padding:9px 10px;border-radius:14px;
+  background:linear-gradient(145deg,#FFF9F5,#F6E6DD);
+  border:1px solid #E8CFC1
+}
+.task6-observation b{display:block;font-size:10px;color:#8F4639;margin-bottom:4px}
+.task6-observation span{font-size:12px;line-height:1.35;font-weight:500}
+.task6-precheck-note{font-size:9px;color:#8B7E77;margin-top:5px}
+.task6-check{width:100%;min-height:48px;font-size:13px}
+.task6-feedback{display:grid;gap:8px}
+.task6-result{
+  padding:12px;border-radius:16px;background:#FFFDFC;border:1px solid #E5D2C7;
+  font-size:12px;line-height:1.45
+}
+.task6-result.good{background:#F1F7F2;border-color:#CFE1D3;color:#315E43}
+.task6-result.bad{background:#FFF3F0;border-color:#E9C9C0;color:#7D4036}
+.task6-why{margin-top:0}
+.task6-done{text-align:center;padding:20px 14px;border:1px solid #E5D0C4;border-radius:22px;background:linear-gradient(145deg,#FFFDFC,#F5E2D8)}
+.task6-done-icon{font-size:34px;margin-bottom:7px}
+.task6-done h3{font-family:Georgia,"Times New Roman",serif;font-size:22px;font-weight:500;margin:0 0 6px}
+.task6-done p{font-size:12px;color:#7B6D66;line-height:1.5;margin:0}
+@media(max-width:520px){
+  .task6-toolbar{align-items:flex-start}
+  .task6-modes{width:100%}
+  .task6-summary{width:100%}
+  .task6-start-grid{grid-template-columns:1fr 1fr}
+  .task6-question{padding:13px;font-size:13px}
+  .task6-option-card{grid-template-columns:28px minmax(0,1fr) auto}
+  .task6-option-formula{font-size:13px}
+  .task6-demo{grid-template-columns:1fr 1fr!important}
+  .task6-demo .tube{width:68px;height:135px}
+}
 </style></head><body><div class="app">
 <div class="lab-topbar">
   <div class="lab-brand">ЕГЭ БЛИЗКО</div>
@@ -893,7 +991,7 @@ if(labBackHistory){
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все", selectedReagentSearch="";
 let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
-let egeMode="6",egeTask6Index=0,egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;
+let egeMode="6",egeTask6Index=0,egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;\nlet task6Session=null,task6Progress=null,task6SelectedX="",task6SelectedY="",task6Target="x",task6PendingSession=null;
 
 function key(a,b){return [a,b].sort().join("|")}
 function reagent(id){return reagentMap.get(id)}
@@ -1173,8 +1271,74 @@ function renderEge(){
  if(egeMode==="signs")return renderEgeSigns(box);
  return renderEgeQuality(box);
 }
-function task6Options(q,selected=""){
- return '<option value="">— выбери вещество —</option>'+q.options.map((o,i)=>'<option value="'+o[0]+'" '+(selected===o[0]?'selected':'')+'>'+(i+1)+') '+o[1]+'</option>').join("");
+function task6Esc(s){
+ return String(s==null?"":s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+}
+function task6ChemText(s){
+ const subs={"0":"₀","1":"₁","2":"₂","3":"₃","4":"₄","5":"₅","6":"₆","7":"₇","8":"₈","9":"₉"};
+ let out=task6Esc(s);
+ return out.replace(/([A-Za-zА-Яа-я\)\]])([0-9]+)/g,(m,a,n)=>a+n.split("").map(x=>subs[x]||x).join(""));
+}
+function task6TaskById(id){
+ return (data.task6||[]).find(q=>String(q.id)===String(id))||null;
+}
+function task6ModeLabel(mode){
+ return mode==="20"?"20 случайных":mode==="all"?"Все 83":mode==="errors"?"Мои ошибки":"10 случайных";
+}
+function task6ProgressHTML(){
+ const p=task6Progress||{total:(data.task6||[]).length,answered:0,first_try_accuracy:0,error_count:0,weak_types:[]};
+ const weak=(p.weak_types||[]).map(x=>'<span>'+task6Esc(x.type)+' · '+x.errors+'</span>').join("");
+ return '<div class="task6-summary"><b>Прогресс:</b> '+p.answered+'/'+p.total+' решено · '+p.first_try_accuracy+'% с первой попытки · '+p.error_count+' в ошибках'+(weak?'<div class="task6-weak">'+weak+'</div>':'')+'</div>';
+}
+function task6Toolbar(mode){
+ return '<div class="task6-toolbar"><div class="task6-modes">'+
+   [["10","10 случайных"],["20","20"],["all","Все 83"],["errors","Мои ошибки"]].map(x=>
+     '<button class="task6-mode '+(mode===x[0]?'on':'')+'" data-task6-mode="'+x[0]+'">'+x[1]+'</button>'
+   ).join("")+'</div>'+task6ProgressHTML()+'</div>';
+}
+function bindTask6Modes(){
+ document.querySelectorAll("[data-task6-mode]").forEach(btn=>{
+   btn.onclick=()=>task6StartMode(btn.dataset.task6Mode);
+ });
+}
+async function task6StartMode(mode){
+ const box=document.getElementById("egeBox");
+ if(box)box.innerHTML='<div class="task6-start"><h3>Готовлю тренировку…</h3><p>Перемешиваю задания и восстанавливаю прогресс.</p></div>';
+ try{
+   const j=await api({action:"task6_start",mode:mode});
+   if(!j.ok)throw new Error("start");
+   task6Session=j.session||{mode:mode,order:[],current_index:0,selected_x:"",selected_y:""};
+   task6Progress=j.progress||task6Progress;
+ }catch(_){
+   const ids=(data.task6||[]).filter(q=>mode==="all"||!q.needs_review).map(q=>String(q.id));
+   for(let i=ids.length-1;i>0;i--){const k=Math.floor(Math.random()*(i+1));[ids[i],ids[k]]=[ids[k],ids[i]]}
+   const count=mode==="20"?20:mode==="all"?ids.length:10;
+   task6Session={mode:mode,order:mode==="errors"?[]:ids.slice(0,count),current_index:0,selected_x:"",selected_y:""};
+ }
+ task6SelectedX="";task6SelectedY="";task6Target="x";task6PendingSession=null;egeLocked=false;
+ renderEge();
+}
+function task6StartScreen(box){
+ box.innerHTML='<div class="task6-shell">'+task6Toolbar("")+
+   '<div class="task6-start"><h3>ЕГЭ №6 · экспериментальная химия</h3>'+
+   '<p>Выбирай X и Y, проводи виртуальные опыты и делай вывод только по наблюдениям. Уравнения откроются после проверки ответа.</p>'+
+   '<div class="task6-start-grid">'+
+   '<button data-start-task6="10">10 случайных</button><button data-start-task6="20">20 случайных</button>'+
+   '<button data-start-task6="all">Все 83</button><button data-start-task6="errors">Мои ошибки</button>'+
+   '</div></div></div>';
+ bindTask6Modes();
+ document.querySelectorAll("[data-start-task6]").forEach(btn=>btn.onclick=()=>task6StartMode(btn.dataset.startTask6));
+}
+function task6DoneScreen(box){
+ const mode=(task6Session&&task6Session.mode)||"10";
+ const noErrors=mode==="errors"&&!(task6Session.order||[]).length;
+ box.innerHTML='<div class="task6-shell">'+task6Toolbar(mode)+
+   '<div class="task6-done"><div class="task6-done-icon">'+(noErrors?'🌿':'✨')+'</div>'+
+   '<h3>'+(noErrors?'Ошибок для повтора пока нет':'Тренировка завершена')+'</h3>'+
+   '<p>'+(noErrors?'Решай обычные режимы — сюда будут попадать задания, в которых была ошибка.':'Результат сохранён. Можно начать новую подборку или отдельно повторить ошибки.')+'</p>'+
+   '<div class="task6-start-grid"><button data-start-task6="10">Ещё 10</button><button data-start-task6="errors">Повторить ошибки</button></div></div></div>';
+ bindTask6Modes();
+ document.querySelectorAll("[data-start-task6]").forEach(btn=>btn.onclick=()=>task6StartMode(btn.dataset.startTask6));
 }
 function task6ResolveToken(token,sx,sy){
  if(token==="$X")return sx;
@@ -1198,90 +1362,150 @@ function task6NeedsSelection(exp,sx,sy){
 }
 function task6SourceNote(q){
  if(!q.needs_review)return "";
- return '<div class="task6-source-note"><b>⚠️ Примечание к источнику.</b> '+(q.source_note||"Формулировка этого задания в исходном файле требует проверки.")+'</div>';
+ return '<div class="task6-source-note"><b>⚠️ Примечание к источнику.</b> '+task6ChemText(q.source_note||"Формулировка этого задания в исходном файле требует проверки.")+'</div>';
+}
+function task6OptionCard(q,o,i){
+ const id=o[0],r=reagent(id),formula=r?r[0]:o[1],name=o[1]||"";
+ const sx=task6SelectedX===id,sy=task6SelectedY===id;
+ const tags=(sx?'<span class="task6-option-tag">X</span>':'')+(sy?'<span class="task6-option-tag">Y</span>':'');
+ const duplicate=String(name).replace(/\s/g,"").toLowerCase()===String(formula).replace(/\s/g,"").toLowerCase();
+ return '<button class="task6-option-card '+(sx?'selected-x ':'')+(sy?'selected-y':'')+'" data-task6-option="'+id+'">'+
+   '<span class="task6-option-no">'+(i+1)+'</span><span><div class="task6-option-formula">'+task6ChemText(formula)+'</div>'+
+   (duplicate?'':'<div class="task6-option-name">'+task6ChemText(name)+'</div>')+'</span><span class="task6-option-tags">'+tags+'</span></button>';
+}
+function task6Slot(target,label,value){
+ const r=value?reagent(value):null;
+ return '<button class="task6-slot '+(task6Target===target?'on':'')+'" data-task6-target="'+target+'">'+
+   '<span class="task6-slot-letter">'+label+'</span><span class="task6-slot-value">'+(r?task6ChemText(r[0]):'выбери вещество')+'</span>'+
+   '<span class="task6-slot-hint">'+(task6Target===target?'сейчас заполняем это поле':'нажми, чтобы выбрать сюда')+'</span></button>';
+}
+function saveTask6Selection(){
+ api({action:"task6_save",selected_x:task6SelectedX,selected_y:task6SelectedY}).then(j=>{
+   if(j&&j.ok&&j.session)task6Session=j.session;
+ }).catch(()=>{});
+}
+function task6Assign(id){
+ if(task6Target==="x"){
+   task6SelectedX=id;
+   if(!task6SelectedY)task6Target="y";
+ }else{
+   task6SelectedY=id;
+   if(!task6SelectedX)task6Target="x";
+ }
+ egeLocked=false;task6PendingSession=null;
+ saveTask6Selection();
+ renderEge();
 }
 function renderEgeTask6(box){
- const q=data.task6[egeTask6Index%data.task6.length];
- const opts=q.options.map((o,i)=>'<div class="task6-option"><b>'+(i+1)+')</b> '+o[1]+'</div>').join("");
- const expButtons=(q.experiments||[]).map((exp,i)=>'<button type="button" class="task6-exp-btn" data-exp="'+i+'">🧪 '+(exp.label||("Опыт "+(i+1)))+'</button>').join("");
- box.innerHTML='<div class="oge-task">'+
-   '<div class="oge-kicker">ЕГЭ · задание 6 · виртуальный эксперимент</div>'+
-   '<div class="task6-progress">Задание '+((egeTask6Index%data.task6.length)+1)+' из '+data.task6.length+' · страница '+q.source_page+' исходника</div>'+
-   '<div class="task6-text">'+q.text+'</div>'+
+ if(!task6Session||!Array.isArray(task6Session.order))return task6StartScreen(box);
+ const pos=Number(task6Session.current_index||0);
+ if(pos>=task6Session.order.length)return task6DoneScreen(box);
+ const q=task6TaskById(task6Session.order[pos]);
+ if(!q){task6Session.current_index=pos+1;return renderEgeTask6(box)}
+ const opts=(q.options||[]).map((o,i)=>task6OptionCard(q,o,i)).join("");
+ const expButtons=(q.experiments||[]).map((exp,i)=>'<button type="button" class="task6-exp-btn" data-exp="'+i+'">🧪 '+task6Esc(exp.label||("Опыт "+(i+1)))+'</button>').join("");
+ box.innerHTML='<div class="task6-shell">'+task6Toolbar(task6Session.mode)+
+   '<div class="task6-counter"><span>'+task6ModeLabel(task6Session.mode)+'</span><span>Задание '+(pos+1)+' из '+task6Session.order.length+' · стр. '+q.source_page+'</span></div>'+
+   '<div class="task6-question">'+task6ChemText(q.text)+'</div>'+
    task6SourceNote(q)+
+   '<div class="task6-answer-slots">'+task6Slot("x","X",task6SelectedX)+task6Slot("y","Y",task6SelectedY)+'</div>'+
    '<div class="task6-option-list">'+opts+'</div>'+
-   '<div class="task6-selects">'+
-     '<div class="task6-select-card"><b>Вещество X</b><select id="task6x">'+task6Options(q)+'</select></div>'+
-     '<div class="task6-select-card"><b>Вещество Y</b><select id="task6y">'+task6Options(q)+'</select></div>'+
-   '</div>'+
-   '<div class="task6-exp-hint">Можно проверять гипотезы до ответа: выбери X/Y и проведи описанные в условии опыты.</div>'+
-   '<div id="task6Actions" class="task6-actions">'+expButtons+'</div>'+
+   '<div class="task6-exp-hint">Сначала выбери X и Y. До проверки опыт показывает только наблюдение — без уравнения и названия продукта.</div>'+
+   '<div class="task6-actions">'+expButtons+'</div>'+
    '<div id="task6Demo" class="task6-demo"></div>'+
-   '<button id="task6Check" class="primary task6-answer" style="width:100%">Проверить ответ</button>'+
-   '<div id="task6Feedback"></div>'+
+   '<button id="task6Check" class="primary task6-check">Проверить ответ</button>'+
+   '<div id="task6Feedback" class="task6-feedback"></div>'+
    '<button id="task6Next" class="oge-next" style="display:none">Следующее задание</button>'+
  '</div>';
- document.querySelectorAll(".task6-exp-btn").forEach(btn=>{
-   btn.onclick=()=>runTask6Experiment(q,Number(btn.dataset.exp));
- });
+ bindTask6Modes();
+ document.querySelectorAll("[data-task6-target]").forEach(btn=>btn.onclick=()=>{task6Target=btn.dataset.task6Target;renderEge()});
+ document.querySelectorAll("[data-task6-option]").forEach(btn=>btn.onclick=()=>task6Assign(btn.dataset.task6Option));
+ document.querySelectorAll(".task6-exp-btn").forEach(btn=>btn.onclick=()=>runTask6Experiment(q,Number(btn.dataset.exp)));
  document.getElementById("task6Check").onclick=()=>checkTask6(q);
- document.getElementById("task6Next").onclick=()=>{egeTask6Index++;renderEge()};
+ document.getElementById("task6Next").onclick=()=>{
+   if(task6PendingSession)task6Session=task6PendingSession;
+   else task6Session.current_index=Number(task6Session.current_index||0)+1;
+   task6SelectedX="";task6SelectedY="";task6Target="x";task6PendingSession=null;egeLocked=false;renderEge();
+ };
 }
-function task6ExperimentCard(q,expIndex,sx,sy){
+function task6ColorName(hex){
+ const h=String(hex||"").toLowerCase();
+ const colors={"#ffffff":"белый","#39bced":"голубой","#9a4a2b":"бурый","#69432e":"бурый","#151515":"чёрный","#f4d534":"жёлтый","#e6cf44":"жёлтый","#eadb9a":"кремовый","#89b98e":"светло-зелёный","#666b70":"тёмно-серый","#b96f4a":"красно-бурый"};
+ return colors[h]||"";
+}
+function task6ObservationText(x,heated){
+ if(!x)return "Для выбранной комбинации в базе пока нет наблюдения.";
+ if(x.heat&&!heated)return "Без нагревания заметного изменения не наблюдается.";
+ if(x.t==="z"||x.t==="n")return "Видимых изменений не наблюдается.";
+ const parts=[];
+ if(x.ppt)parts.push("образуется "+(task6ColorName(x.ppt)?task6ColorName(x.ppt)+" ":"")+"осадок");
+ if(x.gas)parts.push(x.gas==="NO₂"?"выделяется бурый газ":"наблюдается выделение газа");
+ const s=String(x.sign||"").toLowerCase();
+ if(!x.ppt&&!x.gas&&s.includes("раствор"))parts.push(s.includes("осад")?"осадок растворяется":"твёрдое вещество растворяется");
+ if(!x.ppt&&!x.gas&&(s.includes("окраск")||x.t==="c"))parts.push("изменяется внешний вид или окраска раствора");
+ if(!parts.length)parts.push("наблюдается химическое изменение");
+ return parts.join("; ")+".";
+}
+function task6ObservationHTML(x,heated){
+ return '<div class="task6-observation"><b>👀 Наблюдение</b><span>'+task6Esc(task6ObservationText(x,heated))+'</span>'+
+ '<div class="task6-precheck-note">Уравнение и продукты откроются только после проверки ответа.</div></div>';
+}
+function task6ExperimentCard(q,expIndex,sx,sy,reveal=false){
  const exp=q.experiments[expIndex],resolved=task6ResolveExperiment(exp,sx,sy);
  const x=findReaction(resolved.a,resolved.b,resolved.heat,resolved.excess||"");
  const aLabel=reagent(resolved.a)?reagent(resolved.a)[0]:resolved.a;
  const bLabel=reagent(resolved.b)?reagent(resolved.b)[0]:resolved.b;
  const tube=tubeHTML([resolved.a,resolved.b],0,false,resolved.heat,resolved.excess||"");
  const condition=(resolved.heat?" · нагрев":"")+(resolved.excess?" · избыток "+(reagent(resolved.excess)?reagent(resolved.excess)[0]:resolved.excess):"");
- const result=x
-   ? reactionResultHTML(x,resolved.heat)
-   : '<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот выбранный вариант опыта пока не смоделирован. Это не означает, что реакция не идёт.</div></div>';
- return '<div class="task6-demo-card"><div class="task6-demo-title">'+resolved.label+': '+aLabel+' + '+bLabel+condition+'</div>'+tube+result+'</div>';
+ const result=reveal
+   ? (x?reactionResultHTML(x,resolved.heat):'<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот вариант опыта пока не смоделирован.</div></div>')
+   : task6ObservationHTML(x,resolved.heat);
+ return '<div class="task6-demo-card"><div class="task6-demo-title">'+task6Esc(resolved.label)+': '+task6ChemText(aLabel)+' + '+task6ChemText(bLabel)+task6ChemText(condition)+'</div>'+tube+result+'</div>';
 }
 function runTask6Experiment(q,expIndex){
- const sx=document.getElementById("task6x").value,sy=document.getElementById("task6y").value;
+ const sx=task6SelectedX,sy=task6SelectedY;
  const exp=q.experiments[expIndex],need=task6NeedsSelection(exp,sx,sy);
  if(need){
-   document.getElementById("task6Feedback").innerHTML='<div class="result">Сначала выбери вещество '+need+'.</div>';
+   document.getElementById("task6Feedback").innerHTML='<div class="task6-result bad">Сначала выбери вещество '+need+'.</div>';
    return;
  }
  const demo=document.getElementById("task6Demo");
  const selector='[data-exp="'+expIndex+'"]';
  const old=demo.querySelector(selector);
- const wrap=document.createElement("div");
- wrap.dataset.exp=String(expIndex);
- wrap.innerHTML=task6ExperimentCard(q,expIndex,sx,sy);
+ const wrap=document.createElement("div");wrap.dataset.exp=String(expIndex);
+ wrap.innerHTML=task6ExperimentCard(q,expIndex,sx,sy,false);
  if(old)old.replaceWith(wrap);else demo.appendChild(wrap);
- api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()});
+ api({action:"event",type:"experiment"}).then(j=>{if(j&&j.stats){data.stats=j.stats;renderStats()}}).catch(()=>{});
 }
-function checkTask6(q){
+async function checkTask6(q){
  if(egeLocked)return;
- const sx=document.getElementById("task6x").value,sy=document.getElementById("task6y").value;
+ const sx=task6SelectedX,sy=task6SelectedY;
  if(!sx||!sy){
-   document.getElementById("task6Feedback").innerHTML='<div class="result">Выбери и X, и Y.</div>';
+   document.getElementById("task6Feedback").innerHTML='<div class="task6-result bad">Выбери и X, и Y.</div>';
    return;
  }
  egeLocked=true;
- const ok=sx===q.answer_x&&sy===q.answer_y;
- const correctX=q.options.find(x=>x[0]===q.answer_x),correctY=q.options.find(x=>x[0]===q.answer_y);
- document.getElementById("task6x").value=q.answer_x;
- document.getElementById("task6y").value=q.answer_y;
+ let answer={correct:sx===q.answer_x&&sy===q.answer_y,answer_x:q.answer_x,answer_y:q.answer_y,scored:!q.needs_review,progress:task6Progress,session:null};
+ try{
+   const j=await api({action:"task6_answer",task_id:q.id,answer_x:sx,answer_y:sy});
+   if(j&&j.ok&&j.result)answer=j.result;
+ }catch(_){}
+ const correctX=q.options.find(x=>x[0]===answer.answer_x),correctY=q.options.find(x=>x[0]===answer.answer_y);
+ task6Progress=answer.progress||task6Progress;
+ task6PendingSession=answer.session||null;
  document.getElementById("task6Demo").innerHTML=(q.experiments||[]).map((exp,i)=>
-   '<div data-exp="'+i+'">'+task6ExperimentCard(q,i,q.answer_x,q.answer_y)+'</div>'
+   '<div data-exp="'+i+'">'+task6ExperimentCard(q,i,answer.answer_x,answer.answer_y,true)+'</div>'
  ).join("");
  const review=q.needs_review
-   ? '<div class="task6-source-note"><b>⚠️ Это задание не учитывается как надёжный эталон.</b> В исходнике есть внутренняя неоднозначность формулировки.</div>'
+   ? '<div class="task6-source-note"><b>⚠️ Это задание не влияет на статистику.</b> В исходнике есть неоднозначность формулировки.</div>'
    : '';
+ const why=q.why?task6ChemText(q.why):'Сопоставь наблюдаемые признаки с обоими опытами и проверь уравнения реакций выше.';
  document.getElementById("task6Feedback").innerHTML=
-   '<div class="result">'+(ok?'✅ Верно.':'❌ Пока нет. Правильная пара по химической логике: X — '+correctX[1]+', Y — '+correctY[1]+'.')+'</div>'+
-   '<div class="task6-why"><b>Разбор:</b> посмотри на оба правильных опыта выше — признаки реакции должны совпасть с условием задания.</div>'+
-   review;
+   '<div class="task6-result '+(answer.correct?'good':'bad')+'">'+
+   (answer.correct?'✅ Верно.':'❌ Пока нет. Правильная пара: X — '+task6ChemText(correctX?correctX[1]:answer.answer_x)+', Y — '+task6ChemText(correctY?correctY[1]:answer.answer_y)+'.')+
+   '</div><div class="task6-why"><b>Разбор:</b> '+why+'</div>'+review;
  document.getElementById("task6Check").disabled=true;
  document.getElementById("task6Next").style.display="block";
- if(!q.needs_review){
-   api({action:"event",type:"prediction",correct:ok}).then(j=>{data.stats=j.stats;renderStats()});
- }
 }
 function renderEge24(box){
  const q=EGE24[egeIndex24%EGE24.length];
@@ -1446,9 +1670,16 @@ document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{
 api({action:"load"}).then(j=>{
  if(!j.ok){document.body.innerHTML="<p>Не удалось открыть лабораторию.</p>";return}
  data=j.data;Object.entries(data.reagents).forEach(x=>reagentMap.set(x[0],x[1]));
+ task6Progress=data.task6_progress||null;task6Session=data.task6_session||null;
+ if(task6Session){task6SelectedX=task6Session.selected_x||"";task6SelectedY=task6Session.selected_y||"";task6Target=task6SelectedX&&!task6SelectedY?"y":"x";}
  data.reactions.forEach(x=>{const k=key(x.a,x.b);if(!reactionMap.has(k))reactionMap.set(k,[]);reactionMap.get(k).push(x)});
  const cv=document.getElementById("labCoverage");if(cv&&data.coverage)cv.textContent="В текущем ЕГЭ-каталоге: "+data.coverage.substances+" веществ · "+data.coverage.reactions+" реакций/условий.";
  renderTubes();renderReagents();setupMobileTubePicker();setupReagentFilters();setupReagentSearch();setupLab();renderStats();
+ const requestedPage=labQs.get("page")||"";
+ if(requestedPage){
+   const btn=document.querySelector('[data-page="'+requestedPage+'"]');
+   if(btn)btn.click();
+ }
 });
 </script></body></html>'''
 
