@@ -295,6 +295,9 @@ HTML = r'''<!doctype html>
 .reaction-card.no-visible .reaction-status{background:#8e858a}
 .reaction-sign{font-size:15px;font-weight:950;line-height:1.25;color:#171719;margin-bottom:8px}
 .reaction-equation{background:rgba(255,255,255,.82);border:1px solid rgba(240,0,135,.22);border-radius:13px;padding:9px 10px;font-size:13px;font-weight:900;line-height:1.25;letter-spacing:0;white-space:nowrap;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-x;cursor:grab;scrollbar-width:auto;scrollbar-color:#8f878b #f6edf2}
+.lab-conditional-arrow{display:inline-flex;vertical-align:middle;flex-direction:column;align-items:center;justify-content:center;margin:0 4px;line-height:1;white-space:nowrap}
+.lab-arrow-condition{font-size:.72em;line-height:1.1}
+.lab-arrow-glyph{font-size:1.5em;line-height:1}
 .reaction-equation:active{cursor:grabbing}
 .reaction-equation::-webkit-scrollbar{height:10px}
 .reaction-equation::-webkit-scrollbar-track{background:#f6edf2;border-radius:999px}
@@ -1228,16 +1231,49 @@ function findReaction(a,b,heated,excess=""){
  const fallback=eligible[0]||null;
  return fallback&&(!fallback.heat||heated)?fallback:null;
 }
+
+const LAB_GAS_PROPERTIES={
+"H₂":"бесцветный, без запаха","O₂":"бесцветный, без запаха","CO₂":"бесцветный, без запаха",
+"NH₃":"бесцветный, с резким характерным запахом","SO₂":"бесцветный, с резким удушливым запахом",
+"H₂S":"бесцветный, с запахом тухлых яиц","NO":"бесцветный, без запаха; на воздухе образует бурый NO₂",
+"NO₂":"бурый, с резким удушливым запахом","Cl₂":"жёлто-зелёный, с резким удушливым запахом",
+"HCl":"бесцветный, с резким раздражающим запахом","N₂":"бесцветный, без запаха",
+"CO":"бесцветный, без запаха","F₂":"бледно-жёлтый, с резким раздражающим запахом",
+"Br₂":"красно-бурый, с резким раздражающим запахом"};
+const LAB_PPT_COLORS={"#ffffff":"белый","#f8fbff":"белый","#39bced":"голубой","#9a4a2b":"бурый",
+"#69432e":"бурый","#151515":"чёрный","#f4d534":"жёлтый","#e6cf44":"жёлтый",
+"#eadb9a":"кремовый","#89b98e":"светло-зелёный","#666b70":"тёмно-серый","#b96f4a":"красно-бурый"};
+function labGasDescription(gas){
+ const details=LAB_GAS_PROPERTIES[gas];
+ return details?"выделяется газ "+gas+" ("+details+")":"выделяется газ "+gas+" (цвет и запах требуют уточнения)";
+}
+function labObservation(x){
+ if(!x)return "Для выбранной пары данных пока нет.";
+ if(x.t==="z")return "Реакция не протекает в указанных условиях.";
+ if(x.t==="n")return "Реакция протекает без заметных внешних изменений.";
+ const parts=[];
+ if(x.ppt)parts.push("образуется "+(LAB_PPT_COLORS[String(x.ppt).toLowerCase()]||"неуточнённого цвета")+" осадок");
+ if(x.gas)parts.push(labGasDescription(x.gas));
+ const sign=String(x.sign||"").trim();
+ if(sign&&(!x.gas&&!x.ppt||/раствор|окраск|цвет|растворя|металл|плёнк|пленк|мутне|буреет|исчеза|нагрев/.test(sign.toLowerCase())))
+   parts.push(sign.replace(/[.;]+$/,""));
+ return (parts.length?parts.join("; "):sign||"Наблюдается химическое изменение")+".";
+}
+function labEquationHTML(eq){
+ const safe=String(eq||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+ return safe.replace(/—\\s*(t°|t℃|t|hν|hv)\\s*→/g,(_,c)=>'<span class="lab-conditional-arrow"><span class="lab-arrow-condition">'+(c==="t"||c==="t℃"?"t°":c)+'</span><span class="lab-arrow-glyph">⟶</span></span>');
+}
+
 function reactionResultHTML(x,heated=false){
  if(!x)return '<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот опыт пока не добавлен в базу.</div></div>';
- if(x.heat&&!heated)return '<div class="reaction-card"><div class="reaction-head"><span class="reaction-status">🔥 Нужен нагрев</span></div><div class="reaction-sign">Без нагревания видимого результата не показываем.</div><div class="reaction-equation">'+x.eq+'</div></div>';
+ if(x.heat&&!heated)return '<div class="reaction-card"><div class="reaction-head"><span class="reaction-status">🔥 Нужен нагрев</span></div><div class="reaction-sign">Без нагревания видимого результата не показываем.</div><div class="reaction-equation">'+labEquationHTML(x.eq)+'</div></div>';
  const noVisible=x.t==="n", noReaction=x.t==="z";
  const icon=x.t==="p"?"⬇️":x.t==="g"?"🫧":x.t==="c"?"🎨":x.t==="x"?"✨":noReaction?"⛔":"✓";
  const title=noReaction?"Реакция не идёт":"Реакция протекает";
- const sign=noReaction?x.sign:(noVisible?"Без видимого признака":x.sign);
+ const sign=noReaction?x.sign:labObservation(x);
  const condition=x.condition?'<div class="reaction-note">Условие: '+x.condition+'</div>':'';
  const note=noReaction?'<div class="reaction-note">Смесь остаётся без химического превращения в указанных условиях.</div>':(noVisible?'<div class="reaction-note">Реакция есть, но визуального эффекта в пробирке нет.</div>':'');
- return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+condition+note+'</div>';
+ return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div><div class="reaction-equation">'+labEquationHTML(x.eq)+'</div>'+condition+note+'</div>';
 }
 function pptTexture(x){
  const s=(x&&x.sign||"").toLowerCase();
@@ -1669,15 +1705,7 @@ function task6ColorName(hex){
 function task6ObservationText(x,heated){
  if(!x)return "Для выбранной комбинации в базе пока нет наблюдения.";
  if(x.heat&&!heated)return "Без нагревания заметного изменения не наблюдается.";
- if(x.t==="z"||x.t==="n")return "Видимых изменений не наблюдается.";
- const parts=[];
- if(x.ppt)parts.push("образуется "+(task6ColorName(x.ppt)?task6ColorName(x.ppt)+" ":"")+"осадок");
- if(x.gas)parts.push(x.gas==="NO₂"?"выделяется бурый газ":"наблюдается выделение газа");
- const s=String(x.sign||"").toLowerCase();
- if(!x.ppt&&!x.gas&&s.includes("раствор"))parts.push(s.includes("осад")?"осадок растворяется":"твёрдое вещество растворяется");
- if(!x.ppt&&!x.gas&&(s.includes("окраск")||x.t==="c"))parts.push("изменяется внешний вид или окраска раствора");
- if(!parts.length)parts.push("наблюдается химическое изменение");
- return parts.join("; ")+".";
+ return labObservation(x);
 }
 function task6ObservationHTML(x,heated){
  return '<div class="task6-observation"><b>👀 Наблюдение</b><span>'+task6Esc(task6ObservationText(x,heated))+'</span>'+
@@ -1990,7 +2018,7 @@ function oge23Observation(task,bottleIndex,tool){
  const lab=reactionExpected(bottleId,tool);
  if(lab){
    const visible=!["n","z"].includes(lab.t);
-   const text=lab.t==="z"?"Реакция не идёт.":(lab.t==="n"?"Без видимых изменений.":lab.sign);
+   const text=labObservation(lab);
    return {text:text,exp:bankExp,lab:lab,active:visible,diagnostic:!!(bankExp&&Number(bankExp.target_bottle)===bottleIndex+1)};
  }
  if(!bankExp)return {text:"Видимых изменений нет.",exp:null,lab:null,active:false,diagnostic:false};
@@ -2016,7 +2044,7 @@ function oge23ShortResult(item){
  if((lab&&lab.gas)||kind==="gas"){
    const gas=oge23GasName(item);
    const extra=(lab&&lab.sol&&lab.sol!=="#f8fbff"&&lab.sol!=="#ffffff")?" + меняется цвет раствора":"";
-   return "🫧 Выделяется "+gas+extra;
+   return "🫧 "+(lab?labGasDescription(gas):"Выделяется "+gas)+extra;
  }
  if(kind==="p"||kind==="ppt"){
    if(s.includes("голуб"))return "⬇ Голубой осадок";
