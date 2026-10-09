@@ -23,7 +23,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261009-task6-full-trainer-v3"
+BUILD = "20261009-lab-mobile-callout-feoh2-v1"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -870,6 +870,42 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
   .task6-demo{grid-template-columns:1fr 1fr!important}
   .task6-demo .tube{width:68px;height:135px}
 }
+
+/* Keep reaction result card fully inside the phone viewport */
+@media(max-width:820px){
+  .lab-bench{overflow:visible!important}
+  .tube-callout,
+  .tube-callout.edge-left,
+  .tube-callout.edge-right{
+    position:fixed!important;
+    z-index:999!important;
+    left:10px!important;
+    right:10px!important;
+    width:auto!important;
+    max-width:none!important;
+    transform:none!important;
+    bottom:auto!important;
+    max-height:calc(100dvh - 20px)!important;
+    overflow:auto!important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  .tube-callout .reaction-card{
+    width:100%!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+  .tube-callout .reaction-equation{
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+    word-break:normal!important;
+  }
+  .tube-callout:after,
+  .tube-callout.edge-left:after,
+  .tube-callout.edge-right:after{
+    left:var(--callout-arrow-left,50%)!important;
+  }
+}
 </style></head><body><div class="app">
 <div class="lab-topbar">
   <div class="lab-brand">ЕГЭ БЛИЗКО</div>
@@ -1119,7 +1155,26 @@ function renderTubes(){
   wrap.innerHTML=callout+tubeHTML(v,i,i===selectedTube,tubeHeat[i],tubeExcess[i])+'<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+(v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>'+excessLabel;
   wrap.onclick=()=>{selectedTube=i;syncTubePicker();renderTubes()};box.appendChild(wrap);
  });
+ positionMobileReactionCallout();
 }
+function positionMobileReactionCallout(){
+ if(window.innerWidth>820)return;
+ requestAnimationFrame(()=>{
+  const callout=document.querySelector(".tube-slot.active-slot .tube-callout");
+  const tube=document.querySelector(".tube-slot.active-slot .tube");
+  if(!callout||!tube)return;
+  const pad=10, gap=12, tr=tube.getBoundingClientRect();
+  const ch=callout.getBoundingClientRect().height;
+  let top=tr.top-ch-gap;
+  if(top<pad) top=Math.min(tr.bottom+gap,Math.max(pad,window.innerHeight-ch-pad));
+  if(top+ch>window.innerHeight-pad) top=Math.max(pad,window.innerHeight-ch-pad);
+  callout.style.top=Math.round(top)+"px";
+  const arrow=Math.max(18,Math.min(window.innerWidth-pad*2-18,(tr.left+tr.width/2)-pad));
+  callout.style.setProperty("--callout-arrow-left",Math.round(arrow)+"px");
+ });
+}
+window.addEventListener("resize",positionMobileReactionCallout);
+window.addEventListener("scroll",positionMobileReactionCallout,{passive:true});
 function syncTubePicker(){
  const lab=document.getElementById("selectedTubeLabel");if(lab)lab.textContent=String(selectedTube+1);
  const root=document.getElementById("mobileTubePicker");if(!root)return;
