@@ -137,6 +137,8 @@ def main():
     # generic homework job before live24.main registers scheduled jobs.
     homework_deadline_logic.install()
 
+    import metals_olya_campaign  # noqa: F401
+
     live90.live79.live71.complete_molar_mass_task()
     live90.live79.live74.ensure_notification_catchup_tables()
     live90.live79.live77.ensure_lesson_feedback_tables()
