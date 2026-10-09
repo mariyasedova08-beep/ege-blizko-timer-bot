@@ -23,7 +23,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261009-oge23-table-direct-v2"
+BUILD = "20261009-oge23-general-lab-visuals-v1"
 
 def _oge12_bank_payload():
     try:
@@ -382,7 +382,10 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .oge23-bottle{min-width:0;padding:10px;border:1px solid #e6d7ce;border-radius:17px;background:#fffaf7}
 .oge23-bottle-title{text-align:center;font-size:13px;font-weight:700;margin-bottom:7px}
 .oge23-glass{width:74px;height:112px;margin:0 auto 9px;border:2px solid #bcc5ca;border-top:8px solid #dbe1e4;border-radius:9px 9px 22px 22px;position:relative;background:linear-gradient(90deg,rgba(255,255,255,.92),rgba(235,242,246,.48),rgba(255,255,255,.92));overflow:hidden}
-.oge23-glass:after{content:"";position:absolute;left:5px;right:5px;bottom:5px;height:57%;border-radius:0 0 16px 16px;background:rgba(223,235,241,.42)}
+.oge23-glass:after{content:"";position:absolute;left:5px;right:5px;bottom:5px;height:57%;border-radius:0 0 16px 16px;background:var(--bottle-color,rgba(223,235,241,.42));box-shadow:inset 0 7px 10px rgba(255,255,255,.30);opacity:.88}
+.oge23-glass>i{position:absolute;z-index:3;left:5px;right:5px;bottom:calc(57% - 1px);height:7px;border-radius:50%;background:var(--bottle-color,rgba(223,235,241,.42));filter:brightness(1.06)}
+.oge23-bottle-colour{display:flex;align-items:center;justify-content:center;gap:5px;margin:-2px 0 7px;font-size:9px;color:#8c7d75}
+.oge23-bottle-colour span{width:10px;height:10px;border-radius:50%;background:var(--sw);border:1px solid rgba(0,0,0,.10);box-shadow:inset 0 0 0 1px rgba(255,255,255,.45)}
 .oge23-bottle-actions{display:grid;gap:6px}
 .oge23-bottle-actions button{width:100%;min-height:38px;padding:7px 6px;font-size:10px}
 .oge23-observations{display:grid;gap:6px;margin-top:8px}
@@ -408,13 +411,24 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .oge23-source{font-size:9px;color:#9b8b83;margin-top:7px}
 .oge23-mini-tube{position:relative;width:62px;height:120px;margin:7px auto;border:2px solid #bdc6ca;border-top:0;border-radius:0 0 18px 18px;background:linear-gradient(90deg,rgba(255,255,255,.92),rgba(235,242,246,.52),rgba(255,255,255,.92));overflow:hidden}
 .oge23-mini-tube:before{content:"";position:absolute;z-index:5;left:-2px;right:-2px;top:0;height:8px;border:2px solid #bdc6ca;border-radius:50%;background:#fbfcfd}
-.oge23-mini-liquid{position:absolute;left:3px;right:3px;bottom:3px;height:54%;border-radius:0 0 13px 13px;background:rgba(218,231,238,.42)}
+.oge23-mini-liquid{position:absolute;left:3px;right:3px;bottom:3px;height:54%;border-radius:0 0 13px 13px;background:var(--liq,rgba(218,231,238,.42))}
 .oge23-mini-ppt{display:none;position:absolute;z-index:3;left:7px;right:7px;bottom:7px;height:25px;border-radius:45%;background:var(--pc,#fff);box-shadow:0 -4px 9px rgba(0,0,0,.08)}
 .oge23-mini-bubbles{display:none;position:absolute;z-index:4;inset:30% 8px 8px;background:radial-gradient(circle at 25% 80%,transparent 0 3px,#fff 3.4px 4.2px,transparent 4.5px),radial-gradient(circle at 70% 62%,transparent 0 4px,#fff 4.4px 5px,transparent 5.4px),radial-gradient(circle at 45% 38%,transparent 0 3px,#fff 3.3px 4px,transparent 4.3px);animation:ogeBubbles .9s linear infinite}
 .oge23-mini-tube.ppt .oge23-mini-ppt{display:block}
 .oge23-mini-tube.gas .oge23-mini-bubbles{display:block}
 .oge23-mini-tube.dissolve .oge23-mini-liquid{background:rgba(237,246,250,.20)}
 .oge23-task-title{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.oge23-task-title .oge-title{max-width:760px}
+.oge23-live-visual{position:relative;display:flex;justify-content:center;align-items:flex-end;min-height:148px;margin:6px 0 8px}
+.oge23-live-visual .tube{width:72px!important;height:134px!important;margin:0 auto}
+.oge23-live-visual.has-gas .tube{box-shadow:inset 5px 0 8px rgba(255,255,255,.75),inset -5px 0 7px rgba(109,122,140,.12),0 0 0 3px rgba(111,170,197,.12),0 7px 18px rgba(53,104,128,.14)}
+.oge23-live-visual.has-gas .bubbleLayer{height:94%!important;left:0!important;right:0!important;overflow:visible!important}
+.oge23-live-visual.has-gas .bubble{border-width:3px!important;filter:drop-shadow(0 1px 2px rgba(54,95,120,.28))}
+.oge23-live-visual.has-gas .surfaceFizz{left:4%!important;right:4%!important;height:22px!important}
+.oge23-live-visual.has-gas .gasPlume{left:4%!important;right:4%!important;height:56%!important;opacity:.95!important;filter:blur(2.5px)!important}
+.oge23-gas-badge{position:absolute;z-index:20;top:0;left:50%;transform:translateX(-50%);white-space:nowrap;padding:5px 8px;border-radius:999px;background:#eef8fb;border:1px solid #badce8;color:#28596b;font-size:10px;font-weight:800;box-shadow:0 4px 12px rgba(55,108,130,.10)}
+.oge23-available-reagent{display:inline-flex!important;align-items:center;gap:5px}
+.oge23-available-reagent i{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--rc);border:1px solid rgba(0,0,0,.10)}
+
 .oge23-table-title{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin:2px 0 8px}
 .oge23-table-title b{font-size:13px}.oge23-table-title span{font-size:10px;color:#8a7a72}
 .oge23-exp-table{overflow:hidden;border:1px solid #dfcfc5;border-radius:15px;background:#fff;margin-top:8px}
@@ -1921,48 +1935,98 @@ function oge23Reset(){
 function oge23ExpForTool(task,tool){
  return (task.experiments||[]).find(x=>x.reagent===tool)||null;
 }
-function oge23Reagent(task,id){
- return (task.reagents||[]).find(x=>x.id===id)||{id:id,formula:id,name:id};
+function oge23Knowledge(id){
+ const v=reagent(id)||[];
+ return {
+   id:id,
+   formula:v[0]||id,
+   category:v[1]||"",
+   color:v[2]||"#f8fbff",
+   state:v[3]||"",
+   name:v[4]||id
+ };
 }
-function oge23Visual(exp,active){
- if(!active)return '<div class="oge23-mini-tube"><div class="oge23-mini-liquid"></div></div>';
- const cls=exp.kind==="ppt"?"ppt":exp.kind==="gas"?"gas":exp.kind==="dissolve"?"dissolve":"";
- return '<div class="oge23-mini-tube '+cls+'" style="--pc:'+(exp.color||"#fff")+'"><div class="oge23-mini-liquid"></div><div class="oge23-mini-ppt"></div><div class="oge23-mini-bubbles"></div></div>';
+function oge23Reagent(task,id){
+ const local=(task.reagents||[]).find(x=>x.id===id)||{};
+ const k=oge23Knowledge(id);
+ return {
+   id:id,
+   formula:k.formula||local.formula||id,
+   name:k.name||local.name||id,
+   category:k.category,
+   color:k.color,
+   state:k.state
+ };
+}
+function oge23GasName(item){
+ const lab=item&&item.lab;
+ if(lab&&lab.gas)return lab.gas;
+ const s=String(item&&item.text||"");
+ if(/NH₃|NH3/i.test(s))return "NH₃";
+ if(/CO₂|CO2/i.test(s))return "CO₂";
+ if(/H₂|H2/i.test(s))return "H₂";
+ if(/SO₂|SO2/i.test(s))return "SO₂";
+ return "газ";
+}
+function oge23Visual(task,bottleIndex,tool,item){
+ const bottleId=task.bottles[bottleIndex].id;
+ const lab=item&&item.lab;
+ if(lab){
+   const gas=lab.gas?'<div class="oge23-gas-badge">🫧 '+lab.gas+' ↑</div>':'';
+   return '<div class="oge23-live-visual '+(lab.gas?'has-gas':'')+'">'+gas+tubeHTML([bottleId,tool],0,false,false)+'</div>';
+ }
+ const base=oge23Knowledge(bottleId).color||"#f8fbff";
+ if(!item||!item.active){
+   return '<div class="oge23-mini-tube" style="--liq:'+base+'"><div class="oge23-mini-liquid"></div></div>';
+ }
+ const exp=item.exp||{},cls=exp.kind==="ppt"?"ppt":exp.kind==="gas"?"gas":exp.kind==="dissolve"?"dissolve":"";
+ const gas=exp.kind==="gas"?'<div class="oge23-gas-badge">🫧 '+oge23GasName(item)+' ↑</div>':'';
+ return '<div class="oge23-live-visual '+(exp.kind==="gas"?'has-gas':'')+'">'+gas+
+   '<div class="oge23-mini-tube '+cls+'" style="--pc:'+(exp.color||"#fff")+';--liq:'+base+'"><div class="oge23-mini-liquid"></div><div class="oge23-mini-ppt"></div><div class="oge23-mini-bubbles"></div></div></div>';
 }
 function oge23Observation(task,bottleIndex,tool){
- const exp=oge23ExpForTool(task,tool);
- if(!exp)return {text:"Видимых изменений нет.",exp:null,active:false};
- const active=Number(exp.target_bottle)===bottleIndex+1;
- return {text:active?exp.observation:"Видимых изменений нет.",exp:exp,active:active};
+ const bankExp=oge23ExpForTool(task,tool);
+ const bottleId=task.bottles[bottleIndex].id;
+ const lab=reactionExpected(bottleId,tool);
+ if(lab){
+   const visible=!["n","z"].includes(lab.t);
+   const text=lab.t==="z"?"Реакция не идёт.":(lab.t==="n"?"Без видимых изменений.":lab.sign);
+   return {text:text,exp:bankExp,lab:lab,active:visible,diagnostic:!!(bankExp&&Number(bankExp.target_bottle)===bottleIndex+1)};
+ }
+ if(!bankExp)return {text:"Видимых изменений нет.",exp:null,lab:null,active:false,diagnostic:false};
+ const active=Number(bankExp.target_bottle)===bottleIndex+1;
+ return {text:active?bankExp.observation:"Видимых изменений нет.",exp:bankExp,lab:null,active:active,diagnostic:active};
 }
 function oge23BottleHTML(task,index){
- const obs=oge23Tests[index]||{};
+ const obs=oge23Tests[index]||{},sub=task.bottles[index],k=oge23Knowledge(sub.id);
  const observations=Object.entries(obs).map(([tool,item])=>{
    const r=oge23Reagent(task,tool);
    return '<div class="oge23-observation"><strong>'+r.formula+' · '+r.name+'</strong>'+
-    oge23Visual(item.exp,item.active)+'<div>'+item.text+'</div></div>';
+    oge23Visual(task,index,tool,item)+'<div>'+item.text+'</div></div>';
  }).join("");
  return '<div class="oge23-bottle"><div class="oge23-bottle-title">Склянка №'+(index+1)+'</div>'+
-  '<div class="oge23-glass"></div>'+
+  '<div class="oge23-glass" style="--bottle-color:'+k.color+'"><i></i></div>'+
+  '<div class="oge23-bottle-colour"><span style="--sw:'+k.color+'"></span>Цвет раствора наблюдается в склянке</div>'+
   '<div class="oge23-observations">'+(observations||'<div class="oge23-step-note" style="text-align:center">Опытов пока нет</div>')+'</div></div>';
 }
 function oge23ShortResult(item){
  if(!item)return "";
  if(!item.active)return "Нет видимых изменений";
- const s=String(item.text||"").toLowerCase(),kind=item.exp&&item.exp.kind;
- if(kind==="gas"){
-   if(s.includes("резким")||s.includes("запах"))return "🫧 Газ с запахом";
-   if(s.includes("co₂")||s.includes("co2"))return "🫧 Выделяется CO₂";
-   if(s.includes("h₂")||s.includes("h2"))return "🫧 Выделяется H₂";
-   return "🫧 Выделяется газ";
+ const s=String(item.text||"").toLowerCase(),lab=item.lab||null,kind=(lab&&lab.t)||(item.exp&&item.exp.kind);
+ if((lab&&lab.gas)||kind==="gas"){
+   const gas=oge23GasName(item);
+   const extra=(lab&&lab.sol&&lab.sol!=="#f8fbff"&&lab.sol!=="#ffffff")?" + меняется цвет раствора":"";
+   return "🫧 Выделяется "+gas+extra;
  }
- if(kind==="ppt"){
+ if(kind==="p"||kind==="ppt"){
    if(s.includes("голуб"))return "⬇ Голубой осадок";
    if(s.includes("бур"))return "⬇ Бурый осадок";
    if(s.includes("жёл")||s.includes("желт"))return "⬇ Жёлтый осадок";
    if(s.includes("серо-зел"))return "⬇ Серо-зелёный осадок";
    return "⬇ Белый осадок";
  }
+ if(kind==="c")return "🎨 "+(item.text||"Изменение цвета / растворение");
+ if(kind==="x")return "✨ "+(item.text||"Есть несколько признаков");
  if(kind==="dissolve")return "✨ Растворение";
  return item.text||"Есть изменения";
 }
@@ -1983,9 +2047,9 @@ function oge23TableCell(task,rowIndex,bottleIndex){
    (oge23Mode==="learn"&&item.active?'<small>'+item.text+'</small>':'')+'</div>';
 }
 function oge23BottleHead(task,index){
- const chosen=oge23Conclusion[index];
- const b=task.bottles.find(x=>x.id===chosen);
- return '<span class="oge23-head-main">Склянка №'+(index+1)+'</span><span class="oge23-head-sub">'+(b?b.formula+' · '+b.name:'пока не определено')+'</span>';
+ const chosen=oge23Conclusion[index],b=task.bottles.find(x=>x.id===chosen);
+ const candidates=task.bottles.map(x=>oge23Knowledge(x.id).formula).join(" / ");
+ return '<span class="oge23-head-main">Склянка №'+(index+1)+'</span><span class="oge23-head-sub">'+(b?oge23Knowledge(b.id).formula+' · '+oge23Knowledge(b.id).name:'кандидаты: '+candidates)+'</span>';
 }
 function oge23ConclusionSelect(task,index){
  const current=oge23Conclusion[index]||"",other=oge23Conclusion[index?0:1]||"";
@@ -1996,7 +2060,7 @@ function oge23ConclusionSelect(task,index){
 }
 function oge23ExperimentTable(task){
  return '<div class="oge23-table-title"><b>Таблица эксперимента</b><span>Сначала выбери реактив в строке, затем добавь его в нужную склянку</span></div>'+
-  '<div class="oge23-available"><span>Даны реактивы:</span>'+task.reagents.map(r=>'<span>'+r.formula+'</span>').join("")+'</div>'+
+  '<div class="oge23-available"><span>Даны реактивы:</span>'+task.reagents.map(r=>{const k=oge23Knowledge(r.id);return '<span class="oge23-available-reagent"><i style="--rc:'+k.color+'"></i>'+k.formula+(k.state?' · '+k.state:'')+'</span>'}).join("")+'</div>'+
   '<div class="oge23-exp-table">'+
    '<div class="oge23-exp-row head"><div class="oge23-exp-cell">Реактив</div><div class="oge23-exp-cell">'+oge23BottleHead(task,0)+'</div><div class="oge23-exp-cell">'+oge23BottleHead(task,1)+'</div></div>'+
    [0,1].map(rowIndex=>'<div class="oge23-exp-row task-row">'+
@@ -2015,7 +2079,7 @@ function oge23ExperimentTable(task){
 }
 function oge23RunTest(task,bottleIndex,tool){
  const o=oge23Observation(task,bottleIndex,tool);
- oge23Tests[bottleIndex][tool]={text:o.text,exp:o.exp,active:o.active,revealed:true};
+ oge23Tests[bottleIndex][tool]={text:o.text,exp:o.exp,lab:o.lab,active:o.active,diagnostic:o.diagnostic,revealed:true};
  renderOge23();
 }
 function oge23CheckTable(task){
