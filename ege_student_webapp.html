@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F8F5F2">
-<title>ЕГЭ БЛИЗКО — личный кабинет · autumn v4-lab-button</title>
+<title>ЕГЭ БЛИЗКО — личный кабинет · task6-progress-v2</title>
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 <style>
 :root{
@@ -181,6 +181,24 @@ button,a,select,input{font:inherit}
 .lab-entry-title{font-family:Georgia,"Times New Roman",serif;font-size:18px;font-weight:500}
 .lab-entry-sub{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4}
 .lab-entry-go{font-size:24px;color:var(--rose-deep);font-weight:600;position:relative;z-index:1}
+
+.task6-cabinet{
+  margin-top:10px;padding:15px;border-radius:22px;
+  background:linear-gradient(145deg,#FFFDFC,#F6E5DC);
+  border:1px solid #E7CFC1;box-shadow:var(--shadow-soft);
+  text-decoration:none;color:var(--ink);display:block
+}
+.task6-cabinet-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.task6-cabinet-title{font-family:Georgia,"Times New Roman",serif;font-size:17px;font-weight:500}
+.task6-cabinet-score{font-family:Georgia,"Times New Roman",serif;font-size:24px;font-weight:500;color:#8F4639;text-align:right}
+.task6-cabinet-sub{font-size:10px;color:var(--muted);margin-top:3px}
+.task6-cabinet-bar{height:7px;border-radius:999px;background:#FFF8F4;border:1px solid #E9D6CB;overflow:hidden;margin-top:12px}
+.task6-cabinet-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#A7463F,#C86F4A)}
+.task6-cabinet-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
+.task6-cabinet-stat{padding:8px;border-radius:13px;background:rgba(255,255,255,.68);border:1px solid #ECDDD4}
+.task6-cabinet-stat b{display:block;font-size:13px;font-weight:600}
+.task6-cabinet-stat span{display:block;font-size:8.5px;color:var(--muted);margin-top:2px;line-height:1.2}
+.task6-cabinet-weak{margin-top:9px;font-size:10px;color:#76564A;line-height:1.4}
 .empty{padding:21px 16px;color:var(--muted);font-size:13px;text-align:center;font-weight:400}
 
 .rank-hero{
@@ -373,7 +391,8 @@ function render(d){
  var name=esc(d.student.first_name||d.student.name),c=d.course,w=d.week,m=d.month,coursePct=c.total_lessons?pct(c.lesson_number,c.total_lessons):0;
  var hm=d.homework||[],unfinished=hm.filter(function(x){return !x.done}).length,overdue=hm.filter(function(x){return !x.done&&x.overdue}).length,latest=(d.probniki||[])[0];
  var latestAward=(d.awards||[])[0]||null,awardChip=latestAward?'<div class="award-chip">🏆 Ученик месяца · '+esc(latestAward.label)+'</div>':'';
- var labUrl='/lab-app?launch='+encodeURIComponent(launch)+'&v=20261009-lab-mobile-v2';
+ var labUrl='/lab-app?launch='+encodeURIComponent(launch)+'&v=20261009-task6-full-trainer-v3';
+ var task6Url=labUrl+'&page=ege';
  var home='<div class="view active" id="view-home"><div class="top"><div><div class="brand">ЕГЭ <span>БЛИЗКО</span></div><div class="kicker">Личный кабинет ученика</div></div><a class="avatar" href="'+labUrl+'" aria-label="Открыть лабораторию" title="Лаборатория">🧪</a></div>'+
  '<div class="hero"><div class="kicker" style="margin:0 0 8px;color:var(--rose-deep);font-weight:600">🍂 Осенний кабинет</div><h1 class="hello">Привет, '+name+'! 💗</h1><div class="course">'+esc(d.student.course)+'</div>'+awardChip+'<div class="progress"><div style="width:'+Math.min(100,coursePct)+'%"></div></div><div class="progressline"><span>Урок '+c.lesson_number+' из '+c.total_lessons+'</span><span>'+c.days_left+' дн. до ЕГЭ</span></div></div>'+
  '<div class="grid"><div class="card"><div class="metric-icon">🎀</div><b>'+m.homework_count+'</b><span>ДЗ сдано в '+esc(d.month_label)+'</span></div><div class="card"><div class="metric-icon">🍂</div><b>'+(m.attendance_total?m.attendance_present+'/'+m.attendance_total:'—')+'</b><span>посещение за месяц</span></div><div class="card"><div class="metric-icon">☕</div><b>'+m.trainer_sessions+'</b><span>тренировок за месяц</span></div><div class="card"><div class="metric-icon">🍁</div><b>'+(latest?(latest.secondary!=null?latest.secondary:(latest.primary!=null?latest.primary:'—')):'—')+'</b><span>последний пробник</span></div></div>'+
@@ -383,7 +402,10 @@ function render(d){
  kulekBlock(d.kulek)+discountBlock(d.discount)+(overdue?'<div class="section"><div class="list">'+row('Есть незакрытые ДЗ',unfinished+' не выполнено · '+overdue+' просрочено','проверить','danger')+'</div></div>':'')+'</div>';
 
  var labEntry='<a class="lab-entry" href="'+labUrl+'"><div class="lab-entry-main"><div class="lab-entry-icon">🧪</div><div><div class="lab-entry-title">Лаборатория</div><div class="lab-entry-sub">Смешивай реактивы, наблюдай признаки и тренируй качественные реакции</div></div></div><div class="lab-entry-go">›</div></a>';
- var study='<div class="view" id="view-study"><div class="top"><div><div class="brand">Моя <span>учёба</span></div><div class="kicker">'+esc(d.month_label)+'</div></div></div>'+labEntry+
+ var t6=d.task6||{},t6pct=t6.total?Math.round(100*(t6.answered||0)/t6.total):0;
+ var t6weak=(t6.weak_types||[]).length?('Слабое место: '+esc(t6.weak_types[0].type)):'Слабые места появятся после первых решений';
+ var task6Card='<a class="task6-cabinet" href="'+task6Url+'"><div class="task6-cabinet-head"><div><div class="task6-cabinet-title">ЕГЭ №6 · Опыты</div><div class="task6-cabinet-sub">экспериментальная химия</div></div><div><div class="task6-cabinet-score">'+(t6.answered||0)+'/'+(t6.total||83)+'</div><div class="task6-cabinet-sub">решено</div></div></div><div class="task6-cabinet-bar"><i style="width:'+Math.min(100,t6pct)+'%"></i></div><div class="task6-cabinet-stats"><div class="task6-cabinet-stat"><b>'+(t6.first_try_accuracy||0)+'%</b><span>с первой попытки</span></div><div class="task6-cabinet-stat"><b>'+(t6.accuracy||0)+'%</b><span>общая точность</span></div><div class="task6-cabinet-stat"><b>'+(t6.error_count||0)+'</b><span>в моих ошибках</span></div></div><div class="task6-cabinet-weak">'+t6weak+' · открыть тренажёр →</div></a>';
+ var study='<div class="view" id="view-study"><div class="top"><div><div class="brand">Моя <span>учёба</span></div><div class="kicker">'+esc(d.month_label)+'</div></div></div>'+labEntry+task6Card+
  section('🏠 Домашние работы',homeworkRows(d.homework),unfinished+' не выполнено')+
  section('🎓 Посещение',attendanceRows(d.attendance),m.attendance_present+'/'+m.attendance_total)+
  section('📝 Пробники',probnikRows(d.probniki),m.probnik_count+' за месяц')+
