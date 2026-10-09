@@ -1261,7 +1261,7 @@ function labObservation(x){
 }
 function labEquationHTML(eq){
  const safe=String(eq||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
- return safe.replace(/—\\s*(t°|t℃|t|hν|hv)\\s*→/g,(_,c)=>'<span class="lab-conditional-arrow"><span class="lab-arrow-condition">'+(c==="t"||c==="t℃"?"t°":c)+'</span><span class="lab-arrow-glyph">⟶</span></span>');
+ return safe.replace(/—\s*(t°|t℃|t|hν|hv)\s*→/g,(_,c)=>'<span class="lab-conditional-arrow"><span class="lab-arrow-condition">'+(c==="t"||c==="t℃"?"t°":c)+'</span><span class="lab-arrow-glyph">⟶</span></span>');
 }
 
 function reactionResultHTML(x,heated=false){
