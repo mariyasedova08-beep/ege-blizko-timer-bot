@@ -83,11 +83,15 @@ def progress(db_path, uid):
         ).fetchall()
 
     answered = len(rows)
-    checks = sum(int(r[1] or 0) for r in rows)
-    correct_checks = sum(int(r[2] or 0) for r in rows)
-    correct_last = sum(1 for r in rows if int(r[5] or 0))
-    first_try_correct = sum(1 for r in rows if int(r[4] or 0) == 1)
-    error_ids = [str(r[0]) for r in rows if int(r[3] or 0) > 0]
+    scored_rows = [
+        r for r in rows
+        if not bool((TASK_BY_ID.get(str(r[0])) or {}).get("needs_review"))
+    ]
+    checks = sum(int(r[1] or 0) for r in scored_rows)
+    correct_checks = sum(int(r[2] or 0) for r in scored_rows)
+    correct_last = sum(1 for r in scored_rows if int(r[5] or 0))
+    first_try_correct = sum(1 for r in scored_rows if int(r[4] or 0) == 1)
+    error_ids = [str(r[0]) for r in scored_rows if int(r[3] or 0) > 0]
 
     weak_counts = {}
     for task_id, attempts, correct, wrong, first_try, last_correct in rows:
@@ -115,7 +119,7 @@ def progress(db_path, uid):
         "correct_checks": correct_checks,
         "accuracy": round(100 * correct_checks / checks) if checks else 0,
         "first_try_correct": first_try_correct,
-        "first_try_accuracy": round(100 * first_try_correct / answered) if answered else 0,
+        "first_try_accuracy": round(100 * first_try_correct / len(scored_rows)) if scored_rows else 0,
         "error_task_ids": error_ids,
         "error_count": len(error_ids),
         "weak_types": weak_types,
@@ -276,14 +280,30 @@ def record_answer(db_path, uid, task_id, answer_x, answer_y, tz):
             )
             conn.commit()
     else:
-        # Ambiguous source item: do not count it, but still advance the session.
+        # Ambiguous source item: mark it as seen so "all 83" can reach 83/83,
+        # but keep it out of accuracy / error statistics.
+        now = _now(tz)
         with sqlite3.connect(db_path) as conn:
+            conn.execute(
+                """INSERT INTO ege_task6_attempts(
+                       uid,task_id,attempts,correct_checks,wrong_checks,
+                       first_try_correct,last_correct,last_answer_x,last_answer_y,updated
+                   ) VALUES(?,?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(uid,task_id) DO UPDATE SET
+                       last_answer_x=excluded.last_answer_x,
+                       last_answer_y=excluded.last_answer_y,
+                       updated=excluded.updated""",
+                (
+                    int(uid), str(task_id), 0, 0, 0, None, 0,
+                    str(answer_x or ""), str(answer_y or ""), now,
+                ),
+            )
             conn.execute(
                 """UPDATE ege_task6_sessions
                    SET current_index=current_index+1,
                        selected_x='',selected_y='',updated=?
                    WHERE uid=?""",
-                (_now(tz), int(uid)),
+                (now, int(uid)),
             )
             conn.commit()
 
