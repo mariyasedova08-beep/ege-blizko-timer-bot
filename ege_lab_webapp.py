@@ -22,7 +22,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261009-lab-mobile-four-tubes-v1"
+BUILD = "20261009-lab-shared-admin-student-v1"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -871,11 +871,17 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
 <script>
 const tg=Telegram.WebApp;tg.ready();tg.expand();
 const labQs=new URLSearchParams(location.search),labLaunch=labQs.get("launch")||"";
+const labFrom=labQs.get("from")||"",labReturnLaunch=labQs.get("return_launch")||"";
 
 const labBackCabinet=document.getElementById("labBackCabinet");
 const labBackHistory=document.getElementById("labBackHistory");
 if(labBackCabinet){
-  labBackCabinet.href="/student-app"+(labLaunch?("?launch="+encodeURIComponent(labLaunch)):"");
+  if(labFrom==="admin"){
+    labBackCabinet.textContent="⌂ В мой кабинет";
+    labBackCabinet.href="/admin-app"+(labReturnLaunch?("?launch="+encodeURIComponent(labReturnLaunch)):"");
+  }else{
+    labBackCabinet.href="/student-app"+(labLaunch?("?launch="+encodeURIComponent(labLaunch)):"");
+  }
 }
 if(labBackHistory){
   labBackHistory.onclick=function(){
