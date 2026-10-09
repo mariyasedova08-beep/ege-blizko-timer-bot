@@ -75,6 +75,7 @@ EXTRA_REACTIONS = [
     ("feoh2","hno3_conc","Fe(OH)₂ + 4HNO₃(конц.) → Fe(NO₃)₃ + NO₂↑ + 3H₂O","x","Fe(OH)₂ растворяется, раствор желтеет, выделяется бурый NO₂","#e2b35e","","NO₂",0),
     ("feo","h2so4_conc","2FeO + 4H₂SO₄(конц.) → Fe₂(SO₄)₃ + SO₂↑ + 4H₂O","x","чёрный FeO растворяется, Fe(II) окисляется до Fe(III), выделяется SO₂","#e1b562","","SO₂",0),
     ("feoh2","h2so4_conc","2Fe(OH)₂ + 4H₂SO₄(конц.) → Fe₂(SO₄)₃ + SO₂↑ + 6H₂O","x","Fe(OH)₂ растворяется и окисляется до Fe(III), выделяется SO₂","#e1b562","","SO₂",0),
+    ("feoh2","h2o2","2Fe(OH)₂ + H₂O₂ → 2Fe(OH)₃↓","p","светло-зелёный Fe(OH)₂ окисляется: осадок становится бурым Fe(OH)₃","#f4efe8","#9a5b3d","",0),
 
     # Metals + salt solutions — EGE experiments
     # Copper(II) salts: a more active metal dissolves and copper plates onto it.
