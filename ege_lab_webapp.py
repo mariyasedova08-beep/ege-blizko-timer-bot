@@ -15,6 +15,7 @@ from ege_lab_substances import REAGENTS as LAB_REAGENTS, category_counts
 from ege_lab_inorganic_reactions import EXTRA_REACTIONS, REACTION_VARIANTS, validate_reactions
 from ege_task6_bank import TASK6_BANK, validate_task6_bank
 from ege_task6_reactions import TASK6_REACTIONS, TASK6_VARIANTS, validate_task6_reactions
+import ege_task6_progress
 
 bot = live90.bot
 DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
@@ -22,7 +23,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261009-lab-shared-admin-student-v1"
+BUILD = "20261009-task6-training-v2"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -1493,6 +1494,12 @@ def do_post(self):
                 "lab":["cuso4","fecl3","na2co3","nacl","na2so4"],
                 "tools":["naoh","hcl","agno3","bacl2"],
                 "task6":TASK6_BANK,
+                "task6_progress":ege_task6_progress.progress(bot.COREAPP_DB_PATH,uid) if uid else {
+                    "total":len(TASK6_BANK),"answered":0,"correct_tasks":0,"checks":0,
+                    "correct_checks":0,"accuracy":0,"first_try_correct":0,
+                    "first_try_accuracy":0,"error_task_ids":[],"error_count":0,"weak_types":[]
+                },
+                "task6_session":ege_task6_progress.load_session(bot.COREAPP_DB_PATH,uid) if uid else None,
                 "stats":stats(uid) if uid else preview_stats,
                 "preview":not bool(uid),
             }})
@@ -1503,6 +1510,59 @@ def do_post(self):
                     "labworks_completed":0,"accuracy":0,
                 }})
             return self._send_json(200,{"ok":True,"stats":record_event(uid,request.get("type"),bool(request.get("correct")))})
+
+        if action=="task6_start":
+            mode=str(request.get("mode") or "10")
+            if mode not in {"10","20","all","errors"}:
+                mode="10"
+            if uid:
+                session=ege_task6_progress.start_session(
+                    bot.COREAPP_DB_PATH,uid,mode,bot.TIMEZONE
+                )
+                progress_payload=ege_task6_progress.progress(bot.COREAPP_DB_PATH,uid)
+            else:
+                session={
+                    "mode":mode,
+                    "order":ege_task6_progress.build_order(mode,[]),
+                    "current_index":0,"selected_x":"","selected_y":""
+                }
+                progress_payload={
+                    "total":len(TASK6_BANK),"answered":0,"correct_tasks":0,"checks":0,
+                    "correct_checks":0,"accuracy":0,"first_try_correct":0,
+                    "first_try_accuracy":0,"error_task_ids":[],"error_count":0,"weak_types":[]
+                }
+            return self._send_json(200,{"ok":True,"session":session,"progress":progress_payload})
+
+        if action=="task6_save":
+            if uid:
+                session=ege_task6_progress.save_selection(
+                    bot.COREAPP_DB_PATH,uid,
+                    request.get("selected_x"),request.get("selected_y"),bot.TIMEZONE
+                )
+            else:
+                session=None
+            return self._send_json(200,{"ok":True,"session":session})
+
+        if action=="task6_answer":
+            task_id=str(request.get("task_id") or "")
+            answer_x=str(request.get("answer_x") or "")
+            answer_y=str(request.get("answer_y") or "")
+            if uid:
+                result=ege_task6_progress.record_answer(
+                    bot.COREAPP_DB_PATH,uid,task_id,answer_x,answer_y,bot.TIMEZONE
+                )
+            else:
+                result=ege_task6_progress.answer_key(task_id,answer_x,answer_y)
+                if not result:
+                    raise ValueError("unknown task")
+                result["progress"]={
+                    "total":len(TASK6_BANK),"answered":0,"correct_tasks":0,"checks":0,
+                    "correct_checks":0,"accuracy":0,"first_try_correct":0,
+                    "first_try_accuracy":0,"error_task_ids":[],"error_count":0,"weak_types":[]
+                }
+                result["session"]=None
+            return self._send_json(200,{"ok":True,"result":result})
+
         return self._send_json(400,{"ok":False,"error":"bad_action"})
     except Exception as exc:
         print(f"EGE lab api error: {type(exc).__name__}: {exc}",flush=True)
@@ -1518,6 +1578,7 @@ def install():
         return
     _INSTALLED=True
     ensure_tables()
+    ege_task6_progress.ensure_tables(bot.COREAPP_DB_PATH)
     _previous_get=bot.CoreAppWebhookHandler.do_GET
     _previous_post=bot.CoreAppWebhookHandler.do_POST
     bot.CoreAppWebhookHandler.do_GET=do_get
