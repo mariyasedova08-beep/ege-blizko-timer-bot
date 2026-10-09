@@ -308,6 +308,12 @@ async def individual_daily_trainer_tick(context):
     for student_id, name, telegram_id, _username in live67._individual_rows():
         if telegram_id is None or _already_sent(student_id, day_key):
             continue
+
+        # 10–14 Oct 2026 Olya has a dedicated Metals campaign at 17:00.
+        # Do not also send her the generic 16:00 individual reminder.
+        first_name = str(name or "").strip().split()[0].lower() if str(name or "").strip() else ""
+        if now.date().isoformat() in {"2026-10-10","2026-10-11","2026-10-12","2026-10-13","2026-10-14"} and first_name in {"оля","ольга"}:
+            continue
         first_name = str(name or "").strip().split()[0] if str(name or "").strip() else ""
         greeting = f"Привет, {first_name}! 💗" if first_name else "Привет! 💗"
         text = (
