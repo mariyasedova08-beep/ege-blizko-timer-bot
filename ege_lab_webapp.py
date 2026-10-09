@@ -1488,7 +1488,7 @@ async function checkTask6(q){
  let answer={correct:sx===q.answer_x&&sy===q.answer_y,answer_x:q.answer_x,answer_y:q.answer_y,scored:!q.needs_review,progress:task6Progress,session:null};
  try{
    const j=await api({action:"task6_answer",task_id:q.id,answer_x:sx,answer_y:sy});
-   if(j&&j.ok&&j.result)answer=j.result;
+   if(j&&j.ok&&j.result){answer=j.result;if(answer.lab_stats){data.stats=answer.lab_stats;renderStats();}}
  }catch(_){}
  const correctX=q.options.find(x=>x[0]===answer.answer_x),correctY=q.options.find(x=>x[0]===answer.answer_y);
  task6Progress=answer.progress||task6Progress;
@@ -1782,6 +1782,10 @@ def do_post(self):
                 result=ege_task6_progress.record_answer(
                     bot.COREAPP_DB_PATH,uid,task_id,answer_x,answer_y,bot.TIMEZONE
                 )
+                if result.get("scored"):
+                    result["lab_stats"]=record_event(
+                        uid,"prediction",bool(result.get("correct"))
+                    )
             else:
                 result=ege_task6_progress.answer_key(task_id,answer_x,answer_y)
                 if not result:
