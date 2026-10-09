@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light">
-<title>ЕГЭ БЛИЗКО — кабинет Маши</title>
+<title>ЕГЭ БЛИЗКО — кабинет Маши · autumn v1</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{--milk:#F8F5F2;--ink:#171719;--soft:#F4D9E6;--hot:#F00087;--paper:#FFFDFC;--line:#E9E2DE;--muted:#7B7478;--red:#D84C6F;--green:#2E7D4E;--shadow:0 12px 34px rgba(45,28,37,.08)}
@@ -51,6 +51,58 @@ h1{font-size:31px;line-height:1.03;margin:9px 0 7px;letter-spacing:-.035em}.sub{
 .bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(248,245,242,.95);backdrop-filter:blur(15px);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:6}.nav{max-width:700px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:3px}.nav button{border:0;background:transparent;color:#8A8286;font:inherit;font-size:10px;padding:5px 2px}.nav .active{color:var(--hot);font-weight:900}.nav i{font-style:normal;display:block;font-size:19px;margin-bottom:3px}
 .brand-foot{text-align:center;color:#9A9296;font-size:10px;letter-spacing:.17em;margin-top:22px}
 @media(min-width:580px){.app{padding-left:24px;padding-right:24px}.grid{grid-template-columns:repeat(3,1fr)}}
+
+/* Autumn visual system shared with the student cabinet */
+:root{
+  --milk:#FBF6F0;--ink:#211916;--soft:#F3E1D8;--hot:#C86F4A;--paper:#FFFDFC;
+  --line:#E8D8CE;--muted:#81736D;--red:#C85E63;--green:#4F8668;
+  --rose-deep:#A7463F;--terracotta:#C86F4A;--latte:#EAD5C2;
+  --shadow:0 14px 36px rgba(92,61,47,.075)
+}
+html,body{
+  background:
+    radial-gradient(circle at 100% 0%,rgba(200,111,74,.10),transparent 23%),
+    radial-gradient(circle at 0% 52%,rgba(234,213,194,.28),transparent 28%),
+    linear-gradient(180deg,#FCF8F3 0%,#F8F1E9 100%);
+  color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-weight:400
+}
+.app{max-width:820px;padding:20px 16px 104px}
+.brand-pill{background:rgba(255,253,252,.78);border:1px solid #E7CFC1;color:var(--rose-deep);font-weight:650;letter-spacing:.02em;box-shadow:0 6px 18px rgba(92,61,47,.04)}
+.brand-pill:before{content:"🍂";margin-right:6px}
+h1{font-family:Georgia,"Times New Roman",serif;font-size:34px;font-weight:500;letter-spacing:-.025em;line-height:1.06}
+.sub{font-weight:400}
+.logo{width:54px;height:54px;border-radius:18px;background:linear-gradient(145deg,#FFFDFC,#F0D9CC);border:1px solid #E8CFC1;box-shadow:0 8px 22px rgba(92,61,47,.07);text-decoration:none;color:inherit;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease}
+.logo:hover{transform:translateY(-1px);box-shadow:0 12px 26px rgba(92,61,47,.10)}.logo:active{transform:scale(.96)}
+.hero{position:relative;overflow:hidden;background:radial-gradient(circle at 90% 10%,rgba(200,111,74,.12),transparent 26%),linear-gradient(145deg,#FFFDFC,#F8E9E1 60%,#EFD6C9);border:1px solid #E7CFC1;border-radius:29px;padding:20px;box-shadow:var(--shadow)}
+.hero:after{content:"🍁";position:absolute;right:19px;bottom:8px;font-size:33px;opacity:.13}
+.hero-title{font-weight:600;color:#6B4B40}.date{background:rgba(255,253,252,.75);border:1px solid rgba(229,205,192,.75)}
+.progress{height:8px;border:1px solid rgba(226,197,181,.7)}.progress i{background:linear-gradient(90deg,var(--rose-deep),var(--terracotta))}
+.big{font-family:Georgia,"Times New Roman",serif;font-size:35px;font-weight:500;letter-spacing:-.025em}
+.grid{gap:10px}
+.card{position:relative;overflow:hidden;background:linear-gradient(155deg,rgba(255,253,252,.98),rgba(250,243,238,.92));border:1px solid #E8D6CB;border-radius:23px;box-shadow:0 8px 22px rgba(92,61,47,.05)}
+.card.pink{background:linear-gradient(145deg,#FFFDFC,#F6E4DB)}
+.card .num{font-family:Georgia,"Times New Roman",serif;font-size:28px;font-weight:500}.card .label{font-weight:600}.card .hint{font-weight:400}
+.card .icon{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,#FFF7F2,#F0D5C7);font-size:17px;margin-bottom:10px}
+.section-title strong{font-family:Georgia,"Times New Roman",serif;font-size:18px;font-weight:500}
+.list,.day-panel,.student-card,.analytics-card,.chartbox{background:linear-gradient(155deg,rgba(255,253,252,.98),rgba(250,243,238,.90));border-color:#E9D9D0;border-radius:23px;box-shadow:0 8px 22px rgba(92,61,47,.045)}
+.day-panel.tomorrow{background:linear-gradient(145deg,#FFFDFC,#F7E8E0)}
+.row{border-bottom-color:#EFE3DC}.row-title{font-weight:600}.time{font-weight:600}.badge{background:#F3E8E1;font-weight:500}
+.action{background:linear-gradient(145deg,#FFFDFC,#F8ECE5);border-color:#E7D5CA;border-radius:20px;font-weight:550;box-shadow:0 6px 18px rgba(92,61,47,.04)}
+.action:active{background:#F2DDD2}
+.action .aicon{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;margin:0 auto 7px;background:#F2DED3;font-size:18px}
+.back{background:#F3E2D9;color:#6F4B3F}
+.screen-head h2,.kulek-page-head h2{font-family:Georgia,"Times New Roman",serif;font-weight:500;letter-spacing:-.015em}
+.statbox,.mini,.metricbox,.award-part{background:rgba(255,253,252,.82);border:1px solid #EADBD2}
+.statbox b,.score-big,.student-score,.kulek-score,.month-award-score{font-family:Georgia,"Times New Roman",serif;font-weight:500}
+.probnik-summary,.final-card,.kulek-hero,.month-award-hero{background:radial-gradient(circle at 100% 0%,rgba(200,111,74,.09),transparent 25%),linear-gradient(145deg,#FFFDFC,#F5E4DA);border-color:#E5CFC2}
+.final-progress i{background:linear-gradient(90deg,var(--rose-deep),var(--terracotta))}
+.primary-btn{background:linear-gradient(145deg,#B95C49,#C87857);font-weight:600}.secondary-btn{font-weight:550}
+.link{color:var(--rose-deep);font-weight:600}.trend{font-weight:600}.chart-title,.final-title,.student-name{font-weight:600}
+.bottom{background:rgba(250,244,238,.95);border-top-color:#E5D5CB;box-shadow:0 -10px 30px rgba(93,61,47,.05)}
+.nav button{font-weight:450;color:#877A74}.nav .active{color:#9E4A3F;font-weight:600;background:linear-gradient(145deg,#FFFDFC,#F7E7DE);border-radius:14px}
+.spark polyline{stroke:#C86F4A!important}.spark circle{fill:#C86F4A!important}.brand-foot{color:#9A8175}
+@media(max-width:579px){.app{padding-left:12px;padding-right:12px}h1{font-size:30px}.top{align-items:center}.logo{width:48px;height:48px;border-radius:16px}.day-panels{grid-template-columns:1fr}.actions{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr 1fr}}
+
 </style>
 </head>
 <body>
@@ -95,7 +147,7 @@ function sparkline(points){
  return '<svg class="spark" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none"><line x1="'+p+'" y1="'+(h-p)+'" x2="'+(w-p)+'" y2="'+(h-p)+'" stroke="#E9E2DE" stroke-width="1"/><polyline points="'+pts+'" fill="none" stroke="#F00087" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'+circles+'</svg>';
 }
 function eventRows(items){var rows='';(items||[]).forEach(function(e){var title=e.type==='lesson'?'Урок'+(e.lesson_number?' №'+e.lesson_number:''):e.type==='probnik'?'Пробник':'Событие';rows+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(title)+'</div><div class="row-sub">'+esc(e.topic||'')+'</div></div></div>';});return rows;}
-function renderHome(d){var c=d.counts||{},course=d.course||{};var out='<div class="top"><div><span class="brand-pill">ЕГЭ БЛИЗКО</span><h1>Привет, Маша 💗</h1><div class="sub">Твоя админская главная · только для тебя</div></div><div class="logo">🧪</div></div>';
+function renderHome(d){var c=d.counts||{},course=d.course||{};var labUrl='/lab-app?from=admin&return_launch='+encodeURIComponent(launch)+'&v=20261009-lab-mobile-four-tubes-v1';var out='<div class="top"><div><span class="brand-pill">ЕГЭ БЛИЗКО</span><h1>Привет, Маша 💗</h1><div class="sub">Твоя админская главная · только для тебя</div></div><a class="logo" href="'+labUrl+'" aria-label="Открыть лабораторию" title="Лаборатория">🧪</a></div>';
 out+='<div class="hero"><div class="hero-top"><div class="hero-title">До ЕГЭ</div><div class="date">'+esc(d.weekday)+' · '+esc(d.date)+'</div></div><div class="hero-main"><div><div class="big">'+course.days_left+' дней</div><div class="small">урок '+course.lesson_number+' из '+course.total_lessons+'</div></div><div class="small">'+course.percent+'%</div></div><div class="progress"><i style="width:'+Math.max(0,Math.min(100,course.percent||0))+'%"></i></div></div>';
 out+='<div class="grid"><button class="card pink" onclick="openView(\'today\')"><div class="icon">📍</div><div class="num">'+c.today+'</div><div class="label">событий сегодня</div><div class="hint">уроки и пробники</div></button><button class="card pink" onclick="openView(\'attention\')"><div class="icon">🚨</div><div class="num">'+c.attention+'</div><div class="label">в зоне внимания</div><div class="hint">по текущим критериям</div></button><button class="card" onclick="openView(\'students\')"><div class="icon">👥</div><div class="num">'+c.students+'</div><div class="label">учеников</div><div class="hint">'+c.linked+' привязаны к Telegram</div></button></div>';
 out+='<div class="day-panels"><div class="day-panel" onclick="openView(\'today\')"><div class="day-panel-head"><strong>Сегодня</strong><span>открыть →</span></div>'+(eventRows(d.today_events)||'<div class="empty">Сегодня событий нет</div>')+'</div><div class="day-panel tomorrow" onclick="openView(\'tomorrow\')"><div class="day-panel-head"><strong>Завтра</strong><span>открыть →</span></div>'+(eventRows(d.tomorrow_events)||'<div class="empty">Завтра событий нет</div>')+'</div></div>';
@@ -114,7 +166,7 @@ if(pk.month){
  out+='<div class="kulek-hero" style="margin-top:10px;background:linear-gradient(145deg,#fffdfc,#f8f5f2)" onclick="openView(\'kulek:'+esc(pk.month)+'\')"><div class="probnik-head"><div style="display:flex;gap:11px;align-items:center"><img class="kulek-mascot" src="/kulechek-mascot.jpg?v=12" alt="Кулёчек"><div><div class="row-title">'+esc(pk.label||'Прошлый месяц')+'</div><div class="row-sub">прошлый месяц · нажми, чтобы открыть по детям</div></div></div><div><div class="kulek-score">'+(pk.total_points||0)+'</div><div class="score-caption">Кулёчков выдано</div></div></div><div class="mini-stats"><div class="mini"><b>'+(pk.full_objective_count||0)+'/'+(pk.student_count||0)+'</b><span>закрыли все условия</span></div><div class="mini"><b>'+(pk.eligible_draw_count||0)+'</b><span>в розыгрыше 5%</span></div><div class="mini"><b>'+(pkm?fmtScore(pkm.score):'—')+'</b><span>🏆 индекс лидера</span></div></div>'+(pkm?'<div class="row-sub" style="margin-top:10px">🏆 '+(pk.student_of_month_winner?'Ученик месяца: ':'Лидер месяца: ')+esc(pkm.student_name||pkm.name)+' · '+fmtScore(pkm.score)+'/100</div>':'')+'</div>';
 }
 out+='</div>';
-out+='<div class="section"><div class="section-title"><strong>Быстрые разделы</strong></div><div class="actions"><button class="action" onclick="window.location.href=\'/lab-app?v=20261007-lab-v2-realistic\'"><span class="aicon">🧪</span>Лаборатория</button><button class="action" onclick="openView(\'tomorrow\')"><span class="aicon">🌅</span>Завтра</button><button class="action" onclick="openView(\'payments\')"><span class="aicon">💳</span>Оплаты</button><button class="action" onclick="openView(\'recordings\')"><span class="aicon">🎥</span>Записи уроков</button><button class="action" onclick="openView(\'attention\')"><span class="aicon">🚨</span>Внимание</button><button class="action" onclick="openView(\'students\')"><span class="aicon">🏆</span>Рейтинг</button></div></div><div class="brand-foot">ЕГЭ БЛИЗКО · СИСТЕМНО К СОТКЕ</div>';
+out+='<div class="section"><div class="section-title"><strong>Быстрые разделы</strong></div><div class="actions"><button class="action" onclick="window.location.href=labUrl"><span class="aicon">🧪</span>Лаборатория</button><button class="action" onclick="openView(\'tomorrow\')"><span class="aicon">🌅</span>Завтра</button><button class="action" onclick="openView(\'payments\')"><span class="aicon">💳</span>Оплаты</button><button class="action" onclick="openView(\'recordings\')"><span class="aicon">🎥</span>Записи уроков</button><button class="action" onclick="openView(\'attention\')"><span class="aicon">🚨</span>Внимание</button><button class="action" onclick="openView(\'students\')"><span class="aicon">🏆</span>Рейтинг</button></div></div><div class="brand-foot">ЕГЭ БЛИЗКО · СИСТЕМНО К СОТКЕ</div>';
 document.getElementById('app').innerHTML=out;}
 function renderDay(d,title){document.getElementById('app').innerHTML=screenHeader(title,d.weekday+' · '+d.date)+'<div class="section"><div class="section-title"><strong>Расписание</strong></div><div class="list">'+(eventRows(d.events)||'<div class="empty">Событий нет</div>')+'</div></div>';}
 function renderStudents(d){
