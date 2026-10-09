@@ -23,7 +23,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261009-oge12-three-tubes-v1"
+BUILD = "20261009-oge23-practical-prototype-v1"
 
 def _oge12_bank_payload():
     try:
@@ -344,7 +344,7 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .grid{grid-template-columns:repeat(3,1fr)}.grid button small{display:block;color:#777;font-weight:600;margin-top:3px}
 .tools,.answers{grid-template-columns:1fr 1fr}.result{padding:10px;background:#fff3f9;border-radius:13px;margin-top:8px;min-height:44px}
 .stats{grid-template-columns:1fr 1fr}.stat{background:#fff;border:1px solid #efc5da;border-radius:16px;padding:14px}.stat b{font-size:28px;color:var(--pink);display:block}
-.oge-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 12px}
+.oge-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0 12px}
 .oge-switch button{padding:12px}.oge-switch button.on{background:var(--pink);color:#fff;border-color:var(--pink)}
 .oge-task{background:#fff;border:1px solid #efc5da;border-radius:20px;padding:14px}
 .oge-kicker{font-size:11px;color:var(--pink);font-weight:900;margin-bottom:5px}.oge-title{font-size:18px;font-weight:950;line-height:1.2}
@@ -354,7 +354,60 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .oge-demo{display:flex;justify-content:center;gap:28px;align-items:flex-end;margin:16px 0 6px;min-height:230px}
 .oge-demo-one{width:106px}.oge-demo-two{width:106px}.oge-demo .tube{height:190px}
 .oge-demo-label{text-align:center;font-size:11px;font-weight:900;margin-top:5px}
+
 .oge-feedback{margin-top:10px}.oge-next{margin-top:10px;width:100%}
+.oge23-wrap{display:grid;gap:11px}
+.oge23-mode{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.oge23-mode button.on{background:var(--terracotta);color:#fff;border-color:var(--terracotta)}
+.oge23-condition{padding:12px;border:1px solid #ead4c7;border-radius:16px;background:#fffaf6;font-size:12px;line-height:1.45}
+.oge23-condition b{color:var(--rose-deep)}
+.oge23-step{padding:12px;border:1px solid #eadfd8;border-radius:17px;background:#fff}
+.oge23-step h3{margin:0 0 7px;font-size:14px}
+.oge23-step-note{font-size:11px;line-height:1.4;color:#81736d;margin-bottom:9px}
+.oge23-reagents{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.oge23-reagent{min-height:72px;padding:9px 7px;text-align:center;border:1px solid #dfc8bb;border-radius:14px;background:#fffaf7}
+.oge23-reagent b{display:block;font-size:15px;margin-bottom:4px}.oge23-reagent span{font-size:10px;color:#81736d}
+.oge23-reagent.on{background:#f2ddd2;border-color:#c86f4a;box-shadow:0 0 0 2px rgba(200,111,74,.08)}
+.oge23-reagent.disabled{opacity:.48}
+.oge23-mainbtn{width:100%;margin-top:9px;min-height:44px}
+.oge23-lab{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.oge23-bottle{min-width:0;padding:10px;border:1px solid #e6d7ce;border-radius:17px;background:#fffaf7}
+.oge23-bottle-title{text-align:center;font-size:13px;font-weight:700;margin-bottom:7px}
+.oge23-glass{width:74px;height:112px;margin:0 auto 9px;border:2px solid #bcc5ca;border-top:8px solid #dbe1e4;border-radius:9px 9px 22px 22px;position:relative;background:linear-gradient(90deg,rgba(255,255,255,.92),rgba(235,242,246,.48),rgba(255,255,255,.92));overflow:hidden}
+.oge23-glass:after{content:"";position:absolute;left:5px;right:5px;bottom:5px;height:57%;border-radius:0 0 16px 16px;background:rgba(223,235,241,.42)}
+.oge23-bottle-actions{display:grid;gap:6px}
+.oge23-bottle-actions button{width:100%;min-height:38px;padding:7px 6px;font-size:10px}
+.oge23-observations{display:grid;gap:6px;margin-top:8px}
+.oge23-observation{padding:8px 9px;border:1px solid #eadfd8;border-radius:11px;background:#fff;font-size:10px;line-height:1.35}
+.oge23-observation strong{display:block;font-size:11px;margin-bottom:2px}
+.oge23-test-visual{display:flex;justify-content:center;margin:7px 0}
+.oge23-test-visual .tube{width:64px;height:122px}
+.oge23-id-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.oge23-id-card{padding:9px;border:1px solid #eadfd8;border-radius:13px;background:#fffaf7}
+.oge23-id-card b{display:block;font-size:11px;margin-bottom:5px}
+.oge23-id-card select{min-height:40px}
+.oge23-equations{display:grid;gap:10px;margin-top:8px}
+.oge23-eq-card{padding:10px;border:1px solid #e5d8d0;border-radius:14px;background:#fffaf7}
+.oge23-eq-title{font-size:12px;font-weight:700;margin-bottom:7px}
+.oge23-eq-card label{display:block;font-size:10px;color:#81736d;margin:7px 0 3px}
+.oge23-eq-card textarea{width:100%;min-height:58px;resize:vertical;border:1px solid #ddc9bd;border-radius:10px;background:#fff;padding:8px;font:500 11px/1.35 system-ui,-apple-system,sans-serif;color:#211916}
+.oge23-reference{display:none;margin-top:8px;padding:9px;border-radius:11px;background:#f5ebe4;border:1px solid #e0c8b9;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.oge23-reference.show{display:block}
+.oge23-feedback{padding:9px 10px;border-radius:12px;background:#fff7f2;border:1px solid #ead4c7;font-size:11px;line-height:1.4;margin-top:8px}
+.oge23-progress{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.oge23-chip{padding:5px 8px;border-radius:999px;background:#f2e3da;border:1px solid #e5cec1;font-size:9px;color:#6c554b}
+@media(max-width:520px){
+ .oge-switch{display:flex!important;overflow-x:auto;grid-template-columns:none!important;gap:7px;scrollbar-width:none}
+ .oge-switch::-webkit-scrollbar{display:none}
+ .oge-switch button{flex:0 0 auto;white-space:nowrap}
+ .oge23-reagents{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .oge23-reagent{min-height:66px;padding:8px 5px}
+ .oge23-lab{grid-template-columns:1fr 1fr;gap:7px}
+ .oge23-bottle{padding:8px 6px}
+ .oge23-glass{width:62px;height:96px}
+ .oge23-id-grid{grid-template-columns:1fr 1fr}
+ .oge23-equations{grid-template-columns:1fr}
+}
 .oge12-counter{font-size:11px;color:#81736d;background:#fff7f2;border:1px solid #ead4c7;border-radius:999px;padding:6px 9px}
 .oge12-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .oge12-match{display:grid;gap:8px;margin-top:12px}
@@ -1018,6 +1071,7 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
 <div class="oge-switch">
   <button id="oge12Tab" class="on">№12 · Признак реакции</button>
   <button id="oge17Tab">№17 · Различение веществ</button>
+  <button id="oge23Tab">№23 · Практика</button>
 </div>
 <div id="ogeBox"></div>
 </div></section>
@@ -1063,6 +1117,7 @@ if(labBackHistory){
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все", selectedReagentSearch="";
 let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
+let oge23Mode="learn",oge23Selected=[],oge23Started=false,oge23BottleOrder=["hcl","znso4"],oge23Tests=[{},{}],oge23Identified=false;
 let egeMode="6",egeTask6Index=0,egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;
 let task6Session=null,task6Progress=null,task6SelectedX="",task6SelectedY="",task6Target="x",task6PendingSession=null;
 
@@ -1701,6 +1756,7 @@ function renderOge(){
  ogeLocked=false;
  document.getElementById("oge12Tab").classList.toggle("on",ogeMode===12);
  document.getElementById("oge17Tab").classList.toggle("on",ogeMode===17);
+ document.getElementById("oge23Tab").classList.toggle("on",ogeMode===23);
  if(ogeMode===12){
    const bank=oge12Bank(),box=document.getElementById("ogeBox");
    if(!bank.length){
@@ -1728,6 +1784,8 @@ function renderOge(){
    document.getElementById("oge12Check").onclick=answerOge12;
    document.getElementById("oge12Prev").onclick=()=>{ogeIndex12=(ogeIndex12-1+bank.length)%bank.length;renderOge()};
    document.getElementById("ogeNext").onclick=()=>{ogeIndex12=(ogeIndex12+1)%bank.length;renderOge()};
+ }else if(ogeMode===23){
+   renderOge23();
  }else{
    const q=OGE17[ogeIndex17%OGE17.length],box=document.getElementById("ogeBox");
    box.innerHTML='<div class="oge-task"><div class="oge-kicker">ОГЭ · задание №17</div><div class="oge-title">Каким реактивом можно различить вещества?</div><div class="oge-pair">'+q.leftName+' и '+q.rightName+'</div><div id="ogeOptions" class="oge-options"></div><div id="ogeDemo" class="oge-demo"></div><div id="ogeFeedback" class="oge-feedback"></div><button id="ogeNext" class="oge-next" style="display:none">Следующее</button></div>';
@@ -1782,8 +1840,157 @@ function answerOge17(id,btn){
  document.getElementById("ogeNext").style.display="block";
  api({action:"event",type:"prediction",correct:ok}).then(j=>{data.stats=j.stats;renderStats()});
 }
+
+function oge23Reset(randomize=true){
+ oge23Selected=[];oge23Started=false;oge23Tests=[{},{}];oge23Identified=false;
+ if(randomize)oge23BottleOrder=Math.random()<.5?["hcl","znso4"]:["znso4","hcl"];
+}
+function oge23Name(id){return id==="hcl"?"HCl":"ZnSO₄"}
+function oge23ToolName(id){return id==="fe"?"Fe":id==="naoh"?"NaOH":"MgCl₂"}
+function oge23ExpectedObservation(substance,tool){
+ if(substance==="hcl"&&tool==="fe")return "Выделяются пузырьки бесцветного газа; железо постепенно растворяется.";
+ if(substance==="znso4"&&tool==="naoh")return "Выпадает белый осадок Zn(OH)₂.";
+ if(substance==="hcl"&&tool==="naoh")return "Видимых признаков нет: идёт нейтрализация.";
+ if(substance==="znso4"&&tool==="fe")return "Видимых признаков нет: Fe не вытесняет Zn из его соли.";
+ if(tool==="mgcl2")return "Видимых признаков реакции нет.";
+ return "Видимых признаков реакции нет.";
+}
+function oge23Reaction(substance,tool){
+ return reactionExpected(substance,tool);
+}
+function oge23Reference(substance){
+ if(substance==="hcl")return {
+  reagent:"Fe",
+  molecular:"Fe + 2HCl → FeCl₂ + H₂↑",
+  full:"Fe + 2H⁺ + 2Cl⁻ → Fe²⁺ + 2Cl⁻ + H₂↑",
+  net:"Fe + 2H⁺ → Fe²⁺ + H₂↑"
+ };
+ return {
+  reagent:"NaOH",
+  molecular:"ZnSO₄ + 2NaOH → Zn(OH)₂↓ + Na₂SO₄",
+  full:"Zn²⁺ + SO₄²⁻ + 2Na⁺ + 2OH⁻ → Zn(OH)₂↓ + 2Na⁺ + SO₄²⁻",
+  net:"Zn²⁺ + 2OH⁻ → Zn(OH)₂↓"
+ };
+}
+function oge23BottleHTML(index){
+ const obs=oge23Tests[index]||{},buttons=oge23Selected.map(tool=>{
+  const done=Object.prototype.hasOwnProperty.call(obs,tool);
+  return '<button type="button" data-oge23-test="'+index+'" data-tool="'+tool+'" '+(done?'disabled':'')+'>'+ (done?'✓ ':'🧪 ') +oge23ToolName(tool)+'</button>';
+ }).join("");
+ const observations=Object.entries(obs).map(([tool,item])=>{
+   const showText=oge23Mode==="learn"||item.revealed;
+   const x=oge23Reaction(oge23BottleOrder[index],tool);
+   return '<div class="oge23-observation"><strong>'+oge23ToolName(tool)+'</strong>'+
+     (showText?'<div class="oge23-test-visual">'+(x?tubeHTML([oge23BottleOrder[index],tool],0,false,false):'<div class="tube"></div>')+'</div><div>'+item.text+'</div>':'<div>Опыт проведён. Зафиксируй наблюдение самостоятельно.</div>')+
+     '</div>';
+ }).join("");
+ return '<div class="oge23-bottle"><div class="oge23-bottle-title">Склянка №'+(index+1)+'</div>'+
+   '<div class="oge23-glass"></div><div class="oge23-bottle-actions">'+buttons+'</div>'+
+   '<div class="oge23-observations">'+observations+'</div></div>';
+}
+function renderOge23(){
+ const box=document.getElementById("ogeBox");
+ box.innerHTML='<div class="oge23-wrap">'+
+  '<div class="oge-task"><div class="oge-kicker">ОГЭ · задание №23</div><div class="oge-title">Практическая работа: определи вещества</div>'+
+  '<div class="oge23-mode"><button id="oge23Learn" class="'+(oge23Mode==="learn"?"on":"")+'">Учусь</button><button id="oge23Exam" class="'+(oge23Mode==="exam"?"on":"")+'">Как на экзамене</button></div>'+
+  '<div class="oge23-condition"><b>Условие.</b> В склянках №1 и №2 находятся соляная кислота и раствор сульфата цинка. Даны три реактива: железо, раствор NaOH и раствор MgCl₂. Выбери два реактива, необходимые для определения каждого вещества.</div></div>'+
+  '<div class="oge23-step"><h3>1. Выбери два реактива</h3><div class="oge23-step-note">Можно выбрать ровно два из трёх.</div>'+
+  '<div id="oge23Reagents" class="oge23-reagents"></div><div id="oge23SelectFeedback"></div>'+
+  '<button id="oge23Start" class="primary oge23-mainbtn" '+(oge23Started?'disabled':'')+'>'+(oge23Started?'Реактивы выбраны':'Начать эксперимент')+'</button></div>'+
+  '<div id="oge23Experiment"></div>'+
+  '<div id="oge23Identify"></div>'+
+  '<div id="oge23Equations"></div>'+
+  '</div>';
+
+ const reagents=[["fe","Fe","железо"],["naoh","NaOH","раствор гидроксида натрия"],["mgcl2","MgCl₂","раствор хлорида магния"]];
+ const rg=document.getElementById("oge23Reagents");
+ reagents.forEach(([id,formula,name])=>{
+   const b=document.createElement("button");b.type="button";b.className="oge23-reagent"+(oge23Selected.includes(id)?" on":"")+(oge23Started?" disabled":"");
+   b.innerHTML='<b>'+formula+'</b><span>'+name+'</span>';
+   b.disabled=oge23Started;
+   b.onclick=()=>{
+     if(oge23Selected.includes(id))oge23Selected=oge23Selected.filter(x=>x!==id);
+     else if(oge23Selected.length<2)oge23Selected.push(id);
+     renderOge23();
+   };
+   rg.appendChild(b);
+ });
+ document.getElementById("oge23Learn").onclick=()=>{oge23Mode="learn";oge23Reset(false);renderOge23()};
+ document.getElementById("oge23Exam").onclick=()=>{oge23Mode="exam";oge23Reset(false);renderOge23()};
+ document.getElementById("oge23Start").onclick=()=>{
+   if(oge23Selected.length!==2){
+     document.getElementById("oge23SelectFeedback").innerHTML='<div class="oge23-feedback">Нужно выбрать ровно два реактива.</div>';return;
+   }
+   const correct=oge23Selected.includes("fe")&&oge23Selected.includes("naoh");
+   if(oge23Mode==="learn"&&!correct){
+     document.getElementById("oge23SelectFeedback").innerHTML='<div class="oge23-feedback">Подумай ещё: один выбранный реактив должен дать заметный признак с HCl, а другой — с ZnSO₄.</div>';return;
+   }
+   oge23Started=true;renderOge23();
+ };
+ if(oge23Started)renderOge23Experiment();
+}
+function renderOge23Experiment(){
+ const root=document.getElementById("oge23Experiment");
+ root.innerHTML='<div class="oge23-step"><h3>2. Проведи опыты</h3><div class="oge23-step-note">'+
+  (oge23Mode==="learn"?'Нажимай на выбранный реактив под каждой склянкой — лаборатория покажет наблюдение.':'Проведи нужные опыты. В экзаменационном режиме название признака сразу не показывается.')+
+  '</div><div class="oge23-lab">'+oge23BottleHTML(0)+oge23BottleHTML(1)+'</div>'+
+  (oge23Mode==="exam"?'<button id="oge23RevealObs" class="oge23-mainbtn" type="button">Показать признаки проведённых опытов</button>':'')+
+  '<div class="oge23-progress"><span class="oge23-chip">Склянка 1: '+Object.keys(oge23Tests[0]).length+' опыт(а)</span><span class="oge23-chip">Склянка 2: '+Object.keys(oge23Tests[1]).length+' опыт(а)</span></div></div>';
+ root.querySelectorAll("[data-oge23-test]").forEach(btn=>{
+   btn.onclick=()=>{
+     const i=Number(btn.dataset.oge23Test),tool=btn.dataset.tool,sub=oge23BottleOrder[i];
+     oge23Tests[i][tool]={text:oge23ExpectedObservation(sub,tool),revealed:oge23Mode==="learn"};
+     renderOge23();
+   };
+ });
+ const reveal=document.getElementById("oge23RevealObs");
+ if(reveal)reveal.onclick=()=>{
+   oge23Tests.forEach(t=>Object.values(t).forEach(x=>x.revealed=true));
+   renderOge23();
+ };
+ const enough=Object.keys(oge23Tests[0]).length>0&&Object.keys(oge23Tests[1]).length>0;
+ if(enough)renderOge23Identify();
+}
+function renderOge23Identify(){
+ const root=document.getElementById("oge23Identify");if(!root)return;
+ root.innerHTML='<div class="oge23-step"><h3>3. Определи содержимое склянок</h3><div class="oge23-id-grid">'+
+  '<div class="oge23-id-card"><b>Склянка №1</b><select id="oge23Id1"><option value="">—</option><option value="hcl">HCl</option><option value="znso4">ZnSO₄</option></select></div>'+
+  '<div class="oge23-id-card"><b>Склянка №2</b><select id="oge23Id2"><option value="">—</option><option value="hcl">HCl</option><option value="znso4">ZnSO₄</option></select></div></div>'+
+  '<button id="oge23CheckId" class="primary oge23-mainbtn">Проверить вещества</button><div id="oge23IdFeedback"></div></div>';
+ document.getElementById("oge23CheckId").onclick=()=>{
+   const a=document.getElementById("oge23Id1").value,b=document.getElementById("oge23Id2").value;
+   if(!a||!b||a===b){document.getElementById("oge23IdFeedback").innerHTML='<div class="oge23-feedback">Укажи два разных вещества.</div>';return}
+   const ok=a===oge23BottleOrder[0]&&b===oge23BottleOrder[1];
+   if(!ok){
+     document.getElementById("oge23IdFeedback").innerHTML='<div class="oge23-feedback">❌ Пока неверно. Сопоставь наблюдаемые признаки с веществами.</div>';return;
+   }
+   oge23Identified=true;
+   document.getElementById("oge23IdFeedback").innerHTML='<div class="oge23-feedback">✅ Верно: №1 — <b>'+oge23Name(a)+'</b>, №2 — <b>'+oge23Name(b)+'</b>.</div>';
+   renderOge23Equations();
+ };
+}
+function renderOge23Equations(){
+ if(!oge23Identified)return;
+ const root=document.getElementById("oge23Equations");if(!root)return;
+ root.innerHTML='<div class="oge23-step"><h3>4. Оформи уравнения</h3><div class="oge23-step-note">Для каждой склянки запиши молекулярное, полное и сокращённое ионное уравнения диагностической реакции.</div>'+
+  '<div class="oge23-equations">'+[0,1].map(i=>{
+    const sub=oge23BottleOrder[i],ref=oge23Reference(sub);
+    return '<div class="oge23-eq-card"><div class="oge23-eq-title">Склянка №'+(i+1)+' · '+oge23Name(sub)+' · реактив '+ref.reagent+'</div>'+
+      '<label>Молекулярное</label><textarea placeholder="Запиши молекулярное уравнение"></textarea>'+
+      '<label>Полное ионное</label><textarea placeholder="Запиши полное ионное уравнение"></textarea>'+
+      '<label>Сокращённое ионное</label><textarea placeholder="Запиши сокращённое ионное уравнение"></textarea>'+
+      '<button type="button" class="oge23-showref oge23-mainbtn" data-i="'+i+'">Сверить с эталоном</button>'+
+      '<div id="oge23Ref'+i+'" class="oge23-reference"><b>Молекулярное:</b> '+ref.molecular+'<br><b>Полное ионное:</b> '+ref.full+'<br><b>Сокращённое ионное:</b> '+ref.net+'</div></div>';
+  }).join("")+'</div><button id="oge23Finish" class="primary oge23-mainbtn">Завершить практику</button><div id="oge23FinishFeedback"></div></div>';
+ root.querySelectorAll(".oge23-showref").forEach(btn=>btn.onclick=()=>document.getElementById("oge23Ref"+btn.dataset.i).classList.add("show"));
+ document.getElementById("oge23Finish").onclick=()=>{
+   document.getElementById("oge23FinishFeedback").innerHTML='<div class="oge23-feedback">✅ Практическая работа завершена. Можно начать этот вариант заново и получить другое расположение веществ по склянкам.</div>';
+   api({action:"event",type:"labwork"}).then(j=>{data.stats=j.stats;renderStats()});
+ };
+}
 document.getElementById("oge12Tab").onclick=()=>{ogeMode=12;renderOge()};
 document.getElementById("oge17Tab").onclick=()=>{ogeMode=17;renderOge()};
+document.getElementById("oge23Tab").onclick=()=>{ogeMode=23;oge23Reset(true);renderOge()};
 
 function nextExam(){
  locked=false;document.getElementById("examResult").textContent="";
