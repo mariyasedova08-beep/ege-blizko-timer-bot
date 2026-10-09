@@ -1,0 +1,12 @@
+[Unit]
+Description=EGE BLIZKO guarded GitHub autodeploy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=EGE_APP_DIR=/opt/bots/ege-blizko
+Environment=EGE_DEPLOY_BRANCH=hotfix/ege-middle-salts-66-facts-20261007
+Environment=EGE_SERVICE=ege-blizko
+Environment=EGE_HEALTH_URL=https://77-233-212-200.sslip.io/health
+ExecStart=/usr/local/sbin/ege-blizko-autodeploy
