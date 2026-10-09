@@ -23,7 +23,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261009-oge23-bottle-order-v1"
+BUILD = "20261009-oge23-bottle-order-labels-v1"
 
 def _oge12_bank_payload():
     try:
@@ -450,8 +450,8 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .oge23-exp-select{width:100%;min-height:46px;border:1px solid #d9c6ba;border-radius:11px;background:#fff;padding:8px 9px;font-size:12px;font-weight:650;color:#332925}
 .oge23-exp-select:focus{outline:2px solid rgba(200,111,74,.18);border-color:#c86f4a}
 .oge23-cell-empty{width:100%;padding:9px 6px;border-radius:10px;background:#faf7f5;border:1px dashed #e1d5ce;color:#9a8c85;font-size:10px;line-height:1.25}
-.oge23-head-main{display:block;font-size:11px;font-weight:800}
-.oge23-head-sub{display:block;margin-top:3px;font-size:9px;font-weight:600;text-transform:none;letter-spacing:0;color:#94847c}
+.oge23-head-main{display:block;font-size:12px;font-weight:800;line-height:1.25}
+.oge23-head-sub{display:block;margin-top:4px;font-size:10px;font-weight:600;text-transform:none;letter-spacing:0;color:#7f7068}
 .oge23-conclusion{background:#fff8f2;border-top:2px solid #e7cbbd!important}
 .oge23-conclusion .oge23-exp-cell:first-child{font-weight:800;color:#8d493e}
 .oge23-conclusion-select{width:100%;min-height:43px;border:1px solid #d9c6ba;border-radius:10px;background:#fff;padding:7px 8px;font-size:11px;font-weight:700}
@@ -466,7 +466,7 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
  .oge23-step-note{font-size:12px}
  .oge23-exp-row.task-row{min-height:76px}
  .oge23-exp-select,.oge23-conclusion-select{font-size:10px;padding:6px 4px}
- .oge23-head-main{font-size:10px}.oge23-head-sub{font-size:8px}
+ .oge23-head-main{font-size:10.5px;line-height:1.2}.oge23-head-sub{font-size:8.5px}
  .oge23-table-check{grid-template-columns:1fr}
 }
 
@@ -2048,7 +2048,10 @@ function oge23TableCell(task,rowIndex,bottleIndex){
 }
 function oge23BottleHead(task,index){
  const b=task.bottles[index],k=oge23Knowledge(b.id);
- return '<span class="oge23-head-main">Склянка №'+(index+1)+'</span><span class="oge23-head-sub">'+k.formula+' · '+k.name+'</span>';
+ const formula=b.formula||k.formula||b.id;
+ const name=b.name||k.name||"";
+ return '<span class="oge23-head-main">СКЛЯНКА №'+(index+1)+' — '+formula+'</span>'+
+   '<span class="oge23-head-sub">'+name+'</span>';
 }
 function oge23ConclusionSelect(task,index){
  const current=oge23Conclusion[index]||"",other=oge23Conclusion[index?0:1]||"";
