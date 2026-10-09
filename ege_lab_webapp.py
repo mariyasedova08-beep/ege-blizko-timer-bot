@@ -23,7 +23,15 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261009-lab-mobile-callout-feoh2-v1"
+BUILD = "20261009-oge12-three-tubes-v1"
+
+def _oge12_bank_payload():
+    try:
+        from oge_task12_bank import OGE12_BANK
+        return OGE12_BANK
+    except Exception as exc:
+        print(f"OGE12 bank load error: {type(exc).__name__}: {exc}", flush=True)
+        return []
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -347,6 +355,34 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .oge-demo-one{width:106px}.oge-demo-two{width:106px}.oge-demo .tube{height:190px}
 .oge-demo-label{text-align:center;font-size:11px;font-weight:900;margin-top:5px}
 .oge-feedback{margin-top:10px}.oge-next{margin-top:10px;width:100%}
+.oge12-counter{font-size:11px;color:#81736d;background:#fff7f2;border:1px solid #ead4c7;border-radius:999px;padding:6px 9px}
+.oge12-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.oge12-match{display:grid;gap:8px;margin-top:12px}
+.oge12-row{display:grid;grid-template-columns:minmax(0,1fr) 78px;gap:8px;align-items:center;padding:9px 10px;border:1px solid #ead9cf;border-radius:13px;background:#fffaf7}
+.oge12-row.good{background:#f3faf5;border-color:#a9d2b5}.oge12-row.bad{background:#fff4f3;border-color:#dfaaaa}
+.oge12-row .pair{font-size:12px;line-height:1.3;font-weight:650}.oge12-row .letter{color:var(--rose-deep);font-weight:750;margin-right:4px}
+.oge12-row select{min-height:40px;border:1px solid #dfc8bb;border-radius:10px;background:#fff;padding:6px 7px;font-weight:650}
+.oge12-options{display:grid;gap:6px;margin-top:10px}
+.oge12-option{display:grid;grid-template-columns:26px minmax(0,1fr);gap:7px;align-items:start;padding:8px 9px;border:1px solid #eadfd8;border-radius:11px;background:#fff;font-size:11px;line-height:1.35}
+.oge12-option b{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:#f3e2d8;color:#8f483e}
+.oge12-actions{display:grid;grid-template-columns:1fr 1.25fr;gap:8px;margin-top:11px}.oge12-actions button{width:100%;min-height:43px}
+.oge12-lab{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:13px}
+.oge12-tube-card{min-width:0;padding:8px 5px;border:1px solid #eadfd8;border-radius:15px;background:#fff;text-align:center}
+.oge12-tube-letter{font-size:12px;font-weight:750;color:var(--rose-deep);margin-bottom:5px}
+.oge12-tube{position:relative;width:66px;height:122px;margin:0 auto 7px;border:2px solid #bfc5c9;border-top:0;border-radius:0 0 20px 20px;background:linear-gradient(90deg,rgba(255,255,255,.9),rgba(239,244,247,.55),rgba(255,255,255,.9));overflow:hidden}
+.oge12-tube:before{content:"";position:absolute;z-index:6;top:0;left:-2px;right:-2px;height:9px;border:2px solid #bfc5c9;border-radius:50%;background:rgba(250,252,253,.9)}
+.oge12-liquid{position:absolute;left:3px;right:3px;bottom:3px;height:52%;border-radius:0 0 15px 15px;background:rgba(215,230,238,.32)}
+.oge12-ppt{display:none;position:absolute;z-index:3;left:7px;right:7px;bottom:7px;height:24px;border-radius:45%;background:var(--ppt,#fff);box-shadow:0 -4px 10px rgba(0,0,0,.06)}
+.oge12-bubbles{display:none;position:absolute;z-index:4;inset:27% 8px 8px;background:radial-gradient(circle at 25% 80%,transparent 0 3px,#fff 3.3px 4.2px,transparent 4.5px),radial-gradient(circle at 70% 65%,transparent 0 4px,#fff 4.3px 5.1px,transparent 5.4px),radial-gradient(circle at 45% 40%,transparent 0 3px,#fff 3.3px 4px,transparent 4.3px);animation:ogeBubbles .9s linear infinite}
+@keyframes ogeBubbles{50%{transform:translateY(-7px)}}
+.oge12-tube.is-gas .oge12-bubbles{display:block}
+.oge12-tube.is-ppt .oge12-ppt{display:block}
+.oge12-tube.is-color .oge12-liquid{background:var(--liq,#e9d59c)}
+.oge12-tube.is-dissolve .oge12-liquid{background:rgba(243,247,249,.28)}
+.oge12-sign{font-size:10px;line-height:1.25;min-height:25px;color:#665b55}
+.oge12-reactants{font-size:9px;line-height:1.2;color:#958781;margin-top:4px;overflow-wrap:anywhere}
+.oge12-feedback{margin-top:10px;padding:9px 10px;border-radius:12px;background:#fff7f2;border:1px solid #ead4c7;font-size:11px;line-height:1.4}
+
 .ege-switch{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 12px}
 .ege-switch button{padding:11px 8px;font-size:11px}.ege-switch button.on{background:var(--pink);color:#fff;border-color:var(--pink)}
 .ege-match-grid{display:grid;gap:9px;margin-top:12px}.ege-match-row{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px;align-items:center;background:#fff7fb;border:1px solid #f1c8dc;border-radius:14px;padding:10px}
@@ -1624,14 +1660,6 @@ document.getElementById("ege24Tab").onclick=()=>setEgeMode("24");
 document.getElementById("egeSignsTab").onclick=()=>setEgeMode("signs");
 document.getElementById("egeQualityTab").onclick=()=>setEgeMode("quality");
 
-const OGE12=[
- {a:"ki",b:"agno3",pair:"KI + AgNO₃",options:["выделение газа без запаха","выделение газа с запахом","выпадение белого осадка","выпадение жёлтого осадка"],correct:3},
- {a:"hcl",b:"na2so3",pair:"HCl + Na₂SO₃",options:["выпадение белого осадка","выделение бесцветного газа с запахом","изменение цвета раствора","видимые признаки отсутствуют"],correct:1},
- {a:"cuso4",b:"naoh",pair:"CuSO₄ + NaOH",options:["выпадение белого осадка","выпадение голубого осадка","выделение газа","видимые признаки отсутствуют"],correct:1},
- {a:"fecl3",b:"naoh",pair:"FeCl₃ + NaOH",options:["выпадение бурого осадка","выпадение голубого осадка","выделение газа","видимые признаки отсутствуют"],correct:0},
- {a:"naoh",b:"hno3",pair:"NaOH + HNO₃",options:["выделение газа","видимые признаки отсутствуют","растворение осадка","образование осадка"],correct:1},
- {a:"na2co3",b:"cacl2",pair:"Na₂CO₃ + CaCl₂",options:["выделение газа","видимые признаки отсутствуют","растворение осадка","образование осадка"],correct:3}
-];
 const OGE17=[
  {left:"na2co3",right:"na2sio3",leftName:"Na₂CO₃",rightName:"Na₂SiO₃",options:[["hcl","HCl"],["naoh","NaOH"],["agno3","AgNO₃"],["bacl2","BaCl₂"]],correct:"hcl",heat:false},
  {left:"nh4cl",right:"nacl",leftName:"NH₄Cl",rightName:"NaCl",options:[["naoh","NaOH"],["agno3","AgNO₃"],["hcl","HCl"],["bacl2","BaCl₂"]],correct:"naoh",heat:true}
@@ -1639,38 +1667,100 @@ const OGE17=[
 function ogeTube(pair,heated,label){
  return '<div class="oge-demo-two">'+tubeHTML(pair,0,false,heated)+'<div class="oge-demo-label">'+label+'</div></div>';
 }
+function oge12Bank(){return (data&&Array.isArray(data.oge12))?data.oge12:[]}
+function oge12Subscripts(s){
+ const sub={"0":"₀","1":"₁","2":"₂","3":"₃","4":"₄","5":"₅","6":"₆","7":"₇","8":"₈","9":"₉"};
+ return String(s||"").replace(/[0-9]/g,ch=>sub[ch]||ch);
+}
+function oge12Visual(sign){
+ const s=String(sign||"").toLowerCase();
+ let cls="",ppt="#ffffff",liq="#dbe8ee";
+ if(s.includes("газ"))cls="is-gas";
+ else if(s.includes("осад"))cls="is-ppt";
+ else if(s.includes("растворен"))cls="is-dissolve";
+ else if(s.includes("цвет")||s.includes("окраск")||s.includes("обесцвеч"))cls="is-color";
+ if(s.includes("жёлт")||s.includes("желт"))ppt="#e6c83c";
+ else if(s.includes("бур"))ppt="#8f4b32";
+ else if(s.includes("чёр")||s.includes("чер"))ppt="#252525";
+ else if(s.includes("голуб"))ppt="#55bfe8";
+ else if(s.includes("зел"))ppt="#86a889";
+ else if(s.includes("син"))ppt="#4f86d9";
+ if(s.includes("жёлт")||s.includes("желт"))liq="#e7d26a";
+ else if(s.includes("зел"))liq="#9cc5a6";
+ else if(s.includes("крас"))liq="#d98e80";
+ return {cls:cls,ppt:ppt,liq:liq};
+}
+function oge12TubeCard(letter,pair,sign,revealed){
+ const v=oge12Visual(sign),cls=revealed?v.cls:"";
+ const label=revealed?sign:"Проведи решение";
+ return '<div class="oge12-tube-card"><div class="oge12-tube-letter">'+letter+'</div>'+
+   '<div class="oge12-tube '+cls+'" style="--ppt:'+v.ppt+';--liq:'+v.liq+'"><div class="oge12-liquid"></div><div class="oge12-ppt"></div><div class="oge12-bubbles"></div></div>'+
+   '<div class="oge12-sign">'+label+'</div><div class="oge12-reactants">'+oge12Subscripts(pair)+'</div></div>';
+}
 function renderOge(){
  ogeLocked=false;
  document.getElementById("oge12Tab").classList.toggle("on",ogeMode===12);
  document.getElementById("oge17Tab").classList.toggle("on",ogeMode===17);
  if(ogeMode===12){
-   const q=OGE12[ogeIndex12%OGE12.length],box=document.getElementById("ogeBox");
-   box.innerHTML='<div class="oge-task"><div class="oge-kicker">ОГЭ · задание №12</div><div class="oge-title">Какой признак реакции наблюдается?</div><div class="oge-pair">'+q.pair+'</div><div id="ogeOptions" class="oge-options"></div><div id="ogeDemo" class="oge-demo"></div><div id="ogeFeedback" class="oge-feedback"></div><button id="ogeNext" class="oge-next" style="display:none">Следующее</button></div>';
-   q.options.forEach((label,i)=>{
-     const b=document.createElement("button");b.textContent=(i+1)+") "+label;b.onclick=()=>answerOge12(i);document.getElementById("ogeOptions").appendChild(b);
+   const bank=oge12Bank(),box=document.getElementById("ogeBox");
+   if(!bank.length){
+     box.innerHTML='<div class="result">Банк №12 не загрузился. Остальные разделы лаборатории продолжают работать.</div>';
+     return;
+   }
+   const q=bank[ogeIndex12%bank.length];
+   box.innerHTML='<div class="oge-task">'+
+    '<div class="oge12-top"><div class="oge-kicker">ОГЭ · задание №12</div><div class="oge12-counter">'+q.id+' / '+bank.length+'</div></div>'+
+    '<div class="oge-title">Сразу три реакции — как в настоящем задании</div>'+
+    '<div id="oge12Lab" class="oge12-lab"></div>'+
+    '<div id="oge12Rows" class="oge12-match"></div>'+
+    '<div class="oge12-options">'+q.options.map((x,i)=>'<div class="oge12-option"><b>'+(i+1)+'</b><span>'+x+'</span></div>').join("")+'</div>'+
+    '<div id="oge12Feedback"></div>'+
+    '<div class="oge12-actions"><button id="oge12Prev" type="button">← Предыдущее</button><button id="oge12Check" class="primary" type="button">Проверить</button></div>'+
+    '<button id="ogeNext" class="oge-next" style="display:none" type="button">Следующее →</button></div>';
+   document.getElementById("oge12Lab").innerHTML=["А","Б","В"].map((letter,i)=>oge12TubeCard(letter,q.reactants[i],"",false)).join("");
+   const rows=document.getElementById("oge12Rows");
+   ["А","Б","В"].forEach((letter,i)=>{
+     const row=document.createElement("div");row.className="oge12-row";
+     row.innerHTML='<div class="pair"><span class="letter">'+letter+')</span>'+oge12Subscripts(q.reactants[i])+'</div>'+
+       '<select aria-label="Ответ '+letter+'"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option></select>';
+     rows.appendChild(row);
    });
-   document.getElementById("ogeNext").onclick=()=>{ogeIndex12++;renderOge()};
- } else {
+   document.getElementById("oge12Check").onclick=answerOge12;
+   document.getElementById("oge12Prev").onclick=()=>{ogeIndex12=(ogeIndex12-1+bank.length)%bank.length;renderOge()};
+   document.getElementById("ogeNext").onclick=()=>{ogeIndex12=(ogeIndex12+1)%bank.length;renderOge()};
+ }else{
    const q=OGE17[ogeIndex17%OGE17.length],box=document.getElementById("ogeBox");
    box.innerHTML='<div class="oge-task"><div class="oge-kicker">ОГЭ · задание №17</div><div class="oge-title">Каким реактивом можно различить вещества?</div><div class="oge-pair">'+q.leftName+' и '+q.rightName+'</div><div id="ogeOptions" class="oge-options"></div><div id="ogeDemo" class="oge-demo"></div><div id="ogeFeedback" class="oge-feedback"></div><button id="ogeNext" class="oge-next" style="display:none">Следующее</button></div>';
-   q.options.forEach(([id,label],i)=>{
-     const b=document.createElement("button");b.textContent=(i+1)+") "+label;b.onclick=()=>answerOge17(id,b);document.getElementById("ogeOptions").appendChild(b);
-   });
+   q.options.forEach(([id,label],i)=>{const b=document.createElement("button");b.textContent=(i+1)+") "+label;b.onclick=()=>answerOge17(id,b);document.getElementById("ogeOptions").appendChild(b)});
    document.getElementById("ogeNext").onclick=()=>{ogeIndex17++;renderOge()};
  }
 }
 function markOgeButtons(correctIndex,chosenIndex){
  [...document.getElementById("ogeOptions").children].forEach((b,i)=>{
-   if(i===correctIndex)b.classList.add("correct");else if(i===chosenIndex)b.classList.add("wrong");
-   b.disabled=true;
+   if(i===correctIndex)b.classList.add("correct");else if(i===chosenIndex)b.classList.add("wrong");b.disabled=true;
  });
 }
-function answerOge12(choice){
- if(ogeLocked)return;ogeLocked=true;
- const q=OGE12[ogeIndex12%OGE12.length],ok=choice===q.correct,x=reactionExpected(q.a,q.b);
- markOgeButtons(q.correct,choice);
- document.getElementById("ogeDemo").innerHTML='<div class="oge-demo-one">'+tubeHTML([q.a,q.b],0,false,true)+'</div>';
- document.getElementById("ogeFeedback").innerHTML=(ok?'✅ <b>Верно.</b> ':'❌ <b>Смотри на опыт.</b> ')+reactionResultHTML(x,true);
+function answerOge12(){
+ if(ogeLocked)return;
+ const bank=oge12Bank(),q=bank[ogeIndex12%bank.length];
+ const rows=[...document.querySelectorAll("#oge12Rows .oge12-row")],chosen=rows.map(r=>r.querySelector("select").value);
+ if(chosen.some(x=>!x)){
+   document.getElementById("oge12Feedback").innerHTML='<div class="oge12-feedback">Сначала выбери цифру для А, Б и В.</div>';
+   return;
+ }
+ ogeLocked=true;
+ const correct=String(q.answer).split(""),ok=chosen.every((x,i)=>x===correct[i]);
+ rows.forEach((row,i)=>{
+   row.classList.add(chosen[i]===correct[i]?"good":"bad");
+   const sel=row.querySelector("select");sel.disabled=true;
+ });
+ const signs=correct.map((n,i)=>q.options[Number(n)-1]);
+ document.getElementById("oge12Lab").innerHTML=["А","Б","В"].map((letter,i)=>oge12TubeCard(letter,q.reactants[i],signs[i],true)).join("");
+ document.getElementById("oge12Feedback").innerHTML='<div class="oge12-feedback">'+
+   (ok?'✅ <b>Всё верно.</b>':'❌ <b>Есть ошибка.</b>')+
+   '<br>Твой ответ: <b>'+chosen.join("")+'</b> · правильный: <b>'+correct.join("")+'</b>'+
+   '<br>Теперь сверху одновременно видны признаки всех трёх реакций.</div>';
+ document.getElementById("oge12Check").style.display="none";
  document.getElementById("ogeNext").style.display="block";
  api({action:"event",type:"prediction",correct:ok}).then(j=>{data.stats=j.stats;renderStats()});
 }
@@ -1781,6 +1871,7 @@ def do_post(self):
                 "lab":["cuso4","fecl3","na2co3","nacl","na2so4"],
                 "tools":["naoh","hcl","agno3","bacl2"],
                 "task6":TASK6_BANK,
+                "oge12":_oge12_bank_payload(),
                 "task6_progress":ege_task6_progress.progress(bot.COREAPP_DB_PATH,uid) if uid else {
                     "total":len(TASK6_BANK),"answered":0,"correct_tasks":0,"checks":0,
                     "correct_checks":0,"accuracy":0,"first_try_correct":0,
