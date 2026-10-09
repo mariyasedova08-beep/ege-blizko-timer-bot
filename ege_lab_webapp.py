@@ -22,7 +22,7 @@ URL = os.getenv(
     "EGE_LAB_WEBAPP_URL",
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
-BUILD = "20261009-lab-mobile-v2"
+BUILD = "20261009-lab-mobile-four-tubes-v1"
 _INSTALLED = False
 _previous_get = None
 _previous_post = None
@@ -658,6 +658,118 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
   .tube-slot.active-slot .tube{height:205px!important}
   .rack-board{left:17%!important;right:17%!important;top:92px!important}
   .reagent-list{grid-template-columns:1fr 1fr!important}
+}
+
+/* Mobile comparison mode: show all four test tubes at once */
+@media(max-width:820px){
+  .mobile-tube-picker{display:none!important}
+
+  .lab-bench{
+    min-height:430px!important;
+    padding:11px 9px!important;
+  }
+
+  .rack-wrap{
+    left:3px!important;
+    right:3px!important;
+    bottom:54px!important;
+  }
+
+  .rack-board{
+    left:2%!important;
+    right:2%!important;
+    top:74px!important;
+    height:20px!important;
+  }
+  .rack-board:before,.rack-board:after{
+    top:16px!important;
+    width:11px!important;
+    height:74px!important;
+  }
+  .rack-board:before{left:2.5%!important}
+  .rack-board:after{right:2.5%!important}
+
+  .rack{
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:7px!important;
+    align-items:end!important;
+    padding:0 5px!important;
+  }
+
+  .tube-slot,
+  .tube-slot.active-slot{
+    display:block!important;
+    width:auto!important;
+    min-width:0!important;
+    margin:0!important;
+  }
+
+  .tube-slot .tube,
+  .tube-slot.active-slot .tube{
+    width:100%!important;
+    height:168px!important;
+    border-radius:0 0 20px 20px!important;
+  }
+
+  .tube-slot .tube:before{
+    height:9px!important;
+  }
+
+  .tube-slot .tubeLabel,
+  .tube-slot.active-slot .tubeLabel{
+    display:block!important;
+    margin-top:6px!important;
+    font-size:12px!important;
+    font-weight:600!important;
+    text-align:center!important;
+  }
+
+  .tube-slot .tubeSmall,
+  .tube-slot.active-slot .tubeSmall{
+    display:block!important;
+    min-height:24px!important;
+    margin-top:2px!important;
+    padding:0 1px!important;
+    font-size:8.5px!important;
+    line-height:1.15!important;
+    text-align:center!important;
+    overflow-wrap:anywhere!important;
+  }
+
+  .tube.on{
+    box-shadow:
+      inset 4px 0 7px rgba(255,255,255,.75),
+      inset -4px 0 6px rgba(109,122,140,.12),
+      0 0 0 2px rgba(198,110,84,.16),
+      0 5px 12px rgba(54,42,51,.10)!important;
+  }
+
+  .pptLayer,.bubbleLayer,.boilLayer{
+    left:2px!important;
+    right:2px!important;
+  }
+
+  .tube-callout{
+    width:min(330px,calc(100vw - 34px))!important;
+    bottom:calc(100% + 12px)!important;
+  }
+}
+
+@media(max-width:430px){
+  .lab-bench{min-height:410px!important}
+  .rack-wrap{left:0!important;right:0!important;bottom:48px!important}
+  .rack{gap:5px!important;padding:0 3px!important}
+  .tube-slot .tube,
+  .tube-slot.active-slot .tube{
+    height:154px!important;
+    border-radius:0 0 18px 18px!important;
+  }
+  .rack-board{top:68px!important}
+  .tube-slot .tubeSmall,
+  .tube-slot.active-slot .tubeSmall{
+    font-size:8px!important;
+  }
 }
 </style></head><body><div class="app">
 <div class="lab-topbar">
