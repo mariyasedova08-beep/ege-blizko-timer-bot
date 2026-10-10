@@ -1082,6 +1082,30 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
   }
 }
 
+
+/* Guided experiments extend the same live chemistry catalog, without new DB records. */
+.guided-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start}
+.guided-card{background:#fff;border:1px solid #ead6df;border-radius:18px;padding:15px;min-width:0}
+.guided-card h3{margin:0 0 8px;font-size:16px}
+.guided-card p{line-height:1.55;color:#655a60}
+.guided-steps{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.guided-steps span{padding:7px 10px;border-radius:999px;font-size:11px;border:1px solid #efccd9;background:#fff}
+.guided-steps span.on{color:#fff;background:var(--pink);border-color:var(--pink)}
+.guided-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}
+.guided-actions button{min-height:43px;padding:9px 14px}
+.guided-result{border:1px solid #ebd4dd;border-radius:14px;background:#fff9fc;padding:12px;overflow-wrap:anywhere}
+.guided-stage select{display:block;max-width:100%;width:100%;min-height:44px;margin-top:8px;border:1px solid #ead0d9;border-radius:11px;padding:9px;background:#fff}
+.guided-glass{max-width:110px;margin:16px auto}
+.guided-glass .tube{height:180px}
+.guided-ions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;margin:15px 0}
+.guided-ion{padding:10px 12px;border-radius:13px;background:#e6f5ff;color:#18577a;font-weight:750;font-size:14px}
+.guided-ion.product{background:#d9f2ef;color:#246655}
+.guided-equation{padding:12px;border-radius:12px;background:var(--soft);border:1px solid #ead0d9;line-height:1.7;font-size:14px;overflow-wrap:anywhere}
+body[data-lab-theme] .guided-steps span.on{background:var(--lab-accent);border-color:var(--lab-accent)}
+body[data-lab-theme] .guided-card{border-color:var(--lab-line)}
+body[data-lab-theme] .guided-equation{background:var(--lab-soft);border-color:var(--lab-line)}
+@media(max-width:680px){.guided-workspace{grid-template-columns:minmax(0,1fr)}}
+
 /* Unified laboratory: client-only optional bright themes. The original autumn theme remains available. */
 body[data-lab-theme]{--pink:var(--lab-accent);--soft:var(--lab-soft);--milk:var(--lab-bg);--ink:var(--lab-ink);--rose-deep:var(--lab-deep);--terracotta:var(--lab-accent);--line-autumn:var(--lab-line);--paper-autumn:#fff;--muted-autumn:var(--lab-muted);
 background:radial-gradient(circle at 97% 0%,var(--lab-soft2),transparent 33%),linear-gradient(180deg,var(--lab-bg),var(--lab-soft));color:var(--lab-ink)}
@@ -1140,6 +1164,7 @@ body[data-lab-theme] button:focus-visible,body[data-lab-theme] select:focus-visi
 </div>
 <div class="tabs">
 <button class="on" data-page="free">Свободный опыт</button>
+<button data-page="guided">Пошаговый практикум</button>
 <button data-page="work">Лаб. работа</button>
 <button data-page="oge">ОГЭ</button>
 <button data-page="ege">ЕГЭ</button>
@@ -1189,6 +1214,8 @@ body[data-lab-theme] button:focus-visible,body[data-lab-theme] select:focus-visi
   </aside>
 </div>
 </section>
+
+<section id="guided" class="page"><div class="card"><h2>🧭 Пошаговый практикум</h2><p class="mode-note">Прогноз → опыт → наблюдение → лупа и уравнения. Реакции берутся из нашей общей базы веществ.</p><div id="guidedContent">Загружаю реактивы…</div></div></section>
 
 <section id="work" class="page"><div class="card">
 <h2>Определи 5 неизвестных</h2>
@@ -1271,6 +1298,43 @@ document.getElementById("labThemeButton").onclick=chooseLabTheme;
 let initialLabTheme="autumn";
 try{initialLabTheme=localStorage.getItem("ege-lab-theme-v1")||"autumn"}catch(_e){}
 setLabTheme(initialLabTheme,false);
+
+
+const LAB_GUIDED_EXAMPLES=[
+ {a:"cuso4",b:"naoh",name:"Ионы меди(II) и гидроксид-ионы",ion:"Cu²⁺ + 2OH⁻ → Cu(OH)₂↓",particles:["Cu²⁺","2OH⁻","Cu(OH)₂↓"],question:"Какой признак реакции ожидаешь?"},
+ {a:"fecl3",b:"naoh",name:"Ионы железа(III) и гидроксид-ионы",ion:"Fe³⁺ + 3OH⁻ → Fe(OH)₃↓",particles:["Fe³⁺","3OH⁻","Fe(OH)₃↓"],question:"Что произойдёт с раствором?"},
+ {a:"agno3",b:"nacl",name:"Качественная реакция на хлорид-ионы",ion:"Ag⁺ + Cl⁻ → AgCl↓",particles:["Ag⁺","Cl⁻","AgCl↓"],question:"Какой результат ожидаешь?"},
+ {a:"na2co3",b:"hcl",name:"Карбонат и сильная кислота",ion:"CO₃²⁻ + 2H⁺ → CO₂↑ + H₂O",particles:["CO₃²⁻","2H⁺","CO₂↑ + H₂O"],question:"Какой признак будет наблюдаться?"}
+];
+let labGuideIndex=0,labGuideStep=0,labGuideGuess="";
+function guideExample(){return LAB_GUIDED_EXAMPLES[labGuideIndex]}
+function renderGuided(){
+ const root=document.getElementById("guidedContent");if(!root)return;
+ if(!data||!data.reagents){root.textContent="Загружаю реактивы…";return}
+ const ex=guideExample(), rx=reactionExpected(ex.a,ex.b);
+ if(!rx){root.innerHTML='<p class="guided-result">Этот опыт не найден в текущей химической базе. Показывать выдуманный результат нельзя.</p>';return}
+ const choiceOptions=[["p","Выпадение осадка"],["g","Выделение газа"],["c","Изменение окраски"],["n","Без видимого признака"]];
+ const correctType=rx.t==="x"?"p":rx.t;
+ let scene="";
+ if(labGuideStep===0){
+  scene='<h3>1. Подготовь реактивы</h3><p>Сегодня исследуем: <b>'+ex.name+'</b>.</p><p>Пробирка №1: '+reagent(ex.a)[0]+'; добавляем '+reagent(ex.b)[0]+'.</p><p class="mode-note">После подготовки попробуй самостоятельно предсказать наблюдение.</p>';
+ }else if(labGuideStep===1){
+  scene='<h3>2. Предскажи признак</h3><p>'+ex.question+'</p><select id="guidedPrediction" aria-label="Прогноз признака"><option value="">Выбери признак…</option>'+choiceOptions.map(([v,t])=>'<option value="'+v+'"'+(labGuideGuess===v?' selected':'')+'>'+t+'</option>').join('')+'</select><p class="mode-note">Прогноз не влияет на оценки и статистику курса: сейчас это тренировочный режим.</p>';
+ }else if(labGuideStep===2){
+  scene='<h3>3. Наблюдай опыт</h3><div class="guided-glass">'+tubeHTML([ex.a,ex.b],0,false,false)+'</div><div class="guided-result"><b>Признак:</b> '+rx.sign+'</div><div class="guided-result" style="margin-top:10px"><b>Твой прогноз:</b> '+(labGuideGuess?(labGuideGuess===correctType?'✅ Совпал с наблюдением':'Не совпал — сравни с наблюдением выше.'):'Не указан')+'</div>';
+ }else{
+  scene='<h3>4. Лупа: что происходит с частицами?</h3><div class="guided-ions"><span class="guided-ion">'+ex.particles[0]+'</span><b>+</b><span class="guided-ion">'+ex.particles[1]+'</span><b>→</b><span class="guided-ion product">'+ex.particles[2]+'</span></div><div class="guided-equation"><b>Молекулярное уравнение из лаборатории</b><div>'+rx.eq+'</div></div><div class="guided-equation" style="margin-top:9px"><b>Проверенное сокращённое ионное уравнение</b><div>'+ex.ion+'</div></div><p class="mode-note">Модель частиц схематична. Ионное объяснение доступно только для вручную проверенных опытов, а не для любой реакции автоматически.</p>';
+ }
+ root.innerHTML='<div class="guided-steps">'+["Реактивы","Прогноз","Опыт","Лупа"].map((t,i)=>'<span class="'+(i===labGuideStep?'on':'')+'">'+(i+1)+'. '+t+'</span>').join('')+'</div>'+
+ '<div class="guided-workspace"><div class="guided-card"><h3>Выбери эксперимент</h3><select id="guidedExample" aria-label="Выбор опыта" style="width:100%;min-height:44px;border:1px solid #ead0d9;padding:9px;border-radius:11px;background:#fff">'+LAB_GUIDED_EXAMPLES.map((g,i)=>'<option value="'+i+'"'+(labGuideIndex===i?' selected':'')+'>'+g.name+'</option>').join('')+'</select><div class="guided-result" style="margin-top:12px"><b>Реактивы</b><p>'+reagent(ex.a)[0]+' + '+reagent(ex.b)[0]+'</p><p class="mode-note">Условия опыта: без нагревания, водные растворы. По реальному каталогу лаборатории.</p></div></div><div class="guided-card guided-stage">'+scene+'<div class="guided-actions">'+(labGuideStep>0?'<button type="button" id="guidedPrev">← Назад</button>':'')+'<button class="primary" type="button" id="guidedNext">'+(labGuideStep===3?'Следующий опыт →':'Дальше →')+'</button></div></div></div>';
+ document.getElementById("guidedExample").onchange=e=>{labGuideIndex=Number(e.target.value);labGuideStep=0;labGuideGuess="";renderGuided()};
+ const prev=document.getElementById("guidedPrev");if(prev)prev.onclick=()=>{labGuideStep--;renderGuided()};
+ document.getElementById("guidedNext").onclick=()=>{
+  const pred=document.getElementById("guidedPrediction");if(pred){if(!pred.value){pred.focus();return}labGuideGuess=pred.value}
+  if(labGuideStep===3){labGuideIndex=(labGuideIndex+1)%LAB_GUIDED_EXAMPLES.length;labGuideStep=0;labGuideGuess=""}else{labGuideStep++}
+  renderGuided();
+ };
+}
 
 const labQs=new URLSearchParams(location.search),labLaunch=labQs.get("launch")||"";
 const labFrom=labQs.get("from")||"",labReturnLaunch=labQs.get("return_launch")||"";
@@ -2301,7 +2365,7 @@ function renderStats(){
 }
 document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{
  document.querySelectorAll("[data-page]").forEach(x=>x.classList.remove("on"));document.querySelectorAll(".page").forEach(x=>x.classList.remove("on"));
- b.classList.add("on");document.getElementById(b.dataset.page).classList.add("on");if(b.dataset.page==="exam"&&!exam)nextExam();if(b.dataset.page==="oge")renderOge();if(b.dataset.page==="ege")renderEge();
+ b.classList.add("on");document.getElementById(b.dataset.page).classList.add("on");if(b.dataset.page==="exam"&&!exam)nextExam();if(b.dataset.page==="guided")renderGuided();if(b.dataset.page==="oge")renderOge();if(b.dataset.page==="ege")renderEge();
 });
 api({action:"load"}).then(j=>{
  if(!j.ok){document.body.innerHTML="<p>Не удалось открыть лабораторию.</p>";return}
@@ -2310,7 +2374,7 @@ api({action:"load"}).then(j=>{
  if(task6Session){task6SelectedX=task6Session.selected_x||"";task6SelectedY=task6Session.selected_y||"";task6Target=task6SelectedX&&!task6SelectedY?"y":"x";}
  data.reactions.forEach(x=>{const k=key(x.a,x.b);if(!reactionMap.has(k))reactionMap.set(k,[]);reactionMap.get(k).push(x)});
  const cv=document.getElementById("labCoverage");if(cv&&data.coverage)cv.textContent="В текущем ЕГЭ-каталоге: "+data.coverage.substances+" веществ · "+data.coverage.reactions+" реакций/условий.";
- renderTubes();renderReagents();setupMobileTubePicker();setupReagentFilters();setupReagentSearch();setupLab();renderStats();
+ renderTubes();renderReagents();setupMobileTubePicker();setupReagentFilters();setupReagentSearch();setupLab();renderStats();renderGuided();
  const requestedPage=labQs.get("page")||"";
  if(requestedPage){
    const btn=document.querySelector('[data-page="'+requestedPage+'"]');
