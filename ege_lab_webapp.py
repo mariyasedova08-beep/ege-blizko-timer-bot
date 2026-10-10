@@ -1081,11 +1081,56 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
     left:var(--callout-arrow-left,50%)!important;
   }
 }
+
+/* Unified laboratory: client-only optional bright themes. The original autumn theme remains available. */
+body[data-lab-theme]{--pink:var(--lab-accent);--soft:var(--lab-soft);--milk:var(--lab-bg);--ink:var(--lab-ink);--rose-deep:var(--lab-deep);--terracotta:var(--lab-accent);--line-autumn:var(--lab-line);--paper-autumn:#fff;--muted-autumn:var(--lab-muted);
+background:radial-gradient(circle at 97% 0%,var(--lab-soft2),transparent 33%),linear-gradient(180deg,var(--lab-bg),var(--lab-soft));color:var(--lab-ink)}
+body[data-lab-theme] .lab-brand{color:var(--lab-deep)}
+body[data-lab-theme] .lab-brand:before{content:"✦";color:var(--lab-accent)}
+body[data-lab-theme] .lab-title-wrap h1{color:var(--lab-ink)}
+body[data-lab-theme] .lab-title-note{color:var(--lab-muted)}
+body[data-lab-theme] .logo{color:var(--lab-deep);border-color:var(--lab-line);background:var(--lab-soft)}
+body[data-lab-theme] .lab-nav a,body[data-lab-theme] .lab-nav button{border-color:var(--lab-line);color:var(--lab-deep);background:#fff}
+body[data-lab-theme] button{border-color:var(--lab-line);color:var(--lab-ink);background:#fff}
+body[data-lab-theme] button.on,body[data-lab-theme] button.primary,
+body[data-lab-theme] .tabs button.on,body[data-lab-theme] .reagent-filter.on,
+body[data-lab-theme] .oge23-mode button.on,body[data-lab-theme] .oge-switch button.on,
+body[data-lab-theme] .ege-switch button.on,body[data-lab-theme] .mobile-tube-picker button.on{
+background:var(--lab-accent);border-color:var(--lab-accent);color:#fff;box-shadow:0 6px 17px rgba(var(--lab-rgb),.16)}
+body[data-lab-theme] .lab-side,body[data-lab-theme] .lab-controls,body[data-lab-theme] .card{
+background:#fff;border-color:var(--lab-line);box-shadow:0 9px 25px rgba(var(--lab-rgb),.05)}
+body[data-lab-theme] .lab-bench{border-color:var(--lab-line);background:linear-gradient(180deg,#fff 0 68%,var(--lab-soft) 68% 73%,#d4bcab 73% 100%)}
+body[data-lab-theme] .reagent-filter,body[data-lab-theme] .reagent-item{border-color:var(--lab-line);background:#fff}
+body[data-lab-theme] .reagent-group-title,body[data-lab-theme] .selected-card,
+body[data-lab-theme] .lab-result{background:var(--lab-soft);border-color:var(--lab-line)}
+body[data-lab-theme] .reaction-card{border-color:var(--lab-accent);background:linear-gradient(145deg,#fff,var(--lab-soft))}
+body[data-lab-theme] .reaction-status{background:var(--lab-accent)}
+body[data-lab-theme] .reaction-card.no-visible .reaction-status{background:#827982}
+body[data-lab-theme] .reaction-equation{border-color:var(--lab-line)}
+body[data-lab-theme] .tube.on{border-color:var(--lab-accent);box-shadow:inset 5px 0 8px rgba(255,255,255,.8),0 0 0 3px rgba(var(--lab-rgb),.16)}
+body[data-lab-theme] .task6-text,body[data-lab-theme] .task6-select-card,
+body[data-lab-theme] .task6-demo-card,body[data-lab-theme] .oge-task,
+body[data-lab-theme] .ege-task{border-color:var(--lab-line);background:#fff}
+body[data-lab-theme] button:focus-visible,body[data-lab-theme] select:focus-visible{outline:2px solid var(--lab-accent);outline-offset:2px}
+.lab-theme-dialog{position:fixed;inset:0;z-index:2000;display:grid;place-items:center;background:rgba(30,24,29,.58);padding:14px}
+.lab-theme-panel{width:min(550px,100%);max-height:90dvh;overflow-y:auto;background:#fff;color:#30202a;padding:20px;border-radius:23px;box-shadow:0 24px 70px rgba(0,0,0,.24)}
+.lab-theme-head{display:flex;justify-content:space-between;align-items:center;gap:9px;margin-bottom:12px}
+.lab-theme-head h2{margin:0;font-size:20px}
+.lab-theme-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.lab-theme-choice{display:flex;flex-direction:column;align-items:stretch;gap:8px;background:#fff!important;color:#30202a!important;border:2px solid #eadbe1!important;border-radius:13px;padding:11px;text-align:left;min-height:93px}
+.lab-theme-choice[aria-pressed="true"]{border-color:#F00087!important;box-shadow:inset 0 0 0 1px #F00087}
+.lab-theme-choice strong{font-size:12px}
+.lab-theme-swatches{display:flex;height:19px;gap:3px}
+.lab-theme-swatches i{flex:1;border-radius:5px;background:var(--sw)}
+.lab-theme-note{font-size:11px;color:#84717b;margin:12px 0 0}
+.lab-theme-close{background:#fbe6f1!important;color:#812d54!important;border-color:#f1cddd!important}
+@media(max-width:370px){.lab-theme-choices{grid-template-columns:1fr}}
 </style></head><body><div class="app">
 <div class="lab-topbar">
   <div class="lab-brand">ЕГЭ БЛИЗКО</div>
   <div class="lab-nav">
     <button id="labBackHistory" type="button">← Назад</button>
+    <button id="labThemeButton" type="button" aria-haspopup="dialog">🎨 Тема</button>
     <a id="labBackCabinet" href="#">⌂ В кабинет</a>
   </div>
 </div>
@@ -1181,6 +1226,52 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
 </div>
 <script>
 const tg=Telegram.WebApp;tg.ready();tg.expand();
+
+/* Visual themes are independent of chemical data and exam scoring. */
+const LAB_THEME_PALETTES={
+ autumn:{label:"Тёплая осень · текущая",colors:["#FBF6F0","#F6E5DC","#C86F4A","#A7463F"]},
+ pulse:{label:"Розовый импульс",colors:["#FFF8FB","#FFE1EF","#F00087","#99085B"],bg:"#FFF8FB",soft:"#FFF0F7",soft2:"#FFE1EF",ink:"#30202A",muted:"#85737D",line:"#F0D8E5",accent:"#F00087",deep:"#99085B",rgb:"240,0,135"},
+ ash:{label:"Пепел розы",colors:["#FCF8FA","#E8C8D3","#C85A8D","#77334E"],bg:"#FCF8FA",soft:"#F6ECF0",soft2:"#E8C8D3",ink:"#302B2E",muted:"#827279",line:"#E4D2D9",accent:"#C85A8D",deep:"#77334E",rgb:"200,90,141"},
+ dusty:{label:"Пыльная роза",colors:["#FCF8F8","#F3CDD5","#DA5D80","#863E59"],bg:"#FCF8F8",soft:"#F8E9EB",soft2:"#F3CDD5",ink:"#37262D",muted:"#88737A",line:"#E9D6DC",accent:"#DA5D80",deep:"#863E59",rgb:"218,93,128"},
+ milk:{label:"Молоко и графит",colors:["#F9F9FB","#CCD7ED","#566CC8","#2E3F84"],bg:"#F9F9FB",soft:"#EFF2F9",soft2:"#CCD7ED",ink:"#22283B",muted:"#7D8090",line:"#DFE3EE",accent:"#566CC8",deep:"#2E3F84",rgb:"86,108,200"},
+ terra:{label:"Тёплая терракота",colors:["#FFFAF6","#FFD7BB","#EC7243","#954122"],bg:"#FFFAF6",soft:"#FEF0E7",soft2:"#FFD7BB",ink:"#352721",muted:"#8D7165",line:"#F0DDD1",accent:"#EC7243",deep:"#954122",rgb:"236,114,67"},
+ plum:{label:"Пыльная слива",colors:["#FCF8FC","#E4C8E6","#B54C9C","#69325E"],bg:"#FCF8FC",soft:"#F5E8F6",soft2:"#E4C8E6",ink:"#30202D",muted:"#87748A",line:"#E9D8EC",accent:"#B54C9C",deep:"#69325E",rgb:"181,76,156"}
+};
+function setLabTheme(id,persist=true){
+ const theme=LAB_THEME_PALETTES[id]||LAB_THEME_PALETTES.autumn;
+ if(id==="autumn"||!LAB_THEME_PALETTES[id]){
+   delete document.body.dataset.labTheme;
+   ["accent","bg","soft","soft2","ink","muted","line","deep","rgb"].forEach(k=>document.body.style.removeProperty("--lab-"+k));
+ }else{
+   document.body.dataset.labTheme=id;
+   for(const k of ["accent","bg","soft","soft2","ink","muted","line","deep","rgb"])document.body.style.setProperty("--lab-"+k,theme[k]);
+ }
+ if(persist){try{localStorage.setItem("ege-lab-theme-v1",id)}catch(_e){}}
+ const btn=document.getElementById("labThemeButton");
+ if(btn)btn.title="Оформление: "+theme.label;
+}
+function chooseLabTheme(){
+ const overlay=document.createElement("div");overlay.className="lab-theme-dialog";
+ overlay.innerHTML='<div class="lab-theme-panel" role="dialog" aria-modal="true" aria-labelledby="lab-theme-title">'+
+ '<div class="lab-theme-head"><h2 id="lab-theme-title">🎨 Выбор темы</h2><button type="button" class="lab-theme-close" id="labThemeClose">Закрыть</button></div>'+
+ '<div class="lab-theme-choices">'+Object.entries(LAB_THEME_PALETTES).map(([id,t])=>
+ '<button type="button" class="lab-theme-choice" data-theme-choice="'+id+'" aria-pressed="'+(id===(document.body.dataset.labTheme||"autumn"))+'">'+
+ '<strong>'+t.label+'</strong><span class="lab-theme-swatches">'+t.colors.map(c=>'<i style="--sw:'+c+'"></i>').join("")+'</span></button>').join("")+'</div>'+
+ '<p class="lab-theme-note">Меняется только оформление. Вещества, уравнения и результаты учеников остаются прежними. Выбор сохраняется в этом браузере.</p></div>';
+ const close=()=>{overlay.remove();document.removeEventListener("keydown",onKey);document.getElementById("labThemeButton").focus()};
+ const onKey=e=>{if(e.key==="Escape")close()};
+ overlay.addEventListener("click",e=>{if(e.target===overlay)close()});
+ document.body.appendChild(overlay);
+ document.getElementById("labThemeClose").onclick=close;
+ overlay.querySelectorAll("[data-theme-choice]").forEach(btn=>btn.onclick=()=>{setLabTheme(btn.dataset.themeChoice);close()});
+ document.addEventListener("keydown",onKey);
+ document.getElementById("labThemeClose").focus();
+}
+document.getElementById("labThemeButton").onclick=chooseLabTheme;
+let initialLabTheme="autumn";
+try{initialLabTheme=localStorage.getItem("ege-lab-theme-v1")||"autumn"}catch(_e){}
+setLabTheme(initialLabTheme,false);
+
 const labQs=new URLSearchParams(location.search),labLaunch=labQs.get("launch")||"";
 const labFrom=labQs.get("from")||"",labReturnLaunch=labQs.get("return_launch")||"";
 
