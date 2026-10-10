@@ -24,6 +24,12 @@ URL = os.getenv(
     f"https://{DOMAIN}/lab-app" if DOMAIN else "",
 ).strip()
 BUILD = "20261009-oge23-bottle-order-labels-v1"
+# Read-only, standalone preview; the production /lab-app and /lab-app/api stay unchanged.
+PREVIEW_ROUTE = "/lab-preview-20261010"
+PREVIEW_URL = (
+    f"{urlparse(URL).scheme}://{urlparse(URL).netloc}{PREVIEW_ROUTE}"
+    if URL and urlparse(URL).scheme == "https" and urlparse(URL).netloc else ""
+)
 
 def _oge12_bank_payload():
     try:
@@ -2229,6 +2235,24 @@ api({action:"load"}).then(j=>{
 </script></body></html>'''
 
 def do_get(self):
+    if urlparse(self.path).path == PREVIEW_ROUTE:
+        # Preview is independent of database, Telegram initData and live chemistry API.
+        preview_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ege_blizko_lab_unified_preview.html")
+        try:
+            with open(preview_file, "rb") as f:
+                body = f.read()
+        except OSError:
+            self.send_error(404, "Lab preview not installed")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "private, no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Robots-Tag", "noindex, nofollow")
+        self.end_headers()
+        self.wfile.write(body)
+        return
     if urlparse(self.path).path != "/lab-app":
         return _previous_get(self)
     body = HTML.encode("utf-8")
@@ -2394,6 +2418,18 @@ def install():
                 1 if rows else 0,
                 [InlineKeyboardButton("🧪 Лаборатория",web_app=WebAppInfo(url=webapp_url()))],
             )
+        # Preview button is added to the owner/admin cabinet only, never the students' hub.
+        if PREVIEW_URL and not any(
+            getattr(button, "web_app", None) and
+            getattr(getattr(button, "web_app", None), "url", "").startswith(PREVIEW_URL)
+            for row in rows for button in row
+        ):
+            rows.insert(1 if rows else 0, [
+                InlineKeyboardButton(
+                    "🧪 Лаборатория · ТЕСТ",
+                    web_app=WebAppInfo(url=f"{PREVIEW_URL}?v=20261010")
+                )
+            ])
         return InlineKeyboardMarkup(rows)
 
     live23.cabinet_markup=admin_markup
