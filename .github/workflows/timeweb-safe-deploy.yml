@@ -1,7 +1,6 @@
-name: Timeweb — safe EGE BLIZKO release
+name: Timeweb — EGE BLIZKO manual release
 
-# MANUAL ONLY while initial production migration is being validated.
-# A future push-trigger may be added after the owner explicitly approves it.
+# No push triggers. Require user to run it explicitly after approval.
 on:
   workflow_dispatch:
 
@@ -14,72 +13,53 @@ concurrency:
 
 jobs:
   deploy:
-    name: Review and deploy two EGE BLIZKO files
+    name: Deploy reviewed EGE BLIZKO changes
     runs-on: ubuntu-latest
     environment: timeweb-production
     timeout-minutes: 15
     steps:
-      - name: Require reviewed release branch
-        shell: bash
+      - name: Allow only the reviewed pilot branch
         run: |
-          if [[ "${GITHUB_REF_NAME}" != "feature/timeweb-safe-deploy-20261012" ]]; then
-            echo "Use only the reviewed pilot release branch, not another branch."
-            exit 1
-          fi
+          test "${GITHUB_REF_NAME}" = "feature/timeweb-safe-deploy-20261012" || {
+            echo "Ref must be the reviewed release branch"; exit 1;
+          }
       - uses: actions/checkout@v4
-      - name: Python syntax check
+      - name: Validate Python source
         run: python3 -m py_compile oge9_trainer_notifications.py run_bot_production.py
-      - name: Configure verified SSH host and private key
+      - name: Set up pinned SSH connection
         shell: bash
         env:
           DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
           KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
-          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS" || {
-            echo "Configure SSH deployment secrets first; no deployment attempted."
-            exit 1
-          }
+          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
           install -d -m 0700 ~/.ssh
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
           chmod 0600 ~/.ssh/id_ed25519
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 0600 ~/.ssh/known_hosts
-      - name: Upload release to a private staging directory
+      - name: Upload ONLY two allowed application files
         shell: bash
         env:
           SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
           SSH_USER: ${{ secrets.TIMEWEB_USER }}
         run: |
           set -euo pipefail
-          : "${SSH_HOST:?Set TIMEWEB_HOST}"
-          : "${SSH_USER:?Set TIMEWEB_USER}"
-          RDIR="/tmp/ege-blizko-release-${GITHUB_RUN_ID}"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" "umask 077; mkdir -p '$RDIR'"
+          test "$SSH_USER" = "ege-deploy" || { echo "Unexpected deployment user"; exit 1; }
+          test -n "$SSH_HOST"
+          DEST="/home/ege-deploy/ege-blizko-staging"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" \
+            "umask 077; mkdir -p '$DEST' && chmod 0700 '$DEST'"
           scp -o BatchMode=yes -o StrictHostKeyChecking=yes \
             oge9_trainer_notifications.py run_bot_production.py \
-            "${SSH_USER}@${SSH_HOST}:$RDIR/"
-          scp -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            deployment/timeweb_safe_deploy.sh \
-            "${SSH_USER}@${SSH_HOST}:$RDIR/deploy.sh"
-          echo "STAGING=$RDIR" >> "$GITHUB_ENV"
-      - name: Deploy with snapshot and rollback
+            "$SSH_USER@$SSH_HOST:$DEST/"
+      - name: Run fixed root-owned installer (no arbitrary root scripts)
         shell: bash
         env:
           SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
           SSH_USER: ${{ secrets.TIMEWEB_USER }}
         run: |
           set -euo pipefail
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
-            "bash '$STAGING/deploy.sh' '$STAGING'"
-      - name: Remove private staging files
-        if: always()
-        shell: bash
-        env:
-          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
-          SSH_USER: ${{ secrets.TIMEWEB_USER }}
-        run: |
-          if [[ -n "${STAGING:-}" && -n "${SSH_USER:-}" && -n "${SSH_HOST:-}" ]]; then
-            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
-              "rm -rf -- '$STAGING'" || true
-          fi
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" \
+            "sudo -n /usr/local/sbin/ege-blizko-deploy"
