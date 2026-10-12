@@ -2,6 +2,8 @@
 
 **Status as of 2026-10-12: configuration prepared, not activated.** Live EGE BLIZKO is already on Timeweb and OGE9 chat module is active there. Never modify PREPODMIN or the medical bot.
 
+**SECURITY HOLD (2026-10-12):** Service `ege-blizko` currently has blank `User=` and `Group=` in systemd, therefore runs as root. The live database is owned by root and was observed mode `0644`, while its parent directory is `0755` (other local users could read it). Do not grant deploy sudo or activate this workflow yet. The reviewed helper now refuses execution while the service runs as root. First audit all write paths, move only the EGE BLIZKO service to a dedicated unprivileged account with private data permissions, test health/UI/bot/lab and preserve rollback. The helper installed on Timeweb predates this security hold and must be replaced after review; no deploy sudo rule has been authorized.
+
 ## First-time server setup (as root, review commands)
 1. SSH to Timeweb. Do NOT `git pull`, `git reset`, or `git checkout` in the live checkout; `ege_lab_webapp.py` has unsaved local modifications.
 2. Fetch the deployment branch into a *remote tracking ref* and verify syntax:
