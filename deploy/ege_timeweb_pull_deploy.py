@@ -134,6 +134,9 @@ def deploy():
     proposed = []
     for row in changes.splitlines():
         status, sep, relative = row.partition("\t")
+        # GitHub workflow metadata runs on GitHub, not inside the bot.
+        if status in {"A", "M"} and relative.startswith(".github/workflows/") and relative.endswith((".yml", ".yaml")):
+            continue
         if not sep or status not in {"A", "M"}:
             raise RuntimeError("Unsupported release change: " + row)
         path = safe_path(relative)
