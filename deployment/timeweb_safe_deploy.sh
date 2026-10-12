@@ -18,6 +18,11 @@ ROOT_STAGE="$ARCHIVE/incoming"
 [[ -d "$STAGING" && ! -L "$STAGING" ]] || { echo "Staging directory invalid" >&2; exit 1; }
 [[ "$(stat -c %U "$STAGING")" == "ege-deploy" ]] || { echo "Staging owner mismatch" >&2; exit 1; }
 [[ "$(systemctl is-active "$SERVICE")" == "active" ]] || { echo "Bot not active" >&2; exit 1; }
+SERVICE_USER="$(systemctl show -p User --value "$SERVICE")"
+if [[ -z "$SERVICE_USER" || "$SERVICE_USER" == "root" ]]; then
+  echo "Unsafe: bot still runs as root; migrate to dedicated service account before enabling deploy." >&2
+  exit 1
+fi
 install -d -m 0700 "$ARCHIVE" "$ROOT_STAGE"
 for file in "${FILES[@]}"; do
   [[ -f "$STAGING/$file" && ! -L "$STAGING/$file" && -s "$STAGING/$file" ]] || {
