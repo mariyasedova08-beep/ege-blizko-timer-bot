@@ -87,7 +87,7 @@ def back(target="home"):
 
 
 async def edit(q,text,keyboard):
-    await q.edit_message_text(text,reply_markup=keyboard)
+    await q.edit_message_text(text,parse_mode="HTML",reply_markup=keyboard)
 
 
 async def home(q):
@@ -343,25 +343,26 @@ async def on_text(update,context):
 async def tick(context):
     try:
         await _OLD_TICK(context)
-    finally:
-        now=datetime.now(bot.TIMEZONE)
-        if now.minute>=10 or now.hour not in (17,19) or not destination():
-            return
-        today=now.date().isoformat()
-        with db() as conn:
-            rows=conn.execute(
-                "SELECT trainer_code FROM oge9_chat_campaigns "
-                "WHERE enabled=1 AND start_on<=? AND end_on>=? AND hour=?",
-                (today,today,now.hour)
-            ).fetchall()
-            conn.execute(
-                "UPDATE oge9_chat_campaigns SET enabled=0 WHERE enabled=1 AND end_on<?",
-                (today,)
-            )
-        for (code,) in rows:
-            entry=trainer_by_code(code)
-            if entry:
-                await post(context,entry,now)
+    except Exception as exc:
+        print("Previous trainer tick failed:",type(exc).__name__,flush=True)
+    now=datetime.now(bot.TIMEZONE)
+    if now.minute>=10 or now.hour not in (17,19) or not destination():
+        return
+    today=now.date().isoformat()
+    with db() as conn:
+        rows=conn.execute(
+            "SELECT trainer_code FROM oge9_chat_campaigns "
+            "WHERE enabled=1 AND start_on<=? AND end_on>=? AND hour=?",
+            (today,today,now.hour)
+        ).fetchall()
+        conn.execute(
+            "UPDATE oge9_chat_campaigns SET enabled=0 WHERE enabled=1 AND end_on<?",
+            (today,)
+        )
+    for (code,) in rows:
+        entry=trainer_by_code(code)
+        if entry:
+            await post(context,entry,now)
 
 
 def markup():
