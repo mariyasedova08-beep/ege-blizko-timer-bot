@@ -253,6 +253,9 @@ def main():
     # /sheets/payment-sync remains the outermost HTTP route.
     import payment_google_sheets_sync  # noqa: F401
 
+    import oge9_trainer_notifications
+    oge9_trainer_notifications.install()
+
     live90.live79.live24.main()
 
 

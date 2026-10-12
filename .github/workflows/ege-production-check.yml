@@ -1,0 +1,26 @@
+name: EGE BLIZKO production checks
+on:
+  pull_request:
+    branches: [release/ege-blizko-prod]
+  push:
+    branches: [release/ege-blizko-prod, feature/oge9-selective-trainer-reminders-20261012]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check launch code and all Python files
+        run: |
+          python3 -m compileall -q .
+      - name: Check required production entrypoint
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          entry = Path("run_bot_production.py").read_text()
+          assert 'live90.live79.live24.main()' in entry
+          PY
