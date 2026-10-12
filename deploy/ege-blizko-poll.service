@@ -1,0 +1,15 @@
+[Unit]
+Description=EGE BLIZKO production approved-release poll and safe deploy
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/bots/ege-blizko
+ExecStart=/usr/bin/python3 /usr/local/libexec/ege-timeweb-pull-deploy.py
+TimeoutStartSec=180
+UMask=0077
+Nice=10
+NoNewPrivileges=yes
