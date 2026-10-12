@@ -15,7 +15,7 @@ This directory contains migration-only tooling; it must **not** be merged or dep
 
 ## Preflight (before anything changes)
 
-1. Confirm that the authenticated Railway account actually has access to `teacher-admin-pilot`, its **production environment** and the mounted `/data` volume. The currently connected Railway app cannot list that project; connection needs repair/reselection first.
+1. Confirm that the authenticated Railway account actually has access to `teacher-admin-pilot`, its **production environment** and the mounted `/data` volume. Confirmed via Railway connector: PREPADMIN is a separate service inside the Railway project named `sedova-pill-tracker-bot`. This does NOT make it the medical bot; services and volumes are distinct.
 2. In Railway service's Volume → Backups, create a **manual backup** and record its time. A Railway backup is rollback insurance, not the portable snapshot.
 3. Confirm whether any other files are stored in `/data` besides the SQLite DB. Include necessary uploads/assets in the transfer.
 4. Record counts for teachers, students, groups, homework, homework statuses, tasks, payments, reminders and invitation records from the source using safe aggregate queries.
@@ -106,7 +106,10 @@ Do not allow writes to two independent copies of the SQLite database.
   `teacher_product_mvp.py`, `TEACHER_PRODUCT_DB_PATH`, teacher and student
   WebApp environment variables.
 - Dedicated migration branch and safe snapshot utility: prepared.
-- Railway access to `teacher-admin-pilot`: **BLOCKED** (connected account
-  currently lists only `sedova-pill-tracker-bot`).
+- Railway service access: **CONFIRMED**. Project `sedova-pill-tracker-bot` UUID `2cc2c543-bbc0-49ae-b5f1-1642e1ccee5a`, service `teacher-admin-pilot` UUID `119fc219-f4cd-4f8a-9d09-16d5586d6da3`, production volume `60b7d67c-ec68-4840-b48b-3fce015d50ee` (500 MB, mounted `/data`).
+- Latest reported PREPADMIN Railway deployment `81760d92-fe44-4e1d-9efe-46bc871691da` is **FAILED** (Railpack build daemon / grpc server issue); latest previous deployment is REMOVED. Treat service as potentially down; verify before any migration.
+- Railway variables are accessible by *names only* through OAuth; values are redacted.
+- Railway connector currently has **no volume file download/backup or SSH execution action**. A secure CLI or terminal transfer is needed for actual DB export.
+- There is one unrelated staged change for EGE BLIZKO in the shared Railway project. DO NOT `accept_deploy`: that would apply unrelated staged changes.
 - Snapshot from Railway: NOT TAKEN.
 - VPS staging, SSH deployment, Telegram switch: NOT STARTED.
