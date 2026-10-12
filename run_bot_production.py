@@ -253,8 +253,6 @@ def main():
     # /sheets/payment-sync remains the outermost HTTP route.
     import payment_google_sheets_sync  # noqa: F401
 
-    # Teacher-selected OGE (grade 9) trainer posts to one approved Telegram group.
-    # Install after other routers, before registering handlers in main().
     import oge9_trainer_notifications
     oge9_trainer_notifications.install()
 
