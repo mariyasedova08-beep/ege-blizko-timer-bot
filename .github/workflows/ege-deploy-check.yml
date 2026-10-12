@@ -1,0 +1,35 @@
+name: EGE BLIZKO deploy tooling checks
+on:
+  push:
+    branches:
+      - ops/ege-timeweb-autodeploy-20261012
+  pull_request:
+    branches:
+      - release/ege-blizko-prod
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read source
+        uses: actions/checkout@v4
+      - name: Compile deployment agent without executing it
+        run: python3 -m py_compile deploy/ege_timeweb_pull_deploy.py
+      - name: Validate bootstrap shell script
+        run: bash -n deploy/install_timeweb_deploy.sh
+      - name: Confirm release safety gates
+        run: |
+          grep -Fq 'git", "merge-base", "--is-ancestor"' deploy/ege_timeweb_pull_deploy.py
+          grep -Fq 'Local modifications protected' deploy/ege_timeweb_pull_deploy.py
+          grep -Fq 'snapshot_sqlite' deploy/ege_timeweb_pull_deploy.py
+          grep -Fq 'EGE deploy rollback' deploy/ege_timeweb_pull_deploy.py
+      - name: Compile EGE course entrypoints
+        run: |
+          python3 -m py_compile run_bot_production.py
+          if [[ -f oge9_trainer_notifications.py ]]; then
+            python3 -m py_compile oge9_trainer_notifications.py
+          fi
