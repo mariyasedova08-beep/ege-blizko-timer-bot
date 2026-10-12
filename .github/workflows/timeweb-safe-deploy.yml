@@ -1,0 +1,85 @@
+name: Timeweb — safe EGE BLIZKO release
+
+# MANUAL ONLY while initial production migration is being validated.
+# A future push-trigger may be added after the owner explicitly approves it.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: timeweb-ege-blizko-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Review and deploy two EGE BLIZKO files
+    runs-on: ubuntu-latest
+    environment: timeweb-production
+    timeout-minutes: 15
+    steps:
+      - name: Require reviewed release branch
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != "feature/timeweb-safe-deploy-20261012" ]]; then
+            echo "Use only the reviewed pilot release branch, not another branch."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - name: Python syntax check
+        run: python3 -m py_compile oge9_trainer_notifications.py run_bot_production.py
+      - name: Configure verified SSH host and private key
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS" || {
+            echo "Configure SSH deployment secrets first; no deployment attempted."
+            exit 1
+          }
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 0600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/known_hosts
+      - name: Upload release to a private staging directory
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -euo pipefail
+          : "${SSH_HOST:?Set TIMEWEB_HOST}"
+          : "${SSH_USER:?Set TIMEWEB_USER}"
+          RDIR="/tmp/ege-blizko-release-${GITHUB_RUN_ID}"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" "umask 077; mkdir -p '$RDIR'"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            oge9_trainer_notifications.py run_bot_production.py \
+            "${SSH_USER}@${SSH_HOST}:$RDIR/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            deployment/timeweb_safe_deploy.sh \
+            "${SSH_USER}@${SSH_HOST}:$RDIR/deploy.sh"
+          echo "STAGING=$RDIR" >> "$GITHUB_ENV"
+      - name: Deploy with snapshot and rollback
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
+            "bash '$STAGING/deploy.sh' '$STAGING'"
+      - name: Remove private staging files
+        if: always()
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          if [[ -n "${STAGING:-}" && -n "${SSH_USER:-}" && -n "${SSH_HOST:-}" ]]; then
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
+              "rm -rf -- '$STAGING'" || true
+          fi
