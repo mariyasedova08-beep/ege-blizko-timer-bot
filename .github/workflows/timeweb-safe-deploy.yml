@@ -1,0 +1,65 @@
+name: Timeweb — EGE BLIZKO manual release
+
+# No push triggers. Require user to run it explicitly after approval.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: timeweb-ege-blizko-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy reviewed EGE BLIZKO changes
+    runs-on: ubuntu-latest
+    environment: timeweb-production
+    timeout-minutes: 15
+    steps:
+      - name: Allow only the reviewed pilot branch
+        run: |
+          test "${GITHUB_REF_NAME}" = "feature/timeweb-safe-deploy-20261012" || {
+            echo "Ref must be the reviewed release branch"; exit 1;
+          }
+      - uses: actions/checkout@v4
+      - name: Validate Python source
+        run: python3 -m py_compile oge9_trainer_notifications.py run_bot_production.py
+      - name: Set up pinned SSH connection
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 0600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/known_hosts
+      - name: Upload ONLY two allowed application files
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -euo pipefail
+          test "$SSH_USER" = "ege-deploy" || { echo "Unexpected deployment user"; exit 1; }
+          test -n "$SSH_HOST"
+          DEST="/home/ege-deploy/ege-blizko-staging"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" \
+            "umask 077; mkdir -p '$DEST' && chmod 0700 '$DEST'"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            oge9_trainer_notifications.py run_bot_production.py \
+            "$SSH_USER@$SSH_HOST:$DEST/"
+      - name: Run fixed root-owned installer (no arbitrary root scripts)
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" \
+            "sudo -n /usr/local/sbin/ege-blizko-deploy"
