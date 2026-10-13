@@ -298,6 +298,326 @@ def install_ege11_chat_trainer_focus():
     print("EGE11 current-topic chat reminders ready; legacy trainer posts disabled", flush=True)
 
 
+
+def install_ege11_rewards_and_stats_sync():
+    """Use grade-11 assigned topics for future reward goals; keep past credits.
+
+    Source-of-truth is the teacher-selected ege11_trainer_focus table. All
+    completed sessions remain visible in learner stats, even for old topics.
+    Deployment changes only this approved production entrypoint (no schema
+    rewrite or editing the historical student/award tables).
+    """
+    import re
+    import sqlite3
+    from contextlib import closing
+    from datetime import datetime as dt, date as dtdate
+    import kulek_rewards as rewards
+    import ege_student_webapp as webapp
+    import run_bot_live23 as live23
+
+    bot = live90.bot
+    TRACKED = ("oxideprops", "hydroxides", "middlesalts", "specialsalts")
+    # The 50-question special salts trainer is already live; register its stats
+    # table in the same canonical map as all other trainers.
+    rewards.TRAINER_TABLES["specialsalts"] = "specialsalts_sessions"
+    _old_goals = rewards._trainer_goals
+    _old_student_rows = webapp._trainer_rows
+    _old_payload = webapp._payload
+    _old_callback = live23.cabinet_callback
+
+    def db():
+        return sqlite3.connect(bot.COREAPP_DB_PATH, timeout=20)
+
+    def next_month(key):
+        year, month = map(int, key.split("-"))
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+        return f"{year:04d}-{month:02d}-01T00:00:00"
+
+    def clear_cache():
+        rewards._CACHE.clear()
+        rewards._RANKING_CACHE["data"] = None
+
+    def init():
+        # First migration creates the time-based ledger once. No old outcomes
+        # or winners are deleted or re-calculated at initialization.
+        with closing(db()) as conn:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS ege11_reward_config (
+                    id INTEGER PRIMARY KEY CHECK(id=1),
+                    start_month TEXT NOT NULL,
+                    start_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ege11_reward_assignments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code TEXT NOT NULL,
+                    enabled_at TEXT NOT NULL,
+                    disabled_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS ege11_reward_assignment_idx
+                  ON ege11_reward_assignments(code,enabled_at,disabled_at);
+                CREATE TABLE IF NOT EXISTS ege11_reward_legacy_credits (
+                    month_key TEXT NOT NULL,
+                    student_id INTEGER NOT NULL,
+                    code TEXT NOT NULL,
+                    sessions INTEGER NOT NULL,
+                    PRIMARY KEY(month_key,student_id,code)
+                );
+            """)
+            config = conn.execute(
+                "SELECT start_month FROM ege11_reward_config WHERE id=1"
+            ).fetchone()
+            if config:
+                return str(config[0])
+        now = dt.now(bot.TIMEZONE)
+        key = now.strftime("%Y-%m")
+        # Preserve the rewards ALREADY earned this month under the previous
+        # rules, even if that trainer is no longer an assigned course focus.
+        students = rewards._student_rows()
+        previous = _old_goals(key, students)
+        credits = [
+            (key, int(student_id), item["code"], int(state["sessions"]))
+            for item in previous
+            for student_id, state in item["students"].items()
+            if state.get("earned")
+        ]
+        with closing(db()) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT start_month FROM ege11_reward_config WHERE id=1"
+            ).fetchone()
+            if row:
+                conn.commit()
+                return str(row[0])
+            conn.executemany(
+                "INSERT OR IGNORE INTO ege11_reward_legacy_credits"
+                "(month_key,student_id,code,sessions) VALUES(?,?,?,?)",
+                credits,
+            )
+            conn.execute(
+                "INSERT INTO ege11_reward_config(id,start_month,start_at)"
+                " VALUES(1,?,?)",
+                (key,now.isoformat()),
+            )
+            active = conn.execute(
+                "SELECT code FROM ege11_trainer_focus WHERE enabled=1"
+            ).fetchall()
+            for (code,) in active:
+                if code in TRACKED:
+                    conn.execute(
+                        "INSERT INTO ege11_reward_assignments(code,enabled_at)"
+                        " VALUES(?,?)",
+                        (code,now.isoformat()),
+                    )
+            conn.commit()
+        return key
+
+    start_month = init()
+
+    def assignment_changed(code, enabled):
+        if code not in TRACKED:
+            return
+        at = dt.now(bot.TIMEZONE).isoformat()
+        with closing(db()) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            open_row = conn.execute(
+                "SELECT id FROM ege11_reward_assignments"
+                " WHERE code=? AND disabled_at IS NULL"
+                " ORDER BY id DESC LIMIT 1",
+                (code,),
+            ).fetchone()
+            if enabled and not open_row:
+                conn.execute(
+                    "INSERT INTO ege11_reward_assignments(code,enabled_at)"
+                    " VALUES(?,?)",
+                    (code,at),
+                )
+            elif not enabled and open_row:
+                conn.execute(
+                    "UPDATE ege11_reward_assignments SET disabled_at=?"
+                    " WHERE id=?",
+                    (at,int(open_row[0])),
+                )
+            conn.commit()
+        clear_cache()
+
+    def trainer_goals(month_key, students):
+        key = str(month_key)
+        if key < start_month:
+            return _old_goals(month_key, students)
+
+        begins = key + "-01T00:00:00"
+        ends = next_month(key)
+        with closing(db()) as conn:
+            intervals = conn.execute(
+                "SELECT code,enabled_at,disabled_at"
+                " FROM ege11_reward_assignments"
+                " WHERE enabled_at<? AND (disabled_at IS NULL OR disabled_at>?)"
+                " ORDER BY enabled_at,id",
+                (ends,begins),
+            ).fetchall()
+            legacy_rows = conn.execute(
+                "SELECT student_id,code,sessions FROM ege11_reward_legacy_credits"
+                " WHERE month_key=?",
+                (key,),
+            ).fetchall()
+            available = {
+                code:(title,rewards.TRAINER_TABLES.get(code))
+                for code,title in conn.execute(
+                    "SELECT code,title FROM weekly_trainer_catalog WHERE active=1"
+                )
+                if code in TRACKED
+            }
+            existing_tables = {
+                name for (name,) in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )
+            }
+            credits = {
+                (int(sid),code): int(count)
+                for sid,code,count in legacy_rows
+            }
+            # A teacher can switch topics several times in one month. Count
+            # ONLY completed sessions within the intervals they were assigned.
+            intervals_by_code = {}
+            for code, enabled_at, disabled_at in intervals:
+                if code in available:
+                    intervals_by_code.setdefault(code, []).append(
+                        (max(str(enabled_at),begins),
+                         min(str(disabled_at),ends) if disabled_at else ends,
+                         disabled_at is None)
+                    )
+            codes = set(intervals_by_code) | {code for _sid,code in credits}
+            result = []
+            for code in sorted(codes):
+                info = available.get(code)
+                if info is None:
+                    # Previous credit remains available even for a trainer
+                    # hidden from today's catalog.
+                    info = (code,rewards.TRAINER_TABLES.get(code))
+                title, table = info
+                if not table or table not in existing_tables or not re.fullmatch(r"[A-Za-z0-9_]+", table):
+                    continue
+                spans = intervals_by_code.get(code,[])
+                # Closed topics no longer impose an unearned obligation this
+                # month. Any earned credit is still preserved.
+                is_current = any(open_now for _a,_b,open_now in spans)
+                end_month_assigned = any(stop >= ends for _start,stop,_open in spans)
+                per_student = {}
+                any_earned = False
+                for student in students:
+                    sid = int(student[0])
+                    old_count = credits.get((sid,code),0)
+                    assigned_sessions = 0
+                    if student[5] is not None:
+                        for first,last,_open in spans:
+                            if last <= first:
+                                continue
+                            assigned_sessions += int(conn.execute(
+                                f"SELECT COUNT(*) FROM {table}"
+                                " WHERE telegram_user_id=?"
+                                " AND finished_at IS NOT NULL"
+                                " AND finished_at>=? AND finished_at<?",
+                                (int(student[5]),first,last),
+                            ).fetchone()[0] or 0)
+                    earned = old_count >= 3 or assigned_sessions >= 3
+                    any_earned = any_earned or earned
+                    sessions = max(old_count,assigned_sessions) if old_count >= 3 else assigned_sessions
+                    per_student[sid] = {
+                        "sessions":sessions, "earned":earned,
+                        "remaining":0 if earned else max(0,3-assigned_sessions),
+                    }
+                if is_current or end_month_assigned or any_earned:
+                    result.append({
+                        "code":code, "title":title, "table":table,
+                        "students":per_student,
+                    })
+        return result
+
+    def all_trainer_rows(student):
+        # Statistics are comprehensive; focus selection only controls the
+        # *reward norm*, never visibility of genuine completed sessions.
+        uid = int(student[5])
+        now = dt.now(bot.TIMEZONE)
+        prefix = now.strftime("%Y-%m") + "%"
+        rows = []
+        with closing(db()) as conn:
+            catalog = conn.execute(
+                "SELECT code,title FROM weekly_trainer_catalog WHERE active=1"
+                " ORDER BY sort_order,title"
+            ).fetchall()
+            existing = {
+                name for (name,) in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )
+            }
+            for code,title in catalog:
+                table = rewards.TRAINER_TABLES.get(code)
+                if not table or table not in existing or not re.fullmatch(r"[A-Za-z0-9_]+",table):
+                    continue
+                n,total,correct = conn.execute(
+                    f"SELECT COUNT(*),COALESCE(SUM(total),0),COALESCE(SUM(correct),0)"
+                    f" FROM {table} WHERE telegram_user_id=?"
+                    " AND finished_at IS NOT NULL AND finished_at LIKE ?",
+                    (uid,prefix),
+                ).fetchone()
+                n,total,correct = int(n or 0),int(total or 0),int(correct or 0)
+                rows.append({
+                    "title":str(title),
+                    "sessions":n, "questions":total, "correct":correct,
+                    "accuracy":round(100*correct/total) if total else 0,
+                })
+        return rows
+
+    def unified_student_payload(telegram_user_id):
+        data = _old_payload(telegram_user_id)
+        if not data:
+            return data
+        rows = data.get("trainers") or []
+        monthly = data.get("month") or {}
+        monthly["trainer_sessions"] = sum(int(x["sessions"]) for x in rows)
+        monthly["trainer_total"] = sum(int(x["questions"]) for x in rows)
+        monthly["trainer_correct"] = sum(int(x["correct"]) for x in rows)
+        data["month"] = monthly
+        return data
+
+    async def cabinet_callback(update, context):
+        query = update.callback_query
+        value = str(query.data or "") if query else ""
+        # Call original callback first; apply a ledger transition only after
+        # its teacher-only authorization and successful focus change.
+        if value.startswith("cab:e11:toggle:") and live23._admin_private(update):
+            code = value.split(":")[-1]
+            if code in TRACKED:
+                with closing(db()) as conn:
+                    old_row = conn.execute(
+                        "SELECT enabled FROM ege11_trainer_focus WHERE code=?",
+                        (code,),
+                    ).fetchone()
+                before = bool(old_row[0]) if old_row else None
+                await _old_callback(update,context)
+                with closing(db()) as conn:
+                    new_row = conn.execute(
+                        "SELECT enabled FROM ege11_trainer_focus WHERE code=?",
+                        (code,),
+                    ).fetchone()
+                after = bool(new_row[0]) if new_row else None
+                if before is not None and after is not None and before != after:
+                    assignment_changed(code,after)
+                return
+        return await _old_callback(update,context)
+
+    rewards._trainer_goals = trainer_goals
+    webapp._trainer_rows = all_trainer_rows
+    webapp._payload = unified_student_payload
+    live23.cabinet_callback = cabinet_callback
+    clear_cache()
+    print(
+        "EGE11 Kulek rewards, trainer statistics and course leaderboard unified; "
+        "historical monthly credits preserved",
+        flush=True,
+    )
+
+
 def main():
     disable_teacher_survey()
 
@@ -532,6 +852,10 @@ def main():
 
     # Grade-11 chat topics rotate independently of OGE9 and personal campaigns.
     install_ege11_chat_trainer_focus()
+
+    # Link teacher's current-topic selection to forward reward goals; protect
+    # already earned Kulechki and show ALL completed trainer results to students.
+    install_ege11_rewards_and_stats_sync()
 
     live90.live79.live24.main()
 
