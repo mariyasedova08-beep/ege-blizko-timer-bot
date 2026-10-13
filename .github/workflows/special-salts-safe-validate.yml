@@ -37,5 +37,7 @@ jobs:
           assert "special_salts_trainer_bank.py" in helper
           print("50 questions validated; OGE9 kept; restart-safe sessions present")
           PY
+      - name: Test grade-11 Kulechki and training statistics rules
+        run: python3 -m unittest discover -s tests -p 'test_ege11_rewards_sync.py' -v
       - name: Check deploy helper bash syntax
         run: bash -n deployment/timeweb_safe_deploy.sh
