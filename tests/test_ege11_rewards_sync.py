@@ -168,7 +168,7 @@ class Grade11RewardSyncTest(unittest.TestCase):
         self.assertEqual(by_title["Тривиальные"]["sessions"],3)
         self.assertEqual(
             self.webapp._payload(50001)["month"]["trainer_sessions"],
-            len(rows)+4+3-2 if False else sum(x["sessions"] for x in rows),
+            sum(x["sessions"] for x in rows),
         )
         self.assertEqual(
             self.rewards.student_progress_snapshot(1,self.month)["trainer_sessions"],
@@ -196,6 +196,14 @@ class Grade11RewardSyncTest(unittest.TestCase):
         self.assertEqual(goals["middlesalts"]["students"][1]["sessions"],3)
         self.assertTrue(goals["middlesalts"]["students"][1]["earned"])
         self.toggle("middlesalts")
+        # Test records have future timestamps. Simulate the teacher switching
+        # off this topic after those three completed sessions, not before.
+        with sqlite3.connect(self.path) as c:
+            c.execute(
+                "UPDATE ege11_reward_assignments SET disabled_at=?"
+                " WHERE code='middlesalts' AND disabled_at IS NOT NULL",
+                ((datetime.fromisoformat(future)+timedelta(minutes=1)).isoformat(),),
+            )
         self.assertTrue(self.rows()["middlesalts"]["students"][1]["earned"])
         # An unearned deactivated topic must not remain an obligation.
         self.toggle("specialsalts")
