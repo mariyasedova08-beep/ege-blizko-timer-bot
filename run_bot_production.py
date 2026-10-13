@@ -30,6 +30,274 @@ def disable_teacher_survey():
     live90.live7.student_text_router = live90._previous_text_router
 
 
+
+def install_ege11_chat_trainer_focus():
+    """Grade-11-only rotating trainer prompts, managed from teacher cabinet.
+
+    Keeps the existing EGE Telegram group / topic, delivery hours and other
+    recurring jobs. Old *automatic* trivia/acid/oxide-classification posts stop.
+    """
+    import html
+    import os
+    import sqlite3
+    from contextlib import closing
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    import run_bot_live7 as live7
+    import run_bot_live18 as live18
+    import run_bot_live23 as live23
+    import run_bot_live60 as live60
+
+    bot = live90.bot
+    CODE_ORDER = ("oxideprops", "hydroxides", "middlesalts", "specialsalts")
+    DEFAULT_ACTIVE = {"oxideprops", "hydroxides"}
+    GROUP_SLOTS = {0: ("mon", "11:00"), 4: ("fri", "16:00"), 5: ("sat", "14:00")}
+
+    def db():
+        return sqlite3.connect(bot.COREAPP_DB_PATH, timeout=20)
+
+    def init():
+        with closing(db()) as conn:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS ege11_trainer_focus (
+                    code TEXT PRIMARY KEY,
+                    enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1))
+                );
+                CREATE TABLE IF NOT EXISTS ege11_trainer_settings (
+                    id INTEGER PRIMARY KEY CHECK(id=1),
+                    paused INTEGER NOT NULL DEFAULT 0 CHECK(paused IN (0,1))
+                );
+                CREATE TABLE IF NOT EXISTS ege11_trainer_deliveries (
+                    slot_key TEXT NOT NULL,
+                    chat_id INTEGER NOT NULL,
+                    trainer_code TEXT NOT NULL,
+                    sent_at TEXT NOT NULL,
+                    PRIMARY KEY(slot_key,chat_id)
+                );
+            """)
+            conn.execute("INSERT OR IGNORE INTO ege11_trainer_settings(id,paused) VALUES(1,0)")
+            for code in CODE_ORDER:
+                conn.execute(
+                    "INSERT OR IGNORE INTO ege11_trainer_focus(code,enabled) VALUES(?,?)",
+                    (code, 1 if code in DEFAULT_ACTIVE else 0),
+                )
+            conn.commit()
+
+    def focus_state():
+        with closing(db()) as conn:
+            return {
+                row[0]: bool(row[1])
+                for row in conn.execute("SELECT code,enabled FROM ege11_trainer_focus")
+            }
+
+    def is_paused():
+        with closing(db()) as conn:
+            value = conn.execute(
+                "SELECT paused FROM ege11_trainer_settings WHERE id=1"
+            ).fetchone()
+        return bool(value[0]) if value else True
+
+    def catalog():
+        with closing(db()) as conn:
+            rows = conn.execute(
+                "SELECT code,title,start_param FROM weekly_trainer_catalog "
+                "WHERE active=1 AND code IN (?,?,?,?)",
+                CODE_ORDER,
+            ).fetchall()
+        return {row[0]: (row[1], row[2]) for row in rows}
+
+    def target_chat():
+        value = os.getenv("CHAT_ID", "").strip()
+        if not value:
+            return None
+        try:
+            chat_id = int(value)
+        except ValueError:
+            return None
+        # The separate OGE group must never receive grade-11 reminders.
+        return chat_id if chat_id != -1004449482685 else None
+
+    async def post_to_11(context, slot_key, code):
+        chat_id = target_chat()
+        entry = catalog().get(code)
+        if chat_id is None or not entry:
+            return False
+        with closing(db()) as conn:
+            exists = conn.execute(
+                "SELECT 1 FROM ege11_trainer_deliveries "
+                "WHERE slot_key=? AND chat_id=?",
+                (slot_key, chat_id),
+            ).fetchone()
+        if exists:
+            return False
+        me = await context.bot.get_me()
+        if not me.username:
+            return False
+        title, start_param = entry
+        link = "https://t.me/" + me.username + "?start=" + start_param
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton("🧪 Открыть тренажёр", url=link)
+        ]])
+        await context.bot.send_message(
+            chat_id=chat_id,
+            message_thread_id=bot.get_target_thread_id(),
+            text=(
+                "💗 <b>ЕГЭ БЛИЗКО — актуальная практика</b>\n\n"
+                "Сегодня закрепляем: <b>" + html.escape(title) + "</b>.\n\n"
+                "Выберите 10–20 вопросов, а после загляните в «Мои ошибки».\n"
+                "Мы играем в долгую — немного практики регулярно 💗"
+            ),
+            parse_mode="HTML",
+            reply_markup=keyboard,
+        )
+        with closing(db()) as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO ege11_trainer_deliveries"
+                "(slot_key,chat_id,trainer_code,sent_at) VALUES(?,?,?,?)",
+                (slot_key, chat_id, code, datetime.now(bot.TIMEZONE).isoformat()),
+            )
+            conn.commit()
+        print("EGE11 trainer group notification delivered: code=" + code, flush=True)
+        return True
+
+    def next_code(chat_id):
+        focus = focus_state()
+        available = catalog()
+        codes = [code for code in CODE_ORDER if focus.get(code) and code in available]
+        if not codes:
+            return None
+        with closing(db()) as conn:
+            last = conn.execute(
+                "SELECT trainer_code FROM ege11_trainer_deliveries "
+                "WHERE chat_id=? ORDER BY sent_at DESC LIMIT 1",
+                (chat_id,),
+            ).fetchone()
+        previous = last[0] if last else None
+        return codes[(codes.index(previous) + 1) % len(codes)] if previous in codes else codes[0]
+
+    def make_markup():
+        source = old_markup()
+        return InlineKeyboardMarkup([
+            *source.inline_keyboard,
+            [InlineKeyboardButton(
+                "📣 Тренажёры ЕГЭ · 11 класс", callback_data="cab:e11:home"
+            )],
+        ])
+
+    def settings_markup():
+        focus = focus_state()
+        titles = catalog()
+        rows = []
+        for code in CODE_ORDER:
+            title = titles.get(code, (code, ""))[0]
+            status = "✅" if focus.get(code) else "▫️"
+            rows.append([InlineKeyboardButton(
+                status + " " + title,
+                callback_data="cab:e11:toggle:" + code,
+            )])
+        rows.extend([
+            [InlineKeyboardButton(
+                "▶️ Возобновить" if is_paused() else "⏸ Приостановить",
+                callback_data="cab:e11:pause",
+            )],
+            [InlineKeyboardButton("← Кабинет Маши", callback_data="cab:e11:back")],
+        ])
+        return InlineKeyboardMarkup(rows)
+
+    async def show_settings(query):
+        focus = focus_state()
+        names = catalog()
+        selected = [names[c][0] for c in CODE_ORDER if focus.get(c) and c in names]
+        chat = target_chat()
+        if is_paused():
+            status = "⏸ Публикации приостановлены"
+        elif chat is None:
+            status = "⚠️ Для ЕГЭ 11 не настроен CHAT_ID"
+        elif not selected:
+            status = "⏸ Нет выбранных тренажёров"
+        else:
+            status = "✅ Напоминания включены"
+        await query.edit_message_text(
+            "📣 <b>ЕГЭ · 11 класс — тренажёры в чат</b>\n\n"
+            + status
+            + "\n\n<b>Актуальны сейчас:</b>\n"
+            + ("\n".join("• " + html.escape(t) for t in selected) if selected else "Темы не выбраны")
+            + "\n\nПонедельник 11:00 · пятница 16:00 · суббота 14:00 (МСК).\n"
+            + "Одно напоминание за раз, темы чередуются.\n\n"
+            + "Нажми на тему, чтобы включить или отключить её. "
+            + "Тренажёры остаются доступными детям.\n"
+            + "Старые автоматические напоминания о кислотах, классификации "
+            + "оксидов и тривиальных названиях отключены.",
+            parse_mode="HTML",
+            reply_markup=settings_markup(),
+        )
+
+    async def cabinet_callback(update, context):
+        query = update.callback_query
+        if (not query or not live23._admin_private(update) or
+                not str(query.data or "").startswith("cab:e11:")):
+            return await old_callback(update, context)
+        command = str(query.data).split(":")
+        await query.answer()
+        if command[2] == "back":
+            await query.edit_message_text(
+                live23.cabinet_text(), parse_mode="HTML",
+                reply_markup=live23.cabinet_markup(),
+            )
+            return
+        if command[2] == "pause":
+            with closing(db()) as conn:
+                conn.execute(
+                    "UPDATE ege11_trainer_settings SET paused=1-paused WHERE id=1"
+                )
+                conn.commit()
+        elif command[2] == "toggle" and len(command) == 4:
+            code = command[3]
+            if code in CODE_ORDER:
+                with closing(db()) as conn:
+                    conn.execute(
+                        "UPDATE ege11_trainer_focus SET enabled=1-enabled WHERE code=?",
+                        (code,),
+                    )
+                    conn.commit()
+        await show_settings(query)
+
+    async def disabled_old_group_post(context):
+        return False
+
+    # Keep these trainers available, suppress only their obsolete group posts.
+    live7.send_trivial_announcement = disabled_old_group_post
+    live18.send_acid_saturday_reminder = disabled_old_group_post
+    live60.send_oxides_announcement = disabled_old_group_post
+
+    old_markup = live23.cabinet_markup
+    old_callback = live23.cabinet_callback
+    old_tick = live7.friday_trivial_tick
+
+    async def tick(context):
+        await old_tick(context)
+        try:
+            now = datetime.now(bot.TIMEZONE)
+            config = GROUP_SLOTS.get(now.weekday())
+            if config is None or now.strftime("%H:%M") != config[1]:
+                return
+            if is_paused():
+                return
+            chat_id = target_chat()
+            if chat_id is None:
+                return
+            code = next_code(chat_id)
+            if code:
+                await post_to_11(context, now.date().isoformat() + ":" + config[0], code)
+        except Exception as exc:
+            print("EGE11 trainer group tick failed: " + type(exc).__name__, flush=True)
+
+    init()
+    live23.cabinet_markup = make_markup
+    live23.cabinet_callback = cabinet_callback
+    live7.friday_trivial_tick = tick
+    print("EGE11 current-topic chat reminders ready; legacy trainer posts disabled", flush=True)
+
+
 def main():
     disable_teacher_survey()
 
@@ -261,6 +529,9 @@ def main():
 
     import oge9_trainer_notifications
     oge9_trainer_notifications.install()
+
+    # Grade-11 chat topics rotate independently of OGE9 and personal campaigns.
+    install_ege11_chat_trainer_focus()
 
     live90.live79.live24.main()
 
