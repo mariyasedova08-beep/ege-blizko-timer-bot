@@ -26,7 +26,7 @@ Railway: проект с заголовком `sedova-pill-tracker-bot` соде
 | service | `prepodmin.service` (не `ege-blizko`) |
 | localhost HTTP | `127.0.0.1:8091` |
 | HTTP path | `/health`, `/webapp`, `/student` |
-| public HTTPS | отдельный домен/поддомен по решению владельца; **ещё не выбран** |
+| public HTTPS | `https://prepodmin.77-233-212-200.sslip.io` (сертификат действителен до 11.01.2027) |
 
 Исходный код: `teacher_product_runner.py` уже выполняет `ensure_tables()` для всех разделов при запуске, а `teacher_product_pilot_selftest.py` тестирует данные на **временной** SQLite, не на живой базе. Если нет `TEACHER_PRODUCT_BOT_TOKEN`, в runner запускается локальный HTTP health-сервер, но polling Telegram **не начинается**. Для Timeweb в `teacher_product_webapp.py` добавлена настройка `TEACHER_PRODUCT_BIND_HOST=127.0.0.1`; по умолчанию на Railway сохранено `0.0.0.0`.
 
@@ -55,4 +55,19 @@ python3 deployment/prepodmin/bootstrap_empty_db.py \
 
 Только названия (значения не публиковать): `TEACHER_PRODUCT_BOT_TOKEN`, `TEACHER_PRODUCT_BOT_USERNAME`, `TEACHER_PRODUCT_DB_PATH`, `TEACHER_PRODUCT_BIND_HOST`, `TEACHER_PRODUCT_WEBAPP_URL`, `TEACHER_PRODUCT_STUDENT_WEBAPP_URL`, `PORT`, опционально `OPENAI_API_KEY`. Прошлые ссылки приглашений на старую БД и старые пользовательские настройки не переносим; преподаватели повторно проходят онбординг.
 
-**Реальный текущий статус:** ветка и шаблоны существуют в GitHub. Timeweb сервис `prepodmin` **ещё не установлен**, пустая БД на Timeweb **ещё не создана**, токен не перенесён, HTTPS адрес не выбран. Действующие боты не тронуты.
+## Подтверждённое состояние на 13.10.2026 (из проверок владельца)
+
+- Timeweb: `prepodmin.service` **enabled + active**, порт `127.0.0.1:8091`, HTTPS `https://prepodmin.77-233-212-200.sslip.io` работает; `/health`, `/webapp`, `/student` отвечают HTTP 200. Telegram `@prepodmin_bot` подключён и отвечает, преподавательский кабинет открылся после завершения онбординга. `ege-blizko.service` отдельно `active`. Другие сервисы не меняли.
+- С нуля создана база `/opt/bots/prepodmin/data/teacher_product.sqlite3`. В начальном снимке 48 таблиц, 1 преподаватель, 0 учеников, 0 групп.
+- Первая согласованная резервная копия `/var/backups/prepodmin/prepodmin-initial-20261013.sqlite3` (430080 байт, integrity_check=ok) создана. Владелец сообщил, что скачал её на личный компьютер; удалённая проверка файла на компьютере не выполнялась.
+- Не переносить старые записи Railway. Секреты хранить только в `/etc/prepodmin/prepodmin.env` (640 root:prepodmin), НЕ в GitHub.
+- **Автоматические резервные копии подготовлены в GitHub, но до выполнения install_daily_backup.sh ещё не включены.**
+
+## Автоматическое локальное резервное копирование — подключить отдельно
+
+- Файлы: `deployment/prepodmin/daily_backup.py`, `prepodmin-backup.service.example`, `prepodmin-backup.timer.example` и `install_daily_backup.sh`.
+- `systemd` расписание: ежедневно в 01:30 UTC (04:30 MSK); `Persistent=true` выполняет пропущенный запуск после включения сервера.
+- Путь: `/var/backups/prepodmin/daily/`, права доступа root-only. Для SQLite используется online backup API, после каждой копии `PRAGMA integrity_check`. Копии старше 30 дней удаляются только после успешного нового снимка; исходная БД, исходный initial snapshot и чужие файлы не удаляются.
+- Для установки: обновить **только копию GitHub в `/opt/bots/prepodmin/current`**, затем `bash /opt/bots/prepodmin/current/deployment/prepodmin/install_daily_backup.sh` от root. Инсталлятор проверяет оба живых сервиса, делает тестовый снимок, и только затем активирует таймер. Не перезапускает Telegram и не изменяет конфигурацию ЕГЭ.
+- Проверка: `systemctl is-active prepodmin-backup.timer`, `systemctl list-timers prepodmin-backup.timer --no-pager`, `journalctl -u prepodmin-backup.service -n 20 --no-pager`.
+- **ВАЖНО**: пока настроены только **локальные** ежедневные копии. Наличие ранней ручной копии на компьютере не означает, что новые данные автоматически туда попадают. Для защиты от потери всего Timeweb нужна регулярная отдельная внешняя копия; настроить её после выбора приватного внешнего хранилища, с шифрованием и отдельными credentials.
