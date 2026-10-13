@@ -176,8 +176,8 @@ def _dashboard(uid):
 
     return {
         "teacher": {
-            "name": row["name"] or "коллега",
-            "subject": row["subject"] or "",
+            "name": base.normalize_teacher_name(row["name"]) or "коллега",
+            "subject": base.normalize_teacher_subject(row["subject"]) or "",
         },
         "date": day.strftime("%d.%m.%Y"),
         "weekday": (
@@ -425,8 +425,31 @@ def _tasks_view(uid):
     }
 
 
+def _profile_view(uid):
+    row = base.teacher(uid)
+    if not row:
+        return None
+    return {
+        "title": "Мой профиль",
+        "name": base.normalize_teacher_name(row["name"]) or "",
+        "subject": base.normalize_teacher_subject(row["subject"]) or "",
+    }
+
+
 def _teacher_action(uid, payload):
     action_name = str(payload.get("action") or "")
+    if action_name == "profile_update":
+        if not base.teacher(uid):
+            return {"ok": False, "error": "profile_not_found"}
+        name = base.normalize_teacher_name(payload.get("name"))
+        subject = base.normalize_teacher_subject(payload.get("subject"))
+        if not name:
+            return {"ok": False, "error": "invalid_teacher_name"}
+        if not subject:
+            return {"ok": False, "error": "invalid_teacher_subject"}
+        # Scope by the authenticated Telegram user, never by a client-supplied id.
+        base.upsert_teacher(int(uid), name=name, subject=subject)
+        return {"ok": True, "name": name, "subject": subject}
     if action_name != "task_done":
         return {"ok": False, "error": "unknown_action"}
 
@@ -532,6 +555,7 @@ def _slots_view(uid):
 def _view(uid, name):
     builders = {
         "home": _dashboard,
+        "profile": _profile_view,
         "students": _students_view,
         "schedule": _schedule_view,
         "homework": _homework_view,
