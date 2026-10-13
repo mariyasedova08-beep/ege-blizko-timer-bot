@@ -14,6 +14,7 @@ WorkingDirectory=/opt/bots/prepodmin/current
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=PYTHONUNBUFFERED=1
 Environment=PORT=8091
+Environment=TEACHER_PRODUCT_BIND_HOST=127.0.0.1
 Environment=TEACHER_PRODUCT_DB_PATH=/opt/bots/prepodmin/data/teacher_product.sqlite3
 EnvironmentFile=-/etc/prepodmin/prepodmin.env
 ExecStartPre=/usr/bin/test -s /opt/bots/prepodmin/data/teacher_product.sqlite3
