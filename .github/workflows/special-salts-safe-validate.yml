@@ -1,0 +1,41 @@
+name: Validate EGE BLIZKO special salts safe release
+
+on:
+  push:
+    branches:
+      - feature/timeweb-safe-deploy-20261012
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-content:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax of four approved release files
+        run: python3 -m py_compile oge9_trainer_notifications.py run_bot_production.py special_salts_trainer.py special_salts_trainer_bank.py trainer_session_persistence.py
+      - name: Check 50 questions, hooks, persistent state
+        run: |
+          python3 - <<'PY'
+          from special_salts_trainer_bank import SPECIAL_SALTS_BANK, SPECIAL_SALTS_EXPLANATIONS
+          from pathlib import Path
+          assert len(SPECIAL_SALTS_BANK) == 50
+          assert len({row[0] for row in SPECIAL_SALTS_BANK}) == 50
+          assert len({row[1] for row in SPECIAL_SALTS_BANK}) == 50
+          assert len(SPECIAL_SALTS_EXPLANATIONS) == 50
+          for qid, question, correct, wrong in SPECIAL_SALTS_BANK:
+              assert len(wrong) == 3 and len({correct, *wrong}) == 4
+              assert SPECIAL_SALTS_EXPLANATIONS[qid]
+          entry=Path("run_bot_production.py").read_text(encoding="utf-8")
+          quiz=Path("special_salts_trainer.py").read_text(encoding="utf-8")
+          helper=Path("deployment/timeweb_safe_deploy.sh").read_text(encoding="utf-8")
+          assert entry.count("special_salts_trainer.install()") == 1
+          assert entry.count("oge9_trainer_notifications.install()") == 1
+          assert "trainer_sessions.restore_if_matches" in quiz
+          assert "special_salts_trainer_bank.py" in helper
+          print("50 questions validated; OGE9 kept; restart-safe sessions present")
+          PY
+      - name: Check deploy helper bash syntax
+        run: bash -n deployment/timeweb_safe_deploy.sh
