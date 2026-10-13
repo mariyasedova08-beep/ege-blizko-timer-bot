@@ -131,7 +131,11 @@ def _record_attempt(user_id, question_id, is_correct):
             ) VALUES(?,?,?,?,?)
             ON CONFLICT(telegram_user_id,question_id) DO UPDATE SET
                 error_count=error_count+excluded.error_count,
-                correct_count=correct_count+excluded.correct_count,
+                correct_count=CASE
+                    WHEN excluded.correct_count=1 AND correct_count < error_count
+                    THEN correct_count+1
+                    ELSE correct_count
+                END,
                 updated_at=excluded.updated_at
             """,
             (
@@ -182,7 +186,7 @@ def _start_session(context, user, mode):
     if not ids:
         return False
     context.user_data["special_salts_session"] = {
-        "token": secrets.token_hex(2),
+        "token": secrets.token_hex(8),
         "session_id": _create_session(user, mode, ids),
         "mode": mode,
         "ids": ids,
