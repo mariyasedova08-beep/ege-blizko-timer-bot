@@ -592,22 +592,22 @@ def install_ege11_rewards_and_stats_sync():
     def student_monthly_report(student_id, month_key=None):
         text = _old_student_monthly(student_id,month_key)
         sessions = monthly_sessions(student_id,month_key)
-        return re.sub(r"(🧪 Тренажёры: <b>)\\d+(</b>)",
+        return re.sub(r"(🧪 Тренажёры: <b>)\d+(</b>)",
                       lambda m:m.group(1)+str(sessions)+m.group(2),text)
 
     def parent_monthly_report(student_id, month_key=None):
         text = _old_parent_monthly(student_id,month_key)
         sessions = monthly_sessions(student_id,month_key)
-        text = re.sub(r"(🧪 Тренажёры: <b>)\\d+(</b>)",
+        text = re.sub(r"(🧪 Тренажёры: <b>)\d+(</b>)",
                       lambda m:m.group(1)+str(sessions)+m.group(2),text)
-        return re.sub(r"(тренажёры — )\\d+( завершённых тренировок)",
+        return re.sub(r"(тренажёры — )\d+( завершённых тренировок)",
                       lambda m:m.group(1)+str(sessions)+m.group(2),text)
 
     def course_monthly_report(month_key=None):
         text = _old_course_monthly(month_key)
         total = sum(monthly_sessions(int(s[0]),month_key)
                     for s in rewards._student_rows())
-        return re.sub(r"(🧪 Завершено тренировок: <b>)\\d+(</b>)",
+        return re.sub(r"(🧪 Завершено тренировок: <b>)\d+(</b>)",
                       lambda m:m.group(1)+str(total)+m.group(2),text)
 
     def unified_student_payload(telegram_user_id):
