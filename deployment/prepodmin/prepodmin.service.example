@@ -1,0 +1,32 @@
+# PREPODMIN only. Install as /etc/systemd/system/prepodmin.service
+# Do not enable until a verified database snapshot is installed.
+# Never run concurrently with the Railway polling process using the same token.
+[Unit]
+Description=PREPODMIN Telegram teacher assistant (isolated)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=prepodmin
+Group=prepodmin
+WorkingDirectory=/opt/bots/prepodmin/current
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+Environment=PORT=8091
+Environment=TEACHER_PRODUCT_DB_PATH=/opt/bots/prepodmin/data/teacher_product.sqlite3
+EnvironmentFile=-/etc/prepodmin/prepodmin.env
+ExecStartPre=/usr/bin/test -s /opt/bots/prepodmin/data/teacher_product.sqlite3
+ExecStart=/opt/bots/prepodmin/current/.venv/bin/python /opt/bots/prepodmin/current/teacher_product_runner.py
+Restart=on-failure
+RestartSec=8
+TimeoutStopSec=45
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/bots/prepodmin/data
+
+[Install]
+WantedBy=multi-user.target
