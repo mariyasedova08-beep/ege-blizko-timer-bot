@@ -225,6 +225,8 @@ def install_ege11_chat_trainer_focus():
             + "Одно напоминание за раз, темы чередуются.\n\n"
             + "Нажми на тему, чтобы включить или отключить её. "
             + "Тренажёры остаются доступными детям.\n"
+            + "🐶 Кулёчек за тему — после 3 завершённых тренировок с даты назначения.\n"
+            + "Ранее заработанные Кулёчки сохраняются.\n"
             + "Старые автоматические напоминания о кислотах, классификации "
             + "оксидов и тривиальных названиях отключены.",
             parse_mode="HTML",
@@ -324,6 +326,10 @@ def install_ege11_rewards_and_stats_sync():
     _old_student_rows = webapp._trainer_rows
     _old_payload = webapp._payload
     _old_callback = live23.cabinet_callback
+    _old_progress = rewards.student_progress_snapshot
+    _old_student_monthly = rewards.student_monthly_report_text
+    _old_parent_monthly = rewards.parent_monthly_report_text
+    _old_course_monthly = rewards.course_monthly_report_text
 
     def db():
         return sqlite3.connect(bot.COREAPP_DB_PATH, timeout=20)
@@ -533,12 +539,12 @@ def install_ege11_rewards_and_stats_sync():
                     })
         return result
 
-    def all_trainer_rows(student):
+    def all_trainer_rows(student, month_key=None):
         # Statistics are comprehensive; focus selection only controls the
         # *reward norm*, never visibility of genuine completed sessions.
         uid = int(student[5])
-        now = dt.now(bot.TIMEZONE)
-        prefix = now.strftime("%Y-%m") + "%"
+        key = rewards._month_key(month_key)
+        prefix = key + "%"
         rows = []
         with closing(db()) as conn:
             catalog = conn.execute(
@@ -567,6 +573,42 @@ def install_ege11_rewards_and_stats_sync():
                     "accuracy":round(100*correct/total) if total else 0,
                 })
         return rows
+
+    def monthly_sessions(student_id, month_key=None):
+        student = next(
+            (x for x in rewards._student_rows() if int(x[0]) == int(student_id)),
+            None,
+        )
+        if student is None or student[5] is None:
+            return 0
+        return sum(int(x["sessions"]) for x in all_trainer_rows(student,month_key))
+
+    def progress_snapshot(student_id, month_key=None):
+        data = _old_progress(student_id,month_key)
+        if data:
+            data["trainer_sessions"] = monthly_sessions(student_id,month_key)
+        return data
+
+    def student_monthly_report(student_id, month_key=None):
+        text = _old_student_monthly(student_id,month_key)
+        sessions = monthly_sessions(student_id,month_key)
+        return re.sub(r"(🧪 Тренажёры: <b>)\\d+(</b>)",
+                      lambda m:m.group(1)+str(sessions)+m.group(2),text)
+
+    def parent_monthly_report(student_id, month_key=None):
+        text = _old_parent_monthly(student_id,month_key)
+        sessions = monthly_sessions(student_id,month_key)
+        text = re.sub(r"(🧪 Тренажёры: <b>)\\d+(</b>)",
+                      lambda m:m.group(1)+str(sessions)+m.group(2),text)
+        return re.sub(r"(тренажёры — )\\d+( завершённых тренировок)",
+                      lambda m:m.group(1)+str(sessions)+m.group(2),text)
+
+    def course_monthly_report(month_key=None):
+        text = _old_course_monthly(month_key)
+        total = sum(monthly_sessions(int(s[0]),month_key)
+                    for s in rewards._student_rows())
+        return re.sub(r"(🧪 Завершено тренировок: <b>)\\d+(</b>)",
+                      lambda m:m.group(1)+str(total)+m.group(2),text)
 
     def unified_student_payload(telegram_user_id):
         data = _old_payload(telegram_user_id)
@@ -607,6 +649,10 @@ def install_ege11_rewards_and_stats_sync():
         return await _old_callback(update,context)
 
     rewards._trainer_goals = trainer_goals
+    rewards.student_progress_snapshot = progress_snapshot
+    rewards.student_monthly_report_text = student_monthly_report
+    rewards.parent_monthly_report_text = parent_monthly_report
+    rewards.course_monthly_report_text = course_monthly_report
     webapp._trainer_rows = all_trainer_rows
     webapp._payload = unified_student_payload
     live23.cabinet_callback = cabinet_callback
