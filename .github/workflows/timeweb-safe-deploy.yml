@@ -24,8 +24,26 @@ jobs:
             echo "Ref must be the reviewed release branch"; exit 1;
           }
       - uses: actions/checkout@v4
-      - name: Validate Python source
-        run: python3 -m py_compile oge9_trainer_notifications.py run_bot_production.py
+      - name: Validate Python source and 50 salt questions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile oge9_trainer_notifications.py run_bot_production.py special_salts_trainer.py special_salts_trainer_bank.py
+          python3 - <<'PY'
+          from special_salts_trainer_bank import SPECIAL_SALTS_BANK, SPECIAL_SALTS_EXPLANATIONS
+          from pathlib import Path
+          assert len(SPECIAL_SALTS_BANK) == 50
+          assert len({q[1] for q in SPECIAL_SALTS_BANK}) == 50
+          assert len(SPECIAL_SALTS_EXPLANATIONS) == 50
+          for qid, prompt, correct, wrong in SPECIAL_SALTS_BANK:
+              assert prompt and correct and len(wrong) == 3
+              assert len(set([correct, *wrong])) == 4
+              assert SPECIAL_SALTS_EXPLANATIONS[qid]
+          source = Path("run_bot_production.py").read_text(encoding="utf-8")
+          assert source.count("special_salts_trainer.install()") == 1
+          assert source.count("oge9_trainer_notifications.install()") == 1
+          print("50 salt questions validated; existing OGE9 hook retained")
+          PY
       - name: Set up pinned SSH connection
         shell: bash
         env:
@@ -39,7 +57,7 @@ jobs:
           chmod 0600 ~/.ssh/id_ed25519
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 0600 ~/.ssh/known_hosts
-      - name: Upload ONLY two allowed application files
+      - name: Upload ONLY four reviewed application files
         shell: bash
         env:
           SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
@@ -53,6 +71,7 @@ jobs:
             "umask 077; mkdir -p '$DEST' && chmod 0700 '$DEST'"
           scp -o BatchMode=yes -o StrictHostKeyChecking=yes \
             oge9_trainer_notifications.py run_bot_production.py \
+            special_salts_trainer.py special_salts_trainer_bank.py \
             "$SSH_USER@$SSH_HOST:$DEST/"
       - name: Run fixed root-owned installer (no arbitrary root scripts)
         shell: bash
