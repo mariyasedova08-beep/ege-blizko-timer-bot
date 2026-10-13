@@ -248,6 +248,7 @@ def main():
     # Install last so the channel gate wraps the final start/trainer/admin routes
     # without exposing paid-course cabinets or homework.
     import public_channel_trainers
+    public_channel_trainers.SPECIAL_STATS_TABLES["specialsalts"] = "specialsalts_sessions"
     public_channel_trainers.install()
 
     # Interactive chemistry laboratory inside EGE BLIZKO trainers.
