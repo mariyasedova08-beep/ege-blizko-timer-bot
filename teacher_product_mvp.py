@@ -261,15 +261,64 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return NAME
 
 
+# Navigation labels must never become a teacher's name or subject.
+# Teachers choose their own profile values; never infer a name from a button.
+_PROFILE_NAVIGATION = frozenset({
+    "мой кабинет", "кабинет", "препадмин", "преподмин", "преп | админ",
+    "ученики", "ученики и группы", "задачи", "расписание",
+    "домашние задания", "оплаты", "напоминания", "отчёты",
+    "настройки", "быстрая задача", "быстрая настройка", "материалы",
+    "разработчикам", "открыть препадмин", "мой профиль",
+})
+
+
+def normalize_teacher_name(value):
+    """Return a teacher-entered human name, or None for menu buttons/invalid input."""
+    name = " ".join(str(value or "").strip().split())
+    if not 2 <= len(name) <= 80:
+        return None
+    if name.casefold() in _PROFILE_NAVIGATION or name.startswith("/"):
+        return None
+    if not any(c.isalpha() for c in name):
+        return None
+    if not all(c.isalpha() or c in " -'’." for c in name):
+        return None
+    return name
+
+
+def normalize_teacher_subject(value):
+    subject = " ".join(str(value or "").strip().split())
+    if not 2 <= len(subject) <= 100 or subject.casefold() in _PROFILE_NAVIGATION:
+        return None
+    if subject.startswith("/") or not any(c.isalpha() for c in subject):
+        return None
+    # Exclude menu emoji/buttons; allow everyday subject labels (e.g. 'Химия, биология').
+    if not all(c.isalpha() or c.isdigit() or c in " -'’.,/+()" for c in subject):
+        return None
+    return subject
+
+
 async def onboarding_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    name = update.message.text.strip()
+    name = normalize_teacher_name(update.message.text)
+    if name is None:
+        await update.message.reply_text(
+            "Введи, пожалуйста, своё имя текстом (например, «Маша» "
+            "или «Мария Александровна»). Кнопки меню не подходят."
+        )
+        return NAME
     upsert_teacher(update.effective_user.id, name=name)
     await update.message.reply_text("Какой предмет ты преподаёшь?")
     return SUBJECT
 
 
 async def onboarding_subject(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    upsert_teacher(update.effective_user.id, subject=update.message.text.strip())
+    subject = normalize_teacher_subject(update.message.text)
+    if subject is None:
+        await update.message.reply_text(
+            "Напиши предмет текстом (например, «Химия»). Кнопки меню не подходят."
+        )
+        return SUBJECT
+    upsert_teacher(update.effective_user.id, subject=subject)
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("Индивидуально", callback_data="fmt:individual")],
         [InlineKeyboardButton("В группах", callback_data="fmt:groups")],
