@@ -58,6 +58,10 @@ def main():
     import middle_salts_trainer
     middle_salts_trainer.install()
 
+    # Additional 50-question salt chemistry trainer; preserves all existing handlers.
+    import special_salts_trainer
+    special_salts_trainer.install()
+
     # Personal launch campaigns at 16:00 Moscow.
     import oxide_properties_campaign  # noqa: F401
     import hydroxides_campaign  # noqa: F401
@@ -190,6 +194,7 @@ def main():
         f"Middle salts trainer ready: questions={len(middle_salts_trainer.MIDDLE_SALTS_BANK)}",
         flush=True,
     )
+    print(f"Special salts trainer ready: questions={len(special_salts_trainer.SPECIAL_SALTS_BANK)}", flush=True)
     print("CoreApp live sync receiver v2 ready", flush=True)
 
     import run_bot_live91  # noqa: F401
