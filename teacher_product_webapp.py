@@ -727,7 +727,10 @@ class WebAppHandler(BaseHTTPRequestHandler):
 
 
 def start_web_server():
-    ThreadingHTTPServer(("0.0.0.0", base.PORT), WebAppHandler).serve_forever()
+    # Railway needs 0.0.0.0; on Timeweb set TEACHER_PRODUCT_BIND_HOST=127.0.0.1
+    # and expose WebApps only through a separately configured HTTPS proxy.
+    bind_host = os.getenv("TEACHER_PRODUCT_BIND_HOST", "0.0.0.0").strip() or "0.0.0.0"
+    ThreadingHTTPServer((bind_host, base.PORT), WebAppHandler).serve_forever()
 
 
 def install_server():
