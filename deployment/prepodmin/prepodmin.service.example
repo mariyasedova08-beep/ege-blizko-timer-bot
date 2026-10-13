@@ -1,5 +1,5 @@
 # PREPODMIN only. Install as /etc/systemd/system/prepodmin.service
-# Do not enable until a verified database snapshot is installed.
+# Do not enable until a new database has been initialized using bootstrap_empty_db.py.
 # Never run concurrently with the Railway polling process using the same token.
 [Unit]
 Description=PREPODMIN Telegram teacher assistant (isolated)
@@ -18,7 +18,7 @@ Environment=TEACHER_PRODUCT_BIND_HOST=127.0.0.1
 Environment=TEACHER_PRODUCT_DB_PATH=/opt/bots/prepodmin/data/teacher_product.sqlite3
 EnvironmentFile=-/etc/prepodmin/prepodmin.env
 ExecStartPre=/usr/bin/test -s /opt/bots/prepodmin/data/teacher_product.sqlite3
-ExecStart=/opt/bots/prepodmin/current/.venv/bin/python /opt/bots/prepodmin/current/teacher_product_runner.py
+ExecStart=/opt/bots/prepodmin/current/.venv/bin/python /opt/bots/prepodmin/current/deployment/prepodmin/launch_timeweb.py
 Restart=on-failure
 RestartSec=8
 TimeoutStopSec=45
