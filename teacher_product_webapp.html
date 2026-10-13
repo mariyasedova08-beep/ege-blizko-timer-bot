@@ -36,6 +36,14 @@ h1{font-size:31px;line-height:1.03;margin:9px 0 7px;letter-spacing:-.035em}.sub{
 .progress{height:8px;background:var(--milk);border-radius:999px;overflow:hidden;margin-top:11px}.progress i{display:block;height:100%;background:var(--hot);border-radius:999px}
 .statusline{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.statuspill{font-size:10px;padding:6px 8px;border-radius:999px;background:var(--soft)}.statuspill.ok{background:#EAF7EF;color:var(--green)}.statuspill.bad{background:#FFF0F4;color:#A72A51}.statuspill.warn{background:#FFF0D8;color:var(--amber)}
 .money{font-size:23px;font-weight:950;white-space:nowrap}.empty{padding:22px;text-align:center;color:var(--muted);font-size:13px}.loading{padding:58px 20px;text-align:center;color:var(--muted)}.error{padding:14px;background:#FFF0F4;color:#8F2645;border-radius:17px}
+.profile-link{margin-top:8px;padding:0;border:0;background:transparent;color:var(--hot);font-weight:800;font-size:12px;cursor:pointer}
+.profile-form{background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:18px;margin-top:14px}
+.profile-form label{font-weight:800;font-size:13px;display:block;margin:0 0 7px}
+.profile-form input{display:block;width:100%;padding:13px 12px;border:1px solid #CFC4C9;border-radius:12px;background:white;color:var(--ink);font:inherit;font-size:15px;margin-bottom:18px}
+.profile-form input:focus{outline:2px solid var(--hot);outline-offset:2px}
+.profile-save{width:100%;background:var(--hot);color:white;border:0;border-radius:14px;padding:14px;font-weight:900;font-size:15px}
+.profile-tip{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:14px}
+.profile-error{color:#A72A51;font-size:12px;margin-bottom:10px}
 .brand-foot{text-align:center;color:#9A9296;font-size:10px;letter-spacing:.17em;margin-top:22px}
 .bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(248,245,242,.95);backdrop-filter:blur(15px);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:6}.nav{max-width:700px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:3px}.nav button{border:0;background:transparent;color:#8A8286;font:inherit;font-size:10px;padding:5px 2px}.nav .active{color:var(--hot);font-weight:900}.nav i{font-style:normal;display:block;font-size:19px;margin-bottom:3px}
 @media(max-width:430px){.actions{grid-template-columns:repeat(2,1fr)}.day-panels{grid-template-columns:1fr}.big{font-size:31px}}
@@ -72,7 +80,7 @@ function renderHome(d){
  (d.tasks||[]).forEach(function(t){taskRows+='<div class="row taskrow" onclick="completeTask('+t.id+',\'home\')"><div class="check">✓</div><div class="row-main"><div class="row-title '+(t.overdue?'alert':'')+'">'+esc(t.title)+'</div><div class="row-sub">'+(t.overdue?'Просрочено':'до '+shortDate(t.due_date))+(t.due_time?' · '+esc(t.due_time):'')+'</div></div><span class="badge '+(t.overdue?'bad':'')+'">'+(t.overdue?'!':'✓')+'</span></div>';});
  (d.debts||[]).forEach(function(x){debts+='<div class="row"><div class="check">'+(x.kind==='payment'?'💳':'🏠')+'</div><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.name)+' · '+esc(x.title)+'</div><div class="row-sub">'+esc(x.detail)+' · '+(x.overdue?'просрочено':'срок сегодня')+'</div></div><span class="badge '+(x.overdue?'bad':'warn')+'">'+(x.kind==='payment'?'Оплата':'ДЗ')+'</span></div>';});
  (d.attention||[]).forEach(function(a){attention+='<div class="row"><div class="row-main"><div class="row-title">'+esc(a.name)+'</div><div class="row-sub">'+esc(a.scope)+' · '+esc((a.reasons||[]).join(', '))+'</div></div><span class="badge bad">!</span></div>';});
- var out='<div class="top"><div><span class="brand-pill">ПРЕПАДМИН</span><h1>Мой кабинет 💗</h1><div class="sub">Привет, '+esc(d.teacher.name)+' · '+esc(d.teacher.subject||'преподавание')+'<br>Всё важное на одном экране</div></div><div class="logo">ПА</div></div>';
+ var out='<div class="top"><div><span class="brand-pill">ПРЕПАДМИН</span><h1>Мой кабинет 💗</h1><div class="sub">Привет, '+esc(d.teacher.name)+' · '+esc(d.teacher.subject||'преподавание')+'<br>Всё важное на одном экране</div><button class="profile-link" onclick="openView('profile')">✏️ Изменить имя и предмет</button></div><div class="logo">ПА</div></div>';
  out+='<div class="hero"><div class="hero-top"><div class="hero-title">Сегодня</div><div class="date">'+esc(d.weekday)+' · '+esc(d.date)+'</div></div><div class="hero-main"><div><div class="big">'+(c.tasks||0)+' задач</div><div class="small">'+(c.lessons||0)+' занятий сегодня</div></div><div class="small">'+(c.attention||0)+' требуют внимания</div></div><div class="hero-note">Кабинет показывает только то, что действительно требует твоего внимания сегодня.</div></div>';
  out+='<div class="grid">'+card('✅',c.tasks||0,'активных задач','на сегодня и дальше',true,'tasks')+card('📚',c.lessons||0,'занятий сегодня','расписание на день',false,'schedule')+card('💳',c.payments||0,'по оплатам','срок сегодня или просрочен',false,'payments')+card('🚨',c.attention||0,'в зоне внимания','нужна проверка',true,'attention')+'</div>';
  out+='<div class="day-panels"><div class="day-panel" onclick="openView(\'schedule\')"><div class="day-panel-head"><strong>Сегодня</strong><span>расписание →</span></div>'+(eventRows(todayEvents)||'<div class="empty">Сегодня занятий нет 🎉</div>')+'</div><div class="day-panel tomorrow" onclick="openView(\'schedule\')"><div class="day-panel-head"><strong>Дальше</strong><span>7 дней →</span></div>'+(eventRows(tomorrowEvents)||'<div class="empty">Ближайших занятий нет</div>')+'</div></div>';
@@ -93,6 +101,7 @@ function renderHome(d){
   ['🎯','Посещаемость','view','attendance'],
   ['📊','Отчёты','view','reports'],
   ['🕒','Свободные окна','view','slots'],
+  ['✏️','Мой профиль','view','profile'],
   ['⚙️','Настройки','bot','settings'],
   ['❓','Инструкция','bot','help']
  ].forEach(function(a){var click=a[2]==='view'?"openView('"+a[3]+"')":"openBotAction('"+a[3]+"')";out+='<button class="action" onclick="'+click+'"><span class="aicon">'+a[0]+'</span>'+a[1]+'</button>';});
@@ -156,8 +165,34 @@ function renderSlots(d){
  (d.blocks||[]).forEach(function(x){out+='<div class="info-card"><div class="info-top"><div><div class="info-title">'+esc(x.label)+'</div><div class="info-meta">'+esc(x.start)+'–'+esc(x.end)+'</div></div><span class="badge warn">закрыто</span></div></div>';});
  out+='</div>';document.getElementById('app').innerHTML=out;
 }
+function renderProfile(d){
+ var out=screenHeader('Мой профиль','Данные видны только в твоём кабинете');
+ out+='<div class="profile-form"><div class="profile-tip">Укажи имя, которым хочешь представляться в ПРЕПАДМИН. Оно не берётся из Telegram и не должно совпадать с кнопками меню.</div>';
+ out+='<label for="profile-name">Имя преподавателя</label><input id="profile-name" type="text" maxlength="80" autocomplete="name" value="'+esc(d.name||'')+'" placeholder="Например, Маша или Мария Александровна">';
+ out+='<label for="profile-subject">Предмет</label><input id="profile-subject" type="text" maxlength="100" value="'+esc(d.subject||'')+'" placeholder="Например, Химия">';
+ out+='<div class="profile-error" id="profile-error" role="alert"></div>';
+ out+='<button class="profile-save" id="profile-save" onclick="saveProfile()">Сохранить профиль</button></div>';
+ document.getElementById('app').innerHTML=out;
+}
+async function saveProfile(){
+ var name=(document.getElementById('profile-name').value||'').trim();
+ var subject=(document.getElementById('profile-subject').value||'').trim();
+ var err=document.getElementById('profile-error'),btn=document.getElementById('profile-save');
+ if(!name||!subject){err.textContent='Заполни имя и предмет.';return;}
+ btn.disabled=true;err.textContent='';
+ try{
+  await teacherAction({action:'profile_update',name:name,subject:subject});
+  await openView('home');
+ }catch(e){
+  err.textContent=e.message==='invalid_teacher_name'?'Введи своё имя текстом, а не название кнопки.':
+    e.message==='invalid_teacher_subject'?'Введи название предмета текстом.':
+    'Не удалось сохранить профиль. Попробуй ещё раз.';
+  await reportClientError('profile_update',e);
+  btn.disabled=false;
+ }
+}
 function renderFallback(view,d){document.getElementById('app').innerHTML=screenHeader((d&&d.title)||'Раздел','данные загружены')+'<div class="list"><div class="empty">Раздел пока открывается в Telegram-меню.</div></div>';}
-function renderView(view,d){if(view==='home')return renderHome(d);if(view==='students')return renderStudents(d);if(view==='schedule')return renderSchedule(d);if(view==='homework')return renderHomework(d);if(view==='payments')return renderPayments(d);if(view==='attention')return renderAttention(d);if(view==='tasks')return renderTasks(d);if(view==='attendance')return renderAttendance(d);if(view==='reports')return renderReports(d);if(view==='slots')return renderSlots(d);return renderFallback(view,d);}
+function renderView(view,d){if(view==='profile')return renderProfile(d);if(view==='home')return renderHome(d);if(view==='students')return renderStudents(d);if(view==='schedule')return renderSchedule(d);if(view==='homework')return renderHomework(d);if(view==='payments')return renderPayments(d);if(view==='attention')return renderAttention(d);if(view==='tasks')return renderTasks(d);if(view==='attendance')return renderAttendance(d);if(view==='reports')return renderReports(d);if(view==='slots')return renderSlots(d);return renderFallback(view,d);}
 async function openView(view){currentView=view;setNav(['home','tasks','students','schedule'].indexOf(view)>=0?view:'');document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(view);try{renderView(p.view,p.data);}catch(renderError){await reportClientError('render:'+view,renderError);renderFallback(view,p.data||{});}try{window.scrollTo(0,0);}catch(_){}}catch(e){await reportClientError('open:'+view,e);document.getElementById('app').innerHTML='<div class="error">Раздел не загрузился. Нажми «Кабинет» и попробуй ещё раз.</div>';}}
 async function boot(){if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="top"><div><span class="brand-pill">ПРЕПАДМИН</span><h1>Мой кабинет 💗</h1><div class="sub">Открой этот экран через кнопку «💗 Мой кабинет» внутри бота.</div></div><div class="logo">ПА</div></div>';return;}await openView('home');}
 boot();
