@@ -1,6 +1,6 @@
 [Unit]
 Description=PREPODMIN daily SQLite snapshot (independent of EGE BLIZKO)
-ConditionPathIsRegular=/opt/bots/prepodmin/data/teacher_product.sqlite3
+ConditionFileNotEmpty=/opt/bots/prepodmin/data/teacher_product.sqlite3
 
 [Service]
 Type=oneshot
