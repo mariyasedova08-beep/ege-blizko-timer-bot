@@ -1,81 +1,58 @@
-# ПРЕПОДМИН → Timeweb VPS: безопасный перенос (подготовка, НЕ релиз)
+# ПРЕПОДМИН — запуск с чистой базой на Timeweb
 
-Актуально: 13 октября 2026. Ветка: `feature/prepodmin-timeweb-migration-20261013`.
+**Решение владельца от 13.10.2026:** начать ПРЕПОДМИН с чистой БД, **не переносить** старые записи преподавателей/учеников/оплат/ДЗ/расписаний из Railway. Приложение и его функции сохранить. ЭТО ПОДГОТОВКА К ПЕРЕНОСУ; никакой запуск на Timeweb этим коммитом не производится.
 
-## Границы
+## Сохраняем и не трогаем
 
-Переносим **только** `@prepodmin_bot` (Railway `teacher-admin-pilot`) на Timeweb VPS `77.233.212.200`.
-**НЕ** останавливаем и не меняем `ege-blizko`, `ege-blizko-timer-bot` как работающий сервис, `sedova-pill-tracker-bot`, их базы или токены.
-GitHub сейчас общий для двух образовательных проектов; ветка миграции не является production-веткой ЕГЭ БЛИЗКО и сама по себе не запускает его Timeweb workflow.
+- **ПРЕПОДМИН**: существующий Telegram-бот `@prepodmin_bot`; код `teacher_product_*.py`, HTML WebApp из GitHub. Запуск `python teacher_product_runner.py`.
+- **ЕГЭ БЛИЗКО**: действующий Timeweb production `ege-blizko` и его `/opt/bots/ege-blizko`, БД, задачи, токен; **не менять**.
+- Личный бот `sedova-pill-tracker-bot`: **не менять**.
+- Старый `teacher-admin-pilot-volume` в Railway **не удалять**; возврат прежних данных после решения о чистом старте в этот план не входит.
 
-## Что обнаружено в коде
+### Исходное состояние
 
-- Запуск ПРЕПОДМИН: `python teacher_product_runner.py` (polling).
-- База: `TEACHER_PRODUCT_DB_PATH`, по умолчанию `/data/teacher_product.sqlite3`. На Railway живые данные могут находиться на volume с mount path `/data`.
-- Telegram: `TEACHER_PRODUCT_BOT_TOKEN`; имя: `TEACHER_PRODUCT_BOT_USERNAME`.
-- HTTP: `PORT`, по умолчанию 8080; `/health`; WebApp `/webapp`; ученический кабинет `/student`.
-- URL: `TEACHER_PRODUCT_WEBAPP_URL` и `TEACHER_PRODUCT_STUDENT_WEBAPP_URL`; нельзя оставлять старые Railway URL после переезда.
-- Новая переменная **только в подготовленной ветке**: `TEACHER_PRODUCT_BIND_HOST` (на Timeweb `127.0.0.1`; на Railway по умолчанию `0.0.0.0`).
-- Хранение: SQLite сохраняет преподавателей, учеников, групповые и личные расписания, абонементы, ДЗ, сообщения, приглашения и ответы. Удаление БД / перекомпоновка таблиц недопустимы.
-- Материалы в `teacher_product_materials.py` — ссылки в SQLite; однако **фактическое содержимое Railway volume ещё не проверено**. Его нужно обследовать целиком перед миграцией.
-- Бот не должен работать **на Railway и Timeweb одновременно с одинаковым токеном**: `getUpdates` конфликтует, а записи в двух независимых БД расходятся.
+Railway: проект с заголовком `sedova-pill-tracker-bot` содержит отдельный **сервис** `teacher-admin-pilot` и том `teacher-admin-pilot-volume` монтируемый в `/data`. Railway trial закончился, сервис offline. В разделе Backups отображается `No Backups`. CLI `volume files list /` отказал с `has no active deployment`. Это не свидетельствует об отсутствии данных, но получать их уже **не требуется по решению владельца**. Любое возобновление платной подписки может перезапустить старые сервисы; такого действия не выполнять.
 
-## Статус доступа
+Код ПРЕПОДМИН сейчас живёт в **общем** GitHub-репозитории `mariyasedova08-beep/ege-blizko-timer-bot`. Ветка подготовки `feature/prepodmin-timeweb-migration-20261013` содержит только изменения, относящиеся к ПРЕПОДМИН. **Не запускать workflow Timeweb для ЕГЭ** для установки ПРЕПОДМИН.
 
-Подключённый Railway показывает **один проект** с названием `sedova-pill-tracker-bot`, но внутри **этого же проекта** действительно существуют несколько отдельных сервисов, включая `teacher-admin-pilot` (service ID `119fc219-f4cd-4f8a-9d09-16d5586d6da3`). Сервис использует репозиторий `mariyasedova08-beep/ege-blizko-timer-bot`, ветку `main`, команду `python teacher_product_runner.py`. Его отдельный volume `teacher-admin-pilot-volume` (volume ID `60b7d67c-ec68-4840-b48b-3fce015d50ee`) подключён по пути `/data`, размер тома 500 MB. По состоянию на 13.10.2026 Railway trial истёк, сервис offline; последнее видимое развертывание отмечено FAILED. Подключение позволяет видеть **метаданные**, но не предоставляет чтение файлов тома. **Содержимое SQLite не проверено, backup не создан и перенос не выполнялся.** Есть одно staged-изменение для `ege-blizko-timer-bot`, его не применять при переносе ПРЕПОДМИН.
+## Изоляция Timeweb
 
-## Этап 1. Read-only сверка источника
+| Предмет | Значение |
+|---|---|
+| Сервер | Timeweb VPS `77.233.212.200` |
+| systemd user | `prepodmin`, не `root` |
+| code directory | `/opt/bots/prepodmin/current` (отдельная копия кода, закреплённая ветка) |
+| fresh SQLite | `/opt/bots/prepodmin/data/teacher_product.sqlite3` |
+| service | `prepodmin.service` (не `ege-blizko`) |
+| localhost HTTP | `127.0.0.1:8091` |
+| HTTP path | `/health`, `/webapp`, `/student` |
+| public HTTPS | отдельный домен/поддомен по решению владельца; **ещё не выбран** |
 
-1. В Railway открыть `teacher-admin-pilot`, зафиксировать deployment SHA, статус, source branch, public domain, volume name и mount path `/data`.
-2. Проверить наличие `/data/teacher_product.sqlite3`, размер и перечень других файлов volume. **Не печатать строки БД и секреты**.
-3. Сверить ожидаемые переменные **только по названиям**; значения не публиковать.
-4. Выполнить существующие smoke-checks на Railway и установить, что WebApps живы.
-5. Не делать автодеплой этого общего репозитория в Railway из-за изменений ЕГЭ.
+Исходный код: `teacher_product_runner.py` уже выполняет `ensure_tables()` для всех разделов при запуске, а `teacher_product_pilot_selftest.py` тестирует данные на **временной** SQLite, не на живой базе. Если нет `TEACHER_PRODUCT_BOT_TOKEN`, в runner запускается локальный HTTP health-сервер, но polling Telegram **не начинается**. Для Timeweb в `teacher_product_webapp.py` добавлена настройка `TEACHER_PRODUCT_BIND_HOST=127.0.0.1`; по умолчанию на Railway сохранено `0.0.0.0`.
 
-## Этап 2. Изолированная подготовка Timeweb (без Telegram токена)
+## Порядок безопасной установки — только с отдельного согласия на развёртывание
 
-Целевой пользователь Linux: `prepodmin`. Каталог: `/opt/bots/prepodmin`.
-Рабочий код: `/opt/bots/prepodmin/current`.
-Данные: `/opt/bots/prepodmin/data/teacher_product.sqlite3`.
-Сервис: `prepodmin.service`. Локальный порт: `127.0.0.1:8091`.
-Внешний HTTPS должен проксировать отдельный домен/маршрут на `127.0.0.1:8091`; HTTP-порт 8091 **не открывать публично**.
+**1. Read-only диагностика Timeweb.** Проверить `ege-blizko` active, свободен ли порт 8091, версии Python/Git, доступное место, наличие HTTPS reverse proxy и независимых резервных копий ЕГЭ. Не менять системные сервисы. Проверить актуальный SHA целевой ветки перед установкой.
 
-Пример системного сервиса: `deployment/prepodmin/prepodmin.service.example`. Исходники нужно размещать **в отдельной директории**, не запускать `git pull` или `git reset` в каталоге работающего ЕГЭ. Если клонируется общий репозиторий, запускается **только** `teacher_product_runner.py`; никакие EGE entrypoints не запускать.
+**2. Отдельное окружение.** Создать системного пользователя `prepodmin`, защищённые каталоги `/opt/bots/prepodmin/current`, `/opt/bots/prepodmin/data`, `/etc/prepodmin` и отдельный Python venv. Поместить в `current` **только отдельную копию репозитория** из ветки подготовки; никогда не делать `git pull/reset/clean` в каталоге ЕГЭ. Установить зависимости из `requirements.txt` в отдельную `.venv`.
 
-Установить зависимости из `requirements.txt` в отдельный `.venv` пользователя/сервиса. В `/etc/prepodmin/prepodmin.env` задать переменные без публикации в GitHub (root:prepodmin, mode 0640). На подготовительном этапе `TEACHER_PRODUCT_BOT_TOKEN` оставить ПУСТЫМ, чтобы проверять только локальный `/health` без второго Telegram polling-клиента.
-
-Прежде чем запускать сервис, загрузить **проверенную копию** БД в целевой путь. В образце unit есть `ExecStartPre`, который не позволит стартовать, если файл БД отсутствует.
-
-Проверить `python deployment/prepodmin/sqlite_snapshot.py --source <PATH_TO_COPY>`: `integrity_check=ok`; сверить агрегированные количества без имён и ID. Проверить локальный `curl http://127.0.0.1:8091/health` и HTTP-прокси по HTTPS (когда выделен домен).
-
-## Этап 3. Резервное копирование Railway volume
-
-Работающий SQLite (особенно WAL mode) **нельзя безопасно переносить одиночным `cp teacher_product.sqlite3` без WAL**.
-
-Есть два безопасных пути:
-- Снять согласованный online snapshot через SQLite `Connection.backup()` (утилита `sqlite_snapshot.py` может выполняться в контейнере после безопасной доставки этого файла, **не требуя релиза бота**), затем выгрузить файл snapshot.
-- Для окончательного переключения: **остановить Railway polling и все писатели**, затем скачать **весь volume** (SQLite, `-wal`, `-shm`, и прочие файлы); восстановить SQLite локально и создать проверенную отдельную резервную копию.
-
-В актуальном Railway CLI есть `railway volume browse /` и `railway volume files download`; входить в **правильный проект**. Пример после связывания проекта и остановки писателей:
-```powershell
-railway volume files --volume <VOLUME_NAME> download / ./prepodmin-volume-final
+**3. Пустая БД — вместо Railway data copy.** Запустить `deployment/prepodmin/bootstrap_empty_db.py` от пользователя `prepodmin` с параметром:
+```bash
+python3 deployment/prepodmin/bootstrap_empty_db.py \
+  --db /opt/bots/prepodmin/data/teacher_product.sqlite3
 ```
-См. https://docs.railway.com/cli/volume
+Утилита НЕ открывает Railway и отказывается перезаписать даже существующий пустой файл. Перед запуском убедиться, что целевой каталог существует и доступен пользователю `prepodmin`. БД имеет права 0600, `PRAGMA integrity_check=ok`; пользовательских записей нет.
 
-Не выкладывать скачанную БД в репозиторий или ChatGPT, не копировать скриншоты с личными данными.
+**4. Только health-проверка без Telegram.** В отдельном `/etc/prepodmin/prepodmin.env` оставить `TEACHER_PRODUCT_BOT_TOKEN` пустым, задать `TEACHER_PRODUCT_BOT_USERNAME=prepodmin_bot`. Настроить `deployment/prepodmin/prepodmin.service.example` как отдельный systemd unit (сначала `disabled`). Локальный bind `127.0.0.1:8091`, **не открывать порт 8091 во внешний интернет**. Запустить только `prepodmin` для проверки `curl -fsS http://127.0.0.1:8091/health` и логов. `ensure_tables()` в этот момент создаст пустую рабочую схему. При ошибке — останавливать ТОЛЬКО `prepodmin`.
 
-## Этап 4. Контролируемое переключение (только с отдельного согласия владельца)
+**5. HTTPS и WebApp.** Предоставить отдельное имя/поддомен и обратный HTTPS-прокси `https://<PREPODMIN_HOST>/webapp` и `/student` → `127.0.0.1:8091`. Указать `TEACHER_PRODUCT_WEBAPP_URL`, `TEACHER_PRODUCT_STUDENT_WEBAPP_URL`. Не использовать старый Railway URL. Настроить TLS сертификат и проверить WebApp без публичного токена бота.
 
-1. Подтвердить работоспособность Timeweb с **тестовой копией БД без токена**, а также HTTPS-маршрутов.
-2. Назначить короткое окно переключения; остановить **только** Railway `teacher-admin-pilot` (не удалять проект/volume).
-3. Сделать **финальную** согласованную резервную копию volume; проверить `integrity_check`, агрегированные количества и SHA-256; сохранить отдельную rollback-копию вне Timeweb.
-4. Установить финальный snapshot как `/opt/bots/prepodmin/data/teacher_product.sqlite3`, доступ только `prepodmin`; убедиться, что ни `-wal`, ни `-shm` от предыдущих тестов не остались рядом.
-5. Настроить реальные HTTPS WebApp URL, секреты (токен/ключи) локально, не раскрывая их в чат. После смены токена BotFather обновить переменную `TEACHER_PRODUCT_BOT_TOKEN`; это отдельное согласованное действие.
-6. Включить `prepodmin.service` **только после остановки Railway**, проверить локальный `/health`, логи, Telegram `/start`, преподавательский и ученический кабинеты, расписание, абонементы и отправку приглашения — сначала на разрешённом тестовом пользователе.
-7. Только после успешной приёмки оставлять Railway остановленным. Не удалять Railway volume до отдельного решения и восстановления независимых резервных копий.
+**6. Реальный переключатель Telegram — отдельное согласие владельца.** Убедиться, что Railway `teacher-admin-pilot` не работает и не будет автоматически включён. Локально настроить `TEACHER_PRODUCT_BOT_TOKEN` **без отправки токена в чат/репозиторий** (при необходимости перевыпуск через BotFather по согласованию). Запускать **только** `prepodmin.service`, проверить `/start` с тестовым аккаунтом, кабинеты преподавателя и ученика, группы, расписание, списание занятий, ДЗ, оплату, уведомления и health/logs. До реального запуска и тестовых сообщений запросить отдельное согласие.
 
-Откат: **сначала** остановить Timeweb polling; если на Timeweb уже появились новые записи, нельзя просто вернуть Railway со старой БД — сначала потребуется перенести более свежие данные обратно, затем запускать единственный polling-процесс.
+**7. Долговременный режим.** После первых настоящих записей включить резервное копирование новой БД через `deployment/prepodmin/sqlite_snapshot.py` и регулярно проверять `integrity_check`, SHA-256 и возможность восстановления. Не смешивать БД двух ботов.
 
-## Следующий безопасный шаг
+## Переменные и безопасность
 
-Получить доступ к **правильному** Railway-проекту и увидеть текущий volume и деплой. Пока не выполнено, перенос живых данных не начинать и новый Timeweb polling не включать.
+Только названия (значения не публиковать): `TEACHER_PRODUCT_BOT_TOKEN`, `TEACHER_PRODUCT_BOT_USERNAME`, `TEACHER_PRODUCT_DB_PATH`, `TEACHER_PRODUCT_BIND_HOST`, `TEACHER_PRODUCT_WEBAPP_URL`, `TEACHER_PRODUCT_STUDENT_WEBAPP_URL`, `PORT`, опционально `OPENAI_API_KEY`. Прошлые ссылки приглашений на старую БД и старые пользовательские настройки не переносим; преподаватели повторно проходят онбординг.
+
+**Реальный текущий статус:** ветка и шаблоны существуют в GitHub. Timeweb сервис `prepodmin` **ещё не установлен**, пустая БД на Timeweb **ещё не создана**, токен не перенесён, HTTPS адрес не выбран. Действующие боты не тронуты.
