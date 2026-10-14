@@ -1,0 +1,75 @@
+name: PREPODMIN — isolated tests
+
+# PREPODMIN only. No SSH, no production secrets and no deployment steps.
+on:
+  push:
+    branches:
+      - feature/prepodmin-timeweb-migration-20261013
+    paths:
+      - 'teacher_product_*.py'
+      - 'teacher_product_*.html'
+      - 'deployment/prepodmin/**'
+      - 'requirements.txt'
+      - '.github/workflows/prepodmin-ci.yml'
+  pull_request:
+    paths:
+      - 'teacher_product_*.py'
+      - 'teacher_product_*.html'
+      - 'deployment/prepodmin/**'
+      - 'requirements.txt'
+      - '.github/workflows/prepodmin-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepodmin-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: PREPODMIN regression tests (temporary data)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TEACHER_PRODUCT_BOT_TOKEN: ''
+      TEACHER_PRODUCT_BOT_USERNAME: prepodmin_bot
+      OPENAI_API_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install exactly the app requirements
+        run: python -m pip install -r requirements.txt
+      - name: Check PREPODMIN Python and shell syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import py_compile
+          for p in Path('.').glob('teacher_product_*.py'):
+              py_compile.compile(str(p), doraise=True)
+          for p in Path('deployment/prepodmin').glob('*.py'):
+              py_compile.compile(str(p), doraise=True)
+          print("PREPODMIN_SYNTAX_OK")
+          PY
+          for f in deployment/prepodmin/*.sh; do bash -n "$f"; done
+      - name: Run isolated regression suite
+        run: |
+          python -m unittest -q \
+            teacher_product_onboarding_test \
+            teacher_product_reset_test \
+            teacher_product_student_reminders_test \
+            teacher_product_transfer_button_test \
+            teacher_product_webapp_test
+      - name: Run feature smoke test on temporary SQLite
+        run: |
+          python - <<'PY'
+          import teacher_product_pilot_selftest
+          teacher_product_pilot_selftest.run()
+          print("PREPODMIN_SMOKE_OK")
+          PY
+      - name: Confirm no production bot was deployed
+        run: echo "PREPODMIN_CI_COMPLETE_NO_SERVER_CHANGES"
