@@ -1,0 +1,18 @@
+[Unit]
+Description=PREPODMIN dedicated daily SQLite backup (root-owned script)
+ConditionFileNotEmpty=/opt/bots/prepodmin/data/teacher_product.sqlite3
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/usr/local/lib/prepodmin-backup
+ExecStart=/usr/bin/python3 /usr/local/lib/prepodmin-backup/daily_backup.py
+UMask=0077
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/backups/prepodmin
+TimeoutStartSec=180
