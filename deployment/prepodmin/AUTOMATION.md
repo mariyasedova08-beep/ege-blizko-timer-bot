@@ -17,9 +17,19 @@
 
 **Никаких автоматических релизов от push пока нет.** Это намеренная защита до завершения пилота.
 
+### Дополнительная защита уже работающих резервных копий
+
+Существующая служба `prepodmin-backup.service` запускала root Python из каталога, доступного приложению `prepodmin`. Перед выдачей SSH-доступа автоматике нужно перевести её на root-owned копию скриптов:
+
+```powershell
+ssh root@77.233.212.200 "set -e; runuser -u prepodmin -- git -C /opt/bots/prepodmin/current pull --ff-only origin feature/prepodmin-timeweb-migration-20261013; bash /opt/bots/prepodmin/current/deployment/prepodmin/harden_daily_backup.sh"
+```
+
+Ожидаем `PREPODMIN_BACKUP_HARDENED_OK`. Процессы Telegram не перезапускаются, расписание таймера сохраняется, новая проверочная копия делается root-owned Python из `/usr/local/lib/prepodmin-backup`. Перед повторной установкой сверять сервис и делать ревью, скрипт рассчитан на однократный запуск.
+
 ## Единоразовая серверная настройка
 
-Только после успешного CI, через знакомый доверенный SSH вход root с Windows PowerShell:
+Только после успешного CI **и защиты backup unit предыдущим шагом**, через знакомый доверенный SSH вход root с Windows PowerShell:
 
 ```powershell
 ssh root@77.233.212.200 "set -e; runuser -u prepodmin -- git -C /opt/bots/prepodmin/current pull --ff-only origin feature/prepodmin-timeweb-migration-20261013; bash /opt/bots/prepodmin/current/deployment/prepodmin/install_deploy_access.sh"
@@ -70,4 +80,4 @@ Get-Content "$env:USERPROFILE\.ssh\prepodmin-gha.pub" | ssh root@77.233.212.200 
 - Root исполняет только файл `/usr/local/sbin/prepodmin-release`, заранее установленный и принадлежащий root; **не исполнять от root `/opt/bots/prepodmin/current/deployment/prepodmin/prepodmin_release_runner.sh` непосредственно при каждом выпуске**, т.к. это код в рабочем дереве владельца `prepodmin`.
 - Не добавлять ключи или .env в публичный репозиторий.
 - GitHub Actions CI не доказывает отсутствие всех ошибок: перед приглашением чужих преподавателей проверить реальную безопасность API, восстановление SQLite из off-site копии, уведомления, тест двух отдельных преподавателей.
-- Дополнительный риск: текущий `prepodmin-backup.service` запускает root процесс Python из изменяемого Git checkout. Для эксплуатации с чужими данными нужно перевести его на root-owned фиксированный экземпляр или непривилегированный резервный сервис; текущие локальные копии работают, но эта настройка требует hardening.
+- Backup root hardening: перед активацией доступа GitHub выполнить `harden_daily_backup.sh`; никогда не возвращать root unit на Python-скрипт из изменяемого checkout.
