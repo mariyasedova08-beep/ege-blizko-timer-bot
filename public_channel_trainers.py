@@ -832,6 +832,63 @@ def _announce_hydroxides_once():
         )
 
 
+MIDDLE_SALTS_ANNOUNCEMENT_KEY = "middle-salts-100-channel-2026-10-14-2100"
+MIDDLE_SALTS_ANNOUNCEMENT_DATE = "2026-10-14"
+MIDDLE_SALTS_ANNOUNCEMENT_TIME = "21:00"
+
+
+async def _announce_middle_salts_at_2100(context):
+    """One-time public channel reminder for the middle salts trainer."""
+    now = datetime.now(bot.TIMEZONE)
+    if now.date().isoformat() != MIDDLE_SALTS_ANNOUNCEMENT_DATE:
+        return
+    if now.strftime("%H:%M") < MIDDLE_SALTS_ANNOUNCEMENT_TIME:
+        return
+    if _announcement_sent(MIDDLE_SALTS_ANNOUNCEMENT_KEY):
+        return
+
+    try:
+        me = await context.bot.get_me()
+        username = str(getattr(me, "username", "") or "").strip()
+        if not username:
+            print("Middle salts channel reminder skipped: bot username missing", flush=True)
+            return
+
+        trainer_url = f"https://t.me/{username}?start=middlesalts"
+        text = (
+            "🧂 <b>СРЕДНИЕ СОЛИ — ВРЕМЯ ПОТРЕНИРОВАТЬСЯ</b>\n\n"
+            "В тренажёре <b>100 вопросов</b> по свойствам средних солей:\n"
+            "— реакции с металлами и галогенами;\n"
+            "— реакции с оксидами, кислотами, основаниями и солями;\n"
+            "— условия РИО;\n"
+            "— термическое разложение и гидролиз;\n"
+            "— способы получения средних солей.\n\n"
+            "Можно выбрать <b>10, 20, 40 вопросов или сразу все 100</b>. "
+            "Ошибки сохраняются отдельно — потом можно вернуться именно к ним 💗\n\n"
+            "<b>Начни хотя бы с 10 вопросов прямо сегодня 👇</b>"
+        )
+        markup = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("🧂 Пройти тренажёр", url=trainer_url)]]
+        )
+        message = await context.bot.send_message(
+            chat_id=CHANNEL_USERNAME,
+            text=text,
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+            reply_markup=markup,
+        )
+        _mark_announcement_sent(MIDDLE_SALTS_ANNOUNCEMENT_KEY)
+        print(
+            f"Middle salts channel reminder sent: message_id={message.message_id}",
+            flush=True,
+        )
+    except Exception as exc:
+        print(
+            f"Middle salts channel reminder error: {type(exc).__name__}",
+            flush=True,
+        )
+
+
 def install():
     global _INSTALLED
     global _previous_start_router, _previous_trivial_callback, _previous_cabinet_callback
@@ -851,4 +908,15 @@ def install():
 
     _startup_selfcheck()
     _announce_hydroxides_once()
+
+    # One-time channel reminder at 21:00 Moscow on 14.10.2026.
+    previous_periodic_tick = live7.friday_trivial_tick
+
+    async def periodic_tick_with_middle_salts_channel_reminder(context):
+        try:
+            await previous_periodic_tick(context)
+        finally:
+            await _announce_middle_salts_at_2100(context)
+
+    live7.friday_trivial_tick = periodic_tick_with_middle_salts_channel_reminder
     _INSTALLED = True
