@@ -33,7 +33,7 @@ class ThemeCatalogTest(unittest.TestCase):
                       "function saveTheme(", "function cancelTheme(",
                       "aria-pressed", "data-theme", "--on-button",
                       "--bottom", "data-theme-dark",
-                      "openView('settings')", "action:'theme_update'"):
+                      "Темы кабинета", "action:'theme_update'"):
             self.assertIn(token, html)
 
 
