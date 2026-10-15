@@ -1,0 +1,442 @@
+{
+  "version": 1,
+  "defaultThemeId": "pink-pulse",
+  "subjects": [
+    {
+      "id": "russian",
+      "name": "Русский язык",
+      "shortName": "Русский",
+      "legacyAliases": [
+        "русский",
+        "русский язык",
+        "русяз",
+        "russian"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "mathematics",
+      "name": "Математика",
+      "shortName": "Математика",
+      "legacyAliases": [
+        "математика",
+        "алгебра",
+        "геометрия",
+        "math"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "physics",
+      "name": "Физика",
+      "shortName": "Физика",
+      "legacyAliases": [
+        "физика",
+        "physics"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "chemistry",
+      "name": "Химия",
+      "shortName": "Химия",
+      "legacyAliases": [
+        "химия",
+        "хим",
+        "chemistry",
+        "chem"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "biology",
+      "name": "Биология",
+      "shortName": "Биология",
+      "legacyAliases": [
+        "биология",
+        "био",
+        "biology"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "geography",
+      "name": "География",
+      "shortName": "География",
+      "legacyAliases": [
+        "география",
+        "гео",
+        "geography"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "social-studies",
+      "name": "Обществознание",
+      "shortName": "Общество",
+      "legacyAliases": [
+        "обществознание",
+        "общество",
+        "social studies"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "history",
+      "name": "История",
+      "shortName": "История",
+      "legacyAliases": [
+        "история",
+        "history"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "literature",
+      "name": "Литература",
+      "shortName": "Литература",
+      "legacyAliases": [
+        "литература",
+        "literature"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "informatics",
+      "name": "Информатика",
+      "shortName": "Информатика",
+      "legacyAliases": [
+        "информатика",
+        "инфа",
+        "информ",
+        "computer science"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "english",
+      "name": "Английский язык",
+      "shortName": "Английский",
+      "legacyAliases": [
+        "английский",
+        "английский язык",
+        "english"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "german",
+      "name": "Немецкий язык",
+      "shortName": "Немецкий",
+      "legacyAliases": [
+        "немецкий",
+        "немецкий язык",
+        "german"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "french",
+      "name": "Французский язык",
+      "shortName": "Французский",
+      "legacyAliases": [
+        "французский",
+        "французский язык",
+        "french"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "spanish",
+      "name": "Испанский язык",
+      "shortName": "Испанский",
+      "legacyAliases": [
+        "испанский",
+        "испанский язык",
+        "spanish"
+      ],
+      "examLevels": [
+        "oge",
+        "ege"
+      ]
+    },
+    {
+      "id": "chinese",
+      "name": "Китайский язык",
+      "shortName": "Китайский",
+      "legacyAliases": [
+        "китайский",
+        "китайский язык",
+        "chinese"
+      ],
+      "examLevels": [
+        "ege"
+      ]
+    }
+  ],
+  "themes": [
+    {
+      "id": "pink-pulse",
+      "name": "Розовый импульс",
+      "isDark": false,
+      "colors": {
+        "background": "#F8F5F2",
+        "soft": "#F4D9E6",
+        "accent": "#F00087",
+        "button": "#DE007B",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "warm-autumn",
+      "name": "Тёплая осень",
+      "isDark": false,
+      "colors": {
+        "background": "#FAF4ED",
+        "soft": "#F9EAE0",
+        "accent": "#C86F4A",
+        "button": "#9F4C31",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "rose-ash",
+      "name": "Пепел розы",
+      "isDark": false,
+      "colors": {
+        "background": "#FCF8FA",
+        "soft": "#F6E0E9",
+        "accent": "#B05F82",
+        "button": "#703752",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "lavender",
+      "name": "Лаванда",
+      "isDark": false,
+      "colors": {
+        "background": "#F9F6FC",
+        "soft": "#F2EBFA",
+        "accent": "#8A61BD",
+        "button": "#6A439D",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "mint",
+      "name": "Мята",
+      "isDark": false,
+      "colors": {
+        "background": "#F5FAF7",
+        "soft": "#E9F8F2",
+        "accent": "#26967A",
+        "button": "#1C7661",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "sky",
+      "name": "Небесный",
+      "isDark": false,
+      "colors": {
+        "background": "#F2F7FC",
+        "soft": "#DCEBFA",
+        "accent": "#367CC8",
+        "button": "#265CA2",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "night",
+      "name": "Ночной",
+      "isDark": true,
+      "colors": {
+        "background": "#191A25",
+        "soft": "#303144",
+        "accent": "#F584BE",
+        "button": "#B80068",
+        "text": "#F8F5F2",
+        "surface": "#252636",
+        "muted": "#D1CAD6",
+        "border": "#484A60",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "blue",
+      "name": "Голубой",
+      "isDark": false,
+      "colors": {
+        "background": "#F6F8FC",
+        "soft": "#EAF3FF",
+        "accent": "#3479C7",
+        "button": "#265CA2",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "peach",
+      "name": "Персиковый",
+      "isDark": false,
+      "colors": {
+        "background": "#FCF7F3",
+        "soft": "#FFF0E8",
+        "accent": "#D47A55",
+        "button": "#AC5236",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "milk",
+      "name": "Молочный",
+      "isDark": false,
+      "colors": {
+        "background": "#FBF8F4",
+        "soft": "#F5EBE2",
+        "accent": "#9B785F",
+        "button": "#775742",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "dusty-rose",
+      "name": "Пыльная роза",
+      "isDark": false,
+      "colors": {
+        "background": "#FFFAF8",
+        "soft": "#FCE4EB",
+        "accent": "#CB668B",
+        "button": "#863F63",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "milk-graphite",
+      "name": "Молоко и графит",
+      "isDark": false,
+      "colors": {
+        "background": "#FCFAF8",
+        "soft": "#E4EAF5",
+        "accent": "#31456A",
+        "button": "#31456A",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "terracotta",
+      "name": "Тёплая терракота",
+      "isDark": false,
+      "colors": {
+        "background": "#FFF8F4",
+        "soft": "#FFE5D9",
+        "accent": "#E65E3A",
+        "button": "#923E2D",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    },
+    {
+      "id": "dusty-plum",
+      "name": "Пыльная слива",
+      "isDark": false,
+      "colors": {
+        "background": "#FCF8FC",
+        "soft": "#F4E1F1",
+        "accent": "#98488F",
+        "button": "#632956",
+        "text": "#171719",
+        "surface": "#FFFFFF",
+        "muted": "#625B60",
+        "border": "#E5DBE0",
+        "onButton": "#FFFFFF"
+      }
+    }
+  ]
+}
