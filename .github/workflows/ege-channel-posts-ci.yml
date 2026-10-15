@@ -1,0 +1,38 @@
+name: EGE BLIZKO — channel publisher isolated tests
+
+on:
+  push:
+    branches:
+      - feature/ege-channel-posts-20261015
+    paths:
+      - ege_channel_posts.py
+      - test_ege_channel_posts.py
+      - run_bot_production.py
+      - .github/workflows/ege-channel-posts-ci.yml
+  pull_request:
+    paths:
+      - ege_channel_posts.py
+      - test_ege_channel_posts.py
+      - run_bot_production.py
+      - .github/workflows/ege-channel-posts-ci.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Syntax verification
+        run: python -m py_compile ege_channel_posts.py test_ege_channel_posts.py run_bot_production.py
+      - name: Isolated admin-publisher tests (fake Telegram, temporary DB)
+        run: python -m unittest -v test_ege_channel_posts
+      - name: Explicit non-deployment confirmation
+        run: echo 'CHANNEL_PUBLISHER_TESTS_COMPLETE_NO_PRODUCTION_CHANGES'
