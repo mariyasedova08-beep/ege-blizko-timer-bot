@@ -1,0 +1,60 @@
+name: PREPODMIN — SSH access test (no deploy)
+
+# Separately verify environment secrets, SSH identity and forced-command gate
+# before allowing production release. No file or service changes on Timeweb.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepodmin-ssh-test
+  cancel-in-progress: false
+
+jobs:
+  ssh-test:
+    name: Check restricted PREPODMIN connection without deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: prepodmin-production
+    steps:
+      - name: Check SSH is restricted and EGE remains out of scope
+        shell: bash
+        env:
+          PREPODMIN_SSH_HOST: ${{ secrets.PREPODMIN_SSH_HOST }}
+          PREPODMIN_SSH_KEY: ${{ secrets.PREPODMIN_SSH_KEY }}
+          PREPODMIN_SSH_KNOWN_HOSTS: ${{ secrets.PREPODMIN_SSH_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/main" ]] || { echo "STOP: must run from main"; exit 1; }
+          [[ "$PREPODMIN_SSH_HOST" == "77.233.212.200" ]] || { echo "STOP: incorrect Timeweb host secret"; exit 1; }
+          [[ -n "$PREPODMIN_SSH_KEY" && -n "$PREPODMIN_SSH_KNOWN_HOSTS" ]] || {
+            echo "STOP: SSH environment secrets missing"; exit 1;
+          }
+          [[ "$PREPODMIN_SSH_KNOWN_HOSTS" == 77.233.212.200\ ssh-ed25519\ * ]] || {
+            echo "STOP: expected pinned ED25519 public host key"; exit 1;
+          }
+          install -d -m 0700 "$HOME/.ssh"
+          trap 'rm -f "$HOME/.ssh/prepodmin_key" "$HOME/.ssh/known_hosts"' EXIT
+          printf '%s\n' "$PREPODMIN_SSH_KEY" > "$HOME/.ssh/prepodmin_key"
+          printf '%s\n' "$PREPODMIN_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/prepodmin_key" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/prepodmin_key" >/dev/null || {
+            echo "STOP: private SSH key is invalid"; exit 1;
+          }
+          set +e
+          output=$(ssh -T -o BatchMode=yes -o PasswordAuthentication=no \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=8 -i "$HOME/.ssh/prepodmin_key" \
+            "prepodmin-deploy@$PREPODMIN_SSH_HOST" "whoami" 2>&1)
+          result=$?
+          set -e
+          if [[ "$result" -eq 0 || "$output" != *"Only reviewed PREPODMIN release SHA is permitted"* ]]; then
+            echo "PREPODMIN_SSH_CHECK_FAILED: expected the server to reject non-release commands"
+            exit 1
+          fi
+          echo "PREPODMIN_SSH_CONNECT_OK"
+          echo "PREPODMIN_FORCED_COMMAND_GATE_OK"
+          echo "NO_DEPLOYMENT_PERFORMED"
