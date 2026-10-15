@@ -29,12 +29,13 @@
 
 ## Безопасная однократная установка
 
-Код лежит в отдельной ветке `feature/ege-channel-posts-20261015` и НЕ установлен на Timeweb, пока не выполнены проверки. Текущее рабочее дерево `/opt/bots/ege-blizko` содержит изменения других выпусков, поэтому **запрещены git pull, reset --hard и копирование целиком чужого run_bot_production.py**.
+После исправления `FETCH_HEAD` код лежит в отдельной ветке `feature/ege-channel-posts-20261015` и НЕ установлен на Timeweb, пока не выполнены проверки. Текущее рабочее дерево `/opt/bots/ege-blizko` содержит изменения других выпусков, поэтому **запрещены git pull, reset --hard и копирование целиком чужого run_bot_production.py**.
 
 Вместо этого подготовлен `deployment/ege_channel_posts_install.sh`. Он:
+- захватывает совместимую с существующим автодеплоем блокировку `/run/lock/ege-blizko-autodeploy.lock`, чтобы не гоняться с параллельной установкой;
 - убеждается, что `ege-blizko` и `prepodmin` активны;
 - убеждается, что старое автоматическое объявление о гидроксидах **уже было записано как отправленное**, иначе прерывает установку, чтобы перезапуск не создал старый пост;
-- берёт из FETCH_HEAD **только новый модуль**;
+- берёт **только новый модуль** из неизменяемого проверенного коммита `96a0ddd5499c7b5fd3817829e5acddc68f724944` (не зависит от перезаписываемого `FETCH_HEAD`);
 - делает копию установленного `run_bot_production.py` и согласованный SQLite snapshot `coreapp_webhooks.db`;
 - добавляет импорт модуля в уже установленную копию `run_bot_production.py` ровно по одной подтверждённой сигнатуре;
 - перезапускает только `ege-blizko`, проверяет `/health`, лог `EGE_CHANNEL_POSTS_READY`, сохранение активности `prepodmin`;
@@ -47,7 +48,7 @@
 ssh root@77.233.212.200 "set -e; git -C /opt/bots/ege-blizko fetch -q origin feature/ege-channel-posts-20261015; git -C /opt/bots/ege-blizko show FETCH_HEAD:deployment/ege_channel_posts_install.sh > /root/ege_channel_posts_install.sh; bash -n /root/ege_channel_posts_install.sh; echo EGE_CHANNEL_INSTALLER_READY"
 ```
 
-И только после сообщения `EGE_CHANNEL_INSTALLER_READY` — отдельное выполнение:
+После сообщения `EGE_CHANNEL_INSTALLER_READY`, проверки ветки и ожидания твоего подтверждения — отдельное выполнение:
 
 ```powershell
 ssh root@77.233.212.200 "bash /root/ege_channel_posts_install.sh"
@@ -56,3 +57,7 @@ ssh root@77.233.212.200 "bash /root/ege_channel_posts_install.sh"
 Ожидаем `EGE_CHANNEL_POSTS_INSTALLED_OK`, `EGE_HEALTH=200`, `PREPODMIN=active`. Если вывод иной, НИКОГДА не повторять запуск вслепую.
 
 **Ограничение чата ChatGPT:** сейчас нет подключённого Telegram-публикатора из самой беседы. Решение выше даёт публикацию самостоятельно через кнопку бота. Для прямой отправки по текстовой команде в ChatGPT понадобится дополнительный защищённый канал передачи подтверждённых черновиков в Timeweb; не хранить `BOT_TOKEN` в GitHub или сообщениях.
+
+## Исправление 15.10 — не использовать FETCH_HEAD
+
+Первая установка вывела `fatal: path 'ege_channel_posts.py' does not exist in 'FETCH_HEAD'` до изменения кода. Вероятно, другой Git fetch перезаписал специальный `FETCH_HEAD` после загрузки инсталлятора. Файл install теперь берёт содержимое модуля по фиксированному коммиту и использует общий flock с автодеплоем. **Перед повторной попыткой обязательно перезагрузить сам `ege_channel_posts_install.sh` из GitHub**, прежний `/root/` скрипт не был автоматически обновлён. Тест нового скрипта — GitHub Actions success на коммите `fe60e3a775ada3421276b195908e89f446cfa22d`.
