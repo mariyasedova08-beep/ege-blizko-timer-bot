@@ -40,6 +40,7 @@ class TeacherDashboardTest(unittest.TestCase):
         self.assertIn("debts", data)
         self.assertIn("attention", data)
         self.assertEqual(data["teacher"]["name"], "Мария")
+        self.assertTrue(data["teacher"]["profile_complete"])
 
     def test_teacher_can_update_own_name_without_resetting_profile(self):
         base.upsert_teacher(
@@ -80,6 +81,7 @@ class TeacherDashboardTest(unittest.TestCase):
     def test_invalid_old_name_is_not_shown_in_greeting(self):
         base.upsert_teacher(501, name="👤 Мой кабинет")
         self.assertEqual(webapp._dashboard(501)["teacher"]["name"], "коллега")
+        self.assertFalse(webapp._dashboard(501)["teacher"]["profile_complete"])
         self.assertEqual(webapp._profile_view(501)["name"], "")
 
     def test_telegram_cabinet_greets_saved_teacher_name(self):
