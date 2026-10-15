@@ -63,6 +63,8 @@ jobs:
           python -m unittest -q \
             teacher_product_onboarding_test \
             teacher_product_registration_test \
+            teacher_product_subject_picker_test \
+            teacher_product_theme_test \
             teacher_product_reset_test \
             teacher_product_student_reminders_test \
             teacher_product_transfer_button_test \

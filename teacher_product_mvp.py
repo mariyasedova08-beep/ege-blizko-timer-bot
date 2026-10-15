@@ -7,6 +7,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlencode
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Update
+import teacher_product_subjects as subject_catalog
+
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -46,6 +48,8 @@ def ensure_tables():
                 telegram_user_id INTEGER PRIMARY KEY,
                 name TEXT,
                 subject TEXT,
+                subject_id TEXT,
+                theme_id TEXT NOT NULL DEFAULT 'pink-pulse',
                 work_format TEXT,
                 student_count TEXT,
                 timezone TEXT DEFAULT 'Europe/Moscow',
@@ -67,6 +71,24 @@ def ensure_tables():
             ON students(teacher_telegram_user_id, active, name);
             """
         )
+        # Additive migration: never drop or reset existing teacher/student records.
+        columns = {r[1] for r in conn.execute("PRAGMA table_info(teachers)")}
+        if "subject_id" not in columns:
+            conn.execute("ALTER TABLE teachers ADD COLUMN subject_id TEXT")
+        if "theme_id" not in columns:
+            conn.execute("ALTER TABLE teachers ADD COLUMN theme_id TEXT NOT NULL DEFAULT 'pink-pulse'")
+        # Preserve every legacy free-text subject, including multi-subject labels.
+        # Only fill a catalog ID when the existing value is an unambiguous alias.
+        for row in conn.execute(
+            "SELECT telegram_user_id, subject FROM teachers "
+            "WHERE subject_id IS NULL AND subject IS NOT NULL"
+        ).fetchall():
+            item = subject_catalog.subject_by_text(row["subject"])
+            if item:
+                conn.execute(
+                    "UPDATE teachers SET subject_id=? WHERE telegram_user_id=?",
+                    (item["id"], row["telegram_user_id"]),
+                )
         conn.commit()
 
 
@@ -86,8 +108,12 @@ def upsert_teacher(uid, **fields):
             )
             conn.commit()
     if fields:
-        allowed = {"name", "subject", "work_format", "student_count", "timezone", "onboarding_completed_at"}
+        allowed = {"name", "subject", "subject_id", "theme_id", "work_format", "student_count", "timezone", "onboarding_completed_at"}
         clean = {k: v for k, v in fields.items() if k in allowed}
+        if "subject" in clean and "subject_id" not in clean:
+            # Old code may still update the text field; never keep a stale icon ID.
+            item = subject_catalog.subject_by_text(clean["subject"])
+            clean["subject_id"] = item["id"] if item else None
         if clean:
             sql = ", ".join(f"{k}=?" for k in clean)
             with db() as conn:
@@ -238,6 +264,33 @@ def start_health_server():
     HTTPServer(("0.0.0.0", PORT), HealthHandler).serve_forever()
 
 
+def _subject_keyboard():
+    """Telegram's buttons are text; the matching SVG tiles appear in the WebApp."""
+    symbols = {
+        "russian": "📖", "mathematics": "📈", "physics": "⚛️",
+        "chemistry": "🧪", "biology": "🧬", "geography": "🌍",
+        "social-studies": "👥", "history": "🏛", "literature": "📚",
+        "informatics": "💻", "english": "🇬🇧", "german": "🇩🇪",
+        "french": "🇫🇷", "spanish": "🇪🇸", "chinese": "🇨🇳",
+    }
+    buttons = [
+        InlineKeyboardButton(
+            f"{symbols.get(item['id'], '📘')} {item['shortName']}",
+            callback_data=f"tsub:{item['id']}",
+        )
+        for item in subject_catalog.SUBJECTS
+    ]
+    return InlineKeyboardMarkup([buttons[i:i + 2] for i in range(0, len(buttons), 2)])
+
+
+def _format_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Индивидуально", callback_data="fmt:individual")],
+        [InlineKeyboardButton("В группах", callback_data="fmt:groups")],
+        [InlineKeyboardButton("И так, и так", callback_data="fmt:mixed")],
+    ])
+
+
 def _profile_values(row):
     """Only a teacher-entered valid name and subject count as a complete profile."""
     if row is None:
@@ -261,7 +314,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if row and row["onboarding_completed_at"] and name and not subject:
         await update.message.reply_text(
             f"{name}, давай дополним профиль 💗\n\n"
-            "Какой предмет ты преподаёшь? Напиши его текстом."
+            "Выбери предмет из списка ниже:", reply_markup=_subject_keyboard()
         )
         return SUBJECT
     if row and row["onboarding_completed_at"] and not name:
@@ -344,7 +397,7 @@ async def onboarding_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
     await update.message.reply_text(
         f"Отлично, {name}! 💗\n\nШаг 2 из 2: Какой предмет ты преподаёшь? "
-        "Напиши его текстом (например, «Химия» или «Математика»)."
+        "Выбери предмет из списка ниже:", reply_markup=_subject_keyboard()
     )
     return SUBJECT
 
@@ -353,11 +406,17 @@ async def onboarding_subject(update: Update, context: ContextTypes.DEFAULT_TYPE)
     subject = normalize_teacher_subject(update.message.text)
     if subject is None:
         await update.message.reply_text(
-            "Напиши предмет текстом (например, «Химия»). Кнопки меню не подходят."
+            "Выбери предмет из списка ниже. Можно также написать его название текстом.",
+            reply_markup=_subject_keyboard(),
         )
         return SUBJECT
+    item = subject_catalog.subject_by_text(subject)
+    if item is None:
+        await update.message.reply_text("Выбери предмет из каталога:", reply_markup=_subject_keyboard())
+        return SUBJECT
+    subject = item["name"]
     uid = update.effective_user.id
-    upsert_teacher(uid, subject=subject)
+    upsert_teacher(uid, subject=subject, subject_id=item["id"])
     row = teacher(uid)
     saved_name, _saved_subject = _profile_values(row)
     if row["onboarding_completed_at"] and saved_name:
@@ -367,12 +426,31 @@ async def onboarding_subject(update: Update, context: ContextTypes.DEFAULT_TYPE)
             reply_markup=MAIN_KB,
         )
         return ConversationHandler.END
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Индивидуально", callback_data="fmt:individual")],
-        [InlineKeyboardButton("В группах", callback_data="fmt:groups")],
-        [InlineKeyboardButton("И так, и так", callback_data="fmt:mixed")],
-    ])
-    await update.message.reply_text("Как ты работаешь сейчас?", reply_markup=kb)
+    await update.message.reply_text("Как ты работаешь сейчас?", reply_markup=_format_keyboard())
+    return FORMAT
+
+
+async def onboarding_subject_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    item = subject_catalog.subject_by_id(q.data.removeprefix("tsub:"))
+    if item is None:
+        await q.answer("Выбери предмет из списка.", show_alert=True)
+        return SUBJECT
+    await q.answer()
+    uid = q.from_user.id
+    upsert_teacher(uid, subject=item["name"], subject_id=item["id"])
+    row = teacher(uid)
+    name, _subject = _profile_values(row)
+    if row["onboarding_completed_at"] and name:
+        await q.edit_message_text(
+            f"Готово, {name} 💗\nПредмет: {item['name']}. "
+            "Профиль обновлён, ученики и расписание сохранены."
+        )
+        return ConversationHandler.END
+    await q.edit_message_text(
+        f"Предмет: {item['name']} 💗\n\nКак ты работаешь сейчас?",
+        reply_markup=_format_keyboard(),
+    )
     return FORMAT
 
 
@@ -520,7 +598,10 @@ def build_app():
         entry_points=[CommandHandler("start", start)],
         states={
             NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, onboarding_name)],
-            SUBJECT: [MessageHandler(filters.TEXT & ~filters.COMMAND, onboarding_subject)],
+            SUBJECT: [
+                CallbackQueryHandler(onboarding_subject_choice, pattern=r"^tsub:[a-z-]+$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, onboarding_subject),
+            ],
             FORMAT: [CallbackQueryHandler(onboarding_format, pattern=r"^fmt:")],
             COUNT: [CallbackQueryHandler(onboarding_count, pattern=r"^cnt:")],
         },
