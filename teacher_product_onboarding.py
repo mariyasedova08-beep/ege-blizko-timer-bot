@@ -90,7 +90,8 @@ def setup_status(uid):
         ) if _table_exists(conn, "group_member_payment_plans") else 0
 
     work_format = str(teacher["work_format"] or "mixed") if teacher else "mixed"
-    profile_done = bool(teacher and teacher["onboarding_completed_at"])
+    name, subject = base._profile_values(teacher)
+    profile_done = bool(teacher and teacher["onboarding_completed_at"] and name and subject)
     if work_format == "groups":
         people_done = group_count > 0 and member_count > 0
     elif work_format == "individual":
@@ -303,6 +304,13 @@ async def onboarding_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     value = q.data.split(":", 1)[1]
+    name, subject = base._profile_values(base.teacher(q.from_user.id))
+    if not name or not subject:
+        await q.edit_message_text(
+            "Перед созданием кабинета нужно указать имя преподавателя и предмет. "
+            "Отправь /start, чтобы заполнить профиль. Ученики и задания не удаляются."
+        )
+        return -1
     base.upsert_teacher(
         q.from_user.id,
         student_count=value,
