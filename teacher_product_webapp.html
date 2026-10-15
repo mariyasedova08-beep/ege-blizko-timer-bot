@@ -86,6 +86,26 @@ html[data-theme-dark="true"] .alert{color:#FF92B4}
 <script>
 var tg=(window.Telegram&&Telegram.WebApp)?Telegram.WebApp:null;if(tg){tg.ready();tg.expand();}
 var launch=(new URLSearchParams(window.location.search)).get('launch')||'',currentView='home';
+var savedTheme=null,selectedThemeId='';
+function colorAlpha(hex,alpha){
+ if(!/^#[0-9a-f]{6}$/i.test(String(hex||'')))return 'rgba(248,245,242,.95)';
+ var n=parseInt(hex.slice(1),16);
+ return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+alpha+')';
+}
+function applyTheme(theme){
+ if(!theme||!theme.colors)return;
+ var c=theme.colors,root=document.documentElement;
+ var vars={'--milk':c.background,'--ink':c.text,'--soft':c.soft,'--hot':c.accent,
+  '--button':c.button,'--on-button':c.onButton,'--paper':c.surface,
+  '--line':c.border,'--muted':c.muted};
+ Object.keys(vars).forEach(function(k){if(vars[k])root.style.setProperty(k,vars[k]);});
+ root.style.setProperty('--bottom',colorAlpha(c.background,.95));
+ root.setAttribute('data-theme-dark',theme.isDark?'true':'false');
+ var scheme=document.querySelector('meta[name="color-scheme"]');
+ if(scheme)scheme.setAttribute('content',theme.isDark?'dark':'light');
+ var color=document.querySelector('meta[name="theme-color"]');
+ if(color)color.setAttribute('content',c.background);
+}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});}
 function money(n){return n?String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' ₽':'—';}
 function shortDate(s){var p=String(s||'').split('-');return p.length===3?p[2]+'.'+p[1]:String(s||'');}
@@ -235,9 +255,62 @@ async function saveProfile(){
    btn.disabled=false;
  }
 }
+function renderSettings(d){
+ selectedThemeId=d.theme_id||'pink-pulse';
+ var themes=d.themes||[];
+ var tiles=themes.map(function(t){
+   var c=t.colors||{};
+   return '<button type="button" class="theme-tile" data-theme="'+esc(t.id)+'" aria-pressed="'+(selectedThemeId===t.id)+'">'+
+     '<span class="theme-preview" style="--preview-bg:'+esc(c.background)+';--preview-soft:'+esc(c.soft)+';--preview-accent:'+esc(c.accent)+'">'+
+     '<span class="sample-card"></span><span class="sample-line"></span></span>'+
+     '<span class="theme-name">'+esc(t.name)+'</span>'+
+     '<span class="theme-current">'+(selectedThemeId===t.id?'✓ Выбрана':'Нажми для просмотра')+'</span></button>';
+ }).join('');
+ var out=screenHeader('Оформление кабинета','14 цветовых тем ПРЕПОДМИНА');
+ out+='<div class="profile-form"><div class="profile-tip">Выбери тему — кабинет сразу покажет новые цвета. Чтобы сохранить выбор для следующих входов, нажми «Сохранить тему».</div>';
+ out+='<div class="theme-grid" role="group" aria-label="Цветовые темы">'+tiles+'</div>';
+ out+='<div class="profile-error" id="theme-status" role="status" aria-live="polite"></div>';
+ out+='<div class="theme-actions"><button type="button" class="theme-cancel" onclick="cancelTheme()">Отмена</button><button type="button" class="profile-save" id="theme-save" onclick="saveTheme()">Сохранить тему</button></div></div>';
+ document.getElementById('app').innerHTML=out;
+ document.querySelectorAll('.theme-tile').forEach(function(button){
+   button.addEventListener('click',function(){
+     selectedThemeId=button.getAttribute('data-theme');
+     var theme=themes.find(function(t){return t.id===selectedThemeId;});
+     if(theme)applyTheme(theme);
+     document.querySelectorAll('.theme-tile').forEach(function(b){
+       var active=b===button;
+       b.setAttribute('aria-pressed',String(active));
+       b.querySelector('.theme-current').textContent=active?'✓ Выбрана':'Нажми для просмотра';
+     });
+     document.getElementById('theme-status').textContent='';
+   });
+ });
+}
+function cancelTheme(){
+ if(savedTheme)applyTheme(savedTheme);
+ openView('home');
+}
+async function saveTheme(){
+ var button=document.getElementById('theme-save'),status=document.getElementById('theme-status');
+ if(!selectedThemeId){status.textContent='Выбери цветовую тему.';return;}
+ button.disabled=true;status.textContent='';
+ try{
+   var result=await teacherAction({action:'theme_update',theme_id:selectedThemeId});
+   savedTheme=result.theme;
+   applyTheme(savedTheme);
+   await openView('settings');
+   var feedback=document.getElementById('theme-status');
+   if(feedback)feedback.textContent='Тема сохранена 💗';
+ }catch(e){
+   if(savedTheme)applyTheme(savedTheme);
+   status.textContent=e.message==='invalid_theme_id'?'Такой темы нет в каталоге.':'Не удалось сохранить тему. Попробуй ещё раз.';
+   await reportClientError('theme_update',e);
+   button.disabled=false;
+ }
+}
 function renderFallback(view,d){document.getElementById('app').innerHTML=screenHeader((d&&d.title)||'Раздел','данные загружены')+'<div class="list"><div class="empty">Раздел пока открывается в Telegram-меню.</div></div>';}
-function renderView(view,d){if(view==='profile')return renderProfile(d);if(view==='home')return renderHome(d);if(view==='students')return renderStudents(d);if(view==='schedule')return renderSchedule(d);if(view==='homework')return renderHomework(d);if(view==='payments')return renderPayments(d);if(view==='attention')return renderAttention(d);if(view==='tasks')return renderTasks(d);if(view==='attendance')return renderAttendance(d);if(view==='reports')return renderReports(d);if(view==='slots')return renderSlots(d);return renderFallback(view,d);}
-async function openView(view){currentView=view;setNav(['home','tasks','students','schedule'].indexOf(view)>=0?view:'');document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(view);try{renderView(p.view,p.data);}catch(renderError){await reportClientError('render:'+view,renderError);renderFallback(view,p.data||{});}try{window.scrollTo(0,0);}catch(_){}}catch(e){await reportClientError('open:'+view,e);document.getElementById('app').innerHTML='<div class="error">Раздел не загрузился. Нажми «Кабинет» и попробуй ещё раз.</div>';}}
+function renderView(view,d){if(view==='settings')return renderSettings(d);if(view==='profile')return renderProfile(d);if(view==='home')return renderHome(d);if(view==='students')return renderStudents(d);if(view==='schedule')return renderSchedule(d);if(view==='homework')return renderHomework(d);if(view==='payments')return renderPayments(d);if(view==='attention')return renderAttention(d);if(view==='tasks')return renderTasks(d);if(view==='attendance')return renderAttendance(d);if(view==='reports')return renderReports(d);if(view==='slots')return renderSlots(d);return renderFallback(view,d);}
+async function openView(view){currentView=view;setNav(['home','tasks','students','schedule'].indexOf(view)>=0?view:'');document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(view);if(p.theme){savedTheme=p.theme;applyTheme(p.theme);}try{renderView(p.view,p.data);}catch(renderError){await reportClientError('render:'+view,renderError);renderFallback(view,p.data||{});}try{window.scrollTo(0,0);}catch(_){}}catch(e){await reportClientError('open:'+view,e);document.getElementById('app').innerHTML='<div class="error">Раздел не загрузился. Нажми «Кабинет» и попробуй ещё раз.</div>';}}
 async function boot(){if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="top"><div><span class="brand-pill">ПРЕПАДМИН</span><h1>Мой кабинет 💗</h1><div class="sub">Открой этот экран через кнопку «💗 Мой кабинет» внутри бота.</div></div><div class="logo">ПА</div></div>';return;}await openView('home');}
 boot();
 </script>
