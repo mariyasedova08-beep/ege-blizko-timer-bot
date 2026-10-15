@@ -37,6 +37,23 @@ class ThemeCatalogTest(unittest.TestCase):
             self.assertIn(token, html)
 
 
+    def test_elegant_cabinet_matches_ege_blizko_font_and_outline_icons(self):
+        teacher = Path(webapp.HTML_PATH).read_text(encoding="utf-8")
+        student = Path("ege_student_webapp.html").read_text(encoding="utf-8")
+        font = 'Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+        self.assertIn(font, teacher)
+        self.assertIn(font, student)
+        for fragment in (
+            "brand-wordmark", "top-kicker", "function uiIcon(name)",
+            "function hydrateNavIcons()", 'data-ui-icon="home"',
+            "uiIcon(a[0])", "uiIcon(icon)", "var(--soft)",
+            "var(--paper)", "var(--hot)", "var(--muted)",
+        ):
+            self.assertIn(fragment, teacher)
+        self.assertNotIn("card('📚'", teacher)
+        self.assertNotIn("card('🚨'", teacher)
+
+
 class ThemeSettingsTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
