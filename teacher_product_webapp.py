@@ -16,6 +16,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,
 from telegram.ext import ApplicationHandlerStop, CallbackQueryHandler, MessageHandler, filters
 
 import teacher_product_mvp as base
+import teacher_product_subjects as subject_catalog
 import teacher_product_schedule as schedule
 import teacher_product_today as today
 import teacher_product_learning as learning
@@ -38,7 +39,7 @@ WEBAPP_URL = os.getenv(
     f"https://{PUBLIC_DOMAIN}/webapp" if PUBLIC_DOMAIN else "",
 ).strip()
 MAX_AUTH_AGE = 24 * 60 * 60
-WEBAPP_BUILD = "20260929-ege-bot-cabinet-1"
+WEBAPP_BUILD = "20261015-subject-picker-1"
 HTML_PATH = Path(__file__).with_name("teacher_product_webapp.html")
 _INSTALLED = False
 
@@ -180,6 +181,7 @@ def _dashboard(uid):
         "teacher": {
             "name": profile_name or "коллега",
             "subject": profile_subject or "",
+            "subject_id": subject_catalog.subject_id_for_profile(row),
             "profile_complete": bool(profile_name and profile_subject),
         },
         "date": day.strftime("%d.%m.%Y"),
@@ -436,23 +438,42 @@ def _profile_view(uid):
         "title": "Мой профиль",
         "name": base.normalize_teacher_name(row["name"]) or "",
         "subject": base.normalize_teacher_subject(row["subject"]) or "",
+        "subject_id": subject_catalog.subject_id_for_profile(row),
+        "theme_id": row["theme_id"] or subject_catalog.DEFAULT_THEME_ID,
+        "subjects": subject_catalog.public_subjects(),
     }
 
 
 def _teacher_action(uid, payload):
     action_name = str(payload.get("action") or "")
     if action_name == "profile_update":
-        if not base.teacher(uid):
+        row = base.teacher(uid)
+        if not row:
             return {"ok": False, "error": "profile_not_found"}
         name = base.normalize_teacher_name(payload.get("name"))
-        subject = base.normalize_teacher_subject(payload.get("subject"))
         if not name:
             return {"ok": False, "error": "invalid_teacher_name"}
-        if not subject:
-            return {"ok": False, "error": "invalid_teacher_subject"}
-        # Scope by the authenticated Telegram user, never by a client-supplied id.
-        base.upsert_teacher(int(uid), name=name, subject=subject)
-        return {"ok": True, "name": name, "subject": subject}
+        # Prefer the approved catalog ID, not arbitrary text supplied by a browser.
+        requested_id = str(payload.get("subject_id") or "").strip()
+        if requested_id:
+            item = subject_catalog.subject_by_id(requested_id)
+            if item is None:
+                return {"ok": False, "error": "invalid_teacher_subject"}
+            subject, subject_id = item["name"], item["id"]
+        else:
+            # Compatibility with existing WebApps and non-catalog legacy subjects:
+            # an unknown subject may be retained unchanged, never newly invented.
+            legacy = base.normalize_teacher_subject(payload.get("subject"))
+            item = subject_catalog.subject_by_text(legacy)
+            if item:
+                subject, subject_id = item["name"], item["id"]
+            elif legacy and legacy == base.normalize_teacher_subject(row["subject"]):
+                subject, subject_id = legacy, None
+            else:
+                return {"ok": False, "error": "invalid_teacher_subject"}
+        # Authenticated Telegram UID scopes all updates; no user-supplied teacher ID.
+        base.upsert_teacher(int(uid), name=name, subject=subject, subject_id=subject_id)
+        return {"ok": True, "name": name, "subject": subject, "subject_id": subject_id}
     if action_name != "task_done":
         return {"ok": False, "error": "unknown_action"}
 
@@ -654,7 +675,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
                 "service": "teacher-product-mvp",
                 "webapp": True,
                 "quick_setup": True,
-                "build": "2026-09-29-ege-bot-cabinet-1",
+                "build": WEBAPP_BUILD,
             }))
             return
         if path in {"/", "/webapp"}:
