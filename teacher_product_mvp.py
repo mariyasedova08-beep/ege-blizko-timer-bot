@@ -238,17 +238,40 @@ def start_health_server():
     HTTPServer(("0.0.0.0", PORT), HealthHandler).serve_forever()
 
 
+def _profile_values(row):
+    """Only a teacher-entered valid name and subject count as a complete profile."""
+    if row is None:
+        return None, None
+    return normalize_teacher_name(row["name"]), normalize_teacher_subject(row["subject"])
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     row = teacher(uid)
-    if row and row["onboarding_completed_at"]:
+    name, subject = _profile_values(row)
+    if row and row["onboarding_completed_at"] and name and subject:
         await update.message.reply_text(
-            f"С возвращением, {row['name'] or 'коллега'} 💗\n\nЭто твой личный администратор преподавателя.",
+            f"С возвращением, {name} 💗\n\n"
+            f"Предмет: {subject}. Это твой личный администратор преподавателя.",
             reply_markup=MAIN_KB,
         )
         return ConversationHandler.END
 
     upsert_teacher(uid)
+    if row and row["onboarding_completed_at"] and name and not subject:
+        await update.message.reply_text(
+            f"{name}, давай дополним профиль 💗\n\n"
+            "Какой предмет ты преподаёшь? Напиши его текстом."
+        )
+        return SUBJECT
+    if row and row["onboarding_completed_at"] and not name:
+        await update.message.reply_text(
+            "Чтобы в кабинете отображалось твоё имя, напиши, как к тебе обращаться: "
+            "например, «Маша» или «Мария Александровна».\n\n"
+            "Имя ты указываешь самостоятельно — из Telegram его не берём."
+        )
+        return NAME
+
     await update.message.reply_text(
         "Привет! Я ПРЕПАДМИН 💗\n\n"
         "Твой личный администратор преподавателя в Telegram.\n\n"
@@ -256,7 +279,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "домашние задания, оплаты и напоминания — чтобы тебе не приходилось "
         "держать всё в голове и переписках.\n\n"
         "Ты преподаёшь — ПРЕПАДМИН администрирует.\n\n"
-        "Настроим твой кабинет за пару минут. Как тебя зовут?"
+        "Шаг 1 из 2: Как тебя зовут?\n"
+        "Напиши имя, которое будет видно в твоём кабинете "
+        "(например, «Маша» или «Мария Александровна»)."
     )
     return NAME
 
@@ -306,8 +331,21 @@ async def onboarding_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "или «Мария Александровна»). Кнопки меню не подходят."
         )
         return NAME
-    upsert_teacher(update.effective_user.id, name=name)
-    await update.message.reply_text("Какой предмет ты преподаёшь?")
+    uid = update.effective_user.id
+    upsert_teacher(uid, name=name)
+    row = teacher(uid)
+    _saved_name, existing_subject = _profile_values(row)
+    if row["onboarding_completed_at"] and existing_subject:
+        await update.message.reply_text(
+            f"Готово, {name} 💗\nПредмет: {existing_subject}. "
+            "Имя в кабинете обновлено, ученики и расписание сохранены.",
+            reply_markup=MAIN_KB,
+        )
+        return ConversationHandler.END
+    await update.message.reply_text(
+        f"Отлично, {name}! 💗\n\nШаг 2 из 2: Какой предмет ты преподаёшь? "
+        "Напиши его текстом (например, «Химия» или «Математика»)."
+    )
     return SUBJECT
 
 
@@ -318,7 +356,17 @@ async def onboarding_subject(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "Напиши предмет текстом (например, «Химия»). Кнопки меню не подходят."
         )
         return SUBJECT
-    upsert_teacher(update.effective_user.id, subject=subject)
+    uid = update.effective_user.id
+    upsert_teacher(uid, subject=subject)
+    row = teacher(uid)
+    saved_name, _saved_subject = _profile_values(row)
+    if row["onboarding_completed_at"] and saved_name:
+        await update.message.reply_text(
+            f"Готово, {saved_name} 💗\nПредмет: {subject}. "
+            "Профиль обновлён, остальные данные кабинета сохранены.",
+            reply_markup=MAIN_KB,
+        )
+        return ConversationHandler.END
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("Индивидуально", callback_data="fmt:individual")],
         [InlineKeyboardButton("В группах", callback_data="fmt:groups")],
@@ -346,6 +394,14 @@ async def onboarding_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     value = q.data.split(":", 1)[1]
+    row = teacher(q.from_user.id)
+    name, subject = _profile_values(row)
+    if not name or not subject:
+        await q.edit_message_text(
+            "Чтобы завершить регистрацию, сначала укажи своё имя и предмет. "
+            "Напиши /start — вернёмся к анкете. Ничего не удалено."
+        )
+        return ConversationHandler.END
     upsert_teacher(q.from_user.id, student_count=value, onboarding_completed_at=datetime.utcnow().isoformat())
     row = teacher(q.from_user.id)
     await q.edit_message_text(
