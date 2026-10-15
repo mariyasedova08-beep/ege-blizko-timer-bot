@@ -247,6 +247,11 @@ def main():
     import ege_lab_webapp
     ege_lab_webapp.install()
 
+    # Admin-only preview/confirmation flow for posting a trainer announcement
+    # to @egeblizko_chem. Never posts automatically at startup.
+    import ege_channel_posts
+    ege_channel_posts.install()
+
     # Direct Google Sheets payment sync. Install after all runtime wrappers so
     # /sheets/payment-sync remains the outermost HTTP route.
     import payment_google_sheets_sync  # noqa: F401
