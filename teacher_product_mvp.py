@@ -439,12 +439,12 @@ async def onboarding_subject_choice(update: Update, context: ContextTypes.DEFAUL
     name, _subject = _profile_values(row)
     if row["onboarding_completed_at"] and name:
         await q.edit_message_text(
-            f"Готово, {name} 💗\\nПредмет: {item['name']}. "
+            f"Готово, {name} 💗\nПредмет: {item['name']}. "
             "Профиль обновлён, ученики и расписание сохранены."
         )
         return ConversationHandler.END
     await q.edit_message_text(
-        f"Предмет: {item['name']} 💗\\n\\nКак ты работаешь сейчас?",
+        f"Предмет: {item['name']} 💗\n\nКак ты работаешь сейчас?",
         reply_markup=_format_keyboard(),
     )
     return FORMAT
