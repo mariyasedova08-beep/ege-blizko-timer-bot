@@ -25,6 +25,23 @@ systemctl is-active --quiet prepodmin
 [[ -f "$DB" && ! -L "$DB" ]] || {
   echo "Expected EGE SQLite database missing; no changes made" >&2; exit 1;
 }
+# public_channel_trainers has an old one-time startup announcement. Do not
+# restart production if the previous announcement state is unknown: enabling
+# channel posting rights must not accidentally publish an old hydroxides post.
+"$APP/.venv/bin/python" - "$DB" <<'PY'
+import sqlite3, sys
+with sqlite3.connect("file:" + sys.argv[1] + "?mode=ro", uri=True) as db:
+    found = db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='channel_trainer_announcements'"
+    ).fetchone()
+    recorded = (db.execute(
+        "SELECT 1 FROM channel_trainer_announcements WHERE announcement_key=?",
+        ("hydroxides-100-launch-2026-10-06",),
+    ).fetchone() if found else None)
+    if not recorded:
+        raise SystemExit("STOP: legacy hydroxides startup post not recorded; manual review before restart")
+print("EGE_LEGACY_STARTUP_ANNOUNCEMENT_ALREADY_RECORDED")
+PY
 [[ ! -e "$APP/ege_channel_posts.py" ]] || {
   echo "Channel publisher already installed or needs manual review" >&2; exit 1;
 }
