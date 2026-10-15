@@ -1,0 +1,34 @@
+name: Validate special-salts trainer
+on:
+  pull_request:
+    paths:
+      - special_salts_trainer.py
+      - special_salts_trainer_bank.py
+      - run_bot_production.py
+      - .github/workflows/special-salts-validate.yml
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile Python
+        run: python -m py_compile special_salts_trainer.py special_salts_trainer_bank.py run_bot_production.py
+      - name: Verify question bank and explanations
+        run: |
+          python - <<'PY'
+          from special_salts_trainer_bank import SPECIAL_SALTS_BANK, SPECIAL_SALTS_EXPLANATIONS
+          assert len(SPECIAL_SALTS_BANK) == 50
+          assert len({row[0] for row in SPECIAL_SALTS_BANK}) == 50
+          assert len({row[1] for row in SPECIAL_SALTS_BANK}) == 50
+          assert len(SPECIAL_SALTS_EXPLANATIONS) == 50
+          for qid, prompt, correct, wrong in SPECIAL_SALTS_BANK:
+              assert all((qid, prompt, correct))
+              assert len(wrong) == 3 and len(set([correct, *wrong])) == 4
+              assert SPECIAL_SALTS_EXPLANATIONS[qid]
+          print('50 chemistry questions validated')
+          PY
