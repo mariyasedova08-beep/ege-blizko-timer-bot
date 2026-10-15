@@ -1,5 +1,6 @@
 """Pink-beige Telegram WebApp home screen for PREPODMIN."""
 import hashlib
+import html
 import hmac
 import json
 import os
@@ -836,12 +837,26 @@ def _bot_cabinet_markup():
     ])
 
 
+def _bot_cabinet_text(uid):
+    """Display this teacher's own saved profile name, not their Telegram alias."""
+    row = base.teacher(uid)
+    name = base.normalize_teacher_name(row["name"]) if row else None
+    intro = (
+        f"👩‍🏫 <b>{html.escape(name)}</b> · ПРЕПАДМИН\n\n"
+        if name
+        else "👤 <b>Мой кабинет</b>\n\n"
+    )
+    return (
+        intro
+        + "Выбирай нужный раздел — все рабочие функции ПРЕПАДМИНА собраны здесь 💗"
+    )
+
+
 async def show_bot_cabinet(update, context):
     if not base.teacher(update.effective_user.id):
         return
     await update.effective_message.reply_text(
-        "👤 <b>Мой кабинет</b>\n\n"
-        "Выбирай нужный раздел — все рабочие функции ПРЕПАДМИНА собраны здесь 💗",
+        _bot_cabinet_text(update.effective_user.id),
         parse_mode="HTML",
         reply_markup=_bot_cabinet_markup(),
     )
@@ -866,8 +881,7 @@ async def bot_cabinet_callback(update, context):
 
     if action == "back":
         await q.edit_message_text(
-            "👤 <b>Мой кабинет</b>\n\n"
-            "Выбирай нужный раздел — все рабочие функции ПРЕПАДМИНА собраны здесь 💗",
+            _bot_cabinet_text(q.from_user.id),
             parse_mode="HTML",
             reply_markup=_bot_cabinet_markup(),
         )
