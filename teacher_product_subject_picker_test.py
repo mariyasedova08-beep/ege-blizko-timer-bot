@@ -86,6 +86,11 @@ class SubjectMigrationTest(unittest.TestCase):
         self.assertEqual(base.teacher(200)["theme_id"], "night")
         self.assertEqual(base.teacher(201)["name"], "Екатерина")
         self.assertEqual(base.teacher(201)["subject_id"], "physics")
+        # Old integrations updating subject text must not leave a wrong icon.
+        base.upsert_teacher(201, subject="Химия, биология")
+        self.assertIsNone(base.teacher(201)["subject_id"])
+        base.upsert_teacher(201, subject="Биология")
+        self.assertEqual(base.teacher(201)["subject_id"], "biology")
 
 
 class SubjectRegistrationTest(unittest.IsolatedAsyncioTestCase):
