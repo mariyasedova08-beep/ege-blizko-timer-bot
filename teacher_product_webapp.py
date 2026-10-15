@@ -796,7 +796,7 @@ async def open_webapp(update, context):
     row = base.teacher(update.effective_user.id)
     if not row or not row["onboarding_completed_at"]:
         await update.message.reply_text(
-            "Сначала зарегистрируйся в ПРЕПАДМИН 💗\\n"
+            "Сначала зарегистрируйся в ПРЕПАДМИН 💗\n"
             "Напиши /start, укажи своё имя и предмет, затем заверши настройку."
         )
         return
