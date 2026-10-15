@@ -152,10 +152,15 @@ class SubjectRegistrationTest(unittest.IsolatedAsyncioTestCase):
             "subject_id": "../../etc/passwd",
         })["error"], "invalid_teacher_subject")
         self.assertEqual(base.teacher(303)["subject_id"], "biology")
-        self.assertEqual(webapp._teacher_action(303, {
+        # Existing API clients may still submit a valid custom/multi-subject label.
+        legacy_result = webapp._teacher_action(303, {
             "action": "profile_update", "name": "Мария",
-            "subject": "Произвольный новый предмет",
-        })["error"], "invalid_teacher_subject")
+            "subject": "Химия и биология",
+        })
+        self.assertTrue(legacy_result["ok"])
+        self.assertEqual(base.teacher(303)["subject"], "Химия и биология")
+        self.assertIsNone(base.teacher(303)["subject_id"])
+        self.assertEqual(base.teacher(304)["subject"], "История")
 
 
 if __name__ == "__main__":
