@@ -175,10 +175,12 @@ def _dashboard(uid):
 
     attention = reports.attention_rows(uid)
 
+    profile_name, profile_subject = base._profile_values(row)
     return {
         "teacher": {
-            "name": base.normalize_teacher_name(row["name"]) or "коллега",
-            "subject": base.normalize_teacher_subject(row["subject"]) or "",
+            "name": profile_name or "коллега",
+            "subject": profile_subject or "",
+            "profile_complete": bool(profile_name and profile_subject),
         },
         "date": day.strftime("%d.%m.%Y"),
         "weekday": (
@@ -791,7 +793,12 @@ def _launch_markup(uid):
 
 
 async def open_webapp(update, context):
-    if not base.teacher(update.effective_user.id):
+    row = base.teacher(update.effective_user.id)
+    if not row or not row["onboarding_completed_at"]:
+        await update.message.reply_text(
+            "Сначала зарегистрируйся в ПРЕПАДМИН 💗\\n"
+            "Напиши /start, укажи своё имя и предмет, затем заверши настройку."
+        )
         return
     if not WEBAPP_URL:
         await update.message.reply_text("Главная сейчас недоступна. Попробуй чуть позже.")
