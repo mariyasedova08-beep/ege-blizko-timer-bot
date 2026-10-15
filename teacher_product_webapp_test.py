@@ -82,6 +82,28 @@ class TeacherDashboardTest(unittest.TestCase):
         self.assertEqual(webapp._dashboard(501)["teacher"]["name"], "коллега")
         self.assertEqual(webapp._profile_view(501)["name"], "")
 
+    def test_telegram_cabinet_greets_saved_teacher_name(self):
+        self.assertIn("👩‍🏫 <b>Мария</b> · ПРЕПАДМИН", webapp._bot_cabinet_text(501))
+        self.assertNotIn("Привет, 👤 Мой кабинет", webapp._bot_cabinet_text(501))
+
+    def test_telegram_cabinet_refreshes_edited_name(self):
+        base.upsert_teacher(502, name="Анна Сергеевна", subject="Математика",
+                            onboarding_completed_at="2026-09-22T00:00:00")
+        self.assertIn("<b>Анна Сергеевна</b>", webapp._bot_cabinet_text(502))
+        response = webapp._teacher_action(502, {
+            "action": "profile_update", "name": "Анна",
+            "subject": "Математика",
+        })
+        self.assertTrue(response["ok"])
+        self.assertIn("<b>Анна</b>", webapp._bot_cabinet_text(502))
+        self.assertIn("<b>Мария</b>", webapp._bot_cabinet_text(501))
+
+    def test_invalid_name_not_used_in_telegram_cabinet(self):
+        base.upsert_teacher(501, name="👤 Мой кабинет")
+        text = webapp._bot_cabinet_text(501)
+        self.assertTrue(text.startswith("👤 <b>Мой кабинет</b>"))
+        self.assertNotIn("👩‍🏫", text)
+
 
 if __name__ == "__main__":
     unittest.main()
