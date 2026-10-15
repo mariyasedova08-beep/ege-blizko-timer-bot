@@ -110,6 +110,10 @@ def upsert_teacher(uid, **fields):
     if fields:
         allowed = {"name", "subject", "subject_id", "theme_id", "work_format", "student_count", "timezone", "onboarding_completed_at"}
         clean = {k: v for k, v in fields.items() if k in allowed}
+        if "subject" in clean and "subject_id" not in clean:
+            # Old code may still update the text field; never keep a stale icon ID.
+            item = subject_catalog.subject_by_text(clean["subject"])
+            clean["subject_id"] = item["id"] if item else None
         if clean:
             sql = ", ".join(f"{k}=?" for k in clean)
             with db() as conn:
