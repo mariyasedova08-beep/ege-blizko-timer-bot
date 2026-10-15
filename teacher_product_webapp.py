@@ -39,7 +39,7 @@ WEBAPP_URL = os.getenv(
     f"https://{PUBLIC_DOMAIN}/webapp" if PUBLIC_DOMAIN else "",
 ).strip()
 MAX_AUTH_AGE = 24 * 60 * 60
-WEBAPP_BUILD = "20261015-subject-picker-1"
+WEBAPP_BUILD = "20261015-prepodmin-themes-1"
 HTML_PATH = Path(__file__).with_name("teacher_product_webapp.html")
 _INSTALLED = False
 
@@ -182,6 +182,7 @@ def _dashboard(uid):
             "name": profile_name or "коллега",
             "subject": profile_subject or "",
             "subject_id": subject_catalog.subject_id_for_profile(row),
+            "theme_id": _theme_for_row(row)["id"],
             "profile_complete": bool(profile_name and profile_subject),
         },
         "date": day.strftime("%d.%m.%Y"),
@@ -430,6 +431,28 @@ def _tasks_view(uid):
     }
 
 
+def _theme_for_row(row):
+    """Return an approved theme only; ignore invalid legacy or corrupted IDs."""
+    value = row["theme_id"] if row is not None else None
+    return (subject_catalog.theme_by_id(value)
+            or subject_catalog.theme_by_id(subject_catalog.DEFAULT_THEME_ID))
+
+
+def _theme_state(uid):
+    return _theme_for_row(base.teacher(uid))
+
+
+def _settings_view(uid):
+    row = base.teacher(uid)
+    if not row:
+        return None
+    return {
+        "title": "Настройки",
+        "theme_id": _theme_for_row(row)["id"],
+        "themes": subject_catalog.public_themes(),
+    }
+
+
 def _profile_view(uid):
     row = base.teacher(uid)
     if not row:
@@ -439,13 +462,22 @@ def _profile_view(uid):
         "name": base.normalize_teacher_name(row["name"]) or "",
         "subject": base.normalize_teacher_subject(row["subject"]) or "",
         "subject_id": subject_catalog.subject_id_for_profile(row),
-        "theme_id": row["theme_id"] or subject_catalog.DEFAULT_THEME_ID,
+        "theme_id": _theme_for_row(row)["id"],
         "subjects": subject_catalog.public_subjects(),
     }
 
 
 def _teacher_action(uid, payload):
     action_name = str(payload.get("action") or "")
+    if action_name == "theme_update":
+        if not base.teacher(uid):
+            return {"ok": False, "error": "profile_not_found"}
+        item = subject_catalog.theme_by_id(payload.get("theme_id"))
+        if item is None:
+            return {"ok": False, "error": "invalid_theme_id"}
+        # Authenticated Telegram UID, not any teacher ID from the payload.
+        base.upsert_teacher(int(uid), theme_id=item["id"])
+        return {"ok": True, "theme_id": item["id"], "theme": item}
     if action_name == "profile_update":
         row = base.teacher(uid)
         if not row:
@@ -582,6 +614,7 @@ def _view(uid, name):
     builders = {
         "home": _dashboard,
         "profile": _profile_view,
+        "settings": _settings_view,
         "students": _students_view,
         "schedule": _schedule_view,
         "homework": _homework_view,
@@ -740,7 +773,7 @@ class WebAppHandler(BaseHTTPRequestHandler):
                 if not data:
                     self._send(403, _json_bytes({"ok": False, "error": "not_available"}))
                     return
-                self._send(200, _json_bytes({"view": view_name, "data": data}))
+                self._send(200, _json_bytes({"view": view_name, "data": data, "theme": _theme_state(uid)}))
                 return
 
             if not uid:
