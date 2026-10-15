@@ -92,7 +92,7 @@ class DraftTests(TestHarness, TestCase):
         self.assertFalse(self.p.claim_draft(draft_id, 42))
 
     def test_escaped_untrusted_catalog_title(self):
-        _, body = self.p._make_post(
+        body, _ = self.p._make_post(
             ("test", "<h1>Привет</h1>", "test"), "ege_blizko_timer_bot"
         )
         self.assertIn("&lt;h1&gt;", body)
