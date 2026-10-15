@@ -467,7 +467,9 @@ def _teacher_action(uid, payload):
             item = subject_catalog.subject_by_text(legacy)
             if item:
                 subject, subject_id = item["name"], item["id"]
-            elif legacy and legacy == base.normalize_teacher_subject(row["subject"]):
+            elif legacy:
+                # Keep the previous API's free-text support for existing clients
+                # and teachers of multiple subjects. The new UI uses catalog IDs.
                 subject, subject_id = legacy, None
             else:
                 return {"ok": False, "error": "invalid_teacher_subject"}
