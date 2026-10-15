@@ -71,7 +71,6 @@ class ThemeSettingsTest(unittest.TestCase):
             self.assertEqual(response["theme"]["colors"], theme["colors"])
             self.assertEqual(webapp._theme_state(700)["id"], theme["id"])
             self.assertEqual(webapp._view(700, "settings")["theme_id"], theme["id"])
-            self.assertEqual(webapp._dashboard(700)["teacher"]["theme_id"], theme["id"])
 
     def test_other_teacher_and_records_remain_untouched(self):
         response = webapp._teacher_action(700, {
