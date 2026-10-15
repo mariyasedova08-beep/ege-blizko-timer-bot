@@ -56,6 +56,8 @@ jobs:
           print("PREPODMIN_SYNTAX_OK")
           PY
           for f in deployment/prepodmin/*.sh; do bash -n "$f"; done
+      - name: Validate teacher and student WebApp JavaScript syntax
+        run: python deployment/prepodmin/check_inline_js.py
       - name: Run isolated regression suite
         run: |
           python -m unittest -q \
