@@ -44,9 +44,16 @@ h1{font-size:31px;line-height:1.03;margin:9px 0 7px;letter-spacing:-.035em}.sub{
 .profile-save{width:100%;background:var(--hot);color:white;border:0;border-radius:14px;padding:14px;font-weight:900;font-size:15px}
 .profile-tip{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:14px}
 .profile-error{color:#A72A51;font-size:12px;margin-bottom:10px}
+.subject-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:9px 0 18px}
+.subject-tile{border:0;border-radius:11px;background:var(--soft);color:var(--ink);min-width:0;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 5px;cursor:pointer}
+.subject-tile svg{width:25px;height:25px;display:block;color:var(--hot)}
+.subject-tile span{font-size:12px;font-weight:400;line-height:1.25;text-align:center}
+.subject-tile[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--hot)}
+.subject-tile:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
+.subject-legacy{font-size:12px;color:var(--muted);line-height:1.5;margin:-5px 0 16px}
 .brand-foot{text-align:center;color:#9A9296;font-size:10px;letter-spacing:.17em;margin-top:22px}
 .bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(248,245,242,.95);backdrop-filter:blur(15px);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:6}.nav{max-width:700px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:3px}.nav button{border:0;background:transparent;color:#8A8286;font:inherit;font-size:10px;padding:5px 2px}.nav .active{color:var(--hot);font-weight:900}.nav i{font-style:normal;display:block;font-size:19px;margin-bottom:3px}
-@media(max-width:430px){.actions{grid-template-columns:repeat(2,1fr)}.day-panels{grid-template-columns:1fr}.big{font-size:31px}}
+@media(max-width:430px){.actions{grid-template-columns:repeat(2,1fr)}.day-panels{grid-template-columns:1fr}.subject-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.big{font-size:31px}}
 @media(min-width:580px){.app{padding-left:24px;padding-right:24px}.grid{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
@@ -170,30 +177,43 @@ function renderSlots(d){
  (d.blocks||[]).forEach(function(x){out+='<div class="info-card"><div class="info-top"><div><div class="info-title">'+esc(x.label)+'</div><div class="info-meta">'+esc(x.start)+'–'+esc(x.end)+'</div></div><span class="badge warn">закрыто</span></div></div>';});
  out+='</div>';document.getElementById('app').innerHTML=out;
 }
+var selectedSubjectId='',legacySubject='';
 function renderProfile(d){
- var out=screenHeader('Мой профиль','Данные видны только в твоём кабинете');
- out+='<div class="profile-form"><div class="profile-tip">Укажи имя, которым хочешь представляться в ПРЕПАДМИН. Оно не берётся из Telegram и не должно совпадать с кнопками меню.</div>';
- out+='<label for="profile-name">Имя преподавателя</label><input id="profile-name" type="text" maxlength="80" autocomplete="name" value="'+esc(d.name||'')+'" placeholder="Например, Маша или Мария Александровна">';
- out+='<label for="profile-subject">Предмет</label><input id="profile-subject" type="text" maxlength="100" value="'+esc(d.subject||'')+'" placeholder="Например, Химия">';
+ selectedSubjectId=d.subject_id||'';
+ legacySubject=d.subject||'';
+ var tiles=(d.subjects||[]).map(function(x){
+   return '<button type="button" class="subject-tile" data-subject="'+esc(x.id)+'" aria-pressed="'+(selectedSubjectId===x.id)+'">'+x.icon_svg+'<span>'+esc(x.shortName)+'</span></button>';
+ }).join('');
+ var out=screenHeader('Мой профиль','Имя и предмет преподавателя');
+ out+='<div class="profile-form"><div class="profile-tip">Укажи имя, которым хочешь представляться в ПРЕПОДМИН. Оно не берётся из Telegram. Предмет выбери из утверждённого каталога.</div>';
+ out+='<label for="profile-name">Имя преподавателя</label><input id="profile-name" type="text" maxlength="80" autocomplete="name" value="'+esc(d.name||'')+'" placeholder="Например, Мария Александровна">';
+ out+='<label id="subject-grid-label">Твой предмет</label><div class="subject-grid" role="group" aria-labelledby="subject-grid-label">'+tiles+'</div>';
+ if(legacySubject&&!selectedSubjectId){out+='<div class="subject-legacy">Ранее сохранённый предмет: <strong>'+esc(legacySubject)+'</strong>. Он останется без изменений, пока не выберешь новый.</div>';}
  out+='<div class="profile-error" id="profile-error" role="alert"></div>';
  out+='<button class="profile-save" id="profile-save" onclick="saveProfile()">Сохранить профиль</button></div>';
  document.getElementById('app').innerHTML=out;
+ document.querySelectorAll('.subject-tile').forEach(function(button){
+   button.addEventListener('click',function(){
+     selectedSubjectId=button.getAttribute('data-subject');
+     document.querySelectorAll('.subject-tile').forEach(function(b){b.setAttribute('aria-pressed',String(b===button));});
+     document.getElementById('profile-error').textContent='';
+   });
+ });
 }
 async function saveProfile(){
  var name=(document.getElementById('profile-name').value||'').trim();
- var subject=(document.getElementById('profile-subject').value||'').trim();
  var err=document.getElementById('profile-error'),btn=document.getElementById('profile-save');
- if(!name||!subject){err.textContent='Заполни имя и предмет.';return;}
+ if(!name||(!selectedSubjectId&&!legacySubject)){err.textContent='Заполни имя и выбери предмет.';return;}
  btn.disabled=true;err.textContent='';
  try{
-  await teacherAction({action:'profile_update',name:name,subject:subject});
-  await openView('home');
+   await teacherAction({action:'profile_update',name:name,subject_id:selectedSubjectId,subject:legacySubject});
+   await openView('home');
  }catch(e){
-  err.textContent=e.message==='invalid_teacher_name'?'Введи своё имя текстом, а не название кнопки.':
-    e.message==='invalid_teacher_subject'?'Введи название предмета текстом.':
-    'Не удалось сохранить профиль. Попробуй ещё раз.';
-  await reportClientError('profile_update',e);
-  btn.disabled=false;
+   err.textContent=e.message==='invalid_teacher_name'?'Введи своё имя текстом, а не название кнопки.':
+     e.message==='invalid_teacher_subject'?'Выбери предмет из каталога.':
+     'Не удалось сохранить профиль. Попробуй ещё раз.';
+   await reportClientError('profile_update',e);
+   btn.disabled=false;
  }
 }
 function renderFallback(view,d){document.getElementById('app').innerHTML=screenHeader((d&&d.title)||'Раздел','данные загружены')+'<div class="list"><div class="empty">Раздел пока открывается в Telegram-меню.</div></div>';}
