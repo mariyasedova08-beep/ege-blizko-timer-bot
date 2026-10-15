@@ -1,12 +1,12 @@
-"""Shared EGE BLIZKO subject/theme catalog used by PREPODMIN.
+"""PREPODMIN-only approved subject and theme catalog.
 
-Only catalog entries (not teacher-entered strings) can provide inline SVG.
-The same JSON assets can later be reused by the learning platform.
+Assets are in the isolated PREPODMIN deployment allowlist. Never read
+teacher-provided SVG or arbitrary theme paths.
 """
 import json
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent / "shared" / "education_design"
+_ROOT = Path(__file__).resolve().parent / "deployment" / "prepodmin" / "design"
 _CATALOG = json.loads((_ROOT / "catalog.json").read_text(encoding="utf-8"))
 _ICONS = json.loads((_ROOT / "icons.json").read_text(encoding="utf-8"))
 
