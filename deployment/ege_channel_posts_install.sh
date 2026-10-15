@@ -7,8 +7,16 @@ umask 077
 
 APP=/opt/bots/ege-blizko
 SERVICE=ege-blizko
-REF=FETCH_HEAD
+# Pin the code module to a reviewed commit rather than mutable FETCH_HEAD.
+# Other Git operations on this checkout may overwrite FETCH_HEAD while the
+# install is running; the object ID itself is immutable.
+REF=96a0ddd5499c7b5fd3817829e5acddc68f724944
 BACKUP_ROOT=/root/ege-channel-posts-install-backups
+# Share the lock with the existing Timeweb autodeploy service so it cannot
+# race with this one-off installer on the same checkout.
+install -d -m 0755 /run/lock
+exec 9>/run/lock/ege-blizko-autodeploy.lock
+flock -w 20 9 || { echo "EGE deploy lock busy; stop and inspect" >&2; exit 1; }
 DB=$APP/data/coreapp_webhooks.db
 
 if [[ "$(id -u)" != "0" || "$#" -ne 0 ]]; then
@@ -48,7 +56,13 @@ PY
 if grep -Fq 'ege_channel_posts.install()' "$APP/run_bot_production.py"; then
   echo "Channel publisher hook already exists; no changes made" >&2; exit 1;
 fi
-git -C "$APP" cat-file -e "$REF:ege_channel_posts.py"
+git -C "$APP" cat-file -e "$REF^{commit}" || {
+  echo "Pinned EGE release commit is not available locally; fetch branch first" >&2; exit 1;
+}
+git -C "$APP" cat-file -e "$REF:ege_channel_posts.py" || {
+  echo "Pinned commit does not contain EGE channel module" >&2; exit 1;
+}
+echo "EGE_CHANNEL_SOURCE_PINNED sha=$REF"
 [[ -x "$APP/.venv/bin/python" ]] || { echo "EGE Python venv missing" >&2; exit 1; }
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"
