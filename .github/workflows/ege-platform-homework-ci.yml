@@ -1,0 +1,29 @@
+name: EGE BLIZKO — platform homework isolated tests
+on:
+  push:
+    branches:
+      - feature/ege-platform-homework-v1-20261016
+    paths:
+      - "ege_platform/**"
+      - ".github/workflows/ege-platform-homework-ci.yml"
+  pull_request:
+    paths:
+      - "ege_platform/**"
+      - ".github/workflows/ege-platform-homework-ci.yml"
+permissions:
+  contents: read
+jobs:
+  safe-homework-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check Python syntax
+        run: python -m compileall -q ege_platform
+      - name: Homework isolated regression
+        run: python -W error::ResourceWarning -m unittest -v ege_platform.test_homework_core
+      - name: Confirm zero deployment actions
+        run: echo "EGE_PLATFORM_TEST_ONLY_NO_PRODUCTION_ACCESS"
