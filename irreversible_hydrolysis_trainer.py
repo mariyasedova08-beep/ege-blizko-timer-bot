@@ -166,7 +166,7 @@ def _finish_session(session_id, correct):
 
 def _question_ids(mode, user_id):
     ids = [item[0] for item in IRREVERSIBLE_HYDROLYSIS_BANK]
-    if mode in {"10", "20", "40"}:
+    if mode in {"10", "20"}:
         return random.sample(ids, int(mode))
     if mode == "50":
         result = list(ids)
@@ -233,12 +233,6 @@ def _menu_markup(user_id):
                     "🧠 20 вопросов",
                     callback_data="triv:hydrolysis:start:20",
                 ),
-            ],
-            [
-                InlineKeyboardButton(
-                    "🔥 40 вопросов",
-                    callback_data="triv:hydrolysis:start:40",
-                )
             ],
             [
                 InlineKeyboardButton(
@@ -399,7 +393,7 @@ async def callback(update, context):
 
     if data.startswith("triv:hydrolysis:start:"):
         mode = data.rsplit(":", 1)[-1]
-        if mode not in {"10", "20", "40", "50", "errors"}:
+        if mode not in {"10", "20", "50", "errors"}:
             return
         if not _start_session(context, update.effective_user, mode):
             await query.edit_message_text(
@@ -510,7 +504,6 @@ def install():
     global _INSTALLED
     if _INSTALLED:
         return
-    _INSTALLED = True
 
     ensure_tables()
     live41.ensure_weekly_report_tables()
@@ -539,8 +532,8 @@ def install():
             and context.args[0].lower()
             in {
                 "hydrolysis",
-                "middlesaltprops",
-                "свойствасолей",
+                "hydrolysis50",
+                "гидролиз",
             }
         ):
             await update.message.reply_text(
@@ -635,6 +628,7 @@ def install():
 
     live34._trainer_metric = trainer_metric_with_hydrolysis
 
+    _INSTALLED = True
     print(
         f"Hydrolysis trainer installed: questions={len(IRREVERSIBLE_HYDROLYSIS_BANK)}",
         flush=True,
