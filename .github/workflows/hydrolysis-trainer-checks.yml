@@ -1,0 +1,28 @@
+name: Hydrolysis trainer checks
+
+on:
+  pull_request:
+    paths:
+      - "irreversible_hydrolysis_trainer*.py"
+      - "test_irreversible_hydrolysis_*.py"
+      - "run_bot_production.py"
+      - "test_hydrolysis_kulek_rewards.py"
+      - ".github/workflows/hydrolysis-trainer-checks.yml"
+  push:
+    branches:
+      - "feature/hydrolysis-50-trainer"
+
+jobs:
+  check-bank-and-routes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check Python syntax
+        run: python -m py_compile irreversible_hydrolysis_trainer.py irreversible_hydrolysis_trainer_bank.py run_bot_production.py
+      - name: Install test runner
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Test question bank and menu contract
+        run: python -m pytest -q test_irreversible_hydrolysis_*.py test_hydrolysis_kulek_rewards.py
