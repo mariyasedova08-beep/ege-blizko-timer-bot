@@ -7,7 +7,6 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 import run_bot_live85
 import payment_schedule
-import irreversible_hydrolysis_trainer
 
 live85 = run_bot_live85
 live84 = live85.live84
@@ -17,7 +16,6 @@ live23 = live85.live23
 live7 = live79.live7
 
 payment_schedule.install(live85, bot, live23)
-irreversible_hydrolysis_trainer.install()
 
 
 SURVEY_QUESTIONS = (
