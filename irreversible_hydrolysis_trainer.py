@@ -539,12 +539,12 @@ def install():
             and context.args[0].lower()
             in {
                 "hydrolysis",
-                "middlesaltprops",
-                "свойствасолей",
+                "irreversible_hydrolysis",
+                "необратимыйгидролиз",
             }
         ):
             await update.message.reply_text(
-                "🧂 Тренажёр «Необратимый гидролиз» открыт 💗",
+                "🧪 Тренажёр «Необратимый гидролиз» открыт 💗",
                 reply_markup=live7.STUDENT_KEYBOARD,
             )
             await show_menu(update, context)
