@@ -7,7 +7,7 @@ from datetime import datetime, time, timedelta
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 import run_bot_live85
-from hydrolysis_trainer_bank import IRREVERSIBLE_HYDROLYSIS_BANK
+from irreversible_hydrolysis_trainer_bank import IRREVERSIBLE_HYDROLYSIS_BANK
 
 live85 = run_bot_live85
 live79 = live85.live79
