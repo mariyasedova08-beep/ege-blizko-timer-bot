@@ -83,8 +83,12 @@ def test_simulated_student_full_lifecycle(tmp_path, monkeypatch):
     spec = importlib.util.spec_from_file_location("hydrolysis_simulated", root / "irreversible_hydrolysis_trainer.py")
     trainer = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(trainer)
+    # Real weekly catalog exists before trainer installs in production.
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as db:
+        db.execute("CREATE TABLE IF NOT EXISTS weekly_trainer_catalog(code TEXT PRIMARY KEY,title TEXT,start_param TEXT,sort_order INTEGER,active INTEGER)")
     trainer.install()
-    assert any(a[0] == "hydrolysis" for a in calls)
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as db:
+        assert db.execute("SELECT active FROM weekly_trainer_catalog WHERE code='hydrolysis'").fetchone() == (0,)
     assert any("🧪 Необратимый гидролиз" in row for row in live7.STUDENT_KEYBOARD.keyboard)
 
     update = SimpleNamespace(
@@ -132,6 +136,13 @@ def test_simulated_student_full_lifecycle(tmp_path, monkeypatch):
         assert "11" in trainer._stats_text(update.effective_user.id)
         with sqlite3.connect(bot.COREAPP_DB_PATH) as db:
             now = datetime.now(bot.TIMEZONE)
+            assert live41._weekly_trainer_stats(db, update.effective_user.id, now) == (0, 0, 0)
+            # Teacher assignment is separate from student access.
+            db.execute("UPDATE weekly_trainer_catalog SET active=1 WHERE code='hydrolysis'")
+            db.commit()
             assert live41._weekly_trainer_stats(db, update.effective_user.id, now) == (2, 11, 10)
+        trainer.register_trainer()
+        with sqlite3.connect(bot.COREAPP_DB_PATH) as db:
+            assert db.execute("SELECT active FROM weekly_trainer_catalog WHERE code='hydrolysis'").fetchone() == (1,)
 
     asyncio.run(trial())
