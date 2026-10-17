@@ -6,7 +6,7 @@ import importlib.util
 import sqlite3
 import sys
 import types
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
@@ -130,5 +130,8 @@ def test_simulated_student_full_lifecycle(tmp_path, monkeypatch):
         await press(f"triv:hydrolysis:next:{s['token']}")
         assert trainer._unresolved_error_ids(update.effective_user.id) == []
         assert "11" in trainer._stats_text(update.effective_user.id)
+        with sqlite3.connect(bot.COREAPP_DB_PATH) as db:
+            now = datetime.now(bot.TIMEZONE)
+            assert live41._weekly_trainer_stats(db, update.effective_user.id, now) == (2, 11, 10)
 
     asyncio.run(trial())
