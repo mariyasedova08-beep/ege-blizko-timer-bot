@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "irreversible_hydrolysis_trainer*.py"
-      - "test_irreversible_hydrolysis_trainer.py"
+      - "test_irreversible_hydrolysis_*.py"
       - "run_bot_live90.py"
       - ".github/workflows/hydrolysis-trainer-checks.yml"
   push:
@@ -24,4 +24,4 @@ jobs:
       - name: Install test runner
         run: python -m pip install --disable-pip-version-check pytest
       - name: Test question bank and menu contract
-        run: python -m pytest -q test_irreversible_hydrolysis_trainer.py
+        run: python -m pytest -q test_irreversible_hydrolysis_*.py
