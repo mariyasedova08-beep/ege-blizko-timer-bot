@@ -20,11 +20,10 @@ def _logic(tmp_path):
         any(isinstance(target, ast.Name) and target.id == "TRAINER_TABLES"
             for target in node.targets)
     )
-    # Install-side integration explicitly maps the new trainer to its table.
+    # Hydrolysis is not assigned yet: do not add it to the half-month counts.
     production = (ROOT / "run_bot_production.py").read_text(encoding="utf-8")
-    assert 'kulek_rewards.TRAINER_TABLES["hydrolysis"] = "hydrolysis_sessions"' in production
+    assert 'kulek_rewards.TRAINER_TABLES["hydrolysis"]' not in production
     assert "hydrolysis" not in tables
-    tables["hydrolysis"] = "hydrolysis_sessions"
 
     db_path = str(tmp_path / "testing.sqlite3")
     students = [(11, "Student", None, None, None, 93410)]
@@ -50,7 +49,7 @@ def _logic(tmp_path):
         """)
         conn.execute(
             "INSERT INTO weekly_trainer_catalog VALUES (?,?,?,?)",
-            ("hydrolysis", "🧪 Необратимый гидролиз", 1, 60)
+            ("hydrolysis", "🧪 Необратимый гидролиз", 0, 60)
         )
         conn.execute("""
             CREATE TABLE hydrolysis_sessions(
@@ -84,8 +83,7 @@ def test_only_completed_sessions_award_single_kulyochek(tmp_path):
         )
         conn.commit()
 
-    item = calc("2026-10", students)[0]["students"][11]
-    assert item == {"sessions": 2, "earned": False, "remaining": 1}
+    assert calc("2026-10", students) == []  # Still unassigned.
 
     with sqlite3.connect(db) as conn:
         conn.execute(
@@ -95,11 +93,7 @@ def test_only_completed_sessions_award_single_kulyochek(tmp_path):
         conn.commit()
 
     rows = calc("2026-10", students)
-    assert len(rows) == 1
-    item = rows[0]["students"][11]
-    assert item == {"sessions": 3, "earned": True, "remaining": 0}
-    # 1 reward per trainer, not 1 per correct answer or attempt.
-    assert sum(int(x["students"][11]["earned"]) for x in rows) == 1
+    assert rows == []  # Even 3 sessions cannot earn unassigned Kulyochki.
     assert calc("2026-09", students) == []  # Do not modify past months.
 
 
@@ -116,4 +110,4 @@ def test_first_vs_second_half_counts_hydrolysis(tmp_path):
         conn.execute("INSERT INTO hydrolysis_sessions VALUES (?,?,?,?)",
                      (93410, None, 10, 0))
         conn.commit()
-    assert env["_trainer_half_month_counts"](11, "2026-10") == (2, 1)
+    assert env["_trainer_half_month_counts"](11, "2026-10") == (0, 0)
