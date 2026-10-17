@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import os
+from pathlib import Path
 import sqlite3
 import time
 from datetime import datetime
@@ -1086,6 +1087,7 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
   <div class="lab-brand">ЕГЭ БЛИЗКО</div>
   <div class="lab-nav">
     <button id="labBackHistory" type="button">← Назад</button>
+    <a href="/lab-solubility">🧪 Таблица растворимости</a>
     <a id="labBackCabinet" href="#">⌂ В кабинет</a>
   </div>
 </div>
@@ -2229,7 +2231,23 @@ api({action:"load"}).then(j=>{
 </script></body></html>'''
 
 def do_get(self):
-    if urlparse(self.path).path != "/lab-app":
+    path = urlparse(self.path).path
+    if path == "/lab-solubility":
+        try:
+            body = Path(__file__).with_name("ege_lab_solubility_public.html").read_bytes()
+        except OSError as exc:
+            print(f"EGE public solubility unavailable: {type(exc).__name__}: {exc}", flush=True)
+            return self._send_json(503, {"ok": False, "error": "solubility_unavailable"})
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "public, max-age=60")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.end_headers()
+        self.wfile.write(body)
+        return
+    if path != "/lab-app":
         return _previous_get(self)
     body = HTML.encode("utf-8")
     self.send_response(200)
