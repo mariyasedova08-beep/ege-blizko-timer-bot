@@ -35,6 +35,9 @@ class PublicSolubilityTests(unittest.TestCase):
         self.assertEqual(cells["OH"]["Ba"], "P")
         self.assertEqual(cells["OH"]["Fe2"], "H")  # Fe(OH)₂ insoluble
         self.assertEqual(cells["OH"]["Fe3"], "H")  # Fe(OH)₃ insoluble
+        self.assertEqual(cells["OH"]["Cr2"], "H")  # Cr(OH)₂ insoluble
+        self.assertEqual(cells["OH"]["Cr3"], "H")  # Cr(OH)₃ insoluble
+        self.assertEqual(cells["Cl"]["Ag"], "H")  # AgCl insoluble
         self.assertEqual(cells["S"]["Hg"], "H")  # HgS insoluble
         self.assertEqual(cells["NO3"]["NH4"], "P")
         self.assertEqual(cells["NO3"]["Be"], "P")
@@ -43,6 +46,7 @@ class PublicSolubilityTests(unittest.TestCase):
         self.assertEqual(cells["S"]["Fe3"], "—")
         for c in ["Fe2", "Ag", "Hg", "Pb"]:
             self.assertEqual(cells["S"][c], "H")
+        self.assertEqual(self.data["precipitates"]["Ag|Cl"][0], "белый")
         self.assertEqual(self.data["precipitates"]["Ag|Br"][0], "светло-жёлтый")
         self.assertEqual(self.data["precipitates"]["Ag|S"][0], "чёрный")
         self.assertEqual(self.data["precipitates"]["Hg|S"][0], "чёрный")
