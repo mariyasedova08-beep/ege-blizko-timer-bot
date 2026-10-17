@@ -48,3 +48,12 @@ def test_unrelated_salt_deeplinks_not_hijacked():
     assert '"middlesaltprops"' not in text
     assert '"свойствасолей"' not in text
     assert '"irreversible_hydrolysis"' in text
+
+
+def test_production_wiring_and_existing_startup_unchanged():
+    production = (ROOT / "run_bot_production.py").read_text(encoding="utf-8")
+    assert "middle_salts_trainer.install()" in production
+    assert "irreversible_hydrolysis_trainer.install()" in production
+    assert production.index("middle_salts_trainer.install()") < production.index("irreversible_hydrolysis_trainer.install()")
+    assert production.index("irreversible_hydrolysis_trainer.install()") < production.index("public_channel_trainers.install()")
+    assert production.index("irreversible_hydrolysis_trainer.install()") < production.index("student_keyboard_compact.install()")
