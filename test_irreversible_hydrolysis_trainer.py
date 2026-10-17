@@ -41,3 +41,10 @@ def test_menu_callback_contract():
         'if str(session["index"]) != question_index:',
     ):
         assert fragment in text
+
+
+def test_unrelated_salt_deeplinks_not_hijacked():
+    text = (ROOT / "irreversible_hydrolysis_trainer.py").read_text(encoding="utf-8")
+    assert '"middlesaltprops"' not in text
+    assert '"свойствасолей"' not in text
+    assert '"irreversible_hydrolysis"' in text
