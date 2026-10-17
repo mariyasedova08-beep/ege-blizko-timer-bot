@@ -33,6 +33,9 @@ class PublicSolubilityTests(unittest.TestCase):
         self.assertEqual(cells["OH"]["Ca"], "M")
         self.assertEqual(cells["OH"]["Sr"], "M")
         self.assertEqual(cells["OH"]["Ba"], "P")
+        self.assertEqual(cells["OH"]["Fe2"], "H")  # Fe(OH)₂ insoluble
+        self.assertEqual(cells["OH"]["Fe3"], "H")  # Fe(OH)₃ insoluble
+        self.assertEqual(cells["S"]["Hg"], "H")  # HgS insoluble
         self.assertEqual(cells["NO3"]["NH4"], "P")
         self.assertEqual(cells["NO3"]["Be"], "P")
         self.assertEqual(cells["PO4"]["NH4"], "P")
@@ -43,6 +46,8 @@ class PublicSolubilityTests(unittest.TestCase):
         self.assertEqual(self.data["precipitates"]["Ag|Br"][0], "светло-жёлтый")
         self.assertEqual(self.data["precipitates"]["Ag|S"][0], "чёрный")
         self.assertEqual(self.data["precipitates"]["Hg|S"][0], "чёрный")
+        self.assertEqual(self.data["precipitates"]["Fe2|OH"][0], "серо-зелёный")
+        self.assertEqual(self.data["precipitates"]["Fe3|OH"][0], "бурый")
 
 
     def test_hydrolysis_and_redox_as_in_teacher_table(self):
