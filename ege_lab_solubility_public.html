@@ -48,7 +48,7 @@ function product(cat,an){
  const d=gcd(cat.charge,an.charge),cn=an.charge/d,anN=cat.charge/d;
  const stem=({Cr2:'Cr',Cr3:'Cr',Fe2:'Fe',Fe3:'Fe'})[cat.id]||cat.id;
  const cp=(cat.id==='NH4' && cn>1)?'('+stem+')':stem;
- const ap=anN>1 && an.id.length>2?'('+an.id+')':an.id;
+ const ap=anN>1 && !['F','Cl','Br','I','S'].includes(an.id)?'('+an.id+')':an.id;
  return chem(cp+(cn>1?cn:'')+ap+(anN>1?anN:''));
 }
 function gcd(a,b){while(b){[a,b]=[b,a%b]}return a}
