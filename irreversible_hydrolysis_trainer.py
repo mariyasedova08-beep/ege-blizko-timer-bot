@@ -481,12 +481,29 @@ async def callback(update, context):
 
 
 def register_trainer():
-    live41.register_weekly_trainer(
-        "hydrolysis",
-        "🧪 Необратимый гидролиз",
-        "hydrolysis",
-        60,
-    )
+    """Available for practice, excluded from assigned-trainer reports by default.
+
+    An existing teacher-controlled active flag is preserved across restarts.
+    A new trainer is not considered assigned automatically.
+    """
+    with sqlite3.connect(bot.COREAPP_DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO weekly_trainer_catalog(
+                code,title,start_param,sort_order,active
+            ) VALUES (?,?,?,?,0)
+            """,
+            ("hydrolysis", "🧪 Необратимый гидролиз", "hydrolysis", 60),
+        )
+        conn.commit()
+
+
+def _assigned_for_statistics(conn):
+    """Only teacher-activated trainers may contribute to shared metrics."""
+    row = conn.execute(
+        "SELECT active FROM weekly_trainer_catalog WHERE code='hydrolysis'"
+    ).fetchone()
+    return bool(row and row[0])
 
 
 def _patch_student_keyboard():
@@ -574,6 +591,8 @@ def install():
         sessions, questions, correct = original_weekly_stats(
             conn, telegram_id, now
         )
+        if not _assigned_for_statistics(conn):
+            return sessions, questions, correct
         since = datetime.combine(
             live41._week_start(now),
             time.min,
@@ -603,6 +622,8 @@ def install():
 
     def trainer_metric_with_hydrolysis(conn, student_row, now):
         metric = original_metric(conn, student_row, now)
+        if not _assigned_for_statistics(conn):
+            return metric
         if metric is None:
             return None
         telegram_id = student_row[5]
