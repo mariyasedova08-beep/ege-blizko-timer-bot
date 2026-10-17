@@ -233,9 +233,6 @@ def main():
     # Monthly Kulyochki: automatic rewards, practical-lesson awards,
     # student cabinet, discount draw and breakthrough-of-the-month flow.
     import kulek_rewards
-    # Include hydrolysis in first/second-half-month trainer activity and Kulyochki.
-    # _trainer_goals already picks this registered trainer up dynamically.
-    kulek_rewards.TRAINER_TABLES["hydrolysis"] = "hydrolysis_sessions"
     kulek_rewards.install()
 
     # Student beautiful WebApp: personal read-only cabinet for each linked child.
