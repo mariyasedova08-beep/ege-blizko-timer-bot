@@ -32,6 +32,34 @@ class TeacherDashboardTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_desktop_readability_without_changing_mobile_theme_or_data(self):
+        html = webapp.HTML_PATH.read_text(encoding="utf-8")
+        # Desktop-only visual improvements must not change the teacher API,
+        # persistence, payment rules, or mobile layout.
+        self.assertIn("@media (min-width:900px){",html)
+        desktop=html.split("@media (min-width:900px){",1)[1].split("</style>",1)[0]
+        for token in (
+            ".app{max-width:1080px;",
+            ".nav{max-width:1080px;",
+            ".nav button{font-size:14px;",
+            ".row-title{font-size:17px;",
+            ".row-sub{margin-top:5px}",
+            ".time{min-width:60px;font-size:17px}",
+            ".gstudentname{font-size:17px}",
+            ".gcontrols button,.gsoftbutton{font-size:15px;",
+            ".schedule-week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))",
+            ".schedule-day.is-empty{display:flex;",
+        ):
+            self.assertIn(token,desktop)
+        # The default phone/tablet schedule keeps its original one-column flow.
+        self.assertIn(".schedule-week{display:block}",html.split("@media (min-width:900px){",1)[0])
+        self.assertIn("out+='<div class=\"schedule-week\">';",html)
+        self.assertIn('class="day-panel schedule-day',html)
+        self.assertIn('+(rows?\'\':\'is-empty\')',html)
+        self.assertIn("function applyTheme(theme)",html)
+        self.assertIn("--paper",html)
+        self.assertNotIn("teacherAction(",desktop)
+
     def test_main_navigation_has_five_clear_destinations(self):
         html = webapp.HTML_PATH.read_text(encoding="utf-8")
         menu = html.split('<div class="bottom"><div class="nav">', 1)[1].split('</div></div>', 1)[0]

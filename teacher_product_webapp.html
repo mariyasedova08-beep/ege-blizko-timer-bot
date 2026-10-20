@@ -244,6 +244,81 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
 .more-link .more-arrow{font-size:16px;color:var(--muted)}
 .more-bot-link{display:block;border:1px solid var(--line);border-radius:14px;background:var(--soft);color:var(--ink);padding:13px 15px;font:inherit;font-size:12px;text-align:left;width:100%;cursor:pointer}
 @media(max-width:360px){.nav{gap:2px}.nav button{font-size:10px;padding-left:0;padding-right:0}.nav i svg{width:19px;height:19px}}
+/* Responsive schedule: day order stays chronological in the DOM.
+   Desktop uses the available width; mobile retains its familiar single column. */
+.schedule-week{display:block}
+.schedule-day{margin-bottom:10px}
+
+/* PREPODMIN desktop readability. Mobile and tablet typography are untouched. */
+@media (min-width:900px){
+ html,body{font-size:16px;line-height:1.5}
+ .app{max-width:1080px;padding:30px 32px 122px}
+ .nav{max-width:1080px;gap:10px}
+ .nav button{font-size:14px;padding:11px 8px 9px}
+ .nav i{height:27px;margin-bottom:5px}
+ .nav i svg{width:23px;height:23px}
+ .top{margin-bottom:23px}
+ h1{font-size:34px}
+ .sub,.small,.hero-note,.row-sub,.person-meta,.info-meta,.gquiet{font-size:14px;line-height:1.5}
+ .screen-head{gap:14px;margin-bottom:20px}
+ .screen-head h2{font-size:31px}
+ .screen-head .small{font-size:14px}
+ .back{width:46px;height:46px}
+ .back svg{width:22px;height:22px}
+ .hero{padding:26px 28px}
+ .hero-title{font-size:16px}
+ .hero-main .big{font-size:39px}
+ .date,.hero-note{font-size:14px}
+ .section-title strong{font-size:21px}
+ .section-title span{font-size:14px}
+ .row{padding:17px 18px;gap:14px}
+ .row-title{font-size:17px;font-weight:620}
+ .row-sub{margin-top:5px}
+ .time{min-width:60px;font-size:17px}
+ .badge,.statuspill{font-size:12px;padding:6px 10px}
+ .info-title,.person-name{font-size:17px}
+ .person-card,.info-card{padding:20px}
+ .statbox{padding:19px}
+ .statbox span{font-size:14px}
+ .statbox b{font-size:31px}
+ .card .label{font-size:15px}
+ .card .hint{font-size:13px}
+ .home-nav-hint,.more-intro{font-size:14px}
+ .more-category .more-title{font-size:17px}
+ .more-category .more-subtitle{font-size:14px}
+ .more-link{font-size:16px;padding:17px 20px}
+ .more-bot-link{font-size:15px}
+ .gtoolbar .gtitle{font-size:29px}
+ .gtoolbar .gsubtitle{font-size:14px}
+ .gcompactsummary .gmetric{font-size:14px;padding:13px 17px}
+ .gmetric strong{font-size:21px}
+ .gtabs button,.group-action,.group-pill{font-size:15px;padding:13px 16px}
+ .gstudent{padding:17px 19px}
+ .gstudentname{font-size:17px}
+ .gstudenthint,.gstudentright{font-size:14px}
+ .gcontrols button,.gsoftbutton{font-size:15px;padding:13px 17px}
+ .gblock{padding:19px}
+ .gsection h3{font-size:19px}
+ .gmembernav button{font-size:14px}
+ .gform label,.gform .gcheck,.glesson-notify label{font-size:15px}
+ .gform input,.gform select{font-size:16px}
+ .gform .gsubmit{font-size:15px;padding:14px 18px}
+ .gformerror,.gtoast{font-size:14px}
+ .profile-form label{font-size:16px}
+ .profile-tip,.profile-error{font-size:14px}
+ .profile-save{font-size:16px}
+ .theme-name{font-size:15px}
+ .theme-current{font-size:12px}
+ .schedule-week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+ .schedule-day{margin:0;min-width:0}
+ .schedule-day .day-panel-head{padding:18px 20px 10px}
+ .schedule-day .day-panel-head strong{font-size:20px}
+ .schedule-day .day-panel-head span{font-size:14px}
+ .schedule-day .empty{font-size:14px;padding:17px 20px 23px;text-align:left}
+ .schedule-day.is-empty{display:flex;align-items:center;justify-content:space-between;gap:15px;min-height:74px}
+ .schedule-day.is-empty .day-panel-head{padding:17px 0 17px 20px;min-width:0;flex:1}
+ .schedule-day.is-empty .empty{padding:17px 20px 17px 0;white-space:nowrap;color:var(--muted)}
+}
 </style>
 </head>
 <body>
@@ -789,7 +864,9 @@ async function setMemberHomework(aid,pid,status){
 function renderSchedule(d){
  var out=screenHeader('Расписание','ближайшие 7 дней');
  out+='<div class="gcontrols"><button type="button" onclick="openHomeLessonAction(\'transfer\')">↪ Перенести в группе</button><button type="button" onclick="openHomeLessonAction(\'cancel\')">× Отменить в группе</button></div>';
- (d.days||[]).forEach(function(day){var rows='';(day.events||[]).forEach(function(e){rows+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+'</div></div><span class="badge '+(e.moved?'warn':'')+'">'+(e.moved?'перенос':'занятие')+'</span></div>';});out+='<div class="day-panel '+(day.is_today?'tomorrow':'')+'" style="margin-bottom:10px"><div class="day-panel-head"><strong>'+esc(day.weekday)+' · '+esc(day.date)+'</strong><span>'+(day.is_today?'Сегодня':'')+'</span></div>'+(rows||'<div class="empty">Нет занятий</div>')+'</div>';});
+ out+='<div class="schedule-week">';
+ (d.days||[]).forEach(function(day){var rows='';(day.events||[]).forEach(function(e){rows+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+'</div></div><span class="badge '+(e.moved?'warn':'')+'">'+(e.moved?'перенос':'занятие')+'</span></div>';});out+='<div class="day-panel schedule-day '+(day.is_today?'tomorrow ':'')+(rows?'':'is-empty')+'"><div class="day-panel-head"><strong>'+esc(day.weekday)+' · '+esc(day.date)+'</strong><span>'+(day.is_today?'Сегодня':'')+'</span></div>'+(rows||'<div class="empty">Нет занятий</div>')+'</div>';});
+ out+='</div>';
  document.getElementById('app').innerHTML=out;
 }
 function renderHomework(d){
