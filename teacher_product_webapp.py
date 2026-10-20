@@ -865,12 +865,20 @@ def _launch_markup(uid):
     token = _launch_token(uid)
     sep = "&" if "?" in WEBAPP_URL else "?"
     url = f"{WEBAPP_URL}{sep}launch={token}&v={WEBAPP_BUILD}"
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton(
-            "💗 Открыть ПРЕПАДМИН",
+    # Ordinary HTTPS button opens the browser rather than Telegram Mini App.
+    # Its authorization link is short-lived; never send it to group chats.
+    browser_token = _launch_token(uid, ttl=12 * 60 * 60)
+    browser_url = f"{WEBAPP_URL}{sep}launch={browser_token}&v={WEBAPP_BUILD}"
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(
+            "💗 Открыть в Telegram",
             web_app=WebAppInfo(url=url),
-        )
-    ]])
+        )],
+        [InlineKeyboardButton(
+            "🌐 Открыть в браузере",
+            url=browser_url,
+        )],
+    ])
 
 
 async def open_webapp(update, context):
@@ -885,7 +893,9 @@ async def open_webapp(update, context):
         await update.message.reply_text("Главная сейчас недоступна. Попробуй чуть позже.")
         return
     await update.message.reply_text(
-        "💗 <b>ПРЕПАДМИН</b>\n\nОткрываю приложение преподавателя: расписание, задачи, ученики, оплаты и всё рабочее — в одном месте.",
+        "💗 <b>ПРЕПАДМИН</b>\n\nРасписание, задачи, ученики и оплаты — в одном месте.\n\n"
+        "На компьютере выбери «Открыть в браузере», чтобы работать отдельно от Telegram. "
+        "Ссылка действует 12 часов — не пересылай её.",
         parse_mode="HTML",
         reply_markup=_launch_markup(update.effective_user.id),
     )
@@ -924,8 +934,8 @@ def _bot_cabinet_markup(uid=None, section="home"):
              InlineKeyboardButton("••• Ещё", callback_data="pcab:menu:more")],
         ]
         if uid is not None and WEBAPP_URL:
-            # Reuse the existing authenticated WebApp launch button.
-            rows.append(list(_launch_markup(uid).inline_keyboard[0]))
+            # Both Telegram and browser launch paths stay available.
+            rows.extend([list(r) for r in _launch_markup(uid).inline_keyboard])
         return InlineKeyboardMarkup(rows)
     rows.append([InlineKeyboardButton("← Главное меню", callback_data="pcab:back")])
     return InlineKeyboardMarkup(rows)
