@@ -963,6 +963,7 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
   .lab-brand{display:none!important}
   .lab-nav{width:100%!important;justify-content:space-between!important}
   .lab-bench{min-height:410px!important}
+  .lab-bench.mobile-result-expanded{min-height:500px!important}
   .rack-wrap{left:0!important;right:0!important;bottom:48px!important}
   .rack{gap:5px!important;padding:0 3px!important}
   .tube-slot .tube,
@@ -1441,7 +1442,12 @@ function positionMobileReactionCallout(){
  requestAnimationFrame(()=>{
   const callout=document.querySelector(".tube-slot.active-slot .tube-callout");
   const tube=document.querySelector(".tube-slot.active-slot .tube");
-  if(!callout||!tube)return;
+  const bench=document.querySelector(".lab-bench");
+  if(!callout||!tube){
+   if(bench)bench.classList.remove("mobile-result-expanded");
+   return;
+  }
+  if(bench)bench.classList.add("mobile-result-expanded");
   const pad=10, gap=12, tr=tube.getBoundingClientRect();
   const ch=callout.getBoundingClientRect().height;
   let top=tr.top-ch-gap;
