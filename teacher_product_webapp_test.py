@@ -513,5 +513,142 @@ class GroupWorkspaceTest(unittest.TestCase):
 
 
 
+class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
+    """Issue homework through existing teacher-scoped tables on temporary SQLite."""
+
+    def setUp(self):
+        from datetime import datetime
+        import teacher_product_learning as learning
+        import teacher_product_webapp_homework as hwapp
+        import teacher_product_student_reminders as student_reminders
+        self.learning = learning
+        self.hwapp = hwapp
+        self.student_reminders = student_reminders
+        self.tmp = tempfile.TemporaryDirectory()
+        base.DB_PATH = os.path.join(self.tmp.name, "group_homework.sqlite3")
+        base.ensure_tables()
+        groups.ensure_tables()
+        schedule.ensure_tables()
+        student_reminders.ensure_tables()
+        hwapp.ensure_tables()
+        import teacher_product_group_payments as group_payments
+        group_payments.ensure_tables()
+        base.upsert_teacher(101, name="Мария", subject="Химия", onboarding_completed_at="2026-10-20")
+        base.upsert_teacher(202, name="Другая", subject="Биология", onboarding_completed_at="2026-10-20")
+        self.gid = groups.add_group(101, "ОГЭ 2027")
+        self.mid = int(student_reminders.add_member(101, self.gid, "Алина")["id"])
+        self.other_gid = groups.add_group(101, "ЕГЭ 2027")
+        self.other_mid = int(student_reminders.add_member(101, self.other_gid, "Ева")["id"])
+        self.empty_gid = groups.add_group(101, "Пустая группа")
+        self.due = datetime.now(schedule.tz(101)).date().isoformat()
+        self.payload = {
+            "action": "group_homework_create", "group_id": self.gid,
+            "homework_text": "Решить 10 задач", "due_date": self.due,
+            "request_key": "prepodmin-work-001",
+        }
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_group_homework_is_saved_once_and_reported_in_existing_views(self):
+        from unittest.mock import patch
+        with patch.object(self.learning, "_send_assignment") as sender:
+            first = webapp._teacher_action(101, self.payload)
+            second = webapp._teacher_action(101, self.payload)
+            sender.assert_not_called()  # HTTP handler never sends student messages
+        self.assertTrue(first["ok"], first)
+        self.assertFalse(first["duplicate"])
+        self.assertTrue(second["duplicate"])
+        self.assertEqual(first["assignment_id"], second["assignment_id"])
+        a = self.learning._assignment(first["assignment_id"], 101)
+        self.assertEqual(a["homework_text"], "Решить 10 задач")
+        self.assertEqual(a["due_date"], self.due)
+        with base.db() as conn:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM teacher_homework WHERE target_id=?",
+                             (self.gid,)).fetchone()[0], 1,
+            )
+        group = webapp._view(101, f"group:{self.gid}")
+        self.assertEqual(group["homework"][0]["total"], 1)
+        self.assertEqual(group["homework"][0]["delivery"]["state"], "pending")
+        self.assertEqual(group["members"][0]["pending_homework"], 1)
+        person = webapp._view(101, f"member:{self.mid}")
+        self.assertEqual(person["homework"][0]["id"], first["assignment_id"])
+        self.assertEqual(person["homework"][0]["status"], "pending")
+
+    def test_scope_validation_dates_and_idempotency_key_conflict(self):
+        self.assertEqual(webapp._teacher_action(202,self.payload)["error"],"group_not_found")
+        self.assertEqual(webapp._teacher_action(101,{**self.payload,"group_id":self.empty_gid})["error"],"empty_group")
+        self.assertEqual(webapp._teacher_action(101,{**self.payload,"homework_text":" "})["error"],"invalid_homework_text")
+        self.assertEqual(webapp._teacher_action(101,{**self.payload,"due_date":"2010-01-01"})["error"],"invalid_due_date")
+        self.assertEqual(webapp._teacher_action(101,{**self.payload,"request_key":"!"})["error"],"invalid_request_key")
+        self.assertTrue(webapp._teacher_action(101,self.payload)["ok"])
+        changed = webapp._teacher_action(101,{**self.payload,"homework_text":"Другое задание"})
+        self.assertEqual(changed["error"],"request_key_conflict")
+        self.assertIsNone(self.learning._assignment(99999, 101))
+        self.assertIsNone(self.learning._assignment(
+            webapp._teacher_action(101,self.payload)["assignment_id"], 202
+        ))
+
+    def test_member_completion_marks_correct_assignment_without_cross_group_leak(self):
+        first=webapp._teacher_action(101,self.payload)
+        data={
+            "action":"group_homework_mark",
+            "assignment_id":first["assignment_id"],
+            "member_id":self.mid,"status":"done",
+        }
+        self.assertEqual(webapp._teacher_action(202,data)["error"],"assignment_not_found")
+        self.assertEqual(webapp._teacher_action(101,{**data,"member_id":self.other_mid})["error"],"member_not_found")
+        self.assertEqual(webapp._teacher_action(101,{**data,"status":"unsafe"})["error"],"invalid_homework_status")
+        self.assertTrue(webapp._teacher_action(101,data)["ok"])
+        self.assertTrue(webapp._teacher_action(101,data)["unchanged"])
+        self.assertEqual(webapp._view(101,f"group:{self.gid}")["homework"][0]["done"],1)
+        self.assertEqual(webapp._view(101,f"member:{self.mid}")["homework"][0]["status"],"done")
+        self.assertEqual(webapp._view(101,f"group:{self.gid}")["members"][0]["pending_homework"],0)
+        self.assertTrue(webapp._teacher_action(101,{**data,"status":"pending"})["ok"])
+        self.assertEqual(webapp._view(101,f"group:{self.gid}")["homework"][0]["done"],0)
+
+    async def test_delivery_worker_uses_existing_send_once_not_in_http_thread(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock, patch
+        response = webapp._teacher_action(101,self.payload)
+        self.assertEqual(response["delivery_state"],"pending")
+        send=AsyncMock(return_value=(1,0,1))
+        with patch.object(self.learning,"_send_assignment",send):
+            await self.hwapp.delivery_tick(SimpleNamespace(bot=object()))
+            await self.hwapp.delivery_tick(SimpleNamespace(bot=object()))
+        send.assert_awaited_once()
+        state = self.hwapp.delivery_state(101,response["assignment_id"])
+        self.assertEqual(state["state"],"done")
+        self.assertEqual(state["linked"],1)
+        self.assertEqual(state["sent"],1)
+        self.assertEqual(webapp._view(101,f"group:{self.gid}")["homework"][0]["delivery"]["state"],"done")
+
+    async def test_failed_delivery_is_visible_but_not_automatically_retried(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock, patch
+        response=webapp._teacher_action(101,self.payload)
+        send=AsyncMock(return_value=(0,1,1))
+        with patch.object(self.learning,"_send_assignment",send):
+            await self.hwapp.delivery_tick(SimpleNamespace(bot=object()))
+            await self.hwapp.delivery_tick(SimpleNamespace(bot=object()))
+        send.assert_awaited_once()
+        self.assertEqual(self.hwapp.delivery_state(101,response["assignment_id"])["state"],"failed")
+
+    def test_ui_uses_inline_homework_form_and_marking(self):
+        body = webapp.HTML_PATH.read_text(encoding="utf-8")
+        for marker in (
+            "function toggleGroupHomeworkForm(gid)",
+            "async function saveGroupHomework(gid)",
+            "async function setMemberHomework(aid,pid,status)",
+            "group_homework_create",
+            "group_homework_mark",
+            "teacherAction({",
+        ):
+            self.assertIn(marker,body)
+
+
+
+
 if __name__ == "__main__":
     unittest.main()

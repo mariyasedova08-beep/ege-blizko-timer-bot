@@ -425,8 +425,13 @@ function renderGroup(d){
  (d.members||[]).forEach(function(m){out+='<button class="gstudent" onclick="openView(\'member:'+Number(m.id)+'\')"><span class="gstudentname">'+esc(m.name)+'</span><span class="gstudentright">'+esc(groupPaymentLabel(m.payment))+'</span><span>✎</span></button>';});
  if(!(d.members||[]).length)out+='<div class="empty">Участников нет</div>';
  out+='</div></section>';
- out+='<section data-gpanel="homework" class="gsection" hidden><div class="gcontrols"><button onclick="openGroupBotAction(\'homework\','+gid+')">＋ Выдать ДЗ группе</button></div>';
- (d.homework||[]).forEach(function(h){out+='<div class="gblock"><strong>'+esc(h.text)+'</strong><div class="gquiet">До '+shortDate(h.due)+' · выполнено '+Number(h.done)+'/'+Number(h.total)+'</div></div>';});
+ out+='<section data-gpanel="homework" class="gsection" hidden><div class="gcontrols"><button type="button" onclick="toggleGroupHomeworkForm('+gid+')">＋ Выдать ДЗ группе</button></div><div id="group-homework-form" hidden></div>';
+ if(groupHomeworkNotice){out+='<div class="gtoast" role="status">'+esc(groupHomeworkNotice)+'</div>';groupHomeworkNotice='';}
+ (d.homework||[]).forEach(function(h){
+  var delivery=h.delivery||null,ds=delivery?delivery.state:'';
+  var dlabel=ds==='pending'?'Уведомления в очереди':ds==='sending'?'Уведомления обрабатываются':ds==='failed'?'Проверь доставку в Telegram':ds==='done'?'Отправка обработана':'';
+  out+='<div class="gblock"><strong>'+esc(h.text)+'</strong><div class="gquiet">До '+shortDate(h.due)+' · выполнено '+Number(h.done)+'/'+Number(h.total)+'</div>'+(dlabel?'<div class="gquiet">'+esc(dlabel)+'</div>':'')+'</div>';
+ });
  if(!(d.homework||[]).length)out+='<div class="empty">Домашних заданий пока нет</div>';
  out+='</section>';
  document.getElementById('app').innerHTML=out;
@@ -450,7 +455,7 @@ function renderMember(d){
  (history.items||[]).slice(0,8).forEach(function(a){out+='<div class="gblock gblockhead"><span>'+shortDate(a.date)+'</span><span class="statuspill '+(a.status==='present'?'ok':'bad')+'">'+(a.status==='present'?'Был(а)':'Не был(а)')+'</span></div>';});
  if(!(history.items||[]).length)out+='<p class="gquiet">Отметок посещаемости пока нет</p>';
  out+='</div><div class="gsection"><h3>Домашние задания</h3>';
- (d.homework||[]).forEach(function(h){out+='<div class="gblock"><div class="gblockhead"><strong>'+esc(h.text)+'</strong><span class="statuspill '+(h.status==='done'?'ok':'')+'">'+(h.status==='done'?'Выполнено':'В работе')+'</span></div><div class="gquiet">До '+shortDate(h.due)+'</div></div>';});
+ (d.homework||[]).forEach(function(h){out+='<div class="gblock"><div class="gblockhead"><strong>'+esc(h.text)+'</strong><span class="statuspill '+(h.status==='done'?'ok':'')+'">'+(h.status==='done'?'Выполнено':'В работе')+'</span></div><div class="gquiet">До '+shortDate(h.due)+'</div><div class="gcontrols"><button type="button" onclick="setMemberHomework('+Number(h.id)+','+pid+',\''+(h.status==='done'?'pending':'done')+'\')">'+(h.status==='done'?'↶ Вернуть в работу':'✓ Отметить выполненным')+'</button></div></div>';});
  if(!(d.homework||[]).length)out+='<p class="gquiet">Домашних заданий пока нет</p>';
  out+='</div><div class="gsection"><h3>Настройки ученика</h3><p class="gquiet">Связь с Telegram: '+(d.connected?'подключена':'не подключена')+'. Управлять приглашением и составом можно через проверенный раздел группы.</p><button class="gsoftbutton" onclick="openGroupBotAction(\'members\','+gid+')">Открыть управление участниками</button></div>';
  document.getElementById('app').innerHTML=out;
@@ -512,6 +517,62 @@ async function setGroupAttendance(gid,pid,slot,day,status){
   await teacherAction({action:'group_attendance',group_id:gid,member_id:pid,slot_id:slot,date:day,status:status});
   await openView('group:'+gid,true);
  }catch(e){await reportClientError('group_attendance',e);alert('Не удалось сохранить посещаемость. Попробуй снова.');}
+}
+
+
+var groupHomeworkNotice='',groupHomeworkSavePending=false,groupHomeworkRequestKey='';
+function toggleGroupHomeworkForm(gid){
+ var panel=document.getElementById('group-homework-form');
+ if(!panel)return;
+ if(!panel.hidden){panel.hidden=true;return;}
+ if(!groupHomeworkRequestKey){
+  if(window.crypto&&typeof window.crypto.randomUUID==='function'){
+   groupHomeworkRequestKey=window.crypto.randomUUID().replace(/-/g,'');
+  }else{
+   groupHomeworkRequestKey=String(Date.now())+'_'+Math.random().toString(36).slice(2,14);
+  }
+ }
+ var now=new Date(),dateLocal=new Date(now.getTime()-now.getTimezoneOffset()*60000);
+ var tomorrow=new Date(dateLocal.getTime()+86400000).toISOString().slice(0,10);
+ panel.innerHTML='<div class="gblock"><div class="gform"><div class="gquiet">Задание будет выдано всей группе. Уведомления ученикам обработаются по действующим настройкам сообщений ПРЕПАДМИНА.</div>'+
+ '<label for="g-hw-text">Что нужно сделать</label><textarea id="g-hw-text" rows="4" maxlength="3500" placeholder="Например: решить задачи 1–10 из материала…" style="width:100%;border-radius:11px;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:12px;font:inherit;font-size:14px"></textarea>'+
+ '<label for="g-hw-due">Срок сдачи</label><input id="g-hw-due" type="date" value="'+tomorrow+'">'+
+ '<div id="g-hw-error" class="gformerror" role="alert"></div>'+
+ '<div class="gcontrols"><button class="gsubmit" id="g-hw-submit" type="button" onclick="saveGroupHomework('+Number(gid)+')">Сохранить и выдать группе</button><button type="button" onclick="toggleGroupHomeworkForm('+Number(gid)+')">Отмена</button></div></div></div>';
+ panel.hidden=false;
+}
+async function saveGroupHomework(gid){
+ if(groupHomeworkSavePending)return;
+ var field=document.getElementById('g-hw-text'),due=document.getElementById('g-hw-due'),error=document.getElementById('g-hw-error'),button=document.getElementById('g-hw-submit');
+ if(!field||!due||!error||!button)return;
+ var value=field.value.trim();
+ if(value.length<2||value.length>3500){error.textContent='Напиши текст задания (от 2 до 3500 символов).';return;}
+ if(!due.value){error.textContent='Выбери срок сдачи.';return;}
+ groupHomeworkSavePending=true;button.disabled=true;error.textContent='';
+ try{
+  var result=await teacherAction({
+   action:'group_homework_create',group_id:Number(gid),
+   homework_text:value,due_date:due.value,request_key:groupHomeworkRequestKey
+  });
+  groupHomeworkRequestKey='';
+  groupHomeworkNotice=result.duplicate?'Задание уже было сохранено. Повтор не создан.':'ДЗ сохранено. Telegram-уведомления поставлены в обработку с учётом настроек преподавателя.';
+  activeGroupTab='homework';
+  await openView('group:'+Number(gid));
+ }catch(e){
+  var msg={empty_group:'Сначала добавь учеников в группу.',invalid_due_date:'Срок сдачи должен быть от сегодняшнего дня до одного года вперёд.',invalid_homework_text:'Проверь текст задания.',request_key_conflict:'Форма устарела. Закрой её и открой заново.'};
+  error.textContent=msg[e.message]||'Не удалось сохранить. Попробуй снова — повторного ДЗ не появится.';
+  await reportClientError('group_homework_create',e);
+ }finally{groupHomeworkSavePending=false;button.disabled=false;}
+}
+async function setMemberHomework(aid,pid,status){
+ if(status!=='done'&&status!=='pending')return;
+ try{
+  await teacherAction({action:'group_homework_mark',assignment_id:Number(aid),member_id:Number(pid),status:status});
+  await openView('member:'+Number(pid));
+ }catch(e){
+  await reportClientError('group_homework_mark',e);
+  alert('Не удалось обновить ДЗ. Попробуй снова.');
+ }
 }
 
 function renderSchedule(d){
