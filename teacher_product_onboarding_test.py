@@ -584,6 +584,76 @@ class FullyPaidCoursePaymentsTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(int(plan["amount_rub"]), 9900)
             self.assertEqual(int(plan["course_paid"]), 0)
 
+    def test_migration_preserves_real_legacy_plan_and_receipts(self):
+        """Upgrade an old payment table without changing existing payment amounts."""
+        original_path = base.DB_PATH
+        base.DB_PATH = os.path.join(self.tmp.name, "legacy.sqlite3")
+        try:
+            base.ensure_tables()
+            groups.ensure_tables()
+            student_reminders.ensure_tables()
+            with base.db() as conn:
+                conn.execute("""
+                    CREATE TABLE group_member_payment_plans (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        teacher_telegram_user_id INTEGER NOT NULL,
+                        person_id INTEGER NOT NULL,
+                        group_id INTEGER NOT NULL,
+                        payment_type TEXT NOT NULL CHECK(payment_type IN ('once','monthly','package')),
+                        amount_rub INTEGER NOT NULL,
+                        next_due_date TEXT,
+                        lessons_total INTEGER,
+                        lessons_remaining INTEGER,
+                        active INTEGER NOT NULL DEFAULT 1,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        UNIQUE(teacher_telegram_user_id, person_id)
+                    )
+                """)
+                conn.execute(
+                    "INSERT INTO group_member_payment_plans"
+                    "(teacher_telegram_user_id,person_id,group_id,payment_type,"
+                    "amount_rub,next_due_date,active,created_at,updated_at)"
+                    " VALUES(?,?,?,?,?,?,?,?,?)",
+                    (101, 777, 888, "monthly", 9900, "2026-11-02", 1, "old", "old"),
+                )
+                conn.execute("""
+                    CREATE TABLE group_member_payment_history (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        teacher_telegram_user_id INTEGER NOT NULL,
+                        person_id INTEGER NOT NULL,
+                        group_id INTEGER NOT NULL,
+                        amount_rub INTEGER NOT NULL,
+                        payment_type TEXT NOT NULL,
+                        due_date TEXT,
+                        paid_at TEXT NOT NULL
+                    )
+                """)
+                conn.execute(
+                    "INSERT INTO group_member_payment_history"
+                    "(teacher_telegram_user_id,person_id,group_id,amount_rub,"
+                    "payment_type,due_date,paid_at) VALUES(?,?,?,?,?,?,?)",
+                    (101, 777, 888, 9900, "monthly", "2026-10-02", "2026-10-02T12:00:00"),
+                )
+                conn.commit()
+            self.payments.ensure_tables()
+            with base.db() as conn:
+                old = conn.execute(
+                    "SELECT * FROM group_member_payment_plans WHERE person_id=777"
+                ).fetchone()
+                self.assertEqual(old["amount_rub"], 9900)
+                self.assertEqual(old["payment_type"], "monthly")
+                self.assertEqual(old["next_due_date"], "2026-11-02")
+                self.assertEqual(old["course_paid"], 0)
+                self.assertIsNone(old["course_paid_date"])
+                self.assertEqual(
+                    conn.execute("SELECT COUNT(*) FROM group_member_payment_history").fetchone()[0],
+                    1,
+                )
+        finally:
+            base.DB_PATH = original_path
+
+
     def test_full_course_is_paid_not_due_and_history_logged_once(self):
         p = self.payments
         p._save_group_plan(101, self._data(), received=self.received)
