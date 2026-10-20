@@ -115,7 +115,7 @@ git apply --check "$PATCH"
 for path in "${changed[@]}"; do
   if [[ -e "$path" ]]; then
     mkdir -p "$BACKUP/files/$(dirname "$path")"
-    cp --preserve=mode,timestamps -- "$path" "$BACKUP/files/$path"
+    cp --preserve=mode,ownership,timestamps -- "$path" "$BACKUP/files/$path"
     printf 'EXISTING\t%s\n' "$path" >> "$BACKUP/manifest"
   else
     printf 'NEW\t%s\n' "$path" >> "$BACKUP/manifest"
@@ -130,7 +130,7 @@ rollback() {
     echo "LAB_RELEASE_FAILED restoring $BACKUP" >&2
     while IFS=$'\t' read -r original_type path; do
       if [[ "$original_type" == "EXISTING" ]]; then
-        cp --preserve=mode,timestamps -- "$BACKUP/files/$path" "$APP_DIR/$path"
+        cp --preserve=mode,ownership,timestamps -- "$BACKUP/files/$path" "$APP_DIR/$path"
       else
         rm -f -- "$APP_DIR/$path"
       fi
@@ -143,6 +143,19 @@ rollback() {
 trap rollback ERR INT TERM
 applied=1
 git apply "$PATCH"
+# git apply recreates changed files with this root script's umask (077),
+# commonly changing a readable 0644 Python module into root-only 0600.
+# Restore each existing file's exact owner/group and mode before restarting
+# the unprivileged service. New allowlisted source files must be readable.
+while read -r original_type path; do
+  if [[ "$original_type" == "EXISTING" ]]; then
+    chown --reference="$BACKUP/files/$path" -- "$APP_DIR/$path"
+    chmod --reference="$BACKUP/files/$path" -- "$APP_DIR/$path"
+  else
+    chmod 0644 -- "$APP_DIR/$path"
+  fi
+done < "$BACKUP/manifest"
+echo "LAB_FILE_ACCESS_RESTORED"
 for path in "${changed[@]}"; do
   if [[ "$path" == *.py ]]; then
     python3 -m py_compile "$path"
