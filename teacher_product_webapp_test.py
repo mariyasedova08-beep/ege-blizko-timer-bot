@@ -107,5 +107,97 @@ class TeacherDashboardTest(unittest.TestCase):
         self.assertNotIn("👩‍🏫", text)
 
 
+class CompactTelegramMenuTest(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        from unittest.mock import AsyncMock
+        self.tmp = tempfile.TemporaryDirectory()
+        base.DB_PATH = os.path.join(self.tmp.name, "compact_menu.sqlite3")
+        base.ensure_tables()
+        base.upsert_teacher(
+            101, name="Мария Александровна", subject="Химия",
+            work_format="groups", onboarding_completed_at="2026-10-20",
+        )
+        self.AsyncMock = AsyncMock
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    @staticmethod
+    def actions(markup):
+        return [
+            btn.callback_data for row in markup.inline_keyboard
+            for btn in row if btn.callback_data
+        ]
+
+    def test_main_menu_is_six_clear_directions(self):
+        markup = webapp._bot_cabinet_markup()
+        values = self.actions(markup)
+        self.assertEqual(len(values), 6)
+        self.assertEqual(values, [
+            "pcab:students", "pcab:menu:lessons",
+            "pcab:payments", "pcab:tasks",
+            "pcab:menu:learning", "pcab:menu:more",
+        ])
+        self.assertEqual(len(markup.inline_keyboard), 3)
+        text = webapp._bot_cabinet_text(101)
+        self.assertIn("Мария Александровна", text)
+        self.assertIn("Выбери раздел", text)
+        self.assertNotIn("ЕГЭ БЛИЗКО", text)
+
+    def test_all_previous_actions_stay_reachable(self):
+        main = self.actions(webapp._bot_cabinet_markup())
+        sections = ("lessons", "learning", "more")
+        available = set(main)
+        for section in sections:
+            markup = webapp._bot_cabinet_markup(101, section)
+            callbacks = self.actions(markup)
+            self.assertEqual(callbacks[-1], "pcab:back")
+            available.update(callbacks)
+        preserved = {
+            "pcab:students", "pcab:schedule", "pcab:homework",
+            "pcab:attendance", "pcab:payments", "pcab:slots",
+            "pcab:tasks", "pcab:reports", "pcab:materials",
+            "pcab:reminders", "pcab:transfer", "pcab:cancel",
+            "pcab:settings", "pcab:help", "pcab:attention",
+        }
+        self.assertTrue(preserved.issubset(available))
+
+    async def test_submenu_and_back_edit_same_message(self):
+        from types import SimpleNamespace
+        query = SimpleNamespace(
+            data="pcab:menu:lessons",
+            from_user=SimpleNamespace(id=101),
+            answer=self.AsyncMock(),
+            edit_message_text=self.AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        await webapp.bot_cabinet_callback(update, None)
+        self.assertIn("Занятия", query.edit_message_text.await_args.args[0])
+        lesson_markup = query.edit_message_text.await_args.kwargs["reply_markup"]
+        self.assertIn("pcab:schedule", self.actions(lesson_markup))
+        self.assertIn("pcab:back", self.actions(lesson_markup))
+
+        query.data = "pcab:back"
+        await webapp.bot_cabinet_callback(update, None)
+        home_markup = query.edit_message_text.await_args.kwargs["reply_markup"]
+        self.assertEqual(len(self.actions(home_markup)), 6)
+
+    def test_app_launch_still_available_when_configured(self):
+        from unittest.mock import patch
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+        launched = InlineKeyboardMarkup([[
+            InlineKeyboardButton("💗 Открыть ПРЕПАДМИН",
+                                 web_app=WebAppInfo(url="https://example.com/webapp?launch=test"))
+        ]])
+        with patch.object(webapp, "WEBAPP_URL", "https://example.com/webapp"):
+            with patch.object(webapp, "_launch_markup", return_value=launched):
+                markup = webapp._bot_cabinet_markup(101)
+        self.assertEqual(len(markup.inline_keyboard), 4)
+        self.assertIsNotNone(markup.inline_keyboard[-1][0].web_app)
+        self.assertEqual(len(self.actions(markup)), 6)
+
+
+
+
 if __name__ == "__main__":
     unittest.main()
