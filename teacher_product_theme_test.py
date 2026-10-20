@@ -104,7 +104,7 @@ console.log('PREPODMIN_DESKTOP_VIEWPORT_OK');
         for fragment in (
             "brand-wordmark", "top-kicker", "function uiIcon(name)",
             "function hydrateNavIcons()", 'data-ui-icon="home"',
-            "uiIcon(item[0])", "uiIcon(icon)", "var(--soft)",
+            "more-link-icon", "uiIcon(icon)", "var(--soft)",
             "var(--paper)", "var(--hot)", "var(--muted)",
         ):
             self.assertIn(fragment, teacher)
