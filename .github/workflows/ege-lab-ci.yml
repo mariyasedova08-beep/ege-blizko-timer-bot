@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'feature/lab-*'
+      - 'release/ege-lab'
     paths:
       - 'ege_lab_webapp.py'
       - 'ege_lab_substances.py'
