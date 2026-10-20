@@ -70,6 +70,8 @@ try {
           animation: tube?.querySelector('.solidBed.dissolving-solid')
             ? getComputedStyle(tube.querySelector('.solidBed.dissolving-solid')).animationName : '',
           viewportWidth: window.innerWidth, viewportHeight: window.innerHeight,
+          navRight: Math.max(...[...document.querySelectorAll('.lab-nav a,.lab-nav button')]
+            .map(el => el.getBoundingClientRect().right)),
         };
       });
       const label = viewport.name + ' / ' + c.id;
@@ -79,6 +81,9 @@ try {
       assert.ok(state.tubeRects.every(r => r.x >= -3 && r.right <= state.viewportWidth + 3),
         label + ': tubes fit viewport');
       assert.ok(state.callout.includes('Признак:'), label + ': observation is visible');
+      assert.ok(state.navRight <= state.viewportWidth + 2, label + ': header fits viewport');
+      if (c.id === 'barium-sulfate' || c.id === 'aluminium-hydroxide')
+        assert.ok(state.visual.includes('light-ppt'), label + ': pale precipitate contrasted');
       assert.ok(state.cardRect?.top >= -2 &&
         state.cardRect?.bottom <= state.viewportHeight + 2,
         label + ': result card stays in viewport');
@@ -92,6 +97,8 @@ try {
       if (c.blue) assert.ok(state.liquid.includes('#42baf5'), label + ': blue solution');
       if (c.gas) {
         assert.ok(state.visual.includes('bubbleLayer'), label + ': rising gas');
+        assert.equal((state.visual.match(/class="bubble"/g) || []).length, 22,
+          label + ': a carbonate solid must fizz locally, not boil');
         assert.ok(state.callout.includes(c.gas), label + ': gas named');
       }
       await page.screenshot({ path: target + '/' + viewport.name + '-' + c.id + '.png',
