@@ -57,7 +57,7 @@ class TeacherDashboardTest(unittest.TestCase):
         self.assertIn('class="day-panel schedule-day',html)
         self.assertIn('+(rows?\'\':\'is-empty\')',html)
         self.assertIn("function applyTheme(theme)",html)
-        self.assertIn("--paper",desktop)
+        self.assertIn("--paper",html)
         self.assertNotIn("teacherAction(",desktop)
 
     def test_main_navigation_has_five_clear_destinations(self):
