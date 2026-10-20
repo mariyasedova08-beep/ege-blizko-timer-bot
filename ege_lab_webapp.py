@@ -326,6 +326,10 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .particle.fine{border-radius:48%;opacity:.76;filter:blur(.28px);box-shadow:0 1px 1px rgba(0,0,0,.07)}
 .particle.dense{border-radius:37% 53% 44% 48%;opacity:.94;filter:blur(.3px);box-shadow:0 1px 2px rgba(0,0,0,.17)}
 .pptLayer.dense-sediment{isolation:isolate}
+.pptLayer.light-ppt:before{content:"";position:absolute;left:5%;right:5%;bottom:1%;height:30%;border-radius:50%;background:radial-gradient(ellipse at 50% 72%,rgba(187,203,213,.60),rgba(226,234,238,.42) 53%,transparent 83%);filter:blur(3px);pointer-events:none}
+.pptLayer.light-ppt .particle.fine{background:#f6fafc;box-shadow:0 0 2px 1px rgba(99,117,131,.35);opacity:.94}
+.pptLayer.light-ppt .gel-bed{box-shadow:0 -3px 10px rgba(107,126,140,.35),inset 0 -3px 6px rgba(121,139,151,.20);filter:blur(2.4px)}
+.pptLayer.light-ppt .gel-cloud{box-shadow:0 0 6px rgba(104,123,138,.27);filter:blur(2.5px)}
 .dense-bed{position:absolute;left:6%;right:6%;bottom:0;height:22%;border-radius:48% 51% 16% 16% / 42% 49% 12% 12%;background:var(--pc);opacity:.91;filter:blur(.8px);animation:denseBedSettle 1.3s ease-out both}
 @keyframes denseBedSettle{from{opacity:0;transform:translateY(-22px) scaleY(.4)}to{opacity:.91;transform:translateY(0) scaleY(1)}}
 /* Gel-like hydroxides: soft suspension and irregular settling, not gas-like circles. */
@@ -955,6 +959,9 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
 }
 
 @media(max-width:430px){
+  .lab-topbar{display:flex!important;flex-direction:column!important;align-items:stretch!important}
+  .lab-brand{display:none!important}
+  .lab-nav{width:100%!important;justify-content:space-between!important}
   .lab-bench{min-height:410px!important}
   .rack-wrap{left:0!important;right:0!important;bottom:48px!important}
   .rack{gap:5px!important;padding:0 3px!important}
@@ -1319,14 +1326,14 @@ function pptTexture(x){
 }
 function precipitateHTML(x){
  if(!x||!x.ppt)return "";
- const cls=pptTexture(x),parts=[];
+ const cls=pptTexture(x),parts=[],light=/^#(?:fff|ffffff|f8fbff)$/i.test(String(x.ppt));
  if(cls==="gel"){
   // Soft, connected clouds settle into an irregular sediment layer.
   for(let n=0;n<13;n++){
    const l=(5+(n*29)%74), b=(8+(n*13)%34), w=(19+(n%4)*9), h=(9+(n%3)*7);
    parts.push('<i class="gel-cloud" style="--l:'+l+'%;--b:'+b+'%;--w:'+w+'px;--h:'+h+'px;--delay:'+(n%6)*.09+'s;--pc:'+x.ppt+'"></i>');
   }
-  return '<div class="pptLayer gel-sediment"><i class="gel-bed" style="--pc:'+x.ppt+'"></i>'+parts.join("")+'</div>';
+  return '<div class="pptLayer gel-sediment'+(light?' light-ppt':'')+'"><i class="gel-bed" style="--pc:'+x.ppt+'"></i>'+parts.join("")+'</div>';
  }
  const count=cls==="fine"?44:cls==="dense"?38:cls==="crystal"?19:24;
  for(let n=0;n<count;n++){
@@ -1335,13 +1342,16 @@ function precipitateHTML(x){
   const r=((n*31)%90-45)+"deg";
   parts.push('<i class="particle '+cls+'" style="--l:'+l+'%;--b:'+b+'%;--s:'+s+'px;--r:'+r+';--pc:'+x.ppt+'"></i>');
  }
- return '<div class="pptLayer'+(cls==="dense"?' dense-sediment':'')+'">'+(cls==="dense"?'<i class="dense-bed" style="--pc:'+x.ppt+'"></i>':'')+parts.join("")+'</div>';
+ return '<div class="pptLayer'+(cls==="dense"?' dense-sediment':'')+(light?' light-ppt':'')+'">'+(cls==="dense"?'<i class="dense-bed" style="--pc:'+x.ppt+'"></i>':'')+parts.join("")+'</div>';
 }
-function bubblesHTML(x){
+function bubblesHTML(x,v=[]){
  if(!x||!x.gas)return "";
  const parts=[],fizz=[],boil=[];
- const strong=["CO₂","SO₂","H₂S","NO₂"].includes(x.gas);
- const count=strong?42:30;
+ // Carbonates reacting as solid pieces fizz at their surface instead of
+ // looking like a vigorously boiling homogeneous solution.
+ const solidFizz=x.gas==="CO₂"&&v.some(id=>String((reagent(id)||[])[3]||"").includes("тв."))&&solidReactionMode(v,x)==="dissolving_solid";
+ const strong=["CO₂","SO₂","H₂S","NO₂"].includes(x.gas)&&!solidFizz;
+ const count=solidFizz?22:(strong?42:30);
  for(let n=0;n<count;n++){
    parts.push('<i class="bubble" style="--l:'+(4+(n*23)%91)+'%;--s:'+(strong?8+(n%7)*2.4:7+(n%6)*2.2)+'px;--d:'+(strong?.88+(n%5)*.12:1.12+(n%5)*.17)+'s;--delay:-'+((n%11)*.13)+'s;--drift:'+(((n%5)-2)*8)+'px"></i>');
  }
@@ -1406,7 +1416,7 @@ function tubeHTML(v,i,active,heated,excess=""){
  const hasMetalDeposit=!!(x&&x.ppt&&v.some(id=>String((reagent(id)||[])[1]||"")==="Металлы"));
  const solids=solidReagentHTML(v,x,hasMetalDeposit);
  const deposit=hasMetalDeposit?metalDepositHTML(v,x):"";
- const reactionVisual=x&&x.t!=="z"?((hasMetalDeposit?"":precipitateHTML(x))+bubblesHTML(x)+deposit+'<i class="reactionGlow"></i>'):"";
+ const reactionVisual=x&&x.t!=="z"?((hasMetalDeposit?"":precipitateHTML(x))+bubblesHTML(x,v)+deposit+'<i class="reactionGlow"></i>'):"";
  const shimmer=(heated&&v.length)?'<i class="heatShimmer"></i>':"";
  return '<div class="tube '+(active?'on':'')+'"><i class="liq" style="height:'+liquidHeight+'%;background:'+sol+'"></i>'+solids+reactionVisual+shimmer+'</div>';
 }
