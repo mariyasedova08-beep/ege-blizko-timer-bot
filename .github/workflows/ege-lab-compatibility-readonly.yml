@@ -1,0 +1,117 @@
+name: ЕГЭ БЛИЗКО — проверка совместимости Timeweb (без изменений)
+
+# Read-only preflight: no deployment, restart, overwrite, or server-side fetch.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'feature/lab-readonly-preflight-*'
+    paths:
+      - '.github/workflows/ege-lab-compatibility-readonly.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ege-lab-readonly-compatibility
+  cancel-in-progress: false
+
+env:
+  BASE_SHA: 9eddd2528e8e5a163369f09177573af3015b569d
+  CANDIDATE_SHA: e6953974e7f2ac86a18ed966ee3aa91ccc0fcddc
+  CANDIDATE_REF: refs/remotes/origin/feature/lab-combined-visuals-20261020
+
+jobs:
+  validate-scope:
+    name: Validate pinned candidate patch on GitHub runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate exact candidate and allowlisted change scope
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --quiet --no-tags origin \
+            'refs/heads/feature/lab-combined-visuals-20261020:refs/remotes/origin/feature/lab-combined-visuals-20261020'
+          test "$(git rev-parse "$CANDIDATE_REF")" = "$CANDIDATE_SHA"
+          git cat-file -e "$BASE_SHA^{commit}"
+          git merge-base --is-ancestor "$BASE_SHA" "$CANDIDATE_SHA"
+          while IFS= read -r file; do
+            case "$file" in
+              ege_lab_webapp.py|tests/*|.github/workflows/*)
+                printf 'ALLOWED_CHANGE %s\n' "$file" ;;
+              *)
+                echo "STOP: unexpected file $file" >&2; exit 1 ;;
+            esac
+          done < <(git diff --name-only --no-renames "$BASE_SHA" "$CANDIDATE_SHA")
+          test "$(git diff --name-only "$BASE_SHA" "$CANDIDATE_SHA" -- 'ege_lab_*.py' 'ege_task6_*.py' 'oge_*.py')" = 'ege_lab_webapp.py'
+          git diff --check "$BASE_SHA" "$CANDIDATE_SHA" -- ege_lab_webapp.py
+          git diff --binary --no-ext-diff "$BASE_SHA" "$CANDIDATE_SHA" -- ege_lab_webapp.py > "$RUNNER_TEMP/lab-compat.patch"
+          test -s "$RUNNER_TEMP/lab-compat.patch"
+          git apply --stat "$RUNNER_TEMP/lab-compat.patch"
+          echo LAB_PATCH_SCOPE_OK
+          echo NO_SERVER_CONNECTION
+
+  read-only-timeweb:
+    name: Check candidate patch against live Timeweb files without changes
+    needs: validate-scope
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: ege-lab-production
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prepare immutable patch on GitHub runner only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --quiet --no-tags origin \
+            'refs/heads/feature/lab-combined-visuals-20261020:refs/remotes/origin/feature/lab-combined-visuals-20261020'
+          test "$(git rev-parse "$CANDIDATE_REF")" = "$CANDIDATE_SHA"
+          git merge-base --is-ancestor "$BASE_SHA" "$CANDIDATE_SHA"
+          git diff --binary --no-ext-diff "$BASE_SHA" "$CANDIDATE_SHA" -- ege_lab_webapp.py > "$RUNNER_TEMP/lab-compat.patch"
+          test -s "$RUNNER_TEMP/lab-compat.patch"
+      - name: SSH read-only status and git apply --check
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$SSH_USER" = 'ege-deploy'
+          test "$SSH_HOST" = '77.233.212.200'
+          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
+          [[ "$KNOWN_HOSTS" == "$SSH_HOST ssh-ed25519 "* ]]
+          install -d -m 0700 "$HOME/.ssh"
+          trap 'rm -f "$HOME/.ssh/lab-preflight-key" "$HOME/.ssh/known_hosts" "$RUNNER_TEMP/lab-compat.patch"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/lab-preflight-key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/lab-preflight-key" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/lab-preflight-key" >/dev/null
+          ssh -T -o BatchMode=yes -o PasswordAuthentication=no -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=10 -i "$HOME/.ssh/lab-preflight-key" \
+            "$SSH_USER@$SSH_HOST" \
+            'set -eu; test -r /opt/bots/ege-blizko/ege_lab_webapp.py; systemctl is-active --quiet ege-blizko; sha256sum /opt/bots/ege-blizko/ege_lab_webapp.py; echo LAB_RUNNING_FILE_READABLE'
+          if ssh -T -o BatchMode=yes -o PasswordAuthentication=no -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=10 -i "$HOME/.ssh/lab-preflight-key" \
+            "$SSH_USER@$SSH_HOST" \
+            'set -eu; cd /opt/bots/ege-blizko; GIT_OPTIONAL_LOCKS=0 git apply --check -' \
+            < "$RUNNER_TEMP/lab-compat.patch"; then
+            echo 'LAB_PREFLIGHT_PATCH_APPLIES'
+            echo 'NO_FILES_CHANGED_NO_RESTART_NO_DEPLOYMENT'
+          else
+            echo 'LAB_PREFLIGHT_CONFLICT_DO_NOT_DEPLOY' >&2
+            echo 'NO_FILES_CHANGED_NO_RESTART_NO_DEPLOYMENT'
+            exit 1
+          fi
