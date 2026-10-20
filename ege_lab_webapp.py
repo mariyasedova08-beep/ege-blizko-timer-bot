@@ -301,6 +301,9 @@ HTML = r'''<!doctype html>
 .reaction-equation::-webkit-scrollbar-track{background:#f6edf2;border-radius:999px}
 .reaction-equation::-webkit-scrollbar-thumb{background:#8f878b;border-radius:999px;border:2px solid #f6edf2}
 .reaction-note{font-size:10px;color:#7c7277;margin-top:7px}
+.reaction-gas{margin-top:8px;padding:8px 9px;background:rgba(255,255,255,.7);border:1px solid rgba(163,124,105,.24);border-radius:10px;font-size:11px;line-height:1.45;color:#423630}
+.reaction-gas b{font-weight:650}
+.reaction-gas .gas-safety{display:block;margin-top:4px;color:#836d63;font-size:10px}
 @keyframes reactionPop{0%{transform:scale(.97);opacity:.35}100%{transform:scale(1);opacity:1}}
 .mode-note{font-size:10px;color:#8b8387;margin-top:8px}
 
@@ -1248,6 +1251,25 @@ function findReaction(a,b,heated,excess=""){
  const fallback=eligible[0]||null;
  return fallback&&(!fallback.heat||heated)?fallback:null;
 }
+// Unified source of gas colours and smells. All gases in the laboratory catalogue
+// must have an entry here; tests enforce coverage when reactions are added.
+const GAS_REFERENCE=Object.freeze({
+ "H₂":{color:"бесцветный",smell:"без запаха",plume:"rgba(255,255,255,.18)"},
+ "CO₂":{color:"бесцветный",smell:"без запаха",plume:"rgba(255,255,255,.18)"},
+ "NO":{color:"бесцветный",smell:"без запаха",plume:"rgba(255,255,255,.18)",note:"На воздухе окисляется до бурого NO₂."},
+ "NO₂":{color:"бурый",smell:"резкий раздражающий",plume:"rgba(196,88,22,.90)"},
+ "SO₂":{color:"бесцветный",smell:"резкий удушливый",plume:"rgba(255,255,255,.18)"},
+ "H₂S":{color:"бесцветный",smell:"тухлых яиц",plume:"rgba(255,255,255,.18)"},
+ "NH₃":{color:"бесцветный",smell:"резкий характерный",plume:"rgba(255,255,255,.18)"},
+ "Cl₂":{color:"жёлто-зелёный",smell:"резкий удушливый",plume:"rgba(190,210,92,.46)"}
+});
+function gasObservationHTML(x){
+ if(!x||!x.gas)return "";
+ const info=GAS_REFERENCE[x.gas];
+ if(!info)return '<div class="reaction-gas"><b>Газ '+x.gas+':</b> свойства требуют проверки.</div>';
+ const note=info.note?' '+info.note:'';
+ return '<div class="reaction-gas"><b>Газ '+x.gas+':</b> цвет — '+info.color+'; запах — '+info.smell+'.'+note+'<span class="gas-safety">Запах указан справочно. Не вдыхайте выделяющиеся газы.</span></div>';
+}
 function reactionResultHTML(x,heated=false){
  if(!x)return '<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот опыт пока не добавлен в базу.</div></div>';
  if(x.heat&&!heated)return '<div class="reaction-card"><div class="reaction-head"><span class="reaction-status">🔥 Нужен нагрев</span></div><div class="reaction-sign">Без нагревания видимого результата не показываем.</div><div class="reaction-equation">'+x.eq+'</div></div>';
@@ -1257,7 +1279,7 @@ function reactionResultHTML(x,heated=false){
  const sign=noReaction?x.sign:(noVisible?"Без видимого признака":x.sign);
  const condition=x.condition?'<div class="reaction-note">Условие: '+x.condition+'</div>':'';
  const note=noReaction?'<div class="reaction-note">Смесь остаётся без химического превращения в указанных условиях.</div>':(noVisible?'<div class="reaction-note">Реакция есть, но визуального эффекта в пробирке нет.</div>':'');
- return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+condition+note+'</div>';
+ return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+condition+gasObservationHTML(x)+note+'</div>';
 }
 // Products of reactions determine precipitate texture; never infer it solely
 // from colour (white solids may be gelatinous, fine or crystalline).
@@ -1331,12 +1353,8 @@ function bubblesHTML(x){
      boil.push('<i class="boilCell" style="--l:'+(2+(n*17)%86)+'%;--w:'+(16+(n%4)*7)+'px;--h:'+(10+(n%4)*4)+'px;--d:'+(0.55+(n%4)*.11)+'s;--delay:-'+((n%5)*.12)+'s"></i>');
    }
  }
- let gasColor='rgba(255,255,255,.55)';
- if(x.gas==="SO₂")gasColor='rgba(220,225,230,.44)';
- if(x.gas==="H₂S")gasColor='rgba(205,210,205,.36)';
- if(x.gas==="NH₃")gasColor='rgba(235,235,255,.40)';
- if(x.gas==="NO₂")gasColor='rgba(196,88,22,.90)';
- if(x.gas==="Cl₂")gasColor='rgba(190,210,92,.46)';
+ const gasInfo=GAS_REFERENCE[x.gas];
+ const gasColor=gasInfo?gasInfo.plume:'rgba(255,255,255,.18)';
  const gasClass=x.gas==="NO₂"?" no2":"";
  return (strong?'<div class="boilLayer'+gasClass+'">'+boil.join("")+'</div>':'')+'<div class="bubbleLayer '+(strong?'strong':'')+gasClass+'">'+parts.join("")+'</div><div class="surfaceFizz'+gasClass+'">'+fizz.join("")+'</div><div class="gasPlume" style="--gasColor:'+gasColor+'"></div>';
 }
