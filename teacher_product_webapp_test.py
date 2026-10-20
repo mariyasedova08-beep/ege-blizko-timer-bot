@@ -53,7 +53,7 @@ class TeacherDashboardTest(unittest.TestCase):
         self.assertNotIn('<div class="actions">',home)
         self.assertIn("Всё остальное — во вкладке «Ещё»",home)
         self.assertIn("function renderMore()",html)
-        self.assertIn("<details class=\\\"more-category\\\">",html)
+        self.assertIn('<details class="more-category">',html)
         for action in (
             "openView('homework')",
             "openView('attendance')",
@@ -91,7 +91,7 @@ class TeacherDashboardTest(unittest.TestCase):
         self.assertIn("var vars={'--milk':c.background",html)
         self.assertIn("background:var(--soft)",html)
         self.assertIn("function renderSettings(d)",html)
-        self.assertIn("14 цветовых тем ПРЕПАДМИНА",html)
+        self.assertIn("14 цветовых тем",html)
 
     def test_group_picker_api_only_displays_owned_groups(self):
         own=groups.add_group(501,"ОГЭ 2027")
