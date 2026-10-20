@@ -47,15 +47,20 @@ def _sessions(uid, gid, now, offset_start, offset_end):
 
 
 def _homework(uid, gid):
+    import teacher_product_webapp_homework as webapp_homework
+    webapp_homework.ensure_tables()
     with base.db() as conn:
         rows = conn.execute(
             """
             SELECT h.id,h.homework_text,h.due_date,
+                   d.state AS delivery_state,d.linked_count,d.sent_count,d.failed_count,
                    SUM(CASE WHEN hs.status='done' THEN 1 ELSE 0 END) AS done,
                    COUNT(hs.subject_id) AS total
             FROM teacher_homework h
             LEFT JOIN teacher_homework_status hs
               ON hs.assignment_id=h.id AND hs.subject_kind='group_member'
+            LEFT JOIN teacher_webapp_homework_delivery d
+              ON d.assignment_id=h.id AND d.teacher_telegram_user_id=h.teacher_telegram_user_id
             WHERE h.teacher_telegram_user_id=? AND h.target_kind='group'
               AND h.target_id=? AND h.active=1
             GROUP BY h.id,h.homework_text,h.due_date
@@ -69,6 +74,12 @@ def _homework(uid, gid):
         "due": r["due_date"],
         "done": int(r["done"] or 0),
         "total": int(r["total"] or 0),
+        "delivery": ({
+            "state": r["delivery_state"],
+            "linked": r["linked_count"],
+            "sent": r["sent_count"],
+            "failed": r["failed_count"],
+        } if r["delivery_state"] else None),
     } for r in rows]
 
 
@@ -99,7 +110,7 @@ def _member_homework(uid, gid, pid):
     with base.db() as conn:
         rows = conn.execute(
             """
-            SELECT h.homework_text,h.due_date,hs.status
+            SELECT h.id,h.homework_text,h.due_date,hs.status
             FROM teacher_homework_status hs
             JOIN teacher_homework h ON h.id=hs.assignment_id
             WHERE h.teacher_telegram_user_id=? AND h.target_kind='group'
@@ -110,6 +121,7 @@ def _member_homework(uid, gid, pid):
             (int(uid), int(gid), int(pid)),
         ).fetchall()
     return [{
+        "id": int(r["id"]),
         "text": r["homework_text"], "due": r["due_date"], "status": r["status"],
     } for r in rows]
 
