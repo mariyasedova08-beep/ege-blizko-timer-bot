@@ -359,6 +359,143 @@ class GroupWorkspaceTest(unittest.TestCase):
         self.assertNotIn("sendData(",fragment)
 
 
+
+    def test_member_navigation_and_attendance_history_in_existing_group(self):
+        from datetime import datetime
+        next_id = int(self.reminders.add_member(101, self.gid, "Аня")["id"])
+        p = webapp._view(101, f"member:{self.pid}")
+        self.assertEqual(p["group_size"], 2)
+        self.assertEqual(p["member_ids"], [self.pid, next_id])
+        self.assertEqual(p["member_index"], 0)
+        self.assertIsNone(p["attendance"]["items"][0] if p["attendance"]["items"] else None)
+        session_id = int(self.slot["id"])
+        result = webapp._teacher_action(101, {
+            "action":"group_attendance","group_id":self.gid,"member_id":self.pid,
+            "slot_id":session_id,"date":self.day.isoformat(),"status":"present",
+        })
+        self.assertTrue(result["ok"])
+        history = webapp._view(101, f"member:{self.pid}")["attendance"]
+        self.assertEqual(history["present"], 1)
+        self.assertEqual(history["absent"], 0)
+        self.assertEqual(history["items"][0]["date"], self.day.isoformat())
+        group = webapp._view(101, f"group:{self.gid}")
+        self.assertEqual(group["member_count"], 2)
+        self.assertEqual(group["members"][0]["id"], self.pid)
+        self.assertIn("pending_homework",group["members"][0])
+
+    def test_inline_monthly_update_is_optimistic_and_does_not_duplicate_history(self):
+        old = webapp._view(101,f"member:{self.pid}")["payment"]
+        self.assertTrue(old["version"])
+        from datetime import timedelta
+        new_due = (self.day + timedelta(days=13)).isoformat()
+        data = {
+            "action":"member_payment_update", "member_id":self.pid,
+            "payment_type":"monthly","amount":10500,
+            "due":new_due,"expected_version":old["version"],
+        }
+        result=webapp._teacher_action(101,data)
+        self.assertTrue(result["ok"],result)
+        self.assertEqual(result["payment"]["amount"],10500)
+        self.assertEqual(result["payment"]["due"],new_due)
+        self.assertNotEqual(result["payment"]["version"],old["version"])
+        self.assertEqual(webapp._teacher_action(101,data)["error"],"payment_changed_refresh")
+        self.assertEqual(self.group_payments._plan(101,self.pid)["amount_rub"],10500)
+        with base.db() as conn:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM group_member_payment_history "
+                "WHERE teacher_telegram_user_id=? AND person_id=?",
+                (101,self.pid),
+            ).fetchone()[0]
+        self.assertEqual(count,0)
+
+    def test_inline_payment_never_reaches_other_teacher_or_other_group(self):
+        old=webapp._view(101,f"member:{self.pid}")["payment"]
+        payload={
+            "action":"member_payment_update","member_id":self.pid,
+            "payment_type":"once","amount":1500,
+            "due":self.day.isoformat(),"expected_version":old["version"],
+        }
+        self.assertEqual(webapp._teacher_action(202,payload)["error"],"member_not_found")
+        self.assertEqual(webapp._teacher_action(101,{**payload,"member_id":999999})["error"],"member_not_found")
+        self.assertEqual(webapp._teacher_action(101,{**payload,"amount":-1})["error"],"invalid_amount")
+        self.assertEqual(webapp._teacher_action(101,{**payload,"due":"tomorrow"})["error"],"invalid_due_date")
+        self.assertEqual(self.group_payments._plan(101,self.pid)["amount_rub"],9900)
+
+    def test_inline_full_course_payment_requires_receipt_and_is_locked_after(self):
+        old=webapp._view(101,f"member:{self.pid}")["payment"]
+        request={
+            "action":"member_payment_update","member_id":self.pid,
+            "payment_type":"course_paid","amount":85100,
+            "received_date":self.day.isoformat(),
+            "expected_version":old["version"],
+        }
+        self.assertEqual(webapp._teacher_action(101,request)["error"],"receipt_confirmation_required")
+        saved=webapp._teacher_action(101,{**request,"received_confirmed":True})
+        self.assertTrue(saved["ok"],saved)
+        self.assertEqual(saved["payment"]["type"],"course")
+        self.assertIsNone(saved["payment"]["due"])
+        locked=webapp._teacher_action(101,{
+            "action":"member_payment_update","member_id":self.pid,
+            "payment_type":"monthly","amount":9900,"due":self.day.isoformat(),
+            "expected_version":saved["payment"]["version"],
+        })
+        self.assertEqual(locked["error"],"full_course_locked")
+        with base.db() as conn:
+            records=conn.execute(
+                "SELECT amount_rub,payment_type FROM group_member_payment_history "
+                "WHERE person_id=?",
+                (self.pid,),
+            ).fetchall()
+        self.assertEqual(len(records),1)
+        self.assertEqual(records[0]["amount_rub"],85100)
+
+    def test_package_receipt_requires_confirmation_and_replay_does_not_top_up(self):
+        old=webapp._view(101,f"member:{self.pid}")["payment"]
+        request={
+            "action":"member_payment_update","member_id":self.pid,
+            "payment_type":"package","amount":12000,"lessons":8,
+            "expected_version":old["version"],
+        }
+        self.assertEqual(webapp._teacher_action(101,request)["error"],"receipt_confirmation_required")
+        self.assertTrue(webapp._teacher_action(101,{**request,"received_confirmed":True})["ok"])
+        self.assertEqual(
+            webapp._teacher_action(101,{**request,"received_confirmed":True})["error"],
+            "payment_changed_refresh",
+        )
+        saved=webapp._view(101,f"member:{self.pid}")["payment"]
+        self.assertEqual(saved["remaining"],8)
+        self.assertEqual(saved["lessons_total"],8)
+        self.assertEqual(
+            webapp._teacher_action(101,{
+                **request,"received_confirmed":True,
+                "expected_version":saved["version"],
+            })["error"],
+            "package_replacement_confirmation_required",
+        )
+        with base.db() as conn:
+            records=conn.execute(
+                "SELECT id FROM group_member_payment_history WHERE person_id=?",
+                (self.pid,),
+            ).fetchall()
+        self.assertEqual(len(records),1)
+
+    def test_group_and_member_frontend_use_compact_navigation(self):
+        html_content=webapp.HTML_PATH.read_text(encoding="utf-8")
+        for snippet in (
+            "function setGroupTab(tab)",
+            "function renderGroup(d)",
+            "function renderMember(d)",
+            "function toggleMemberPaymentForm()",
+            "async function saveMemberPayment()",
+            "member_payment_update",
+            "Предыдущий",
+            "Следующий",
+            "id=\"member-payment-form\"",
+            "data-gpanel",
+        ):
+            self.assertIn(snippet,html_content)
+
+
     def test_webapp_has_real_group_routes_and_no_pretend_buttons(self):
         html_content = webapp.HTML_PATH.read_text(encoding="utf-8")
         for phrase in (
