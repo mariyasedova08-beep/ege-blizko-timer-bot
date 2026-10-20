@@ -63,7 +63,9 @@ class LaboratoryReleaseChecks(unittest.TestCase):
 
     def test_gel_visualization_and_colour_source(self):
         # Both Cu(OH)2 and Fe(OH)2 should use soft clouds, not round bubbles.
-        self.assertIn(r"cu\(oh\)[₂2]|fe\(oh\)[₂2]", self.html)
+        self.assertIn('"Cu(OH)₂":"gel"', self.html)
+        self.assertIn('"Fe(OH)₂":"gel"', self.html)
+        self.assertIn('"Fe(OH)₃":"gel"', self.html)
         self.assertIn('class="gel-bed"', self.html)
         self.assertIn('class="gel-cloud"', self.html)
         self.assertIn("@keyframes gelCloudSettle", self.html)
@@ -95,7 +97,7 @@ class LaboratoryReleaseChecks(unittest.TestCase):
             })
         scripts = re.findall(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", self.html)
         self.assertTrue(scripts)
-        js = scripts[0]
+        js = next(part for part in scripts if "const PRECIPITATE_STYLES=" in part)
         precipitate_rules = js[
             js.index("const PRECIPITATE_STYLES="):js.index("function bubblesHTML(x){")
         ]
@@ -142,11 +144,13 @@ class LaboratoryReleaseChecks(unittest.TestCase):
             if item["rx"]["ppt"]:
                 self.assertIn(item["rx"]["ppt"], state["output"], label)
         self.assertEqual(cases[-1]["rx"]["gas"], "CO₂")
-        self.assertIn("газ", cases[-1]["rx"]["sign"].lower() + " газ")
+        self.assertIn("растворяется", cases[-1]["rx"]["sign"].lower())
+        self.assertIn("CuCl₂", cases[-2]["rx"]["eq"])
 
     @unittest.skipUnless(shutil.which("node"), "Node.js required for live visual rules")
     def test_solid_consumption_requires_a_real_reaction(self):
-        js = re.findall(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", self.html)[0]
+        js = next(part for part in re.findall(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", self.html)
+                  if "function solidReactionMode(" in part)
         rules = js[js.index("function solidReactionMode("):js.index("function metalDepositHTML(")]
         source = "\n".join((
             "const reagents=" + json.dumps(self.reagents, ensure_ascii=False) + ";",
