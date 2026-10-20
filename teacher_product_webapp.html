@@ -214,6 +214,11 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
 .gattendance{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:8px 0}
 .gattendance .gblock{margin:0}
 @media(max-width:480px){.gstudent{padding:11px}.gstudentright{max-width:52%}.gprice{font-size:21px}.gcompactsummary .gmetric{padding:8px 10px}.gmembernav button{font-size:11px;padding:9px}.gtabs button{padding:9px 10px}}
+/* One-off lesson notification choice; inherits each teacher's active theme. */
+.glesson-notify{border:1px solid var(--line);border-radius:13px;margin:14px 0 8px;padding:11px 13px;display:flex;flex-direction:column;gap:10px}
+.glesson-notify legend{font-size:13px;font-weight:650;padding:0 5px}
+.glesson-notify label{display:flex;gap:9px;align-items:center;font-size:12px;line-height:1.45;color:var(--ink);cursor:pointer}
+.glesson-notify input{width:17px;height:17px;accent-color:var(--hot);flex-shrink:0}
 </style>
 </head>
 <body>
@@ -552,6 +557,11 @@ function startGroupLessonForm(gid,kind,slot,key,actualDate,actualTime){
   }else{
    inner+='<p class="gquiet">Это действие отменит только выбранный урок. Если к нему уже отмечена посещаемость, отмена будет запрещена.</p>';
   }
+  inner+='<fieldset class="glesson-notify"><legend>Уведомить учеников?</legend>';
+  inner+='<label><input type="radio" name="gl-notify" value="send"> Отправить уведомления</label>';
+  inner+='<label><input type="radio" name="gl-notify" value="draft" checked> Подготовить черновики на согласование</label>';
+  inner+='<label><input type="radio" name="gl-notify" value="off"> Не уведомлять учеников</label>';
+  inner+='</fieldset><p class="gquiet">Разовый выбор для этого урока: он не меняет общие настройки рассылок. Сообщения адресуются только ученикам, подключённым к Telegram.</p>';
  }
  inner+='<div id="gl-error" class="gformerror" role="alert"></div><div class="gcontrols">';
  inner+='<button type="button" class="gsubmit" id="gl-submit" onclick="saveGroupLesson('+Number(gid)+',\''+kind+'\','+Number(slot||0)+',\''+String(key||'')+'\',\''+String(actualDate||'')+'\',\''+String(actualTime||'')+'\')">'+(kind==='cancel'?'Подтвердить отмену':'Сохранить')+'</button>';
@@ -577,6 +587,9 @@ async function saveGroupLesson(gid,kind,slot,key,actualDate,actualTime){
   data.occurrence_key=key;
   data.expected_date=actualDate;
   data.expected_time=actualTime;
+  var selectedNotification=document.querySelector('input[name="gl-notify"]:checked');
+  if(!selectedNotification){error.textContent='Выбери, как уведомить учеников.';return;}
+  data.notification_choice=selectedNotification.value;
   if(kind==='move'){
    data.new_date=document.getElementById('gl-date').value;
    data.new_time=document.getElementById('gl-time').value;
@@ -586,10 +599,12 @@ async function saveGroupLesson(gid,kind,slot,key,actualDate,actualTime){
  try{
   var reply=await teacherAction(data);
   groupLessonRequestKey='';
+  var messageAction=(kind==='move'?'Занятие перенесено.':'Один урок отменён.');
+  var notice=(data.notification_choice==='send'?' Уведомления поставлены в очередь отправки.':
+   data.notification_choice==='draft'?' Черновики будут подготовлены для согласования в Telegram.':
+   ' Уведомления ученикам не будут отправлены.');
   groupLessonNotice=reply.duplicate?'Изменение уже сохранено; повтор не создан.':(
-   kind==='add'?'Еженедельное занятие добавлено.':
-   kind==='move'?'Занятие перенесено. Уведомления обрабатываются по настройкам преподавателя.':
-   'Один урок отменён. Уведомления обрабатываются по настройкам преподавателя.'
+   kind==='add'?'Еженедельное занятие добавлено.':messageAction+notice
   );
   activeGroupTab='lessons';
   await openView('group:'+Number(gid));
