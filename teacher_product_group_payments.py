@@ -53,6 +53,8 @@ def ensure_tables():
                 next_due_date TEXT,
                 lessons_total INTEGER,
                 lessons_remaining INTEGER,
+                course_paid INTEGER NOT NULL DEFAULT 0,
+                course_paid_date TEXT,
                 active INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
@@ -90,6 +92,12 @@ def ensure_tables():
             ON group_member_payment_history(teacher_telegram_user_id,paid_at);
             """
         )
+        # Additive migration; existing group payment rows and history remain intact.
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(group_member_payment_plans)")}
+        if "course_paid" not in columns:
+            conn.execute("ALTER TABLE group_member_payment_plans ADD COLUMN course_paid INTEGER NOT NULL DEFAULT 0")
+        if "course_paid_date" not in columns:
+            conn.execute("ALTER TABLE group_member_payment_plans ADD COLUMN course_paid_date TEXT")
         conn.commit()
 
 
@@ -103,6 +111,22 @@ def _parse_amount(text):
         return None
     value = int(digits)
     return value if 0 < value <= 10_000_000 else None
+
+
+def _parse_received_date(value, today):
+    """Only an actual received date, not a projected future due date."""
+    value = str(value or "").strip()
+    for fmt in ("%d.%m.%Y", "%d.%m"):
+        try:
+            paid = datetime.strptime(value, fmt).date()
+            if fmt == "%d.%m":
+                paid = paid.replace(year=today.year)
+                if paid > today:
+                    paid = paid.replace(year=today.year - 1)
+            return paid if paid <= today else None
+        except ValueError:
+            continue
+    return None
 
 
 def _add_month(d):
@@ -144,6 +168,8 @@ def _plan(uid, pid):
 def _status(uid, row):
     if not row or not int(row["active"] or 0):
         return "⚪ не настроено", "muted"
+    if int(row["course_paid"] or 0):
+        return "✅ курс оплачен полностью", "ok"
     if row["payment_type"] == "package":
         left = int(row["lessons_remaining"] or 0)
         total = int(row["lessons_total"] or 0)
@@ -364,7 +390,10 @@ def _member_card(uid, pid):
         lines.append("💳 Оплата не настроена.")
     else:
         status_text, _level = _status(uid, plan)
-        type_label = {"once": "разовая", "monthly": "ежемесячно", "package": "абонемент"}.get(plan["payment_type"], plan["payment_type"])
+        type_label = (
+            "весь курс" if int(plan["course_paid"] or 0)
+            else {"once": "за одно занятие", "monthly": "ежемесячно", "package": "абонемент"}.get(plan["payment_type"], plan["payment_type"])
+        )
         lines += [
             f"💳 {_money(plan['amount_rub'])} · {type_label}",
             status_text,
@@ -372,7 +401,7 @@ def _member_card(uid, pid):
     kb = [
         [InlineKeyboardButton("⚙️ Настроить / изменить", callback_data=f"gpay:setup:{pid}")],
     ]
-    if plan and int(plan["active"] or 0):
+    if plan and int(plan["active"] or 0) and not int(plan["course_paid"] or 0):
         kb.append([InlineKeyboardButton("✅ Получила оплату", callback_data=f"gpay:paid:{pid}")])
     next_member = _next_group_member(uid, member["group_id"], pid, only_unconfigured=True)
     if next_member:
@@ -417,9 +446,10 @@ async def setup_begin(update, context):
     await q.edit_message_text(
         f"💳 {member['name']}\n\nКак оплачивает ученик?",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("1️⃣ Разовая", callback_data="gpay:type:once")],
+            [InlineKeyboardButton("1️⃣ За одно занятие", callback_data="gpay:type:once")],
             [InlineKeyboardButton("📅 Ежемесячно", callback_data="gpay:type:monthly")],
             [InlineKeyboardButton("🎟 Абонемент на занятия", callback_data="gpay:type:package")],
+            [InlineKeyboardButton("✅ Весь курс уже оплачен", callback_data="gpay:type:course_paid")],
             [InlineKeyboardButton("Отмена", callback_data=f"gpay:cancel:{pid}")],
         ]),
     )
@@ -457,11 +487,15 @@ async def setup_amount(update, context):
         )
         return GPAY_AMOUNT
     data["amount"] = amount
-    prompt = (
-        "Сколько занятий входит в абонемент? Например: 8"
-        if data["type"] == "package"
-        else "На какую дату ждём оплату? Например: 28.09"
-    )
+    if data["type"] == "course_paid":
+        prompt = (
+            "Когда получена полная оплата курса? Укажи фактическую дату "
+            "поступления денег, например 20.10.2026 (или 20.10)."
+        )
+    elif data["type"] == "package":
+        prompt = "Сколько занятий входит в абонемент? Например: 8"
+    else:
+        prompt = "На какую дату ждём оплату? Например: 28.09"
     await update.message.reply_text(
         prompt,
         reply_markup=InlineKeyboardMarkup([[
@@ -486,20 +520,36 @@ async def setup_cancel(update, context):
     return ConversationHandler.END
 
 
-def _save_group_plan(uid, data, due=None, lessons=None):
+def _save_group_plan(uid, data, due=None, lessons=None, received=None):
     now = datetime.utcnow().isoformat()
-    payment_type = data["type"]
+    is_course_paid = data["type"] == "course_paid"
+    if is_course_paid and received is None:
+        raise ValueError("Actual course payment date required")
+    # SQLite's historic CHECK constraint accepts 'once' only. An additive flag
+    # distinguishes a paid whole course from a pending single-lesson payment.
+    payment_type = "once" if is_course_paid else data["type"]
     with base.db() as conn:
+        previous = conn.execute(
+            "SELECT course_paid,amount_rub,course_paid_date FROM group_member_payment_plans "
+            "WHERE teacher_telegram_user_id=? AND person_id=?",
+            (int(uid), int(data["pid"])),
+        ).fetchone()
+        if is_course_paid and previous and int(previous["course_paid"] or 0):
+            if (int(previous["amount_rub"]) != int(data["amount"])
+                    or previous["course_paid_date"] != received.isoformat()):
+                raise ValueError("Changing the recorded receipt requires a separate correction")
         conn.execute(
             """
             INSERT INTO group_member_payment_plans(
                 teacher_telegram_user_id,person_id,group_id,payment_type,amount_rub,
-                next_due_date,lessons_total,lessons_remaining,active,created_at,updated_at
-            ) VALUES(?,?,?,?,?,?,?,?,1,?,?)
+                next_due_date,lessons_total,lessons_remaining,course_paid,course_paid_date,
+                active,created_at,updated_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,1,?,?)
             ON CONFLICT(teacher_telegram_user_id,person_id) DO UPDATE SET
                 group_id=excluded.group_id,payment_type=excluded.payment_type,
                 amount_rub=excluded.amount_rub,next_due_date=excluded.next_due_date,
                 lessons_total=excluded.lessons_total,lessons_remaining=excluded.lessons_remaining,
+                course_paid=excluded.course_paid,course_paid_date=excluded.course_paid_date,
                 active=1,updated_at=excluded.updated_at
             """,
             (
@@ -507,10 +557,25 @@ def _save_group_plan(uid, data, due=None, lessons=None):
                 due.isoformat() if due else None,
                 int(lessons) if lessons is not None else None,
                 int(lessons) if lessons is not None else None,
+                int(is_course_paid),
+                received.isoformat() if received else None,
                 now, now,
             ),
         )
-        # A package is considered paid when it is created/replenished.
+        if is_course_paid and not (previous and int(previous["course_paid"] or 0)):
+            conn.execute(
+                """
+                INSERT INTO group_member_payment_history(
+                    teacher_telegram_user_id,person_id,group_id,amount_rub,
+                    payment_type,due_date,paid_at
+                ) VALUES(?,?,?,?, 'course_paid',NULL,?)
+                """,
+                (
+                    int(uid), int(data["pid"]), int(data["gid"]), int(data["amount"]),
+                    datetime.combine(received, datetime.min.time()).isoformat(),
+                ),
+            )
+        # Preserve existing package behavior; this branch never charges course payments.
         if payment_type == "package":
             conn.execute(
                 """
@@ -521,7 +586,6 @@ def _save_group_plan(uid, data, due=None, lessons=None):
                 (int(uid), int(data["pid"]), int(data["gid"]), int(data["amount"]), now),
             )
         conn.commit()
-
 
 async def setup_final(update, context):
     uid = int(update.effective_user.id)
@@ -545,6 +609,36 @@ async def setup_final(update, context):
             f"Сумма: {_money(data['amount'])}\n"
             f"Занятий: {count}\n"
             "После отметки «Был(а)» одно занятие будет списываться автоматически."
+        )
+    elif data["type"] == "course_paid":
+        received = _parse_received_date(
+            update.message.text, datetime.now(schedule.tz(uid)).date()
+        )
+        if received is None:
+            await update.message.reply_text(
+                "Напиши дату, когда оплата действительно поступила, например 20.10.2026. "
+                "Будущую дату указывать нельзя.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("← Отмена", callback_data=f"gpay:cancel:{data['pid']}")
+                ]]),
+            )
+            return GPAY_FINAL
+        try:
+            _save_group_plan(uid, data, received=received)
+        except ValueError:
+            await update.message.reply_text(
+                "Полная оплата уже записана с другой суммой или датой. "
+                "Текущую запись не меняю — для исправления нужен отдельный способ корректировки.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("← Отмена", callback_data=f"gpay:cancel:{data['pid']}")
+                ]]),
+            )
+            return GPAY_FINAL
+        message = (
+            f"✅ Курс для {data['name']} оплачен полностью.\n\n"
+            f"Получено: {_money(data['amount'])}\n"
+            f"Дата получения: {received.strftime('%d.%m.%Y')}\n"
+            "Следующая оплата по этому курсу не требуется."
         )
     else:
         due = schedule.parse_date(update.message.text, datetime.now(schedule.tz(uid)).date())
@@ -578,6 +672,14 @@ async def mark_paid(update, context):
     plan = _plan(uid, pid)
     if not plan or not int(plan["active"] or 0):
         await q.edit_message_text("Активная оплата не найдена.")
+        raise ApplicationHandlerStop
+    if int(plan["course_paid"] or 0):
+        await q.edit_message_text(
+            "✅ Курс уже оплачен полностью, повторно отмечать получение денег нельзя.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("💳 Все оплаты группы", callback_data=f"gpay:group:{plan['group_id']}")
+            ]]),
+        )
         raise ApplicationHandlerStop
 
     now = datetime.now(schedule.tz(uid))
@@ -762,6 +864,12 @@ def _group_payment_payload(uid, pid):
     if not row or not int(row["active"] or 0):
         return {"short": "не настроена", "hint": "", "full": "Активная оплата пока не настроена."}
     amount_text = _money(row["amount_rub"])
+    if int(row["course_paid"] or 0):
+        return {
+            "short": "оплачено",
+            "hint": "весь курс",
+            "full": f"✅ Курс оплачен полностью: {amount_text}. Доплата не требуется.",
+        }
     if row["payment_type"] == "package":
         left = int(row["lessons_remaining"] or 0)
         total = int(row["lessons_total"] or 0)
@@ -806,7 +914,7 @@ def patch_teacher_webapp():
             rows = conn.execute(
                 """
                 SELECT m.name,g.name AS group_name,p.payment_type,p.amount_rub,p.next_due_date,
-                       p.lessons_total,p.lessons_remaining,p.active
+                       p.lessons_total,p.lessons_remaining,p.course_paid,p.active
                 FROM student_reminder_people m
                 JOIN teacher_groups g ON g.id=m.group_id
                 LEFT JOIN group_member_payment_plans p
@@ -820,7 +928,9 @@ def patch_teacher_webapp():
         for r in rows:
             status, level = "Не настроено", "muted"
             if r["payment_type"] and int(r["active"] or 0):
-                if r["payment_type"] == "package":
+                if int(r["course_paid"] or 0):
+                    status, level = "Курс оплачен полностью", "ok"
+                elif r["payment_type"] == "package":
                     left = int(r["lessons_remaining"] or 0)
                     total = int(r["lessons_total"] or 0)
                     status = f"Осталось {left}/{total} занятий"
@@ -848,7 +958,7 @@ def patch_teacher_webapp():
             rows = conn.execute(
                 """
                 SELECT m.name,g.name AS group_name,p.amount_rub,p.payment_type,p.next_due_date,
-                       p.lessons_remaining,p.active
+                       p.lessons_remaining,p.course_paid,p.active
                 FROM group_member_payment_plans p
                 JOIN student_reminder_people m ON m.id=p.person_id
                 JOIN teacher_groups g ON g.id=p.group_id
@@ -862,6 +972,8 @@ def patch_teacher_webapp():
             overdue = False
             detail = _money(r["amount_rub"])
             due = ""
+            if int(r["course_paid"] or 0):
+                continue  # Already received in full; never an outstanding payment.
             if r["payment_type"] == "package":
                 if int(r["lessons_remaining"] or 0) <= 0:
                     overdue = True
@@ -1065,7 +1177,7 @@ def _payment_setup_conversation():
     return ConversationHandler(
         entry_points=[CallbackQueryHandler(setup_begin, pattern=r"^gpay:setup:\d+$")],
         states={
-            GPAY_TYPE: [CallbackQueryHandler(setup_type, pattern=r"^gpay:type:(?:once|monthly|package)$")],
+            GPAY_TYPE: [CallbackQueryHandler(setup_type, pattern=r"^gpay:type:(?:once|monthly|package|course_paid)$")],
             GPAY_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_amount)],
             GPAY_FINAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_final)],
         },
