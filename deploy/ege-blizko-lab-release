@@ -115,7 +115,7 @@ git apply --check "$PATCH"
 for path in "${changed[@]}"; do
   if [[ -e "$path" ]]; then
     mkdir -p "$BACKUP/files/$(dirname "$path")"
-    cp --preserve=mode,timestamps -- "$path" "$BACKUP/files/$path"
+    cp --preserve=mode,ownership,timestamps -- "$path" "$BACKUP/files/$path"
     printf 'EXISTING\t%s\n' "$path" >> "$BACKUP/manifest"
   else
     printf 'NEW\t%s\n' "$path" >> "$BACKUP/manifest"
@@ -130,7 +130,7 @@ rollback() {
     echo "LAB_RELEASE_FAILED restoring $BACKUP" >&2
     while IFS=$'\t' read -r original_type path; do
       if [[ "$original_type" == "EXISTING" ]]; then
-        cp --preserve=mode,timestamps -- "$BACKUP/files/$path" "$APP_DIR/$path"
+        cp --preserve=mode,ownership,timestamps -- "$BACKUP/files/$path" "$APP_DIR/$path"
       else
         rm -f -- "$APP_DIR/$path"
       fi
@@ -143,6 +143,56 @@ rollback() {
 trap rollback ERR INT TERM
 applied=1
 git apply "$PATCH"
+# git apply recreates changed files with this root script's umask (077),
+# commonly changing a readable 0644 Python module into root-only 0600.
+# Restore each existing file's exact owner/group and mode before restarting
+# the unprivileged service. New allowlisted source files must be readable.
+while IFS=
+  if [[ "$path" == *.py ]]; then
+    python3 -m py_compile "$path"
+  fi
+done
+systemctl restart "$SERVICE"
+healthy=0
+last_failure="unknown"
+# Report the failing probe before rolling back. Never emit response bodies,
+# environment values, Telegram data or service journals in CI logs.
+for attempt in $(seq 1 15); do
+  if ! systemctl is-active --quiet "$SERVICE"; then
+    last_failure="service_not_active"
+  elif ! curl --silent --fail --max-time 8 "$HEALTH_URL" >/dev/null 2>&1; then
+    last_failure="health_url_failed"
+  elif ! curl --silent --fail --max-time 8 "$LAB_URL" -o "$BACKUP/health-page.html" 2>/dev/null; then
+    last_failure="lab_url_failed"
+  elif ! grep -Fq 'Лаборатория' "$BACKUP/health-page.html"; then
+    last_failure="lab_page_marker_missing"
+  else
+    healthy=1
+    echo "LAB_HEALTH_CHECK_OK"
+    break
+  fi
+  echo "LAB_HEALTH_RETRY attempt=$attempt reason=$last_failure"
+  sleep 2
+done
+[[ "$healthy" -eq 1 ]] || {
+  echo "ERROR: post-release health check failed reason=$last_failure" >&2
+  false
+}
+printf '%s\n' "$ACTION" > "$STATE_FILE.tmp"
+chmod 0600 "$STATE_FILE.tmp"
+mv -f "$STATE_FILE.tmp" "$STATE_FILE"
+applied=0
+trap - ERR INT TERM
+echo "LAB_RELEASE_OK sha=$ACTION backup=$BACKUP"
+\t' read -r original_type path; do
+  if [[ "$original_type" == "EXISTING" ]]; then
+    chown --reference="$BACKUP/files/$path" -- "$APP_DIR/$path"
+    chmod --reference="$BACKUP/files/$path" -- "$APP_DIR/$path"
+  else
+    chmod 0644 -- "$APP_DIR/$path"
+  fi
+done < "$BACKUP/manifest"
+echo "LAB_FILE_ACCESS_RESTORED"
 for path in "${changed[@]}"; do
   if [[ "$path" == *.py ]]; then
     python3 -m py_compile "$path"
