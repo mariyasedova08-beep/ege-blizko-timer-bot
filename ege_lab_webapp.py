@@ -1173,7 +1173,62 @@ body:has(#lesson.page.on) .app{max-width:none}
 <button data-page="ege">ЕГЭ</button>
 <button data-page="exam">Экзамен</button>
 <button data-page="stats">Прогресс</button>
+<button data-page="lesson">✍ Урок</button>
 </div>
+
+<section id="lesson" class="page">
+<div class="lesson-studio" aria-label="Урок с интерактивной лабораторией">
+  <aside class="lesson-lab-pane">
+    <div class="lesson-pane-head"><h2>🧪 Опыт</h2><small>30% экрана</small></div>
+    <div class="lesson-lab-body">
+      <label for="lessonReagentA">Первое вещество</label><select id="lessonReagentA"></select>
+      <label for="lessonReagentB">Добавить реактив</label><select id="lessonReagentB"></select>
+      <div class="lesson-lab-actions">
+        <button id="lessonConduct" type="button">▶ Провести</button>
+        <button id="lessonHeat" type="button" aria-pressed="false">🔥 Нагрев</button>
+        <button id="lessonReset" type="button">↺ Сброс</button>
+      </div>
+      <div class="lesson-visual" aria-label="Ход химического опыта">
+        <div id="lessonTube" class="lesson-tube-frame"></div>
+      </div>
+      <div id="lessonReaction" class="lesson-observation" aria-live="polite">Выбери два вещества и нажми «Провести». PDF останется открытым справа.</div>
+      <div class="lesson-footnote">Опыты и признаки берутся из действующей химической базы. Если реакции в ней пока нет, результат не выдумываем.</div>
+    </div>
+  </aside>
+  <section class="lesson-pdf-pane" aria-label="Рабочая тетрадь преподавателя">
+    <div class="lesson-pane-head">
+      <div class="lesson-lesson-tools">
+        <label for="lessonPDFInput" class="lesson-file-label" title="Открыть свой PDF">📄 PDF</label>
+        <input id="lessonPDFInput" type="file" accept="application/pdf,.pdf">
+        <button id="lessonPrevious" type="button" title="Предыдущая страница">←</button>
+        <span id="lessonPageCounter">1 / 1</span>
+        <button id="lessonNext" type="button" title="Следующая страница">→</button>
+        <button id="lessonToolPen" type="button" aria-pressed="true">✎ Ручка</button>
+        <button id="lessonToolEraser" type="button" aria-pressed="false">⌫ Ластик</button>
+        <button id="lessonExport" type="button">↓ Сохранить PDF</button>
+      </div>
+      <details class="lesson-extra-menu">
+        <summary aria-label="Настройки письма">⋯</summary>
+        <div class="lesson-extra-items">
+          <label>Цвет ручки <input id="lessonPenColor" type="color" value="#f00087"></label>
+          <label>Толщина <input id="lessonPenWidth" type="range" min="1" max="10" value="3"></label>
+          <button type="button" id="lessonUndo">↶ Отменить последний штрих</button>
+          <button type="button" id="lessonExportNotes">↓ Резервная копия записей</button>
+          <label for="lessonImportNotes" class="lesson-file-label">↑ Загрузить записи</label>
+          <input id="lessonImportNotes" type="file" accept=".json,application/json" style="display:none">
+        </div>
+      </details>
+    </div>
+    <div id="lessonPaperSpace" class="lesson-paper-space">
+      <div id="lessonCanvasWrap"><canvas id="lessonPdfCanvas"></canvas><canvas id="lessonInkCanvas" aria-label="Писать стилусом по странице"></canvas></div>
+    </div>
+    <div class="lesson-pdf-foot">
+      <span id="lessonFileName">Загрузи свой PDF или пиши на пустой доске.</span>
+      <span id="lessonStatus" class="lesson-message" role="status">Пометки сохраняются только в браузере до выгрузки PDF.</span>
+    </div>
+  </section>
+</div>
+</section>
 
 <section id="free" class="page on">
 <div class="lab-shell">
