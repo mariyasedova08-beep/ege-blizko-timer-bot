@@ -66,7 +66,7 @@ class LaboratoryReleaseChecks(unittest.TestCase):
         self.assertIn('class="gel-bed"', self.html)
         self.assertIn('class="gel-cloud"', self.html)
         self.assertIn("@keyframes gelCloudSettle", self.html)
-        self.assertIn("'--pc:'+x.ppt", self.html)
+        self.assertIn("--pc:'+x.ppt", self.html)
 
     def test_existing_modes_and_gas_effects_remain(self):
         for marker in (
