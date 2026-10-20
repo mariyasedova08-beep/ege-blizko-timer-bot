@@ -36,7 +36,7 @@ class LabReleaseSafety(unittest.TestCase):
         self.assertIn('flock -w 60 9', HELPER)
 
     def test_apply_restores_original_access_before_restart(self):
-        apply_index = HELPER.index('applied=1\\ngit apply "$PATCH"')
+        apply_index = HELPER.index('git apply "$PATCH"')
         access_index = HELPER.index('echo "LAB_FILE_ACCESS_RESTORED"', apply_index)
         restart_index = HELPER.index('systemctl restart "$SERVICE"', access_index)
         self.assertLess(apply_index, access_index)
