@@ -301,6 +301,9 @@ HTML = r'''<!doctype html>
 .reaction-equation::-webkit-scrollbar-track{background:#f6edf2;border-radius:999px}
 .reaction-equation::-webkit-scrollbar-thumb{background:#8f878b;border-radius:999px;border:2px solid #f6edf2}
 .reaction-note{font-size:10px;color:#7c7277;margin-top:7px}
+.reaction-gas{margin-top:8px;padding:8px 9px;background:rgba(255,255,255,.7);border:1px solid rgba(163,124,105,.24);border-radius:10px;font-size:11px;line-height:1.45;color:#423630}
+.reaction-gas b{font-weight:650}
+.reaction-gas .gas-safety{display:block;margin-top:4px;color:#836d63;font-size:10px}
 @keyframes reactionPop{0%{transform:scale(.97);opacity:.35}100%{transform:scale(1);opacity:1}}
 .mode-note{font-size:10px;color:#8b8387;margin-top:8px}
 
@@ -320,7 +323,15 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .particle.floc{border-radius:44% 56% 48% 52%;transform:rotate(var(--r)) scaleX(1.45);filter:blur(.25px) drop-shadow(0 1px 1px rgba(0,0,0,.11))}
 .particle.gel{border-radius:50% 44% 52% 46%;opacity:.62;filter:blur(1.2px);transform:scaleX(1.8)}
 .particle.crystal{border-radius:2px;transform:rotate(var(--r));opacity:.94;box-shadow:0 0 2px rgba(255,255,255,.45)}
-.particle.fine{border-radius:50%;opacity:.72;filter:blur(.35px)}
+.particle.fine{border-radius:48%;opacity:.76;filter:blur(.28px);box-shadow:0 1px 1px rgba(0,0,0,.07)}
+.particle.dense{border-radius:37% 53% 44% 48%;opacity:.94;filter:blur(.3px);box-shadow:0 1px 2px rgba(0,0,0,.17)}
+.pptLayer.dense-sediment{isolation:isolate}
+.pptLayer.light-ppt:before{content:"";position:absolute;left:5%;right:5%;bottom:1%;height:30%;border-radius:50%;background:radial-gradient(ellipse at 50% 72%,rgba(187,203,213,.60),rgba(226,234,238,.42) 53%,transparent 83%);filter:blur(3px);pointer-events:none}
+.pptLayer.light-ppt .particle.fine{background:#f6fafc;box-shadow:0 0 2px 1px rgba(99,117,131,.35);opacity:.94}
+.pptLayer.light-ppt .gel-bed{box-shadow:0 -3px 10px rgba(107,126,140,.35),inset 0 -3px 6px rgba(121,139,151,.20);filter:blur(2.4px)}
+.pptLayer.light-ppt .gel-cloud{box-shadow:0 0 6px rgba(104,123,138,.27);filter:blur(2.5px)}
+.dense-bed{position:absolute;left:6%;right:6%;bottom:0;height:22%;border-radius:48% 51% 16% 16% / 42% 49% 12% 12%;background:var(--pc);opacity:.91;filter:blur(.8px);animation:denseBedSettle 1.3s ease-out both}
+@keyframes denseBedSettle{from{opacity:0;transform:translateY(-22px) scaleY(.4)}to{opacity:.91;transform:translateY(0) scaleY(1)}}
 /* Gel-like hydroxides: soft suspension and irregular settling, not gas-like circles. */
 .gel-sediment{isolation:isolate}
 .gel-bed{position:absolute;z-index:2;left:7%;right:7%;bottom:1px;height:24%;background:var(--pc);border-radius:48% 52% 19% 17% / 62% 72% 22% 19%;filter:blur(3px);opacity:.84;transform-origin:center bottom;animation:gelBedGrow 1.7s ease-out both}
@@ -342,6 +353,12 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .boilLayer.no2 .boilCell{background:radial-gradient(ellipse at 50% 75%,rgba(217,113,62,.62),rgba(150,61,25,.28) 55%,transparent 72%)}
 .solidBed{position:absolute;left:12%;right:12%;bottom:6%;height:26%;z-index:5;pointer-events:none}
 .solidChunk{position:absolute;left:var(--l);bottom:var(--b);width:var(--s);height:calc(var(--s)*.62);background:var(--sc);border-radius:35% 45% 38% 48%;transform:rotate(var(--r));box-shadow:inset 2px 2px 3px rgba(255,255,255,.48),0 1px 2px rgba(0,0,0,.16)}
+.solidBed.dissolving-solid{animation:solidConsume 2.5s ease-in-out both}
+.solidBed.reactive-metal{left:12%;right:12%;height:29%;bottom:6%}
+.solidBed.reactive-metal.dissolving-solid{animation:metalConsume 2.8s ease-in-out both}
+@keyframes solidConsume{0%{opacity:1;transform:scale(1)}30%{opacity:1;transform:scale(.91)}100%{opacity:0;transform:translateY(8px) scale(.12)}}
+@keyframes metalConsume{0%{opacity:1;transform:scale(1)}35%{opacity:.95;transform:scale(.86)}100%{opacity:0;transform:translateY(7px) scale(.16)}}
+@media(prefers-reduced-motion:reduce){.dense-bed{animation:none}.solidBed.dissolving-solid{animation:none;opacity:.25;transform:scale(.35)}}
 .metalReactionBed{position:absolute;z-index:5;left:10%;right:10%;bottom:5%;height:30%;pointer-events:none}
 .metalPiece{position:absolute;left:12%;right:12%;bottom:5%;height:34%;border-radius:45% 52% 42% 50%;background:var(--metalColor);box-shadow:inset 4px 4px 7px rgba(255,255,255,.34),inset -3px -3px 6px rgba(0,0,0,.16),0 2px 4px rgba(0,0,0,.18)}
 .metalCrystal{position:absolute;left:var(--l);bottom:var(--b);width:var(--s);height:var(--s);background:var(--depositColor);border-radius:28% 58% 36% 60%;transform:rotate(var(--r));box-shadow:inset 1px 1px 2px rgba(255,255,255,.65),0 1px 2px rgba(0,0,0,.28);animation:depositGrow .65s ease-out both}
@@ -942,7 +959,11 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
 }
 
 @media(max-width:430px){
+  .lab-topbar{display:flex!important;flex-direction:column!important;align-items:stretch!important}
+  .lab-brand{display:none!important}
+  .lab-nav{width:100%!important;justify-content:space-between!important}
   .lab-bench{min-height:410px!important}
+  .lab-bench.mobile-result-expanded{min-height:500px!important}
   .rack-wrap{left:0!important;right:0!important;bottom:48px!important}
   .rack{gap:5px!important;padding:0 3px!important}
   .tube-slot .tube,
@@ -1238,6 +1259,25 @@ function findReaction(a,b,heated,excess=""){
  const fallback=eligible[0]||null;
  return fallback&&(!fallback.heat||heated)?fallback:null;
 }
+// Unified source of gas colours and smells. All gases in the laboratory catalogue
+// must have an entry here; tests enforce coverage when reactions are added.
+const GAS_REFERENCE=Object.freeze({
+ "H₂":{color:"бесцветный",smell:"без запаха",plume:"rgba(255,255,255,.18)"},
+ "CO₂":{color:"бесцветный",smell:"без запаха",plume:"rgba(255,255,255,.18)"},
+ "NO":{color:"бесцветный",smell:"без запаха",plume:"rgba(255,255,255,.18)",note:"На воздухе окисляется до бурого NO₂."},
+ "NO₂":{color:"бурый",smell:"резкий раздражающий",plume:"rgba(196,88,22,.90)"},
+ "SO₂":{color:"бесцветный",smell:"резкий удушливый",plume:"rgba(255,255,255,.18)"},
+ "H₂S":{color:"бесцветный",smell:"тухлых яиц",plume:"rgba(255,255,255,.18)"},
+ "NH₃":{color:"бесцветный",smell:"резкий характерный",plume:"rgba(255,255,255,.18)"},
+ "Cl₂":{color:"жёлто-зелёный",smell:"резкий удушливый",plume:"rgba(190,210,92,.46)"}
+});
+function gasObservationHTML(x){
+ if(!x||!x.gas)return "";
+ const info=GAS_REFERENCE[x.gas];
+ if(!info)return '<div class="reaction-gas"><b>Газ '+x.gas+':</b> свойства требуют проверки.</div>';
+ const note=info.note?' '+info.note:'';
+ return '<div class="reaction-gas"><b>Газ '+x.gas+':</b> цвет — '+info.color+'; запах — '+info.smell+'.'+note+'<span class="gas-safety">Запах указан справочно. Не вдыхайте выделяющиеся газы.</span></div>';
+}
 function reactionResultHTML(x,heated=false){
  if(!x)return '<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот опыт пока не добавлен в базу.</div></div>';
  if(x.heat&&!heated)return '<div class="reaction-card"><div class="reaction-head"><span class="reaction-status">🔥 Нужен нагрев</span></div><div class="reaction-sign">Без нагревания видимого результата не показываем.</div><div class="reaction-equation">'+x.eq+'</div></div>';
@@ -1247,41 +1287,72 @@ function reactionResultHTML(x,heated=false){
  const sign=noReaction?x.sign:(noVisible?"Без видимого признака":x.sign);
  const condition=x.condition?'<div class="reaction-note">Условие: '+x.condition+'</div>':'';
  const note=noReaction?'<div class="reaction-note">Смесь остаётся без химического превращения в указанных условиях.</div>':(noVisible?'<div class="reaction-note">Реакция есть, но визуального эффекта в пробирке нет.</div>':'');
- return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+condition+note+'</div>';
+ return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+condition+gasObservationHTML(x)+note+'</div>';
 }
+// Products of reactions determine precipitate texture; never infer it solely
+// from colour (white solids may be gelatinous, fine or crystalline).
+const PRECIPITATE_STYLES=Object.freeze({
+ "Cu(OH)₂":"gel",
+ "Fe(OH)₂":"gel",
+ "Fe(OH)₃":"gel",
+ "Al(OH)₃":"gel",
+ "H₂SiO₃":"gel",
+ "BaSO₄":"fine",
+ "ZnS":"fine",
+ "BaCO₃":"fine",
+ "CaCO₃":"fine",
+ "AgCl":"floc",
+ "PbI₂":"crystal",
+ "AgI":"crystal",
+ "AgBr":"crystal",
+ "BaCrO₄":"crystal",
+ "CuS":"dense",
+ "PbS":"dense",
+ "FeS":"dense",
+ "Ag₂S":"dense",
+ "Ag₂O":"dense",
+ "MnO₂":"dense",
+ "CuO":"dense"
+});
 function pptTexture(x){
- const s=(String((x&&x.sign)||"")+" "+String((x&&x.eq)||"")).toLowerCase();
- // Fresh Cu(OH)2 and Fe(OH)2 form gelatinous precipitates, unlike gas bubbles.
- // Both unicode subscripts and ASCII numerals are supported.
- if(s.includes("студенист")||/cu\(oh\)[₂2]|fe\(oh\)[₂2]/.test(s))return "gel";
- if(s.includes("agcl"))return "floc";
- if(s.includes("baso₄")||s.includes("baso4")||s.includes("caco₃")||s.includes("caso₃"))return "fine";
- if(s.includes("pbi₂")||s.includes("agi")||s.includes("agbr")||s.includes("bacro₄"))return "crystal";
- if(s.includes("fe(oh)₃"))return "floc";
- return "fine";
+ if(!x||!x.ppt)return "";
+ const products=String(x.eq||"").split("→").pop();
+ for(const [formula,texture] of Object.entries(PRECIPITATE_STYLES)){
+  const pos=products.indexOf(formula);
+  if(pos<0)continue;
+  const before=products[pos-1]||"",after=products[pos+formula.length]||"";
+  if(!/[A-Za-z₀-₉]/.test(before)&&!/[A-Za-z₀-₉]/.test(after))return texture;
+ }
+ return String(x.sign||"").toLowerCase().includes("студенист")?"gel":"fine";
 }
 function precipitateHTML(x){
  if(!x||!x.ppt)return "";
- const cls=pptTexture(x),parts=[];
+ const cls=pptTexture(x),parts=[],light=/^#(?:fff|ffffff|f8fbff)$/i.test(String(x.ppt));
  if(cls==="gel"){
   // Soft, connected clouds settle into an irregular sediment layer.
   for(let n=0;n<13;n++){
    const l=(5+(n*29)%74), b=(8+(n*13)%34), w=(19+(n%4)*9), h=(9+(n%3)*7);
    parts.push('<i class="gel-cloud" style="--l:'+l+'%;--b:'+b+'%;--w:'+w+'px;--h:'+h+'px;--delay:'+(n%6)*.09+'s;--pc:'+x.ppt+'"></i>');
   }
-  return '<div class="pptLayer gel-sediment"><i class="gel-bed" style="--pc:'+x.ppt+'"></i>'+parts.join("")+'</div>';
+  return '<div class="pptLayer gel-sediment'+(light?' light-ppt':'')+'"><i class="gel-bed" style="--pc:'+x.ppt+'"></i>'+parts.join("")+'</div>';
  }
- for(let n=0;n<24;n++){
-  const l=(5+(n*37)%88), b=(2+(n*17)%30), s=(cls==="floc"?7+(n%5)*3:4+(n%4)*2), r=((n*31)%90-45)+"deg";
+ const count=cls==="fine"?44:cls==="dense"?38:cls==="crystal"?19:24;
+ for(let n=0;n<count;n++){
+  const l=(5+(n*37)%88),b=(2+(n*17)%30);
+  const s=cls==="fine"?2+(n%3)*2:cls==="dense"?4+(n%4)*2:cls==="crystal"?7+(n%4)*3:7+(n%5)*3;
+  const r=((n*31)%90-45)+"deg";
   parts.push('<i class="particle '+cls+'" style="--l:'+l+'%;--b:'+b+'%;--s:'+s+'px;--r:'+r+';--pc:'+x.ppt+'"></i>');
  }
- return '<div class="pptLayer">'+parts.join("")+'</div>';
+ return '<div class="pptLayer'+(cls==="dense"?' dense-sediment':'')+(light?' light-ppt':'')+'">'+(cls==="dense"?'<i class="dense-bed" style="--pc:'+x.ppt+'"></i>':'')+parts.join("")+'</div>';
 }
-function bubblesHTML(x){
+function bubblesHTML(x,v=[]){
  if(!x||!x.gas)return "";
  const parts=[],fizz=[],boil=[];
- const strong=["CO₂","SO₂","H₂S","NO₂"].includes(x.gas);
- const count=strong?42:30;
+ // Carbonates reacting as solid pieces fizz at their surface instead of
+ // looking like a vigorously boiling homogeneous solution.
+ const solidFizz=x.gas==="CO₂"&&v.some(id=>String((reagent(id)||[])[3]||"").includes("тв."))&&solidReactionMode(v,x)==="dissolving_solid";
+ const strong=["CO₂","SO₂","H₂S","NO₂"].includes(x.gas)&&!solidFizz;
+ const count=solidFizz?22:(strong?42:30);
  for(let n=0;n<count;n++){
    parts.push('<i class="bubble" style="--l:'+(4+(n*23)%91)+'%;--s:'+(strong?8+(n%7)*2.4:7+(n%6)*2.2)+'px;--d:'+(strong?.88+(n%5)*.12:1.12+(n%5)*.17)+'s;--delay:-'+((n%11)*.13)+'s;--drift:'+(((n%5)-2)*8)+'px"></i>');
  }
@@ -1293,24 +1364,36 @@ function bubblesHTML(x){
      boil.push('<i class="boilCell" style="--l:'+(2+(n*17)%86)+'%;--w:'+(16+(n%4)*7)+'px;--h:'+(10+(n%4)*4)+'px;--d:'+(0.55+(n%4)*.11)+'s;--delay:-'+((n%5)*.12)+'s"></i>');
    }
  }
- let gasColor='rgba(255,255,255,.55)';
- if(x.gas==="SO₂")gasColor='rgba(220,225,230,.44)';
- if(x.gas==="H₂S")gasColor='rgba(205,210,205,.36)';
- if(x.gas==="NH₃")gasColor='rgba(235,235,255,.40)';
- if(x.gas==="NO₂")gasColor='rgba(196,88,22,.90)';
- if(x.gas==="Cl₂")gasColor='rgba(190,210,92,.46)';
+ const gasInfo=GAS_REFERENCE[x.gas];
+ const gasColor=gasInfo?gasInfo.plume:'rgba(255,255,255,.18)';
  const gasClass=x.gas==="NO₂"?" no2":"";
  return (strong?'<div class="boilLayer'+gasClass+'">'+boil.join("")+'</div>':'')+'<div class="bubbleLayer '+(strong?'strong':'')+gasClass+'">'+parts.join("")+'</div><div class="surfaceFizz'+gasClass+'">'+fizz.join("")+'</div><div class="gasPlume" style="--gasColor:'+gasColor+'"></div>';
 }
-function solidReagentHTML(v,x){
- if(!v.length||x)return "";
+// Determine whether the chemical record supports visible consumption of a
+// solid; a missing/non-reactive/heating-required reaction must not dissolve it.
+function solidReactionMode(v,x){
+ if(!x||x.t==="z"||x.t==="n")return "";
+ const solids=v.filter(id=>String((reagent(id)||[])[3]||"").includes("тв."));
+ if(!solids.length)return "";
+ if(solids.some(id=>(reagent(id)||[])[1]==="Металлы"))return "reactive_metal";
+ const sign=String(x.sign||"").toLowerCase();
+ if(/разлагается|разложени/.test(sign))return "decomposing_solid";
+ if(/растворяется|растворяются|исчезает|исчезают/.test(sign))return "dissolving_solid";
+ return "";
+}
+function solidReagentHTML(v,x,hasMetalDeposit=false){
+ if(!v.length||hasMetalDeposit)return "";
  const solids=v.filter(id=>String((reagent(id)||[])[3]||"").includes("тв."));
  if(!solids.length)return "";
  const id=solids[solids.length-1],r=reagent(id),parts=[];
- for(let n=0;n<18;n++){
-   parts.push('<i class="solidChunk" style="--l:'+(3+(n*29)%82)+'%;--b:'+(1+(n*13)%18)+'%;--s:'+(8+(n%5)*3)+'px;--r:'+(((n*31)%80)-40)+'deg;--sc:'+r[2]+'"></i>');
+ const mode=solidReactionMode(v,x),consuming=!!mode;
+ if(r[1]==="Металлы"){
+  return '<div class="solidBed reactive-metal'+(consuming?' dissolving-solid':'')+'"><i class="metalPiece" style="--metalColor:'+r[2]+'"></i></div>';
  }
- return '<div class="solidBed">'+parts.join("")+'</div>';
+ for(let n=0;n<18;n++){
+  parts.push('<i class="solidChunk" style="--l:'+(3+(n*29)%82)+'%;--b:'+(1+(n*13)%18)+'%;--s:'+(8+(n%5)*3)+'px;--r:'+(((n*31)%80)-40)+'deg;--sc:'+r[2]+'"></i>');
+ }
+ return '<div class="solidBed'+(consuming?' dissolving-solid':'')+'">'+parts.join("")+'</div>';
 }
 function metalDepositHTML(v,x){
  if(!x||!x.ppt)return "";
@@ -1331,10 +1414,10 @@ function tubeHTML(v,i,active,heated,excess=""){
    return !st.includes("тв.")&&!st.includes("газ");
  });
  const liquidHeight=x&&x.t!=="z"?58:(hasLiquid?58:0);
- const solids=solidReagentHTML(v,x);
  const hasMetalDeposit=!!(x&&x.ppt&&v.some(id=>String((reagent(id)||[])[1]||"")==="Металлы"));
+ const solids=solidReagentHTML(v,x,hasMetalDeposit);
  const deposit=hasMetalDeposit?metalDepositHTML(v,x):"";
- const reactionVisual=x&&x.t!=="z"?((hasMetalDeposit?"":precipitateHTML(x))+bubblesHTML(x)+deposit+'<i class="reactionGlow"></i>'):"";
+ const reactionVisual=x&&x.t!=="z"?((hasMetalDeposit?"":precipitateHTML(x))+bubblesHTML(x,v)+deposit+'<i class="reactionGlow"></i>'):"";
  const shimmer=(heated&&v.length)?'<i class="heatShimmer"></i>':"";
  return '<div class="tube '+(active?'on':'')+'"><i class="liq" style="height:'+liquidHeight+'%;background:'+sol+'"></i>'+solids+reactionVisual+shimmer+'</div>';
 }
@@ -1359,7 +1442,12 @@ function positionMobileReactionCallout(){
  requestAnimationFrame(()=>{
   const callout=document.querySelector(".tube-slot.active-slot .tube-callout");
   const tube=document.querySelector(".tube-slot.active-slot .tube");
-  if(!callout||!tube)return;
+  const bench=document.querySelector(".lab-bench");
+  if(!callout||!tube){
+   if(bench)bench.classList.remove("mobile-result-expanded");
+   return;
+  }
+  if(bench)bench.classList.add("mobile-result-expanded");
   const pad=10, gap=12, tr=tube.getBoundingClientRect();
   const ch=callout.getBoundingClientRect().height;
   let top=tr.top-ch-gap;
