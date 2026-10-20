@@ -1,0 +1,92 @@
+name: ЕГЭ БЛИЗКО — ручной выпуск лаборатории
+
+# Never deploy lab automatically. An explicit user action is required.
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: '40-символьный SHA проверенного коммита release/ege-lab'
+        required: true
+        type: string
+      confirmation:
+        description: 'Подтвердить обновление ТОЛЬКО лаборатории на Timeweb'
+        required: true
+        type: choice
+        options:
+          - DO_NOT_DEPLOY
+          - DEPLOY_LAB_ONLY
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: timeweb-ege-blizko-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Confirm exact lab SHA and green isolated tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify manual approval, allowed branch and successful test run
+        shell: bash
+        env:
+          TARGET: ${{ inputs.release_sha }}
+          CONFIRM: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$CONFIRM" = 'DEPLOY_LAB_ONLY'
+          [[ "$TARGET" =~ ^[a-f0-9]{40}$ ]]
+          TIP=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/release/ege-lab" --jq '.object.sha')
+          test "$TIP" = "$TARGET" || {
+            echo 'Release branch changed; re-review the new SHA'; exit 1;
+          }
+          RUNS=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET&per_page=50")
+          printf '%s' "$RUNS" | jq -e --arg sha "$TARGET" '
+            [.workflow_runs[]
+             | select(.head_sha == $sha
+               and .path == ".github/workflows/ege-lab-ci.yml"
+               and .head_branch == "release/ege-lab"
+               and .event == "push" and .conclusion == "success")
+            ] | length > 0' >/dev/null
+          echo "LAB_SHA_AND_CI_APPROVED $TARGET"
+
+  release:
+    name: Update lab only on Timeweb; preserve local changes
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: timeweb-production
+    steps:
+      - name: Configure restricted pinned SSH connection
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS" && test -n "$SSH_HOST"
+          test "$SSH_USER" = 'ege-deploy' || { echo 'Unexpected SSH user'; exit 1; }
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 0600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/known_hosts
+      - name: Invoke dedicated root-owned lab-only installer
+        shell: bash
+        env:
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+          TARGET: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET" =~ ^[a-f0-9]{40}$ ]]
+          ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=10 "$SSH_USER@$SSH_HOST" \
+            "sudo -n /usr/local/sbin/ege-blizko-lab-release $TARGET"
