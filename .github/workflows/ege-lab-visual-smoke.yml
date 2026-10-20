@@ -1,0 +1,47 @@
+name: EGE laboratory - browser visual smoke (no deploy)
+
+on:
+  push:
+    branches:
+      - 'feature/lab-combined-visuals-*'
+    paths:
+      - 'ege_lab_webapp.py'
+      - 'ege_lab_substances.py'
+      - 'ege_lab_inorganic_reactions.py'
+      - 'ege_task6_reactions.py'
+      - 'tests/prepare_lab_visual_fixture.py'
+      - 'tests/check_lab_visual_browser.mjs'
+      - '.github/workflows/ege-lab-visual-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visual-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare offline fixture from actual lab HTML and reaction catalogue
+        run: python tests/prepare_lab_visual_fixture.py
+      - name: Install isolated headless Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Check eight reference experiments on desktop and mobile
+        run: node tests/check_lab_visual_browser.mjs
+      - name: Save browser screenshots for manual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-visual-preview
+          path: lab-visual-preview/*.png
+          if-no-files-found: ignore
+          retention-days: 7
