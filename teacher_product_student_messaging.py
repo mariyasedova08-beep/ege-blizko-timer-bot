@@ -247,13 +247,18 @@ async def dispatch(
     source_key=None,
     reply_markup=None,
     expires_at=None,
+    mode_override=None,
 ):
     """Send, draft, queue, or suppress one student message.
 
+    mode_override is ONLY for an explicitly confirmed, one-off Mini App
+    action. None preserves the teacher's global preference for all older flows.
     Returns one of: sent, failed, draft, manual, off, duplicate, expired.
     """
     uid = int(teacher_id)
-    mode = get_mode(uid)
+    if mode_override is not None and mode_override not in MODES:
+        raise ValueError("invalid one-off student message mode")
+    mode = get_mode(uid) if mode_override is None else mode_override
     if mode == "off":
         return "off"
 
