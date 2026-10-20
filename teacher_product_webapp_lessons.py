@@ -34,6 +34,7 @@ def ensure_tables():
                 new_time TEXT,
                 group_name TEXT NOT NULL,
                 moved_before INTEGER NOT NULL DEFAULT 0,
+                notification_choice TEXT NOT NULL DEFAULT 'legacy',
                 state TEXT NOT NULL DEFAULT 'pending'
                   CHECK(state IN ('pending','sending','done','failed','none')),
                 sent_count INTEGER,
@@ -47,6 +48,16 @@ def ensure_tables():
             ON teacher_webapp_lesson_actions(state,id);
             """
         )
+        # Safe additive migration for every existing installation: historic jobs
+        # retain legacy global-message behavior, new jobs persist a per-action choice.
+        columns = {c[1] for c in conn.execute(
+            "PRAGMA table_info(teacher_webapp_lesson_actions)"
+        ).fetchall()}
+        if "notification_choice" not in columns:
+            conn.execute(
+                "ALTER TABLE teacher_webapp_lesson_actions ADD COLUMN "
+                "notification_choice TEXT NOT NULL DEFAULT 'legacy'"
+            )
         conn.commit()
 
 
@@ -92,6 +103,11 @@ def save(uid, payload):
     request_key = _key(payload)
     if not request_key:
         return {"ok": False, "error": "invalid_request_key"}
+    # Existing callers without this field keep their historic global setting.
+    # The Mini App always sends one explicit choice for moves/cancellations.
+    choice = str(payload.get("notification_choice") or "legacy")
+    if kind != "add" and choice not in ("send", "draft", "off", "legacy"):
+        return {"ok": False, "error": "invalid_notification_choice"}
     now = datetime.now(schedule.tz(uid))
     today = now.date()
     weekday = None
@@ -138,12 +154,13 @@ def save(uid, payload):
     with base.db() as conn:
         conn.execute("BEGIN IMMEDIATE")
         previous = conn.execute(
-            "SELECT id,kind,slot_id,group_id,original_date,new_date,new_time,state FROM teacher_webapp_lesson_actions "
+            "SELECT id,kind,slot_id,group_id,original_date,new_date,new_time,state,notification_choice FROM teacher_webapp_lesson_actions "
             "WHERE teacher_telegram_user_id=? AND request_key=?",
             (int(uid), request_key),
         ).fetchone()
         if previous:
-            if previous["kind"] != kind or int(previous["group_id"]) != gid:
+            if (previous["kind"] != kind or int(previous["group_id"]) != gid
+                    or (kind != "add" and previous["notification_choice"] != choice)):
                 return {"ok":False,"error":"request_key_conflict"}
             if kind == "add":
                 original_slot = conn.execute(
@@ -241,16 +258,21 @@ def save(uid, payload):
         cur=conn.execute(
             "INSERT INTO teacher_webapp_lesson_actions("
             "teacher_telegram_user_id,group_id,request_key,kind,slot_id,original_date,old_date,"
-            "old_time,new_date,new_time,group_name,moved_before,state,created_at)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "old_time,new_date,new_time,group_name,moved_before,notification_choice,state,created_at)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (int(uid),gid,request_key,kind,int(slot_id),
              occurrence.isoformat() if occurrence else None,old_date,old_time,
              new_date.isoformat() if new_date else None,new_time,group["name"],
-             int(moved_before),"none" if kind=="add" else "pending",created),
+             int(moved_before),choice if kind!="add" else "legacy",
+             "none" if kind=="add" or choice=="off" else "pending",created),
         )
         action_id=int(cur.lastrowid)
         conn.commit()
-    return {"ok":True,"duplicate":False,"action_id":action_id,"state":"none" if kind=="add" else "pending"}
+    return {
+        "ok":True,"duplicate":False,"action_id":action_id,
+        "state":"none" if kind=="add" or choice=="off" else "pending",
+        "notification_choice":choice if kind!="add" else None,
+    }
 
 
 async def delivery_tick(context):
@@ -275,11 +297,17 @@ async def delivery_tick(context):
         state="done"
         sent=failed=linked=0
         try:
+            # Only the explicit choice on THIS lesson is overridden; neither
+            # the teacher's saved messaging preference nor other jobs change.
+            choice = row["notification_choice"]
+            override = {"send":"auto","draft":"draft"}.get(choice)
+            notification_kwargs = ({"mode_override":override}
+                                   if override else {})
             if row["kind"]=="move":
                 sent,failed,linked=await transfers._notify_transfer(
                     context,int(row["teacher_telegram_user_id"]),"group",
                     int(row["slot_id"]),row["old_date"],row["old_time"],
-                    row["new_date"],row["new_time"],
+                    row["new_date"],row["new_time"],**notification_kwargs
                 )
             elif row["kind"]=="cancel":
                 event={
@@ -291,6 +319,7 @@ async def delivery_tick(context):
                 }
                 sent,failed,linked=await cancellations._notify_students(
                     context,int(row["teacher_telegram_user_id"]),event,
+                    **notification_kwargs
                 )
             if failed:
                 state="failed"

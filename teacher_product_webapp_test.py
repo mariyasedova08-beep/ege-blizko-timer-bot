@@ -818,12 +818,190 @@ class GroupLessonsMiniAppTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(args[2]["actual_date"],self.occurrence)
         self.assertEqual(args[2]["occurrence_key"],self.original)
 
+
+    def test_lesson_notification_choice_validated_and_preserved_on_replay(self):
+        data=self.mutation(notification_choice="draft")
+        self.assertEqual(
+            webapp._teacher_action(101,{**data,"notification_choice":"surprise"})["error"],
+            "invalid_notification_choice",
+        )
+        first=webapp._teacher_action(101,data)
+        self.assertTrue(first["ok"],first)
+        self.assertEqual(first["state"],"pending")
+        self.assertEqual(first["notification_choice"],"draft")
+        self.assertTrue(webapp._teacher_action(101,data)["duplicate"])
+        self.assertEqual(
+            webapp._teacher_action(101,{**data,"notification_choice":"send"})["error"],
+            "request_key_conflict",
+        )
+        with base.db() as conn:
+            row=conn.execute(
+                "SELECT notification_choice,state FROM teacher_webapp_lesson_actions WHERE id=?",
+                (first["action_id"],),
+            ).fetchone()
+        self.assertEqual(row["notification_choice"],"draft")
+        self.assertEqual(row["state"],"pending")
+
+    async def test_send_now_overrides_global_off_only_for_this_lesson(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+        import teacher_product_student_messaging as messaging
+        with base.db() as conn:
+            conn.execute(
+                "UPDATE student_reminder_people SET telegram_user_id=303 WHERE id=?",
+                (self.member,),
+            )
+            conn.commit()
+        messaging.set_mode(101,"off")
+        result=webapp._teacher_action(101,self.mutation(notification_choice="send"))
+        self.assertTrue(result["ok"],result)
+        send=AsyncMock()
+        await self.lessons.delivery_tick(SimpleNamespace(bot=SimpleNamespace(send_message=send)))
+        send.assert_awaited_once()
+        self.assertEqual(send.await_args.kwargs["chat_id"],303)
+        self.assertIn("занятие перенесено",send.await_args.kwargs["text"])
+        self.assertEqual(messaging.get_mode(101),"off")
+        with base.db() as conn:
+            stored=conn.execute(
+                "SELECT state,sent_count FROM teacher_webapp_lesson_actions WHERE id=?",
+                (result["action_id"],),
+            ).fetchone()
+        self.assertEqual(stored["state"],"done")
+        self.assertEqual(stored["sent_count"],1)
+
+    async def test_draft_override_never_sends_directly_to_students(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+        import teacher_product_student_messaging as messaging
+        with base.db() as conn:
+            conn.execute(
+                "UPDATE student_reminder_people SET telegram_user_id=303 WHERE id=?",
+                (self.member,),
+            )
+            conn.commit()
+        messaging.set_mode(101,"auto")
+        response=webapp._teacher_action(101,self.mutation(notification_choice="draft"))
+        self.assertTrue(response["ok"],response)
+        send=AsyncMock()
+        await self.lessons.delivery_tick(SimpleNamespace(bot=SimpleNamespace(send_message=send)))
+        send.assert_awaited_once()
+        self.assertEqual(send.await_args.kwargs["chat_id"],101)
+        self.assertIn("Черновик",send.await_args.kwargs["text"])
+        with base.db() as conn:
+            outbox=conn.execute(
+                "SELECT recipient_chat_id,status,category FROM teacher_student_message_outbox "
+                "WHERE teacher_telegram_user_id=?",
+                (101,),
+            ).fetchall()
+        self.assertEqual(len(outbox),1)
+        self.assertEqual(outbox[0]["status"],"draft")
+        self.assertEqual(outbox[0]["recipient_chat_id"],303)
+        self.assertEqual(outbox[0]["category"],"transfer")
+        self.assertEqual(messaging.get_mode(101),"auto")
+
+    async def test_no_notification_keeps_schedule_change_but_sends_nothing(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+        import teacher_product_student_messaging as messaging
+        with base.db() as conn:
+            conn.execute(
+                "UPDATE student_reminder_people SET telegram_user_id=303 WHERE id=?",
+                (self.member,),
+            )
+            conn.commit()
+        messaging.set_mode(101,"auto")
+        data=self.mutation(notification_choice="off")
+        p=webapp._teacher_action(101,data)
+        self.assertTrue(p["ok"],p)
+        self.assertEqual(p["state"],"none")
+        self.assertEqual(
+            next(x for x in self.lessons.upcoming(101,self.gid)
+                 if x["occurrence_key"]==self.original)["time"],"19:00",
+        )
+        send=AsyncMock()
+        await self.lessons.delivery_tick(SimpleNamespace(bot=SimpleNamespace(send_message=send)))
+        send.assert_not_awaited()
+        with base.db() as conn:
+            row=conn.execute(
+                "SELECT state FROM teacher_webapp_lesson_actions WHERE id=?",
+                (p["action_id"],),
+            ).fetchone()
+            count=conn.execute(
+                "SELECT COUNT(*) FROM teacher_student_message_outbox",
+            ).fetchone()[0]
+        self.assertEqual(row["state"],"none")
+        self.assertEqual(count,0)
+        self.assertEqual(messaging.get_mode(101),"auto")
+
+    async def test_cancellation_draft_uses_existing_gateway_without_student_send(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+        import teacher_product_student_messaging as messaging
+        with base.db() as conn:
+            conn.execute(
+                "UPDATE student_reminder_people SET telegram_user_id=303 WHERE id=?",
+                (self.member,),
+            )
+            conn.commit()
+        messaging.set_mode(101,"auto")
+        payload={
+            "action":"group_lesson_mutate","lesson_action":"cancel",
+            "group_id":self.gid,"request_key":"webapp-cancel-draft-01",
+            "slot_id":self.slot_id,"occurrence_key":self.original,
+            "expected_date":self.original,"expected_time":"18:00",
+            "notification_choice":"draft",
+        }
+        p=webapp._teacher_action(101,payload)
+        self.assertTrue(p["ok"],p)
+        send=AsyncMock()
+        await self.lessons.delivery_tick(SimpleNamespace(bot=SimpleNamespace(send_message=send)))
+        send.assert_awaited_once()
+        self.assertEqual(send.await_args.kwargs["chat_id"],101)
+        with base.db() as conn:
+            rows=conn.execute(
+                "SELECT category,status FROM teacher_student_message_outbox WHERE teacher_telegram_user_id=?",
+                (101,),
+            ).fetchall()
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]["category"],"cancellation")
+        self.assertEqual(rows[0]["status"],"draft")
+        self.assertTrue(self.cancellations.is_cancelled(101,"group",self.slot_id,self.original))
+
+    def test_existing_legacy_lesson_action_table_is_migrated_in_place(self):
+        with base.db() as conn:
+            conn.execute("DROP TABLE teacher_webapp_lesson_actions")
+            conn.execute(
+                "CREATE TABLE teacher_webapp_lesson_actions ("
+                "id INTEGER PRIMARY KEY,teacher_telegram_user_id INTEGER,"
+                "group_id INTEGER,request_key TEXT,kind TEXT,slot_id INTEGER,"
+                "original_date TEXT,old_date TEXT,old_time TEXT,new_date TEXT,"
+                "new_time TEXT,group_name TEXT,moved_before INTEGER,"
+                "state TEXT,created_at TEXT)"
+            )
+            conn.execute(
+                "INSERT INTO teacher_webapp_lesson_actions ("
+                "id,teacher_telegram_user_id,group_id,request_key,kind,"
+                "slot_id,original_date,group_name,moved_before,state,created_at"
+                ") VALUES(1,101,?,?,?,? ,?,?,? ,?,?)",
+                (self.gid,"old-key-123456","add",self.slot_id,
+                 None,"ОГЭ 2027",0,"none","2026-10-20T00:00:00"),
+            )
+            conn.commit()
+        self.lessons.ensure_tables()
+        with base.db() as conn:
+            row=conn.execute("SELECT request_key,notification_choice FROM teacher_webapp_lesson_actions WHERE id=1").fetchone()
+        self.assertEqual(row["request_key"],"old-key-123456")
+        self.assertEqual(row["notification_choice"],"legacy")
+
     def test_lesson_form_ui_declares_real_controls(self):
         html=webapp.HTML_PATH.read_text(encoding="utf-8")
         for token in (
             "function startGroupLessonForm(","async function saveGroupLesson(",
             "group_lesson_mutate","lesson_occurrences","Перенести одно занятие",
             "Отменить одно занятие",
+            "name=\"gl-notify\"",
+            'value="draft" checked',
+            "data.notification_choice=selectedNotification.value",
         ):
             self.assertIn(token,html)
 

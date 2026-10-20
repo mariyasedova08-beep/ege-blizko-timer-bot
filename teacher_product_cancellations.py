@@ -547,7 +547,7 @@ async def cancellation_pick(update, context):
     raise ApplicationHandlerStop
 
 
-async def _notify_students(context, uid, event):
+async def _notify_students(context, uid, event, *, mode_override=None):
     recipients = student_reminders.recipients(
         uid,
         {
@@ -576,6 +576,7 @@ async def _notify_students(context, uid, event):
             "\n".join(lines),
             recipient_name=person["name"],
             category="cancellation",
+            mode_override=mode_override,
             source_key=(
                 f"cancel:{event['kind']}:{event['slot_id']}:"
                 f"{event['occurrence_key']}:{person['id']}"
