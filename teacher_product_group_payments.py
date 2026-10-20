@@ -673,6 +673,14 @@ async def mark_paid(update, context):
     if not plan or not int(plan["active"] or 0):
         await q.edit_message_text("Активная оплата не найдена.")
         raise ApplicationHandlerStop
+    if int(plan["course_paid"] or 0):
+        await q.edit_message_text(
+            "✅ Курс уже оплачен полностью, повторно отмечать получение денег нельзя.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("💳 Все оплаты группы", callback_data=f"gpay:group:{plan['group_id']}")
+            ]]),
+        )
+        raise ApplicationHandlerStop
 
     now = datetime.now(schedule.tz(uid))
     due = None
@@ -856,6 +864,12 @@ def _group_payment_payload(uid, pid):
     if not row or not int(row["active"] or 0):
         return {"short": "не настроена", "hint": "", "full": "Активная оплата пока не настроена."}
     amount_text = _money(row["amount_rub"])
+    if int(row["course_paid"] or 0):
+        return {
+            "short": "оплачено",
+            "hint": "весь курс",
+            "full": f"✅ Курс оплачен полностью: {amount_text}. Доплата не требуется.",
+        }
     if row["payment_type"] == "package":
         left = int(row["lessons_remaining"] or 0)
         total = int(row["lessons_total"] or 0)
@@ -900,7 +914,7 @@ def patch_teacher_webapp():
             rows = conn.execute(
                 """
                 SELECT m.name,g.name AS group_name,p.payment_type,p.amount_rub,p.next_due_date,
-                       p.lessons_total,p.lessons_remaining,p.active
+                       p.lessons_total,p.lessons_remaining,p.course_paid,p.active
                 FROM student_reminder_people m
                 JOIN teacher_groups g ON g.id=m.group_id
                 LEFT JOIN group_member_payment_plans p
@@ -914,7 +928,9 @@ def patch_teacher_webapp():
         for r in rows:
             status, level = "Не настроено", "muted"
             if r["payment_type"] and int(r["active"] or 0):
-                if r["payment_type"] == "package":
+                if int(r["course_paid"] or 0):
+                    status, level = "Курс оплачен полностью", "ok"
+                elif r["payment_type"] == "package":
                     left = int(r["lessons_remaining"] or 0)
                     total = int(r["lessons_total"] or 0)
                     status = f"Осталось {left}/{total} занятий"
@@ -942,7 +958,7 @@ def patch_teacher_webapp():
             rows = conn.execute(
                 """
                 SELECT m.name,g.name AS group_name,p.amount_rub,p.payment_type,p.next_due_date,
-                       p.lessons_remaining,p.active
+                       p.lessons_remaining,p.course_paid,p.active
                 FROM group_member_payment_plans p
                 JOIN student_reminder_people m ON m.id=p.person_id
                 JOIN teacher_groups g ON g.id=p.group_id
@@ -956,6 +972,8 @@ def patch_teacher_webapp():
             overdue = False
             detail = _money(r["amount_rub"])
             due = ""
+            if int(r["course_paid"] or 0):
+                continue  # Already received in full; never an outstanding payment.
             if r["payment_type"] == "package":
                 if int(r["lessons_remaining"] or 0) <= 0:
                     overdue = True
