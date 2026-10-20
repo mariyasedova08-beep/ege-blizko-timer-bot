@@ -307,6 +307,53 @@ async function completeTask(taskId,returnView){try{if(tg&&tg.HapticFeedback){try
 function screenHeader(title,sub){return '<div class="screen-head">'+(currentView==='home'?'':'<button class="back" aria-label="Вернуться в кабинет" onclick="openView(\'home\')">'+uiIcon('back')+'</button>')+'<div><h2>'+esc(title)+'</h2>'+(sub?'<div class="small">'+esc(sub)+'</div>':'')+'</div></div>';}
 function card(icon,num,label,hint,pink,view){return '<button class="card '+(pink?'pink':'')+'" onclick="openView(\''+view+'\')"><div class="icon">'+uiIcon(icon)+'</div><div class="num">'+num+'</div><div class="label">'+label+'</div><div class="hint">'+hint+'</div></button>';}
 function eventRows(items){var rows='';(items||[]).forEach(function(e){rows+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+' · '+esc(e.day_label||'')+(e.date?' · '+esc(e.date):'')+'</div></div></div>';});return rows;}
+// Inline-keyboard launched Telegram Mini Apps cannot reliably sendData() to
+// the bot. Navigate to the real group lesson editor instead of a dead tile.
+var homeLessonAction='';
+async function openHomeLessonAction(action){
+ if(action!=='transfer'&&action!=='cancel')return;
+ currentView='lesson-picker';
+ setNav('students');
+ document.getElementById('app').innerHTML='<div class="loading">Загружаю группы…</div>';
+ try{
+  var page=await api('students');
+  if(page.theme){savedTheme=page.theme;applyTheme(page.theme);}
+  var groups=(page.data&&page.data.groups)||[];
+  if(groups.length===1){
+   await openGroupLessonFromHome(Number(groups[0].id),action);
+   return;
+  }
+  var heading=action==='transfer'?'Перенести занятие':'Отменить занятие';
+  var guide=action==='transfer'?'Сначала выбери группу, затем конкретный урок для переноса.':'Сначала выбери группу, затем конкретный урок для отмены.';
+  var out=screenHeader(heading,'выбор группы');
+  out+='<div class="section"><p class="gquiet">'+guide+'</p>';
+  if(!groups.length){
+   out+='<div class="empty">Групп пока нет. Добавь группу в разделе «Ученики и группы».</div>';
+   out+='<div class="gcontrols"><button type="button" onclick="openView(\'students\')">Открыть учеников и группы</button></div>';
+  }
+  groups.forEach(function(group){
+   var gid=Number(group.id);
+   if(!Number.isSafeInteger(gid)||gid<=0)return;
+   out+='<div class="person-card"><button type="button" class="group-open" onclick="openGroupLessonFromHome('+gid+',\''+action+'\')"><span style="display:flex;gap:11px;align-items:center"><span class="person-icon">👥</span><span><span class="person-name">'+esc(group.name)+'</span><span class="person-meta" style="display:block">Показать занятия группы →</span></span></span></button></div>';
+  });
+  out+='<p class="gquiet">Индивидуальные занятия пока изменяются через Telegram-меню ПРЕПАДМИНА.</p>';
+  out+='</div>';
+  document.getElementById('app').innerHTML=out;
+ }catch(e){
+  await reportClientError('home-lesson-action:'+action,e);
+  document.getElementById('app').innerHTML=screenHeader('Занятия','не удалось загрузить группы')+
+   '<div class="gblock"><p>Не удалось открыть список групп. Проверь соединение и попробуй снова.</p>'+
+   '<button class="gsoftbutton" type="button" onclick="openHomeLessonAction(\''+action+'\')">Повторить</button></div>';
+ }
+}
+async function openGroupLessonFromHome(gid,action){
+ if(!Number.isSafeInteger(Number(gid))||Number(gid)<=0)return;
+ if(action!=='transfer'&&action!=='cancel')return;
+ activeGroupTab='lessons';
+ homeLessonAction=action;
+ await openView('group:'+Number(gid));
+}
+
 function renderHome(d){
  var c=d.counts||{},todayEvents=(d.events||[]).filter(function(e){return e.day_label==='Сегодня';}),tomorrowEvents=(d.events||[]).filter(function(e){return e.day_label==='Вт'||e.day_label==='Ср'||e.day_label==='Чт'||e.day_label==='Пт'||e.day_label==='Сб'||e.day_label==='Вс'||e.day_label==='Пн';}).slice(0,3),taskRows='',debts='',attention='';
  (d.tasks||[]).forEach(function(t){taskRows+='<div class="row taskrow" onclick="completeTask('+t.id+',\'home\')"><div class="check">✓</div><div class="row-main"><div class="row-title '+(t.overdue?'alert':'')+'">'+esc(t.title)+'</div><div class="row-sub">'+(t.overdue?'Просрочено':'до '+shortDate(t.due_date))+(t.due_time?' · '+esc(t.due_time):'')+'</div></div><span class="badge '+(t.overdue?'bad':'')+'">'+(t.overdue?'!':'✓')+'</span></div>';});
@@ -332,8 +379,8 @@ function renderHome(d){
   ['files','Материалы','bot','materials'],
   ['homework','Домашние задания','view','homework'],
   ['credit','Оплаты','view','payments'],
-  ['transfer','Перенести занятие','bot','transfer'],
-  ['cancel','Отменить занятие','bot','cancel'],
+  ['transfer','Перенести занятие','lesson','transfer'],
+  ['cancel','Отменить занятие','lesson','cancel'],
   ['bell','Напоминания','bot','reminders'],
   ['target','Посещаемость','view','attendance'],
   ['chart','Отчёты','view','reports'],
@@ -342,7 +389,7 @@ function renderHome(d){
   ['palette','Темы кабинета','view','settings'],
   ['settings','Настройки','bot','settings'],
   ['help','Инструкция','bot','help']
- ].forEach(function(a){var click=a[2]==='view'?"openView('"+a[3]+"')":"openBotAction('"+a[3]+"')";out+='<button class="action" onclick="'+click+'"><span class="aicon">'+uiIcon(a[0])+'</span>'+a[1]+'</button>';});
+ ].forEach(function(a){var click=a[2]==='view'?"openView('"+a[3]+"')":a[2]==='lesson'?"openHomeLessonAction('"+a[3]+"')":"openBotAction('"+a[3]+"')";out+='<button class="action" onclick="'+click+'"><span class="aicon">'+uiIcon(a[0])+'</span>'+a[1]+'</button>';});
  out+='</div></div><div class="brand-foot">ПРЕПАДМИН · меньше админки, больше преподавания</div>';
  document.getElementById('app').innerHTML=out;
 }
@@ -414,7 +461,12 @@ function renderGroup(d){
  });
  if(!(d.members||[]).length)out+='<div class="empty">Участников пока нет</div>';
  out+='</div></section>';
- out+='<section data-gpanel="lessons" class="gsection" hidden><div class="gcontrols"><button type="button" onclick="startGroupLessonForm('+gid+')">＋ Добавить регулярный урок</button></div><div id="group-lesson-form" hidden></div>';
+ out+='<section data-gpanel="lessons" class="gsection" hidden>';
+ if(homeLessonAction){
+  out+='<div class="gtoast" role="status">'+(homeLessonAction==='transfer'?'Выбери занятие ниже и нажми «Перенести».':'Выбери занятие ниже и нажми «Отменить».')+'</div>';
+  homeLessonAction='';
+ }
+ out+='<div class="gcontrols"><button type="button" onclick="startGroupLessonForm('+gid+')">＋ Добавить регулярный урок</button></div><div id="group-lesson-form" hidden></div>';
  if(groupLessonNotice){out+='<div class="gtoast" role="status">'+esc(groupLessonNotice)+'</div>';groupLessonNotice='';}
  out+='<div class="gblock"><strong>Расписание группы</strong><p class="gquiet">'+((d.slots||[]).length?(d.slots||[]).map(function(x){return ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][Number(x.weekday)]+' '+esc(x.time);}).join(' · '):'Регулярных занятий пока нет')+'</p><p class="gquiet">Добавление создаёт еженедельное занятие. Перенос и отмена ниже действуют только на выбранный урок.</p></div>';
  (d.lesson_occurrences||[]).forEach(function(x){
