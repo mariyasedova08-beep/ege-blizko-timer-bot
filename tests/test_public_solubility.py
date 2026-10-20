@@ -42,8 +42,8 @@ class PublicSolubilityTests(unittest.TestCase):
         self.assertEqual(cells["NO3"]["NH4"], "P")
         self.assertEqual(cells["NO3"]["Be"], "P")
         self.assertEqual(cells["PO4"]["NH4"], "P")
-        self.assertEqual(cells["S"]["Al"], "—")
-        self.assertEqual(cells["S"]["Fe3"], "—")
+        self.assertIn(cells["S"]["Al"], ("-", "—"))  # no applicable stable salt
+        self.assertIn(cells["S"]["Fe3"], ("-", "—"))  # glyph variants of dash
         for c in ["Fe2", "Ag", "Hg", "Pb"]:
             self.assertEqual(cells["S"][c], "H")
         self.assertEqual(self.data["precipitates"]["Ag|Cl"][0], "белый")

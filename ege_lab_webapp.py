@@ -321,6 +321,14 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .particle.gel{border-radius:50% 44% 52% 46%;opacity:.62;filter:blur(1.2px);transform:scaleX(1.8)}
 .particle.crystal{border-radius:2px;transform:rotate(var(--r));opacity:.94;box-shadow:0 0 2px rgba(255,255,255,.45)}
 .particle.fine{border-radius:50%;opacity:.72;filter:blur(.35px)}
+/* Gel-like hydroxides: soft suspension and irregular settling, not gas-like circles. */
+.gel-sediment{isolation:isolate}
+.gel-bed{position:absolute;z-index:2;left:7%;right:7%;bottom:1px;height:24%;background:var(--pc);border-radius:48% 52% 19% 17% / 62% 72% 22% 19%;filter:blur(3px);opacity:.84;transform-origin:center bottom;animation:gelBedGrow 1.7s ease-out both}
+.gel-bed:before{content:"";position:absolute;left:2%;right:4%;top:-25%;height:85%;background:var(--pc);border-radius:45% 58% 48% 46%;filter:blur(4px);opacity:.66}
+.gel-cloud{position:absolute;z-index:1;left:var(--l);bottom:var(--b);width:var(--w);height:var(--h);background:var(--pc);border-radius:43% 58% 52% 41% / 61% 38% 62% 47%;filter:blur(4px);opacity:.5;animation:gelCloudSettle 1.8s cubic-bezier(.18,.62,.25,1) both;animation-delay:var(--delay)}
+@keyframes gelBedGrow{from{transform:scaleY(.18);opacity:0}to{transform:scaleY(1);opacity:.84}}
+@keyframes gelCloudSettle{0%{transform:translateY(-57px) scale(1.16);opacity:0}38%{opacity:.55}100%{transform:translateY(0) scale(1);opacity:.50}}
+@media(prefers-reduced-motion:reduce){.gel-bed,.gel-cloud{animation:none}}
 @keyframes settle{from{transform:translateY(-75px) scale(.55);opacity:.1}to{opacity:.88}}
 .bubbleLayer{position:absolute;z-index:6;left:3px;right:3px;bottom:2px;height:82%;overflow:visible;border-radius:0 0 24px 24px;pointer-events:none}
 .bubbleLayer.strong:before{content:"";position:absolute;left:6%;right:6%;bottom:6%;height:36%;border-radius:50%;background:radial-gradient(ellipse at center,rgba(255,255,255,.72) 0 16%,rgba(255,255,255,.24) 17% 48%,rgba(255,255,255,0) 70%);filter:blur(2px);animation:boilPulse .55s ease-in-out infinite alternate}
@@ -1242,8 +1250,10 @@ function reactionResultHTML(x,heated=false){
  return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+condition+note+'</div>';
 }
 function pptTexture(x){
- const s=(x&&x.sign||"").toLowerCase();
- if(s.includes("студенист"))return "gel";
+ const s=(String((x&&x.sign)||"")+" "+String((x&&x.eq)||"")).toLowerCase();
+ // Fresh Cu(OH)2 and Fe(OH)2 form gelatinous precipitates, unlike gas bubbles.
+ // Both unicode subscripts and ASCII numerals are supported.
+ if(s.includes("студенист")||/cu\(oh\)[₂2]|fe\(oh\)[₂2]/.test(s))return "gel";
  if(s.includes("agcl"))return "floc";
  if(s.includes("baso₄")||s.includes("baso4")||s.includes("caco₃")||s.includes("caso₃"))return "fine";
  if(s.includes("pbi₂")||s.includes("agi")||s.includes("agbr")||s.includes("bacro₄"))return "crystal";
@@ -1253,8 +1263,16 @@ function pptTexture(x){
 function precipitateHTML(x){
  if(!x||!x.ppt)return "";
  const cls=pptTexture(x),parts=[];
+ if(cls==="gel"){
+  // Soft, connected clouds settle into an irregular sediment layer.
+  for(let n=0;n<13;n++){
+   const l=(5+(n*29)%74), b=(8+(n*13)%34), w=(19+(n%4)*9), h=(9+(n%3)*7);
+   parts.push('<i class="gel-cloud" style="--l:'+l+'%;--b:'+b+'%;--w:'+w+'px;--h:'+h+'px;--delay:'+(n%6)*.09+'s;--pc:'+x.ppt+'"></i>');
+  }
+  return '<div class="pptLayer gel-sediment"><i class="gel-bed" style="--pc:'+x.ppt+'"></i>'+parts.join("")+'</div>';
+ }
  for(let n=0;n<24;n++){
-  const l=(5+(n*37)%88), b=(2+(n*17)%30), s=(cls==="gel"?11+(n%5)*4:cls==="floc"?7+(n%5)*3:4+(n%4)*2), r=((n*31)%90-45)+"deg";
+  const l=(5+(n*37)%88), b=(2+(n*17)%30), s=(cls==="floc"?7+(n%5)*3:4+(n%4)*2), r=((n*31)%90-45)+"deg";
   parts.push('<i class="particle '+cls+'" style="--l:'+l+'%;--b:'+b+'%;--s:'+s+'px;--r:'+r+';--pc:'+x.ppt+'"></i>');
  }
  return '<div class="pptLayer">'+parts.join("")+'</div>';
