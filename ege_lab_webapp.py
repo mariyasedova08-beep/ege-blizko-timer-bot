@@ -1113,6 +1113,13 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
 }
 
 /* Lesson pilot: two independent working areas, with the live lab catalogue. */
+/* Keep the lesson focused on materials rather than general app navigation. */
+body:has(#lesson.page.on) .lab-title-wrap,body:has(#lesson.page.on) .lab-topbar{display:none}
+body:has(#lesson.page.on) .tabs{display:flex;gap:5px;justify-content:flex-start;margin-bottom:5px}
+body:has(#lesson.page.on) .tabs button:not([data-page="free"]):not([data-page="lesson"]){display:none}
+body:has(#lesson.page.on) .tabs button{padding:7px 12px;font-size:12px}
+body:has(#lesson.page.on) .lesson-studio{height:calc(100dvh - 66px);min-height:560px}
+
 #lesson.page{min-width:0}
 body:has(#lesson.page.on) .app{max-width:none}
 .lesson-studio{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,7fr);gap:10px;height:calc(100dvh - 196px);min-height:550px}
