@@ -1,0 +1,50 @@
+name: ЕГЭ БЛИЗКО — проверка SSH лаборатории (без публикации)
+
+# Read-only diagnostics; cannot upload files, restart services, or deploy.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ege-lab-ssh-readonly.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: timeweb-ege-blizko-ssh-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify restricted lab release access without deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: timeweb-production
+    steps:
+      - name: Check SSH configuration and installed lab helper (read-only)
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$SSH_USER" = 'ege-deploy'
+          test "$SSH_HOST" = '77.233.212.200'
+          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
+          install -d -m 0700 "$HOME/.ssh"
+          trap 'rm -f "$HOME/.ssh/ege_lab_key" "$HOME/.ssh/known_hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/ege_lab_key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/ege_lab_key" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/ege_lab_key" >/dev/null
+          ssh -T -o BatchMode=yes -o PasswordAuthentication=no \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=10 -i "$HOME/.ssh/ege_lab_key" \
+            "$SSH_USER@$SSH_HOST" \
+            'test -x /usr/local/sbin/ege-blizko-lab-release && sudo -n -l /usr/local/sbin/ege-blizko-lab-release 6ea86739c1aad4482b6db005a318128100b3d >/dev/null && echo LAB_SSH_ACCESS_OK'
+          echo NO_DEPLOYMENT_PERFORMED
