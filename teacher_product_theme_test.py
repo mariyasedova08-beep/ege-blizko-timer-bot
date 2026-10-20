@@ -33,7 +33,7 @@ class ThemeCatalogTest(unittest.TestCase):
 
         html = Path(webapp.HTML_PATH).read_text(encoding="utf-8")
         start = html.index("function initializePrepadminViewport(app){")
-        end = html.index("\\nvar tg=", start)
+        end = html.index("var tg=", start)
         helper = html[start:end]
         script = helper + """
 const assert = require('node:assert/strict');
