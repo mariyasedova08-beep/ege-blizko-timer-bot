@@ -51,6 +51,9 @@ async def groups_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def _group_markup(gid):
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("👥 Состав группы", callback_data=f"gmem:members:{gid}")],
+        [InlineKeyboardButton("➕ Добавить участника", callback_data=f"gmem:add:{gid}")],
+        [InlineKeyboardButton("📅 Настроить расписание", callback_data=f"gs:add:{gid}")],
+        [InlineKeyboardButton("💳 Оплаты группы", callback_data=f"gpay:group:{gid}")],
         [InlineKeyboardButton("⬅️ К группам", callback_data="people:groups")],
     ])
 
@@ -211,7 +214,10 @@ async def add_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("📨 Отправить ссылку ученику", url=student_reminders._share_url(row))],
             [InlineKeyboardButton("➕ Добавить ещё", callback_data=f"gmem:add:{gid}")],
+            [InlineKeyboardButton("📅 Настроить расписание", callback_data=f"gs:add:{gid}")],
+            [InlineKeyboardButton("💳 Оплаты группы", callback_data=f"gpay:group:{gid}")],
             [InlineKeyboardButton("👥 К составу", callback_data=f"gmem:members:{gid}")],
+            [InlineKeyboardButton("✅ К быстрой настройке", callback_data="setup:home")],
         ]),
     )
     return ConversationHandler.END

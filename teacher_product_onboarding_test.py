@@ -114,5 +114,139 @@ class QuickSetupRefreshFeedbackTest(unittest.IsolatedAsyncioTestCase):
         )
 
 
+
+class GuidedGroupSetupTest(unittest.IsolatedAsyncioTestCase):
+    """A new group should immediately offer the real members and schedule flows."""
+
+    def setUp(self):
+        from unittest.mock import AsyncMock
+        self.tmp = tempfile.TemporaryDirectory()
+        base.DB_PATH = os.path.join(self.tmp.name, "guided.sqlite3")
+        base.ensure_tables()
+        groups.ensure_tables()
+        schedule.ensure_tables()
+        student_reminders.ensure_tables()
+        base.upsert_teacher(101, name="Маша", subject="Химия",
+                            work_format="groups",
+                            onboarding_completed_at="2026-10-20")
+        self.reply = AsyncMock()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    async def test_creating_group_offers_all_next_steps_and_preserves_owner(self):
+        from types import SimpleNamespace
+        from telegram.ext import ConversationHandler
+
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=101),
+            message=SimpleNamespace(text="ОГЭ 2027", reply_text=self.reply),
+        )
+        self.assertEqual(await groups.add_group_name(update, None), ConversationHandler.END)
+        row = groups.groups(101)[0]
+        gid = int(row["id"])
+        self.assertEqual(row["name"], "ОГЭ 2027")
+        self.assertIsNone(groups.get_group(202, gid))
+        markup = self.reply.await_args.kwargs["reply_markup"]
+        callbacks = [button.callback_data for line in markup.inline_keyboard for button in line]
+        for target in (f"gmem:add:{gid}", f"gs:add:{gid}",
+                       f"gpay:group:{gid}", "setup:home"):
+            self.assertIn(target, callbacks)
+
+    async def test_group_schedule_starts_with_day_for_selected_group(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+        from telegram.ext import ConversationHandler
+
+        gid = groups.add_group(101, "ОГЭ 2027")
+        query = SimpleNamespace(
+            from_user=SimpleNamespace(id=101),
+            data=f"gs:add:{gid}",
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        context = SimpleNamespace(user_data={})
+        update = SimpleNamespace(callback_query=query)
+        state = await groups.group_slot_add_begin(update, context)
+        self.assertEqual(state, groups.ADD_GROUP_SLOT_DAY)
+        self.assertEqual(context.user_data["gs_gid"], gid)
+        self.assertIn("ОГЭ 2027", query.edit_message_text.await_args.args[0])
+        self.assertIn("В какой день", query.edit_message_text.await_args.args[0])
+        callbacks = [
+            b.callback_data
+            for line in query.edit_message_text.await_args.kwargs["reply_markup"].inline_keyboard
+            for b in line
+        ]
+        self.assertIn("gs:day:0", callbacks)
+
+        day_query = SimpleNamespace(
+            from_user=SimpleNamespace(id=101), data="gs:day:0",
+            answer=AsyncMock(), edit_message_text=AsyncMock(),
+        )
+        self.assertEqual(
+            await groups.group_slot_pick_day(
+                SimpleNamespace(callback_query=day_query), context),
+            groups.ADD_GROUP_SLOT_TIME,
+        )
+        message = SimpleNamespace(
+            text="18:30", reply_text=AsyncMock(),
+        )
+        self.assertEqual(
+            await groups.group_slot_pick_time(
+                SimpleNamespace(message=message, effective_user=SimpleNamespace(id=101)),
+                context,
+            ),
+            ConversationHandler.END,
+        )
+        own_slots = [slot for slot in groups.group_slots(101) if slot["group_id"] == gid]
+        self.assertEqual(len(own_slots), 1)
+        self.assertEqual(own_slots[0]["time_text"], "18:30")
+        next_buttons = [
+            b.callback_data for row in message.reply_text.await_args.kwargs["reply_markup"].inline_keyboard
+            for b in row
+        ]
+        self.assertIn(f"gs:add:{gid}", next_buttons)
+        self.assertIn(f"gmem:add:{gid}", next_buttons)
+        self.assertIn(f"gpay:group:{gid}", next_buttons)
+
+    async def test_direct_group_schedule_rejects_another_teacher_group(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+        from telegram.ext import ConversationHandler
+        gid = groups.add_group(101, "Личная группа")
+        q = SimpleNamespace(
+            from_user=SimpleNamespace(id=202),
+            data=f"gs:add:{gid}",
+            answer=AsyncMock(), edit_message_text=AsyncMock(),
+        )
+        context = SimpleNamespace(user_data={})
+        self.assertEqual(
+            await groups.group_slot_add_begin(
+                SimpleNamespace(callback_query=q), context),
+            ConversationHandler.END,
+        )
+        self.assertNotIn("gs_gid", context.user_data)
+
+    async def test_member_added_offers_schedule_and_payments(self):
+        from types import SimpleNamespace
+        import teacher_product_group_members as members
+
+        gid = groups.add_group(101, "ОГЭ 2027")
+        message = SimpleNamespace(text="Алина", reply_text=self.reply)
+        context = SimpleNamespace(user_data={"gmem_gid": gid})
+        result = await members.add_name(
+            SimpleNamespace(effective_user=SimpleNamespace(id=101), message=message),
+            context,
+        )
+        from telegram.ext import ConversationHandler
+        self.assertEqual(result, ConversationHandler.END)
+        self.assertEqual(len(student_reminders._members(101, gid)), 1)
+        markup = self.reply.await_args.kwargs["reply_markup"]
+        callbacks = [b.callback_data for row in markup.inline_keyboard for b in row if b.callback_data]
+        self.assertIn(f"gmem:add:{gid}", callbacks)
+        self.assertIn(f"gs:add:{gid}", callbacks)
+        self.assertIn(f"gpay:group:{gid}", callbacks)
+
+
 if __name__ == "__main__":
     unittest.main()
