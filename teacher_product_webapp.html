@@ -160,7 +160,19 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
 <button id="nav-schedule" onclick="openView('schedule')"><i data-ui-icon="calendar"></i>Расписание</button>
 </div></div>
 <script>
-var tg=(window.Telegram&&Telegram.WebApp)?Telegram.WebApp:null;if(tg){tg.ready();tg.expand();}
+// Telegram owns the native Mini App window size. On modern desktop clients,
+// request fullscreen once; on mobile/older clients keep the usual expand().
+function initializePrepadminViewport(app){
+ if(!app)return;
+ app.ready();
+ app.expand();
+ if(app.platform!=='tdesktop'&&app.platform!=='macos')return;
+ if(typeof app.isVersionAtLeast!=='function'||!app.isVersionAtLeast('8.0'))return;
+ if(app.isFullscreen||typeof app.requestFullscreen!=='function')return;
+ try{app.requestFullscreen();}catch(_){/* Desktop client can refuse fullscreen. */}
+}
+var tg=(window.Telegram&&Telegram.WebApp)?Telegram.WebApp:null;
+initializePrepadminViewport(tg);
 var launch=(new URLSearchParams(window.location.search)).get('launch')||'',currentView='home';
 var savedTheme=null,selectedThemeId='';
 function colorAlpha(hex,alpha){
