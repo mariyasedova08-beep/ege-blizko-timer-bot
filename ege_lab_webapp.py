@@ -1111,6 +1111,48 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
     left:var(--callout-arrow-left,50%)!important;
   }
 }
+
+/* Lesson pilot: two independent working areas, with the live lab catalogue. */
+#lesson.page{min-width:0}
+body:has(#lesson.page.on) .app{max-width:none}
+.lesson-studio{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,7fr);gap:10px;height:calc(100dvh - 196px);min-height:550px}
+.lesson-lab-pane,.lesson-pdf-pane{min-width:0;min-height:0;display:flex;flex-direction:column;background:#fff;border:1px solid #efd9e3;border-radius:15px;overflow:hidden}
+.lesson-pane-head{min-height:49px;padding:9px 12px;display:flex;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #f1e5eb}
+.lesson-pane-head h2{font-size:15px;margin:0;font-weight:650}
+.lesson-pane-head small{color:#82717b;font-size:11px}
+.lesson-lab-body{padding:12px;overflow:auto;flex:1;min-height:0}
+.lesson-lab-body label{font-size:11px;color:#756774;display:block;margin:8px 0 3px}
+.lesson-lab-body select{width:100%;max-width:100%;border:1px solid #dfd2d9;border-radius:10px;padding:10px 7px;background:#fff;color:#171719;font-size:12px}
+.lesson-lab-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:11px 0}
+.lesson-lab-actions button,.lesson-pane-head button,.lesson-lesson-tools button,.lesson-lesson-tools label{padding:8px 10px;border-radius:11px;font-weight:550}
+#lessonConduct{background:#f00087;color:#fff;border:1px solid #f00087}
+#lessonHeat[aria-pressed=true]{background:#fff0f8;color:#bc006a;border-color:#f00087}
+.lesson-visual{background:#f9f6f8;border:1px solid #efdee6;border-radius:15px;min-height:255px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:8px 0;overflow:hidden}
+.lesson-tube-frame{width:130px;height:238px;padding:10px 20px 0}
+.lesson-tube-frame .tube{height:206px;width:90px;margin:auto}
+.lesson-observation{font-size:12px;line-height:1.45;padding:8px 0}
+.lesson-observation .reaction-card{font-size:12px;padding:10px;border-radius:12px;overflow-wrap:anywhere}
+.lesson-observation .reaction-equation{font-size:12px;white-space:normal}
+.lesson-observation .reaction-gas{font-size:11px}
+.lesson-footnote{color:#766874;font-size:11px;line-height:1.45}
+.lesson-lesson-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.lesson-file-label{display:inline-flex;align-items:center;cursor:pointer;background:#fff}
+#lessonPDFInput{display:none}
+#lessonExport{background:#f00087;color:#fff;border:1px solid #f00087}
+#lessonToolPen[aria-pressed=true],#lessonToolEraser[aria-pressed=true]{border-color:#f00087;background:#fff1f8}
+.lesson-paper-space{flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:12px;background:#f7f4f6;position:relative}
+#lessonCanvasWrap{position:relative;flex:none;box-shadow:0 4px 23px #21131f26;background:#fff;touch-action:none}
+#lessonPdfCanvas,#lessonInkCanvas{display:block}
+#lessonInkCanvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
+#lessonInkCanvas.eraser{cursor:cell}
+.lesson-pdf-foot{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid #f2e6ec;gap:8px;color:#786e77;font-size:11px}
+.lesson-extra-menu{margin-left:auto;position:relative}
+.lesson-extra-menu summary{cursor:pointer;background:#fff;border:1px solid #edd2e0;border-radius:10px;padding:8px 11px;list-style:none}
+.lesson-extra-menu[open] .lesson-extra-items{position:absolute;top:100%;right:0;background:#fff;z-index:90;width:235px;padding:12px;box-shadow:0 8px 32px #21131f36;border:1px solid #ecdbe3;border-radius:12px;display:grid;gap:7px}
+.lesson-extra-items label{font-size:11px}
+.lesson-extra-items button{width:100%}
+.lesson-message{color:#806575;font-size:11px;max-width:100%;overflow-wrap:anywhere}
+@media(max-width:760px){.lesson-studio{grid-template-columns:minmax(0,1fr);height:auto;min-height:0}.lesson-lab-pane{min-height:465px}.lesson-pdf-pane{min-height:500px}.lesson-pane-head{flex-wrap:wrap}.lesson-paper-space{min-height:350px}}
 </style></head><body><div class="app">
 <div class="lab-topbar">
   <div class="lab-brand">ЕГЭ БЛИЗКО</div>
