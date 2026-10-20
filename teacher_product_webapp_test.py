@@ -199,5 +199,136 @@ class CompactTelegramMenuTest(unittest.IsolatedAsyncioTestCase):
 
 
 
+class GroupWorkspaceTest(unittest.TestCase):
+    """Group data and mutations belong only to their teacher; no production DB."""
+
+    def setUp(self):
+        from datetime import datetime
+        import teacher_product_group_workspace as workspace
+        import teacher_product_group_payments as group_payments
+        import teacher_product_student_reminders as reminders
+        import teacher_product_learning as learning
+
+        self.ws = workspace
+        self.group_payments = group_payments
+        self.reminders = reminders
+        self.learning = learning
+        self.tmp = tempfile.TemporaryDirectory()
+        base.DB_PATH = os.path.join(self.tmp.name, "workspace.sqlite3")
+        base.ensure_tables()
+        groups.ensure_tables()
+        schedule.ensure_tables()
+        reminders.ensure_tables()
+        learning.ensure_tables()
+        group_payments.ensure_tables()
+        base.upsert_teacher(
+            101, name="Мария", subject="Химия",
+            onboarding_completed_at="2026-10-20",
+        )
+        base.upsert_teacher(
+            202, name="Другая", subject="Биология",
+            onboarding_completed_at="2026-10-20",
+        )
+        self.gid = groups.add_group(101, "ОГЭ 2027")
+        self.other_gid = groups.add_group(101, "ЕГЭ 2027")
+        self.pid = int(reminders.add_member(101, self.gid, "Алина")["id"])
+        self.other_pid = int(reminders.add_member(101, self.other_gid, "Саша")["id"])
+        today_local = datetime.now(schedule.tz(101)).date()
+        self.day = today_local
+        groups.add_group_slot(101, self.gid, today_local.weekday(), "18:00")
+        self.slot = next(
+            slot for slot in groups.group_slots(101)
+            if int(slot["group_id"]) == self.gid
+        )
+        group_payments._save_group_plan(
+            101, {"pid":self.pid,"gid":self.gid,"type":"monthly","amount":9900},
+            due=today_local,
+        )
+        self.assignment = learning._create_assignment(
+            101, "group", self.gid, "Решить задачи №1–10", today_local,
+        )
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_group_workspace_contains_real_data_and_member_payments(self):
+        page = webapp._view(101, f"group:{self.gid}")
+        self.assertEqual(page["title"], "ОГЭ 2027")
+        self.assertEqual(page["member_count"], 1)
+        self.assertEqual(page["members"][0]["name"], "Алина")
+        self.assertEqual(page["members"][0]["payment"]["amount"], 9900)
+        self.assertEqual(page["members"][0]["payment"]["level"], "warn")
+        self.assertEqual(page["payment_issues"], 0)
+        self.assertEqual(len(page["slots"]), 1)
+        self.assertEqual(page["attendance_session"]["date"], self.day.isoformat())
+        self.assertEqual(len(page["homework"]), 1)
+        self.assertEqual(page["homework"][0]["total"], 1)
+        person = webapp._view(101, f"member:{self.pid}")
+        self.assertEqual(person["group_id"], self.gid)
+        self.assertEqual(person["homework"][0]["status"], "pending")
+
+    def test_cannot_read_another_teacher_or_guess_views(self):
+        self.assertIsNone(webapp._view(202, f"group:{self.gid}"))
+        self.assertIsNone(webapp._view(202, f"member:{self.pid}"))
+        self.assertIsNone(webapp._view(101, "group:not-a-number"))
+        self.assertIsNone(webapp._view(101, "group:-1"))
+        self.assertIsNone(webapp._view(101, "member:1;DROP TABLE teachers"))
+        self.assertIsNone(webapp._view(101, "group:99999999"))
+
+    def test_attendance_saves_only_for_real_group_member_and_session(self):
+        payload = {
+            "action":"group_attendance", "group_id": self.gid,
+            "member_id": self.pid, "slot_id": int(self.slot["id"]),
+            "date":self.day.isoformat(), "status":"present",
+        }
+        success = webapp._teacher_action(101, payload)
+        self.assertTrue(success["ok"], success)
+        self.assertEqual(
+            self.learning._attendance_status(
+                101,"group",int(self.slot["id"]),self.day,"group_member",self.pid
+            ), "present",
+        )
+        self.assertTrue(webapp._teacher_action(101,payload)["unchanged"])
+        self.assertFalse(webapp._teacher_action(202,payload)["ok"])
+        self.assertFalse(webapp._teacher_action(101,{**payload,"member_id":self.other_pid})["ok"])
+        self.assertFalse(webapp._teacher_action(101,{**payload,"status":"unknown"})["ok"])
+        self.assertFalse(webapp._teacher_action(101,{**payload,"slot_id":999999})["ok"])
+        self.assertFalse(webapp._teacher_action(101,{**payload,"date":"2099-01-01"})["ok"])
+        self.assertEqual(
+            self.learning._attendance_status(
+                101,"group",int(self.slot["id"]),self.day,"group_member",self.pid
+            ), "present",
+        )
+
+    def test_group_workspace_preserves_payments_and_course_logic(self):
+        from datetime import date
+        from datetime import datetime
+        self.group_payments._save_group_plan(
+            101, {"pid":self.pid,"gid":self.gid,"type":"course_paid","amount":85100},
+            received=min(datetime.now(schedule.tz(101)).date(),date(2026,10,20)),
+        )
+        page = webapp._view(101, f"group:{self.gid}")
+        self.assertIn("оплачен полностью",page["members"][0]["payment"]["label"])
+        self.assertEqual(page["members"][0]["payment"]["type"], "course")
+        self.assertEqual(page["payment_issues"],0)
+        self.assertIsNone(self.group_payments._plan(202,self.pid))
+
+    def test_webapp_has_real_group_routes_and_no_pretend_buttons(self):
+        html_content = webapp.HTML_PATH.read_text(encoding="utf-8")
+        for phrase in (
+            "function renderGroup(d)", "function renderMember(d)",
+            "function setGroupAttendance(", "function openGroupBotAction(",
+            "openView('group:", "group_payment",
+        ):
+            if phrase == "group_payment":
+                continue
+            self.assertIn(phrase,html_content)
+        self.assertIn("group_attendance",html_content)
+        self.assertIn("groupSection(",html_content)
+        self.assertIn("member:'+Number(m.id)",html_content)
+
+
+
+
 if __name__ == "__main__":
     unittest.main()
