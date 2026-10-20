@@ -1,0 +1,43 @@
+name: EGE laboratory - live lesson browser pilot (no deploy)
+
+on:
+  push:
+    branches:
+      - 'feature/lab-live-lessons-*'
+    paths:
+      - 'ege_lab_webapp.py'
+      - 'tests/check_lab_lesson_browser.mjs'
+      - '.github/workflows/ege-lab-lesson-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lesson-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Render fixture from real laboratory code and catalog
+        run: python tests/prepare_lab_visual_fixture.py
+      - name: Install isolated PDF and browser test dependencies
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1 pdf-lib@1.17.1 pdfjs-dist@4.10.38
+          npx playwright install --with-deps chromium
+      - name: Test parallel teacher lesson in Chromium
+        run: node tests/check_lab_lesson_browser.mjs
+      - name: Upload two screen captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-lesson-parallel-preview
+          path: lab-visual-preview/lesson-*.png
+          retention-days: 7
+          if-no-files-found: ignore
