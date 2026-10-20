@@ -405,5 +405,126 @@ class GroupPaymentWizardRecoveryTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.group_payments._plan(101, self.pid))
 
 
+
+class GroupPaymentsFastNavigationTest(unittest.IsolatedAsyncioTestCase):
+    """No production writes: all group navigation checks run on temporary SQLite."""
+
+    def setUp(self):
+        from datetime import date
+        from unittest.mock import AsyncMock
+        import teacher_product_group_payments as payments
+        self.payments = payments
+        self.AsyncMock = AsyncMock
+        self.tmp = tempfile.TemporaryDirectory()
+        base.DB_PATH = os.path.join(self.tmp.name, "fast_navigation.sqlite3")
+        base.ensure_tables()
+        groups.ensure_tables()
+        payments.ensure_tables()
+        base.upsert_teacher(101, name="Мария", subject="Химия",
+                            onboarding_completed_at="2026-10-20")
+        base.upsert_teacher(202, name="Елена", subject="Биология",
+                            onboarding_completed_at="2026-10-20")
+        self.gid = groups.add_group(101, "ОГЭ 2027")
+        self.ids = [
+            int(student_reminders.add_member(101, self.gid, name)["id"])
+            for name in ("Алина", "Аня", "Арина")
+        ]
+        self.other_gid = groups.add_group(202, "Чужая группа")
+        self.other_pid = int(student_reminders.add_member(202, self.other_gid, "Оля")["id"])
+        payments._save_group_plan(
+            101,
+            {"pid": self.ids[0], "gid": self.gid, "name": "Алина",
+             "type": "monthly", "amount": 9900},
+            due=date(2026, 11, 2),
+        )
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    @staticmethod
+    def callback_values(markup):
+        return [
+            button.callback_data
+            for row in markup.inline_keyboard
+            for button in row if button.callback_data
+        ]
+
+    def test_group_hub_opens_each_payment_in_one_tap(self):
+        p = self.payments
+        text, markup = p._group_payment_hub(101, self.gid)
+        self.assertIn("ОГЭ 2027", text)
+        self.assertIn("Настроено: 1/3", text)
+        for pid in self.ids:
+            self.assertIn(f"gpay:member:{pid}", self.callback_values(markup))
+            self.assertIn(f"gpay:setup:{pid}", self.callback_values(markup))
+        self.assertIn(f"gmem:members:{self.gid}", self.callback_values(markup))
+        self.assertIn(f"gmem:group:{self.gid}", self.callback_values(markup))
+        self.assertNotIn(f"gpay:setup:{self.other_pid}", self.callback_values(markup))
+        self.assertEqual(self.payments._plan(101, self.ids[0])["amount_rub"], 9900)
+
+    def test_next_student_prioritizes_unconfigured_and_wraps(self):
+        p = self.payments
+        self.assertEqual(p._next_group_member(101, self.gid, self.ids[0], True)["id"], self.ids[1])
+        self.assertEqual(p._next_group_member(101, self.gid, self.ids[2], True)["id"], self.ids[1])
+        self.assertEqual(p._next_group_member(101, self.gid, self.ids[1], True)["id"], self.ids[2])
+        self.assertIsNone(p._next_group_member(202, self.gid, self.ids[0], True))
+        self.assertIsNone(p._group_payment_hub(202, self.gid)[0])
+        markup = p._payment_next_markup(101, self.gid, self.ids[0])
+        self.assertIn(f"gpay:setup:{self.ids[1]}", self.callback_values(markup))
+
+    async def test_after_save_next_student_and_group_menu_are_one_tap(self):
+        from types import SimpleNamespace
+        from telegram.ext import ConversationHandler
+        p = self.payments
+        response = self.AsyncMock()
+        ctx = SimpleNamespace(user_data={
+            "gpay": {"pid": self.ids[1], "gid": self.gid, "name": "Аня",
+                     "type": "monthly", "amount": 9900},
+        })
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=101),
+            message=SimpleNamespace(text="02.11.2026", reply_text=response),
+        )
+        state = await p.setup_final(update, ctx)
+        self.assertEqual(state, ConversationHandler.END)
+        self.assertNotIn("gpay", ctx.user_data)
+        self.assertEqual(p._plan(101, self.ids[1])["amount_rub"], 9900)
+        self.assertEqual(p._plan(101, self.ids[0])["amount_rub"], 9900)
+        markup = response.await_args.kwargs["reply_markup"]
+        self.assertIn(f"gpay:setup:{self.ids[2]}", self.callback_values(markup))
+        self.assertIn(f"gpay:group:{self.gid}", self.callback_values(markup))
+        self.assertIn("Аня", response.await_args.args[0])
+        self.assertIn("Арина", str(markup.inline_keyboard))
+
+    async def test_hub_callback_renders_summary_without_mutating_payment(self):
+        from types import SimpleNamespace
+        from telegram.ext import ApplicationHandlerStop
+        q = SimpleNamespace(
+            from_user=SimpleNamespace(id=101),
+            data=f"gpay:group:{self.gid}",
+            answer=self.AsyncMock(),
+            edit_message_text=self.AsyncMock(),
+        )
+        with self.assertRaises(ApplicationHandlerStop):
+            await self.payments.group_view(SimpleNamespace(callback_query=q), None)
+        self.assertIn("Настроено: 1/3", q.edit_message_text.await_args.args[0])
+        self.assertIn(f"gpay:setup:{self.ids[1]}",
+                      self.callback_values(q.edit_message_text.await_args.kwargs["reply_markup"]))
+        self.assertIsNone(self.payments._plan(101, self.ids[1]))
+
+    def test_group_with_everyone_configured_still_has_next_navigation(self):
+        from datetime import date
+        for pid in self.ids[1:]:
+            self.payments._save_group_plan(
+                101, {"pid": pid, "gid": self.gid,
+                      "type": "monthly", "amount": 8000},
+                due=date(2026, 11, 5))
+        next_person = self.payments._next_group_member(101, self.gid, self.ids[0], True)
+        self.assertIsNone(next_person)
+        _, markup = self.payments._member_card(101, self.ids[0])
+        self.assertIn(f"gpay:member:{self.ids[1]}", self.callback_values(markup))
+        self.assertIn("Настроено: 3/3", self.payments._group_payment_hub(101, self.gid)[0])
+
+
 if __name__ == "__main__":
     unittest.main()
