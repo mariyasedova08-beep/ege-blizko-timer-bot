@@ -2548,10 +2548,10 @@ async function lessonOpenPDF(file){
  if(file.size>25*1024*1024){lessonStatus("PDF больше 25 МБ — выбери файл меньшего размера.");return;}
  lessonStatus("Открываю PDF...");
  try{
-  const reader=await lessonLibrary("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js","pdfjsLib");
-  reader.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const reader=await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");
+  reader.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
   const buffer=await file.arrayBuffer();
-  const documentPDF=await reader.getDocument({data:new Uint8Array(buffer.slice(0))}).promise;
+  const documentPDF=await reader.getDocument({data:new Uint8Array(buffer.slice(0)),isEvalSupported:false}).promise;
   lessonPdfDocument=documentPDF;
   lessonPdfOriginalBytes=buffer;
   lessonPdfName=file.name;
