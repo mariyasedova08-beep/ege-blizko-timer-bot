@@ -33,6 +33,7 @@ import teacher_product_cancellations as cancellations
 import teacher_product_onboarding as onboarding
 import teacher_product_help as help_guide
 import teacher_product_group_workspace as group_workspace
+import teacher_product_webapp_homework as webapp_homework
 
 PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
 WEBAPP_URL = os.getenv(
@@ -509,6 +510,10 @@ def _teacher_action(uid, payload):
         # Authenticated Telegram UID scopes all updates; no user-supplied teacher ID.
         base.upsert_teacher(int(uid), name=name, subject=subject, subject_id=subject_id)
         return {"ok": True, "name": name, "subject": subject, "subject_id": subject_id}
+    if action_name == "group_homework_create":
+        return webapp_homework.create_group_assignment(uid, payload)
+    if action_name == "group_homework_mark":
+        return webapp_homework.mark_group_homework(uid, payload)
     if action_name == "member_payment_update":
         return group_workspace.update_member_payment(uid, payload)
     if action_name == "group_attendance":
