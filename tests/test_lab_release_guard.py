@@ -68,6 +68,22 @@ class LaboratoryReleaseChecks(unittest.TestCase):
         self.assertIn("@keyframes gelCloudSettle", self.html)
         self.assertIn("--pc:'+x.ppt", self.html)
 
+    def test_gas_reference_covers_all_emitted_gases(self):
+        """Every gas produced by the 435 reactions must have explicit facts."""
+        gas_section = self.html.split("const GAS_REFERENCE=Object.freeze({", 1)[1].split("});", 1)[0]
+        gases = {rx[7] for rx in self.reactions if rx[7]}
+        gases.update(item["gas"] for item in self.variants if item.get("gas"))
+        self.assertTrue(gases, "No laboratory gas reactions were detected")
+        for gas in gases:
+            self.assertIn('"' + gas + '":', gas_section, gas)
+        self.assertIn("function gasObservationHTML(x)", self.html)
+        self.assertIn("+gasObservationHTML(x)+", self.html)
+        self.assertIn("Не вдыхайте выделяющиеся газы", self.html)
+        self.assertIn("const gasColor=gasInfo?gasInfo.plume", self.html)
+        self.assertIn('"NO₂":{color:"бурый"', gas_section)
+        for gas in ("SO₂", "H₂S", "NH₃"):
+            self.assertIn('"' + gas + '":{color:"бесцветный"', gas_section)
+
     def test_existing_modes_and_gas_effects_remain(self):
         for marker in (
             "function bubblesHTML(x)",
