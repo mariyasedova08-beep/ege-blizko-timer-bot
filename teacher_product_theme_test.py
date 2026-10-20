@@ -27,6 +27,43 @@ class ThemeCatalogTest(unittest.TestCase):
             for color in theme["colors"].values():
                 self.assertRegex(color, r"^#[0-9A-Fa-f]{6}$")
 
+    def test_auto_expand_desktop_only_where_telegram_supports_it(self):
+        """Exercise the launch helper in Node without a real bot or browser."""
+        import subprocess
+
+        html = Path(webapp.HTML_PATH).read_text(encoding="utf-8")
+        start = html.index("function initializePrepadminViewport(app){")
+        end = html.index("\\nvar tg=", start)
+        helper = html[start:end]
+        script = helper + """
+const assert = require('node:assert/strict');
+function simulate(platform, modern, fullscreen, requestWorks=true) {
+  const calls=[];
+  const app={
+    platform: platform,
+    isFullscreen: fullscreen,
+    ready(){calls.push('ready')},
+    expand(){calls.push('expand')},
+    isVersionAtLeast(v){assert.equal(v,'8.0');return modern},
+    requestFullscreen(){calls.push('fullscreen');if(!requestWorks)throw Error('unsupported')}
+  };
+  initializePrepadminViewport(app);
+  return calls;
+}
+assert.deepEqual(simulate('tdesktop',true,false), ['ready','expand','fullscreen']);
+assert.deepEqual(simulate('macos',true,false), ['ready','expand','fullscreen']);
+assert.deepEqual(simulate('android',true,false), ['ready','expand']);
+assert.deepEqual(simulate('ios',true,false), ['ready','expand']);
+assert.deepEqual(simulate('tdesktop',false,false), ['ready','expand']);
+assert.deepEqual(simulate('tdesktop',true,true), ['ready','expand']);
+assert.deepEqual(simulate('tdesktop',true,false,false), ['ready','expand','fullscreen']);
+initializePrepadminViewport(null);
+console.log('PREPODMIN_DESKTOP_VIEWPORT_OK');
+"""
+        result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("PREPODMIN_DESKTOP_VIEWPORT_OK", result.stdout)
+
     def test_html_has_theme_ui_and_live_palette_tokens(self):
         html = Path(webapp.HTML_PATH).read_text(encoding="utf-8")
         for token in ("function renderSettings(", "function applyTheme(",
