@@ -911,14 +911,14 @@ def _bot_cabinet_text(uid, section="home"):
     row = base.teacher(uid)
     name = base.normalize_teacher_name(row["name"]) if row else None
     intro = (
-        f"👩‍🏫 <b>{html.escape(name)}</b> · ПРЕПАДМИН\\n\\n"
-        if name else "👤 <b>Мой кабинет</b>\\n\\n"
+        f"👩‍🏫 <b>{html.escape(name)}</b> · ПРЕПАДМИН\n\n"
+        if name else "👤 <b>Мой кабинет</b>\n\n"
     )
     descriptions = {
         "home": "Всё важное под рукой. Выбери раздел или открой приложение 💗",
-        "lessons": "📅 <b>Занятия</b>\\nРасписание, переносы и посещаемость — в одном месте.",
-        "learning": "📚 <b>Обучение</b>\\nДомашние задания и материалы.",
-        "more": "⚙️ <b>Дополнительно</b>\\nНапоминания, отчёты и настройки.",
+        "lessons": "📅 <b>Занятия</b>\nРасписание, переносы и посещаемость — в одном месте.",
+        "learning": "📚 <b>Обучение</b>\nДомашние задания и материалы.",
+        "more": "⚙️ <b>Дополнительно</b>\nНапоминания, отчёты и настройки.",
     }
     return intro + descriptions.get(section, descriptions["home"])
 
