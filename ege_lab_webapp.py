@@ -320,7 +320,11 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .particle.floc{border-radius:44% 56% 48% 52%;transform:rotate(var(--r)) scaleX(1.45);filter:blur(.25px) drop-shadow(0 1px 1px rgba(0,0,0,.11))}
 .particle.gel{border-radius:50% 44% 52% 46%;opacity:.62;filter:blur(1.2px);transform:scaleX(1.8)}
 .particle.crystal{border-radius:2px;transform:rotate(var(--r));opacity:.94;box-shadow:0 0 2px rgba(255,255,255,.45)}
-.particle.fine{border-radius:50%;opacity:.72;filter:blur(.35px)}
+.particle.fine{border-radius:48%;opacity:.76;filter:blur(.28px);box-shadow:0 1px 1px rgba(0,0,0,.07)}
+.particle.dense{border-radius:37% 53% 44% 48%;opacity:.94;filter:blur(.3px);box-shadow:0 1px 2px rgba(0,0,0,.17)}
+.pptLayer.dense-sediment{isolation:isolate}
+.dense-bed{position:absolute;left:6%;right:6%;bottom:0;height:22%;border-radius:48% 51% 16% 16% / 42% 49% 12% 12%;background:var(--pc);opacity:.91;filter:blur(.8px);animation:denseBedSettle 1.3s ease-out both}
+@keyframes denseBedSettle{from{opacity:0;transform:translateY(-22px) scaleY(.4)}to{opacity:.91;transform:translateY(0) scaleY(1)}}
 /* Gel-like hydroxides: soft suspension and irregular settling, not gas-like circles. */
 .gel-sediment{isolation:isolate}
 .gel-bed{position:absolute;z-index:2;left:7%;right:7%;bottom:1px;height:24%;background:var(--pc);border-radius:48% 52% 19% 17% / 62% 72% 22% 19%;filter:blur(3px);opacity:.84;transform-origin:center bottom;animation:gelBedGrow 1.7s ease-out both}
@@ -342,6 +346,12 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .boilLayer.no2 .boilCell{background:radial-gradient(ellipse at 50% 75%,rgba(217,113,62,.62),rgba(150,61,25,.28) 55%,transparent 72%)}
 .solidBed{position:absolute;left:12%;right:12%;bottom:6%;height:26%;z-index:5;pointer-events:none}
 .solidChunk{position:absolute;left:var(--l);bottom:var(--b);width:var(--s);height:calc(var(--s)*.62);background:var(--sc);border-radius:35% 45% 38% 48%;transform:rotate(var(--r));box-shadow:inset 2px 2px 3px rgba(255,255,255,.48),0 1px 2px rgba(0,0,0,.16)}
+.solidBed.dissolving-solid{animation:solidConsume 2.5s ease-in-out both}
+.solidBed.reactive-metal{left:12%;right:12%;height:29%;bottom:6%}
+.solidBed.reactive-metal.dissolving-solid{animation:metalConsume 2.8s ease-in-out both}
+@keyframes solidConsume{0%{opacity:1;transform:scale(1)}30%{opacity:1;transform:scale(.91)}100%{opacity:0;transform:translateY(8px) scale(.12)}}
+@keyframes metalConsume{0%{opacity:1;transform:scale(1)}35%{opacity:.95;transform:scale(.86)}100%{opacity:0;transform:translateY(7px) scale(.16)}}
+@media(prefers-reduced-motion:reduce){.dense-bed{animation:none}.solidBed.dissolving-solid{animation:none;opacity:.25;transform:scale(.35)}}
 .metalReactionBed{position:absolute;z-index:5;left:10%;right:10%;bottom:5%;height:30%;pointer-events:none}
 .metalPiece{position:absolute;left:12%;right:12%;bottom:5%;height:34%;border-radius:45% 52% 42% 50%;background:var(--metalColor);box-shadow:inset 4px 4px 7px rgba(255,255,255,.34),inset -3px -3px 6px rgba(0,0,0,.16),0 2px 4px rgba(0,0,0,.18)}
 .metalCrystal{position:absolute;left:var(--l);bottom:var(--b);width:var(--s);height:var(--s);background:var(--depositColor);border-radius:28% 58% 36% 60%;transform:rotate(var(--r));box-shadow:inset 1px 1px 2px rgba(255,255,255,.65),0 1px 2px rgba(0,0,0,.28);animation:depositGrow .65s ease-out both}
@@ -1249,16 +1259,41 @@ function reactionResultHTML(x,heated=false){
  const note=noReaction?'<div class="reaction-note">Смесь остаётся без химического превращения в указанных условиях.</div>':(noVisible?'<div class="reaction-note">Реакция есть, но визуального эффекта в пробирке нет.</div>':'');
  return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+condition+note+'</div>';
 }
+// Products of reactions determine precipitate texture; never infer it solely
+// from colour (white solids may be gelatinous, fine or crystalline).
+const PRECIPITATE_STYLES=Object.freeze({
+ "Cu(OH)₂":"gel",
+ "Fe(OH)₂":"gel",
+ "Fe(OH)₃":"gel",
+ "Al(OH)₃":"gel",
+ "H₂SiO₃":"gel",
+ "BaSO₄":"fine",
+ "ZnS":"fine",
+ "BaCO₃":"fine",
+ "CaCO₃":"fine",
+ "AgCl":"floc",
+ "PbI₂":"crystal",
+ "AgI":"crystal",
+ "AgBr":"crystal",
+ "BaCrO₄":"crystal",
+ "CuS":"dense",
+ "PbS":"dense",
+ "FeS":"dense",
+ "Ag₂S":"dense",
+ "Ag₂O":"dense",
+ "MnO₂":"dense",
+ "CuO":"dense"
+});
 function pptTexture(x){
- const s=(String((x&&x.sign)||"")+" "+String((x&&x.eq)||"")).toLowerCase();
- // Fresh Cu(OH)2 and Fe(OH)2 form gelatinous precipitates, unlike gas bubbles.
- // Both unicode subscripts and ASCII numerals are supported.
- if(s.includes("студенист")||/cu\(oh\)[₂2]|fe\(oh\)[₂2]/.test(s))return "gel";
- if(s.includes("agcl"))return "floc";
- if(s.includes("baso₄")||s.includes("baso4")||s.includes("caco₃")||s.includes("caso₃"))return "fine";
- if(s.includes("pbi₂")||s.includes("agi")||s.includes("agbr")||s.includes("bacro₄"))return "crystal";
- if(s.includes("fe(oh)₃"))return "floc";
- return "fine";
+ if(!x||!x.ppt)return "";
+ const products=String(x.eq||"").split("→").pop();
+ for(const [formula,texture] of Object.entries(PRECIPITATE_STYLES)){
+  const pos=products.indexOf(formula);
+  if(pos<0)continue;
+  const before=products[pos-1]||"",after=products[pos+formula.length]||"";
+  if(!/[A-Za-z₀-₉]/.test(before)&&!/[A-Za-z₀-₉]/.test(after))return texture;
+ }
+ return String(x.sign||"").toLowerCase().includes("студенист")?"gel":"fine";
 }
 function precipitateHTML(x){
  if(!x||!x.ppt)return "";
@@ -1271,11 +1306,14 @@ function precipitateHTML(x){
   }
   return '<div class="pptLayer gel-sediment"><i class="gel-bed" style="--pc:'+x.ppt+'"></i>'+parts.join("")+'</div>';
  }
- for(let n=0;n<24;n++){
-  const l=(5+(n*37)%88), b=(2+(n*17)%30), s=(cls==="floc"?7+(n%5)*3:4+(n%4)*2), r=((n*31)%90-45)+"deg";
+ const count=cls==="fine"?44:cls==="dense"?38:cls==="crystal"?19:24;
+ for(let n=0;n<count;n++){
+  const l=(5+(n*37)%88),b=(2+(n*17)%30);
+  const s=cls==="fine"?2+(n%3)*2:cls==="dense"?4+(n%4)*2:cls==="crystal"?7+(n%4)*3:7+(n%5)*3;
+  const r=((n*31)%90-45)+"deg";
   parts.push('<i class="particle '+cls+'" style="--l:'+l+'%;--b:'+b+'%;--s:'+s+'px;--r:'+r+';--pc:'+x.ppt+'"></i>');
  }
- return '<div class="pptLayer">'+parts.join("")+'</div>';
+ return '<div class="pptLayer'+(cls==="dense"?' dense-sediment':'')+'">'+(cls==="dense"?'<i class="dense-bed" style="--pc:'+x.ppt+'"></i>':'')+parts.join("")+'</div>';
 }
 function bubblesHTML(x){
  if(!x||!x.gas)return "";
@@ -1302,15 +1340,31 @@ function bubblesHTML(x){
  const gasClass=x.gas==="NO₂"?" no2":"";
  return (strong?'<div class="boilLayer'+gasClass+'">'+boil.join("")+'</div>':'')+'<div class="bubbleLayer '+(strong?'strong':'')+gasClass+'">'+parts.join("")+'</div><div class="surfaceFizz'+gasClass+'">'+fizz.join("")+'</div><div class="gasPlume" style="--gasColor:'+gasColor+'"></div>';
 }
-function solidReagentHTML(v,x){
- if(!v.length||x)return "";
+// Determine whether the chemical record supports visible consumption of a
+// solid; a missing/non-reactive/heating-required reaction must not dissolve it.
+function solidReactionMode(v,x){
+ if(!x||x.t==="z"||x.t==="n")return "";
+ const solids=v.filter(id=>String((reagent(id)||[])[3]||"").includes("тв."));
+ if(!solids.length)return "";
+ if(solids.some(id=>(reagent(id)||[])[1]==="Металлы"))return "reactive_metal";
+ const sign=String(x.sign||"").toLowerCase();
+ if(/разлагается|разложени/.test(sign))return "decomposing_solid";
+ if(/растворяется|растворяются|исчезает|исчезают/.test(sign))return "dissolving_solid";
+ return "";
+}
+function solidReagentHTML(v,x,hasMetalDeposit=false){
+ if(!v.length||hasMetalDeposit)return "";
  const solids=v.filter(id=>String((reagent(id)||[])[3]||"").includes("тв."));
  if(!solids.length)return "";
  const id=solids[solids.length-1],r=reagent(id),parts=[];
- for(let n=0;n<18;n++){
-   parts.push('<i class="solidChunk" style="--l:'+(3+(n*29)%82)+'%;--b:'+(1+(n*13)%18)+'%;--s:'+(8+(n%5)*3)+'px;--r:'+(((n*31)%80)-40)+'deg;--sc:'+r[2]+'"></i>');
+ const mode=solidReactionMode(v,x),consuming=!!mode;
+ if(r[1]==="Металлы"){
+  return '<div class="solidBed reactive-metal'+(consuming?' dissolving-solid':'')+'"><i class="metalPiece" style="--metalColor:'+r[2]+'"></i></div>';
  }
- return '<div class="solidBed">'+parts.join("")+'</div>';
+ for(let n=0;n<18;n++){
+  parts.push('<i class="solidChunk" style="--l:'+(3+(n*29)%82)+'%;--b:'+(1+(n*13)%18)+'%;--s:'+(8+(n%5)*3)+'px;--r:'+(((n*31)%80)-40)+'deg;--sc:'+r[2]+'"></i>');
+ }
+ return '<div class="solidBed'+(consuming?' dissolving-solid':'')+'">'+parts.join("")+'</div>';
 }
 function metalDepositHTML(v,x){
  if(!x||!x.ppt)return "";
@@ -1331,8 +1385,8 @@ function tubeHTML(v,i,active,heated,excess=""){
    return !st.includes("тв.")&&!st.includes("газ");
  });
  const liquidHeight=x&&x.t!=="z"?58:(hasLiquid?58:0);
- const solids=solidReagentHTML(v,x);
  const hasMetalDeposit=!!(x&&x.ppt&&v.some(id=>String((reagent(id)||[])[1]||"")==="Металлы"));
+ const solids=solidReagentHTML(v,x,hasMetalDeposit);
  const deposit=hasMetalDeposit?metalDepositHTML(v,x):"";
  const reactionVisual=x&&x.t!=="z"?((hasMetalDeposit?"":precipitateHTML(x))+bubblesHTML(x)+deposit+'<i class="reactionGlow"></i>'):"";
  const shimmer=(heated&&v.length)?'<i class="heatShimmer"></i>':"";
