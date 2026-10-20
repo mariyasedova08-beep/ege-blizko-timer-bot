@@ -248,5 +248,70 @@ class GuidedGroupSetupTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn(f"gpay:group:{gid}", callbacks)
 
 
+
+class GroupMultidayRoutingTest(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        from unittest.mock import AsyncMock
+        self.tmp = tempfile.TemporaryDirectory()
+        base.DB_PATH = os.path.join(self.tmp.name, "routing.sqlite3")
+        base.ensure_tables()
+        groups.ensure_tables()
+        base.upsert_teacher(101, name="Маша", subject="Химия",
+                            onboarding_completed_at="2026-10-20")
+        self.group_id = groups.add_group(101, "ОГЭ 2027")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_direct_group_callback_registered_in_active_multiday_builder(self):
+        from pathlib import Path
+        import teacher_product_multiday as multiday
+        source = Path(multiday.__file__).read_text(encoding="utf-8")
+        self.assertIn('CallbackQueryHandler(group_pick_group, pattern=r"^gs:add:\\d+$")', source)
+        self.assertIn('CallbackQueryHandler(groups.group_slot_add_begin, pattern=r"^gs:add$")', source)
+
+    async def test_group_specific_button_opens_multiday_selection(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+        import teacher_product_multiday as multiday
+
+        callback = SimpleNamespace(
+            from_user=SimpleNamespace(id=101),
+            data=f"gs:add:{self.group_id}",
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        context = SimpleNamespace(user_data={})
+        state = await multiday.group_pick_group(
+            SimpleNamespace(callback_query=callback), context,
+        )
+        self.assertEqual(state, groups.ADD_GROUP_SLOT_DAY)
+        self.assertEqual(context.user_data["gs_gid"], self.group_id)
+        self.assertIn("ОГЭ 2027", callback.edit_message_text.await_args.args[0])
+        self.assertIn("несколько дней", callback.edit_message_text.await_args.args[0])
+        buttons = callback.edit_message_text.await_args.kwargs["reply_markup"].inline_keyboard
+        targets = [button.callback_data for line in buttons for button in line]
+        self.assertIn("gs:day:done", targets)
+
+    async def test_cannot_open_other_teachers_group(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
+        from telegram.ext import ConversationHandler
+        import teacher_product_multiday as multiday
+
+        callback = SimpleNamespace(
+            from_user=SimpleNamespace(id=202),
+            data=f"gs:add:{self.group_id}",
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        context = SimpleNamespace(user_data={})
+        state = await multiday.group_pick_group(
+            SimpleNamespace(callback_query=callback), context,
+        )
+        self.assertEqual(state, ConversationHandler.END)
+        self.assertNotIn("gs_gid", context.user_data)
+
+
 if __name__ == "__main__":
     unittest.main()
