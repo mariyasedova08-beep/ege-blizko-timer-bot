@@ -32,6 +32,18 @@ class LabReleaseSafety(unittest.TestCase):
         self.assertIn("LAB_ROLLED_BACK", HELPER)
         self.assertIn('flock -w 60 9', HELPER)
 
+    def test_failed_postrelease_probe_is_identified_before_rollback(self):
+        self.assertIn('last_failure="service_not_active"', HELPER)
+        self.assertIn('last_failure="health_url_failed"', HELPER)
+        self.assertIn('last_failure="lab_url_failed"', HELPER)
+        self.assertIn('last_failure="lab_page_marker_missing"', HELPER)
+        self.assertIn('LAB_HEALTH_RETRY attempt=$attempt reason=$last_failure', HELPER)
+        self.assertIn('LAB_HEALTH_CHECK_OK', HELPER)
+        self.assertIn('ERROR: post-release health check failed reason=$last_failure', HELPER)
+        self.assertIn('[[ "$healthy" -eq 1 ]] || {', HELPER)
+        self.assertIn('LAB_RELEASE_FAILED restoring', HELPER)
+        self.assertNotIn('cat "$BACKUP/health-page.html"', HELPER)
+
     def test_only_lab_related_sources_are_whitelisted(self):
         self.assertIn("ege_lab_webapp.py", HELPER)
         self.assertIn("ege_lab_substances.py", HELPER)
