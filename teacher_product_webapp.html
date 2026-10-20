@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#F8F5F2">
+<meta name="referrer" content="no-referrer">
 <title>ПРЕПАДМИН — кабинет преподавателя</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
@@ -309,15 +310,21 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
  .profile-save{font-size:16px}
  .theme-name{font-size:15px}
  .theme-current{font-size:12px}
- .schedule-week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
- .schedule-day{margin:0;min-width:0}
- .schedule-day .day-panel-head{padding:18px 20px 10px}
+ /* A clear, chronological week: aligned dates and lesson details, no uneven tiles. */
+ .schedule-week{display:flex;flex-direction:column;gap:10px}
+ .schedule-day,.schedule-day.is-empty{display:grid;grid-template-columns:185px minmax(0,1fr);min-height:94px;margin:0;align-items:stretch}
+ .schedule-day.is-empty{min-height:74px}
+ .schedule-day .day-panel-head,.schedule-day.is-empty .day-panel-head{
+  padding:17px 20px;display:flex;flex-direction:column;align-items:flex-start;
+  justify-content:center;gap:5px;border-right:1px solid var(--line);min-width:0
+ }
  .schedule-day .day-panel-head strong{font-size:20px}
- .schedule-day .day-panel-head span{font-size:14px}
- .schedule-day .empty{font-size:14px;padding:17px 20px 23px;text-align:left}
- .schedule-day.is-empty{display:flex;align-items:center;justify-content:space-between;gap:15px;min-height:74px}
- .schedule-day.is-empty .day-panel-head{padding:17px 0 17px 20px;min-width:0;flex:1}
- .schedule-day.is-empty .empty{padding:17px 20px 17px 0;white-space:nowrap;color:var(--muted)}
+ .schedule-day .day-panel-head span{font-size:13px}
+ .schedule-day-content{min-width:0;display:flex;flex-direction:column;justify-content:center}
+ .schedule-day-content .row{padding:16px 22px}
+ .schedule-day-content .empty,.schedule-day.is-empty .empty{
+  text-align:left;white-space:normal;padding:17px 22px;font-size:15px;color:var(--muted)
+ }
 }
 </style>
 </head>
@@ -331,16 +338,13 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
 <button id="nav-more" onclick="openView('more')"><i data-ui-icon="layers"></i>Ещё</button>
 </div></div>
 <script>
-// Telegram owns the native Mini App window size. On modern desktop clients,
-// request fullscreen once; on mobile/older clients keep the usual expand().
+// Keep desktop Telegram in its separate, resizable Mini App window.
+// Never request desktop fullscreen or expand; only mobile expands.
 function initializePrepadminViewport(app){
  if(!app)return;
  app.ready();
+ if(app.platform==='tdesktop'||app.platform==='macos')return;
  app.expand();
- if(app.platform!=='tdesktop'&&app.platform!=='macos')return;
- if(typeof app.isVersionAtLeast!=='function'||!app.isVersionAtLeast('8.0'))return;
- if(app.isFullscreen||typeof app.requestFullscreen!=='function')return;
- try{app.requestFullscreen();}catch(_){/* Desktop client can refuse fullscreen. */}
 }
 var tg=(window.Telegram&&Telegram.WebApp)?Telegram.WebApp:null;
 initializePrepadminViewport(tg);
@@ -865,7 +869,7 @@ function renderSchedule(d){
  var out=screenHeader('Расписание','ближайшие 7 дней');
  out+='<div class="gcontrols"><button type="button" onclick="openHomeLessonAction(\'transfer\')">↪ Перенести в группе</button><button type="button" onclick="openHomeLessonAction(\'cancel\')">× Отменить в группе</button></div>';
  out+='<div class="schedule-week">';
- (d.days||[]).forEach(function(day){var rows='';(day.events||[]).forEach(function(e){rows+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+'</div></div><span class="badge '+(e.moved?'warn':'')+'">'+(e.moved?'перенос':'занятие')+'</span></div>';});out+='<div class="day-panel schedule-day '+(day.is_today?'tomorrow ':'')+(rows?'':'is-empty')+'"><div class="day-panel-head"><strong>'+esc(day.weekday)+' · '+esc(day.date)+'</strong><span>'+(day.is_today?'Сегодня':'')+'</span></div>'+(rows||'<div class="empty">Нет занятий</div>')+'</div>';});
+ (d.days||[]).forEach(function(day){var rows='';(day.events||[]).forEach(function(e){rows+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+'</div></div><span class="badge '+(e.moved?'warn':'')+'">'+(e.moved?'перенос':'занятие')+'</span></div>';});out+='<div class="day-panel schedule-day '+(day.is_today?'tomorrow ':'')+(rows?'':'is-empty')+'"><div class="day-panel-head"><strong>'+esc(day.weekday)+' · '+esc(day.date)+'</strong><span>'+(day.is_today?'Сегодня':'')+'</span></div><div class="schedule-day-content">'+(rows||'<div class="empty">Нет занятий</div>')+'</div></div>';});
  out+='</div>';
  document.getElementById('app').innerHTML=out;
 }
