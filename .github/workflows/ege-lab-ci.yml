@@ -1,0 +1,45 @@
+name: EGE laboratory - safe regression checks
+
+on:
+  push:
+    branches:
+      - 'feature/lab-*'
+    paths:
+      - 'ege_lab_webapp.py'
+      - 'ege_lab_substances.py'
+      - 'ege_lab_inorganic_reactions.py'
+      - 'ege_task6_reactions.py'
+      - 'tests/test_lab_release_guard.py'
+      - '.github/workflows/ege-lab-ci.yml'
+  pull_request:
+    branches:
+      - 'feature/public-solubility-lab-20261017'
+    paths:
+      - 'ege_lab_webapp.py'
+      - 'ege_lab_substances.py'
+      - 'ege_lab_inorganic_reactions.py'
+      - 'ege_task6_reactions.py'
+      - 'tests/test_lab_release_guard.py'
+      - '.github/workflows/ege-lab-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Python syntax and laboratory regression checks
+        run: |
+          python -m py_compile ege_lab_webapp.py ege_lab_substances.py ege_lab_inorganic_reactions.py ege_task6_reactions.py
+          python -m unittest discover -s tests -p 'test_lab_release_guard.py' -v
+      - name: Solubility reference regression tests
+        run: python -m unittest discover -s tests -p 'test_public_solubility.py' -v
