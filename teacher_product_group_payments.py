@@ -520,20 +520,36 @@ async def setup_cancel(update, context):
     return ConversationHandler.END
 
 
-def _save_group_plan(uid, data, due=None, lessons=None):
+def _save_group_plan(uid, data, due=None, lessons=None, received=None):
     now = datetime.utcnow().isoformat()
-    payment_type = data["type"]
+    is_course_paid = data["type"] == "course_paid"
+    if is_course_paid and received is None:
+        raise ValueError("Actual course payment date required")
+    # SQLite's historic CHECK constraint accepts 'once' only. An additive flag
+    # distinguishes a paid whole course from a pending single-lesson payment.
+    payment_type = "once" if is_course_paid else data["type"]
     with base.db() as conn:
+        previous = conn.execute(
+            "SELECT course_paid,amount_rub,course_paid_date FROM group_member_payment_plans "
+            "WHERE teacher_telegram_user_id=? AND person_id=?",
+            (int(uid), int(data["pid"])),
+        ).fetchone()
+        if is_course_paid and previous and int(previous["course_paid"] or 0):
+            if (int(previous["amount_rub"]) != int(data["amount"])
+                    or previous["course_paid_date"] != received.isoformat()):
+                raise ValueError("Changing the recorded receipt requires a separate correction")
         conn.execute(
             """
             INSERT INTO group_member_payment_plans(
                 teacher_telegram_user_id,person_id,group_id,payment_type,amount_rub,
-                next_due_date,lessons_total,lessons_remaining,active,created_at,updated_at
-            ) VALUES(?,?,?,?,?,?,?,?,1,?,?)
+                next_due_date,lessons_total,lessons_remaining,course_paid,course_paid_date,
+                active,created_at,updated_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,1,?,?)
             ON CONFLICT(teacher_telegram_user_id,person_id) DO UPDATE SET
                 group_id=excluded.group_id,payment_type=excluded.payment_type,
                 amount_rub=excluded.amount_rub,next_due_date=excluded.next_due_date,
                 lessons_total=excluded.lessons_total,lessons_remaining=excluded.lessons_remaining,
+                course_paid=excluded.course_paid,course_paid_date=excluded.course_paid_date,
                 active=1,updated_at=excluded.updated_at
             """,
             (
@@ -541,10 +557,25 @@ def _save_group_plan(uid, data, due=None, lessons=None):
                 due.isoformat() if due else None,
                 int(lessons) if lessons is not None else None,
                 int(lessons) if lessons is not None else None,
+                int(is_course_paid),
+                received.isoformat() if received else None,
                 now, now,
             ),
         )
-        # A package is considered paid when it is created/replenished.
+        if is_course_paid and not (previous and int(previous["course_paid"] or 0)):
+            conn.execute(
+                """
+                INSERT INTO group_member_payment_history(
+                    teacher_telegram_user_id,person_id,group_id,amount_rub,
+                    payment_type,due_date,paid_at
+                ) VALUES(?,?,?,?, 'course_paid',NULL,?)
+                """,
+                (
+                    int(uid), int(data["pid"]), int(data["gid"]), int(data["amount"]),
+                    datetime.combine(received, datetime.min.time()).isoformat(),
+                ),
+            )
+        # Preserve existing package behavior; this branch never charges course payments.
         if payment_type == "package":
             conn.execute(
                 """
@@ -555,7 +586,6 @@ def _save_group_plan(uid, data, due=None, lessons=None):
                 (int(uid), int(data["pid"]), int(data["gid"]), int(data["amount"]), now),
             )
         conn.commit()
-
 
 async def setup_final(update, context):
     uid = int(update.effective_user.id)
@@ -579,6 +609,36 @@ async def setup_final(update, context):
             f"Сумма: {_money(data['amount'])}\n"
             f"Занятий: {count}\n"
             "После отметки «Был(а)» одно занятие будет списываться автоматически."
+        )
+    elif data["type"] == "course_paid":
+        received = _parse_received_date(
+            update.message.text, datetime.now(schedule.tz(uid)).date()
+        )
+        if received is None:
+            await update.message.reply_text(
+                "Напиши дату, когда оплата действительно поступила, например 20.10.2026. "
+                "Будущую дату указывать нельзя.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("← Отмена", callback_data=f"gpay:cancel:{data['pid']}")
+                ]]),
+            )
+            return GPAY_FINAL
+        try:
+            _save_group_plan(uid, data, received=received)
+        except ValueError:
+            await update.message.reply_text(
+                "Полная оплата уже записана с другой суммой или датой. "
+                "Текущую запись не меняю — для исправления нужен отдельный способ корректировки.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("← Отмена", callback_data=f"gpay:cancel:{data['pid']}")
+                ]]),
+            )
+            return GPAY_FINAL
+        message = (
+            f"✅ Курс для {data['name']} оплачен полностью.\n\n"
+            f"Получено: {_money(data['amount'])}\n"
+            f"Дата получения: {received.strftime('%d.%m.%Y')}\n"
+            "Следующая оплата по этому курсу не требуется."
         )
     else:
         due = schedule.parse_date(update.message.text, datetime.now(schedule.tz(uid)).date())
