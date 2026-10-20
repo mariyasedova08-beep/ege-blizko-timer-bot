@@ -73,11 +73,12 @@ def get_group(uid, gid):
 
 def add_group(uid, name):
     with base.db() as conn:
-        conn.execute(
+        cursor = conn.execute(
             "INSERT INTO teacher_groups(teacher_telegram_user_id,name,created_at) VALUES(?,?,?)",
             (int(uid), name.strip(), datetime.utcnow().isoformat()),
         )
         conn.commit()
+        return int(cursor.lastrowid)
 
 
 def archive_group(uid, gid):
@@ -276,8 +277,18 @@ async def add_group_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(name) < 2:
         await update.message.reply_text("Название слишком короткое. Напиши название группы.")
         return ADD_GROUP_NAME
-    add_group(update.effective_user.id, name)
-    await update.message.reply_text(f"✅ Группа «{name}» создана.", reply_markup=base.MAIN_KB)
+    gid = add_group(update.effective_user.id, name)
+    await update.message.reply_text(
+        f"✅ Группа «{name}» создана.\n\n"
+        "Теперь можно сразу настроить её: добавить участников, указать "
+        "регулярное расписание и затем оплаты. Уже введённые данные сохраняются.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("👥 Добавить участников", callback_data=f"gmem:add:{gid}")],
+            [InlineKeyboardButton("📅 Настроить расписание", callback_data=f"gs:add:{gid}")],
+            [InlineKeyboardButton("💳 Оплаты группы", callback_data=f"gpay:group:{gid}")],
+            [InlineKeyboardButton("✅ Продолжить позже", callback_data="setup:home")],
+        ]),
+    )
     return ConversationHandler.END
 
 
@@ -359,9 +370,32 @@ async def group_schedule_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
     await q.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons))
 
 
+async def _group_slot_day_prompt(q, context, gid):
+    """Start the existing scheduling flow for a known, teacher-owned group."""
+    row = get_group(q.from_user.id, gid)
+    if not row:
+        await q.edit_message_text("Группа не найдена.")
+        return ConversationHandler.END
+    context.user_data["gs_gid"] = int(gid)
+    context.user_data["gs_name"] = row["name"]
+    kb = [
+        [InlineKeyboardButton("Пн", callback_data="gs:day:0"), InlineKeyboardButton("Вт", callback_data="gs:day:1"), InlineKeyboardButton("Ср", callback_data="gs:day:2")],
+        [InlineKeyboardButton("Чт", callback_data="gs:day:3"), InlineKeyboardButton("Пт", callback_data="gs:day:4"), InlineKeyboardButton("Сб", callback_data="gs:day:5")],
+        [InlineKeyboardButton("Вс", callback_data="gs:day:6")],
+    ]
+    await q.edit_message_text(
+        f"📅 Расписание • {row['name']}\n\nВ какой день проходит занятие?",
+        reply_markup=InlineKeyboardMarkup(kb),
+    )
+    return ADD_GROUP_SLOT_DAY
+
+
 async def group_slot_add_begin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
+    if q.data.startswith("gs:add:"):
+        # Avoid asking to select the group again during guided setup.
+        return await _group_slot_day_prompt(q, context, int(q.data.rsplit(":", 1)[1]))
     rows = groups(q.from_user.id)
     if not rows:
         await q.edit_message_text("Сначала создай группу в разделе «👥 Ученики и группы» → «👥 Группы».")
@@ -375,19 +409,7 @@ async def group_slot_pick_group(update: Update, context: ContextTypes.DEFAULT_TY
     q = update.callback_query
     await q.answer()
     gid = int(q.data.rsplit(":", 1)[1])
-    row = get_group(q.from_user.id, gid)
-    if not row:
-        await q.edit_message_text("Группа не найдена.")
-        return ConversationHandler.END
-    context.user_data["gs_gid"] = gid
-    context.user_data["gs_name"] = row["name"]
-    kb = [
-        [InlineKeyboardButton("Пн", callback_data="gs:day:0"), InlineKeyboardButton("Вт", callback_data="gs:day:1"), InlineKeyboardButton("Ср", callback_data="gs:day:2")],
-        [InlineKeyboardButton("Чт", callback_data="gs:day:3"), InlineKeyboardButton("Пт", callback_data="gs:day:4"), InlineKeyboardButton("Сб", callback_data="gs:day:5")],
-        [InlineKeyboardButton("Вс", callback_data="gs:day:6")],
-    ]
-    await q.edit_message_text(f"Группа: {row['name']}\n\nВ какой день проходит занятие?", reply_markup=InlineKeyboardMarkup(kb))
-    return ADD_GROUP_SLOT_DAY
+    return await _group_slot_day_prompt(q, context, gid)
 
 
 async def group_slot_pick_day(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -412,8 +434,15 @@ async def group_slot_pick_time(update: Update, context: ContextTypes.DEFAULT_TYP
         return ConversationHandler.END
     add_group_slot(update.effective_user.id, gid, weekday, time_text)
     await update.message.reply_text(
-        f"✅ {name}: {schedule.DAY_NAMES_FULL[weekday].lower()} в {time_text}.\nЭто регулярное групповое занятие.",
-        reply_markup=base.MAIN_KB,
+        f"✅ {name}: {schedule.DAY_NAMES_FULL[weekday].lower()} в {time_text}.\n"
+        "Это регулярное групповое занятие. Можно добавить ещё один день "
+        "или перейти к следующему шагу.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Ещё день / время", callback_data=f"gs:add:{gid}")],
+            [InlineKeyboardButton("👥 Добавить участников", callback_data=f"gmem:add:{gid}")],
+            [InlineKeyboardButton("💳 Оплаты группы", callback_data=f"gpay:group:{gid}")],
+            [InlineKeyboardButton("✅ К быстрой настройке", callback_data="setup:home")],
+        ]),
     )
     return ConversationHandler.END
 
@@ -522,7 +551,7 @@ def build_app():
     app.add_handler(CallbackQueryHandler(group_schedule_menu, pattern=r"^groups:schedule$"))
 
     app.add_handler(ConversationHandler(
-        entry_points=[CallbackQueryHandler(group_slot_add_begin, pattern=r"^gs:add$")],
+        entry_points=[CallbackQueryHandler(group_slot_add_begin, pattern=r"^gs:add(?::\d+)?$")],
         states={
             ADD_GROUP_SLOT_GROUP: [CallbackQueryHandler(group_slot_pick_group, pattern=r"^gs:group:\d+$")],
             ADD_GROUP_SLOT_DAY: [CallbackQueryHandler(group_slot_pick_day, pattern=r"^gs:day:[0-6]$")],
