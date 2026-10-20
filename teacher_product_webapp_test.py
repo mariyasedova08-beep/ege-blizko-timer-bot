@@ -47,8 +47,9 @@ class TeacherDashboardTest(unittest.TestCase):
             ".time{min-width:60px;font-size:17px}",
             ".gstudentname{font-size:17px}",
             ".gcontrols button,.gsoftbutton{font-size:15px;",
-            ".schedule-week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))",
-            ".schedule-day.is-empty{display:flex;",
+            ".schedule-week{display:flex;flex-direction:column;gap:10px}",
+            ".schedule-day,.schedule-day.is-empty{display:grid;grid-template-columns:185px minmax(0,1fr);",
+            ".schedule-day-content{min-width:0;display:flex;flex-direction:column;justify-content:center}",
         ):
             self.assertIn(token,desktop)
         # The default phone/tablet schedule keeps its original one-column flow.
@@ -56,9 +57,21 @@ class TeacherDashboardTest(unittest.TestCase):
         self.assertIn("out+='<div class=\"schedule-week\">';",html)
         self.assertIn('class="day-panel schedule-day',html)
         self.assertIn('+(rows?\'\':\'is-empty\')',html)
+        self.assertIn("schedule-day-content",html)
         self.assertIn("function applyTheme(theme)",html)
         self.assertIn("--paper",html)
         self.assertNotIn("teacherAction(",desktop)
+
+    def test_external_browser_window_and_security_guards(self):
+        html = webapp.HTML_PATH.read_text(encoding="utf-8")
+        self.assertIn('<meta name="referrer" content="no-referrer">',html)
+        self.assertIn("function inExternalBrowser()",html)
+        self.assertIn("function openPrepadminDesktopWindow()",html)
+        self.assertIn("window.open(dest.toString(),'prepodmin-desktop'",html)
+        self.assertIn("dest.searchParams.set('standalone','1')",html)
+        self.assertIn("if(inExternalBrowser()&&(new URLSearchParams(window.location.search)).get('standalone')!=='1')",html)
+        self.assertIn("↗ Открыть отдельным окном",html)
+        self.assertIn("if(app.platform==='tdesktop'||app.platform==='macos')return;",html)
 
     def test_main_navigation_has_five_clear_destinations(self):
         html = webapp.HTML_PATH.read_text(encoding="utf-8")
@@ -281,6 +294,34 @@ class CompactTelegramMenuTest(unittest.IsolatedAsyncioTestCase):
         await webapp.bot_cabinet_callback(update, None)
         home_markup = query.edit_message_text.await_args.kwargs["reply_markup"]
         self.assertEqual(len(self.actions(home_markup)), 6)
+
+    def test_browser_link_is_https_signed_and_expires_within_workday(self):
+        import time
+        from unittest.mock import patch
+        from urllib.parse import parse_qs, urlsplit
+        with patch.object(webapp, "WEBAPP_URL", "https://prepodmin.example/webapp"):
+            with patch.object(base, "BOT_TOKEN", "test-bot-token-for-automatic-tests"):
+                markup = webapp._launch_markup(101)
+                self.assertEqual(len(markup.inline_keyboard), 2)
+                telegram_button = markup.inline_keyboard[0][0]
+                browser_button = markup.inline_keyboard[1][0]
+                self.assertIsNotNone(telegram_button.web_app)
+                self.assertIn("Открыть в браузере",browser_button.text)
+                self.assertIsNone(browser_button.web_app)
+                parsed = urlsplit(browser_button.url)
+                self.assertEqual(parsed.scheme, "https")
+                self.assertEqual(parsed.netloc, "prepodmin.example")
+                token = parse_qs(parsed.query)["launch"][0]
+                self.assertEqual(webapp._validate_launch_token(token), 101)
+                expires = int(token.split(".")[1])
+                self.assertGreater(expires, int(time.time()) + 11*60*60)
+                self.assertLessEqual(expires, int(time.time()) + 12*60*60 + 2)
+                # Teachers can also reach the external browser from the bot cabinet.
+                with patch.object(webapp,"WEBAPP_URL","https://prepodmin.example/webapp"):
+                    cabinet=webapp._bot_cabinet_markup(101)
+                    self.assertEqual(len(cabinet.inline_keyboard), 5)
+                    self.assertIsNotNone(cabinet.inline_keyboard[-2][0].web_app)
+                    self.assertTrue(cabinet.inline_keyboard[-1][0].url.startswith("https://"))
 
     def test_app_launch_still_available_when_configured(self):
         from unittest.mock import patch
