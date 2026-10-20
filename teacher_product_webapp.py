@@ -866,54 +866,61 @@ async def open_webapp(update, context):
     )
 
 
-def _bot_cabinet_markup():
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("✅ Задачи", callback_data="pcab:tasks"),
-            InlineKeyboardButton("📚 Материалы", callback_data="pcab:materials"),
-        ],
-        [
-            InlineKeyboardButton("👥 Ученики и группы", callback_data="pcab:students"),
-            InlineKeyboardButton("📅 Расписание", callback_data="pcab:schedule"),
-        ],
-        [
-            InlineKeyboardButton("🏠 Домашние задания", callback_data="pcab:homework"),
-            InlineKeyboardButton("💳 Оплаты", callback_data="pcab:payments"),
-        ],
-        [
-            InlineKeyboardButton("↪️ Перенести занятие", callback_data="pcab:transfer"),
-            InlineKeyboardButton("❌ Отменить занятие", callback_data="pcab:cancel"),
-        ],
-        [
-            InlineKeyboardButton("🔔 Напоминания", callback_data="pcab:reminders"),
-            InlineKeyboardButton("🎯 Посещаемость", callback_data="pcab:attendance"),
-        ],
-        [
-            InlineKeyboardButton("📊 Отчёты", callback_data="pcab:reports"),
-            InlineKeyboardButton("🚨 Зона внимания", callback_data="pcab:attention"),
-        ],
-        [
-            InlineKeyboardButton("🕒 Свободные окна", callback_data="pcab:slots"),
-            InlineKeyboardButton("⚙️ Настройки", callback_data="pcab:settings"),
-        ],
-        [InlineKeyboardButton("❓ Инструкция", callback_data="pcab:help")],
-    ])
+def _bot_cabinet_markup(uid=None, section="home"):
+    """Compact navigation: primary actions first, secondary actions by context."""
+    if section == "lessons":
+        rows = [
+            [InlineKeyboardButton("📅 Расписание", callback_data="pcab:schedule")],
+            [InlineKeyboardButton("↪️ Перенести занятие", callback_data="pcab:transfer")],
+            [InlineKeyboardButton("❌ Отменить занятие", callback_data="pcab:cancel")],
+            [InlineKeyboardButton("🎯 Посещаемость", callback_data="pcab:attendance")],
+            [InlineKeyboardButton("🕒 Свободные окна", callback_data="pcab:slots")],
+        ]
+    elif section == "learning":
+        rows = [
+            [InlineKeyboardButton("🏠 Домашние задания", callback_data="pcab:homework")],
+            [InlineKeyboardButton("📚 Материалы", callback_data="pcab:materials")],
+        ]
+    elif section == "more":
+        rows = [
+            [InlineKeyboardButton("🔔 Напоминания", callback_data="pcab:reminders")],
+            [InlineKeyboardButton("📊 Отчёты", callback_data="pcab:reports")],
+            [InlineKeyboardButton("🚨 Зона внимания", callback_data="pcab:attention")],
+            [InlineKeyboardButton("⚙️ Настройки", callback_data="pcab:settings")],
+            [InlineKeyboardButton("❓ Инструкция", callback_data="pcab:help")],
+        ]
+    else:
+        rows = [
+            [InlineKeyboardButton("👥 Ученики и группы", callback_data="pcab:students"),
+             InlineKeyboardButton("📅 Занятия", callback_data="pcab:menu:lessons")],
+            [InlineKeyboardButton("💳 Оплаты", callback_data="pcab:payments"),
+             InlineKeyboardButton("✅ Задачи", callback_data="pcab:tasks")],
+            [InlineKeyboardButton("📚 Обучение", callback_data="pcab:menu:learning"),
+             InlineKeyboardButton("••• Ещё", callback_data="pcab:menu:more")],
+        ]
+        if uid is not None and WEBAPP_URL:
+            # Reuse the existing authenticated WebApp launch button.
+            rows.append(list(_launch_markup(uid).inline_keyboard[0]))
+        return InlineKeyboardMarkup(rows)
+    rows.append([InlineKeyboardButton("← Главное меню", callback_data="pcab:back")])
+    return InlineKeyboardMarkup(rows)
 
 
-def _bot_cabinet_text(uid):
-    """Display this teacher's own saved profile name, not their Telegram alias."""
+def _bot_cabinet_text(uid, section="home"):
+    """Use the teacher's saved profile name, never Telegram's display name."""
     row = base.teacher(uid)
     name = base.normalize_teacher_name(row["name"]) if row else None
     intro = (
         f"👩‍🏫 <b>{html.escape(name)}</b> · ПРЕПАДМИН\n\n"
-        if name
-        else "👤 <b>Мой кабинет</b>\n\n"
+        if name else "👤 <b>Мой кабинет</b>\n\n"
     )
-    return (
-        intro
-        + "Выбирай нужный раздел — все рабочие функции ПРЕПАДМИНА собраны здесь 💗"
-    )
-
+    descriptions = {
+        "home": "Всё важное под рукой. Выбери раздел или открой приложение 💗",
+        "lessons": "📅 <b>Занятия</b>\nРасписание, переносы и посещаемость — в одном месте.",
+        "learning": "📚 <b>Обучение</b>\nДомашние задания и материалы.",
+        "more": "⚙️ <b>Дополнительно</b>\nНапоминания, отчёты и настройки.",
+    }
+    return intro + descriptions.get(section, descriptions["home"])
 
 async def show_bot_cabinet(update, context):
     if not base.teacher(update.effective_user.id):
@@ -921,7 +928,7 @@ async def show_bot_cabinet(update, context):
     await update.effective_message.reply_text(
         _bot_cabinet_text(update.effective_user.id),
         parse_mode="HTML",
-        reply_markup=_bot_cabinet_markup(),
+        reply_markup=_bot_cabinet_markup(update.effective_user.id),
     )
 
 
@@ -942,11 +949,15 @@ async def bot_cabinet_callback(update, context):
     await q.answer()
     action = str(q.data or "").split(":", 1)[1] if ":" in str(q.data or "") else ""
 
-    if action == "back":
+    if action == "back" or action.startswith("menu:"):
+        section = action.split(":", 1)[1] if action.startswith("menu:") else "home"
+        if section not in ("home", "lessons", "learning", "more"):
+            await q.answer("Раздел недоступен", show_alert=True)
+            return
         await q.edit_message_text(
-            _bot_cabinet_text(q.from_user.id),
+            _bot_cabinet_text(q.from_user.id, section),
             parse_mode="HTML",
-            reply_markup=_bot_cabinet_markup(),
+            reply_markup=_bot_cabinet_markup(q.from_user.id, section),
         )
         return
 
