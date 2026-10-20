@@ -20,7 +20,7 @@ jobs:
     name: Verify restricted lab release access without deployment
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment: timeweb-production
+    environment: ege-lab-production
     steps:
       - name: Check SSH configuration and installed lab helper (read-only)
         shell: bash
