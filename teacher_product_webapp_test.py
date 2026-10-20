@@ -650,5 +650,181 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
 
 
 
+class GroupLessonsMiniAppTest(unittest.IsolatedAsyncioTestCase):
+    """One-off lesson changes on a temporary database, notifications fully mocked."""
+
+    def setUp(self):
+        from datetime import datetime, timedelta
+        import teacher_product_webapp_lessons as lessons
+        import teacher_product_learning as learning
+        import teacher_product_cancellations as cancellations
+        import teacher_product_group_payments as group_payments
+
+        self.lessons=lessons
+        self.learning=learning
+        self.cancellations=cancellations
+        self.tmp=tempfile.TemporaryDirectory()
+        base.DB_PATH=os.path.join(self.tmp.name,"group_lessons.sqlite3")
+        base.ensure_tables()
+        groups.ensure_tables()
+        schedule.ensure_tables()
+        learning.ensure_tables()
+        group_payments.ensure_tables()
+        lessons.ensure_tables()
+        base.upsert_teacher(101,name="Мария",subject="Химия",onboarding_completed_at="2026-10-20")
+        base.upsert_teacher(202,name="Другая",subject="История",onboarding_completed_at="2026-10-20")
+        self.gid=groups.add_group(101,"ОГЭ 2027")
+        self.other_gid=groups.add_group(101,"ЕГЭ 2027")
+        self.member=int(__import__("teacher_product_student_reminders").add_member(101,self.gid,"Алина")["id"])
+        self.today=datetime.now(schedule.tz(101)).date()
+        self.occurrence=self.today+timedelta(days=3)
+        groups.add_group_slot(101,self.gid,self.occurrence.weekday(),"18:00")
+        self.slot_id=int(next(s["id"] for s in groups.group_slots(101) if int(s["group_id"])==self.gid))
+        self.original=self.occurrence.isoformat()
+        self.key="webapp-lesson-0001"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def mutation(self,**changes):
+        return {
+            "action":"group_lesson_mutate",
+            "lesson_action":"move","group_id":self.gid,
+            "request_key":self.key,"slot_id":self.slot_id,
+            "occurrence_key":self.original,"expected_date":self.original,
+            "expected_time":"18:00","new_date":self.original,
+            "new_time":"19:00",**changes,
+        }
+
+    def test_upcoming_identifies_single_occurrence_and_group(self):
+        records=self.lessons.upcoming(101,self.gid)
+        self.assertTrue(records)
+        self.assertEqual(records[0]["slot_id"],self.slot_id)
+        self.assertEqual(records[0]["occurrence_key"],self.original)
+        self.assertEqual(records[0]["time"],"18:00")
+        self.assertEqual(self.lessons.upcoming(202,self.gid),[])
+        self.assertIn("lesson_occurrences",webapp._view(101,f"group:{self.gid}"))
+
+    def test_add_weekly_lesson_is_idempotent_and_keeps_old_slot(self):
+        data={"action":"group_lesson_mutate","lesson_action":"add",
+              "group_id":self.gid,"request_key":"webapp-add-lesson-01",
+              "weekday":1,"time":"17:30"}
+        first=webapp._teacher_action(101,data)
+        second=webapp._teacher_action(101,data)
+        self.assertTrue(first["ok"],first)
+        self.assertTrue(second["duplicate"],second)
+        rows=[s for s in groups.group_slots(101) if int(s["group_id"])==self.gid]
+        self.assertEqual(len(rows),2)
+        self.assertEqual(webapp._teacher_action(101,{**data,"request_key":"webapp-add-lesson-02"})["error"],"slot_already_exists")
+        self.assertEqual(webapp._teacher_action(202,data)["error"],"group_not_found")
+        self.assertEqual(webapp._teacher_action(101,{**data,"time":"not time"})["error"],"invalid_time")
+
+    def test_move_specific_occurrence_and_preserve_next_week(self):
+        result=webapp._teacher_action(101,self.mutation())
+        self.assertTrue(result["ok"],result)
+        self.assertEqual(result["state"],"pending")
+        dup=webapp._teacher_action(101,self.mutation())
+        self.assertTrue(dup["duplicate"],dup)
+        events=self.lessons.upcoming(101,self.gid)
+        first=next(e for e in events if e["occurrence_key"]==self.original)
+        self.assertEqual(first["time"],"19:00")
+        self.assertTrue(first["moved"])
+        following=next(e for e in events if e["occurrence_key"]!=self.original)
+        self.assertEqual(following["time"],"18:00")
+        self.assertFalse(following["moved"])
+        self.assertEqual(
+            webapp._teacher_action(101,self.mutation(request_key="webapp-lesson-0002"))["error"],
+            "lesson_changed_refresh",
+        )
+        self.assertEqual(
+            webapp._teacher_action(101,self.mutation(group_id=self.other_gid,request_key="webapp-lesson-0003"))["error"],
+            "slot_not_found",
+        )
+
+    def test_cancel_one_future_lesson_without_archiving_schedule(self):
+        result=webapp._teacher_action(101,{
+            "action":"group_lesson_mutate","lesson_action":"cancel",
+            "group_id":self.gid,"request_key":"webapp-cancel-0001",
+            "slot_id":self.slot_id,"occurrence_key":self.original,
+            "expected_date":self.original,"expected_time":"18:00",
+        })
+        self.assertTrue(result["ok"],result)
+        self.assertTrue(self.cancellations.is_cancelled(101,"group",self.slot_id,self.original))
+        occurrences=self.lessons.upcoming(101,self.gid)
+        self.assertTrue(all(x["occurrence_key"]!=self.original for x in occurrences))
+        self.assertTrue(any(x["occurrence_key"]!=self.original for x in occurrences))
+        self.assertIsNotNone(groups.group_slot(101,self.slot_id))
+        self.assertEqual(
+            webapp._teacher_action(101,self.mutation(request_key="webapp-lesson-0004"))["error"],
+            "lesson_cancelled",
+        )
+
+    def test_attendance_and_stale_form_protection(self):
+        self.assertEqual(
+            webapp._teacher_action(101,self.mutation(expected_time="20:00"))["error"],
+            "lesson_changed_refresh",
+        )
+        self.learning._set_attendance(
+            101,"group",self.slot_id,self.occurrence,"group_member",self.member,"present",
+        )
+        self.assertEqual(
+            webapp._teacher_action(101,self.mutation())["error"],
+            "attendance_already_recorded",
+        )
+        self.assertEqual(
+            webapp._teacher_action(101,{
+                "action":"group_lesson_mutate","lesson_action":"cancel",
+                "group_id":self.gid,"request_key":"webapp-cancel-0002",
+                "slot_id":self.slot_id,"occurrence_key":self.original,
+                "expected_date":self.original,"expected_time":"18:00",
+            })["error"],"attendance_already_recorded",
+        )
+
+    async def test_lesson_notification_worker_sends_once_through_existing_helpers(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock,patch
+        p=webapp._teacher_action(101,self.mutation())
+        self.assertTrue(p["ok"],p)
+        async_send=AsyncMock(return_value=(1,0,1))
+        with patch("teacher_product_transfer_enhancements._notify_transfer",async_send):
+            await self.lessons.delivery_tick(SimpleNamespace(bot=object()))
+            await self.lessons.delivery_tick(SimpleNamespace(bot=object()))
+        async_send.assert_awaited_once()
+        with base.db() as conn:
+            rec=conn.execute("SELECT state,linked_count,sent_count FROM teacher_webapp_lesson_actions WHERE id=?",(p["action_id"],)).fetchone()
+        self.assertEqual(rec["state"],"done")
+        self.assertEqual(rec["sent_count"],1)
+        self.assertEqual(rec["linked_count"],1)
+
+    async def test_lesson_cancel_notification_worker_uses_original_snapshot(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock,patch
+        p=webapp._teacher_action(101,{
+            "action":"group_lesson_mutate","lesson_action":"cancel",
+            "group_id":self.gid,"request_key":"webapp-cancel-0003",
+            "slot_id":self.slot_id,"occurrence_key":self.original,
+            "expected_date":self.original,"expected_time":"18:00",
+        })
+        self.assertTrue(p["ok"],p)
+        send=AsyncMock(return_value=(1,0,1))
+        with patch.object(self.cancellations,"_notify_students",send):
+            await self.lessons.delivery_tick(SimpleNamespace(bot=object()))
+        send.assert_awaited_once()
+        args=send.await_args.args
+        self.assertEqual(args[2]["actual_date"],self.occurrence)
+        self.assertEqual(args[2]["occurrence_key"],self.original)
+
+    def test_lesson_form_ui_declares_real_controls(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        for token in (
+            "function startGroupLessonForm(","async function saveGroupLesson(",
+            "group_lesson_mutate","lesson_occurrences","Перенести одно занятие",
+            "Отменить одно занятие",
+        ):
+            self.assertIn(token,html)
+
+
+
+
 if __name__ == "__main__":
     unittest.main()
