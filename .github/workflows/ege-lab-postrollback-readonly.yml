@@ -1,0 +1,74 @@
+name: ЕГЭ БЛИЗКО — диагностика после отката (только чтение)
+
+# Requires explicit environment approval. Never modifies or restarts the bot.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ege-lab-postrollback-readonly.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ege-lab-postrollback-readonly
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Inspect lab service, restored file, and HTTP health probes
+    runs-on: ubuntu-latest
+    environment: ege-lab-production
+    timeout-minutes: 5
+    steps:
+      - name: Read-only SSH diagnosis
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$SSH_HOST" = 77.233.212.200
+          test "$SSH_USER" = ege-deploy
+          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
+          install -d -m 0700 "$HOME/.ssh"
+          trap 'rm -f "$HOME/.ssh/ege_diag_key" "$HOME/.ssh/known_hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/ege_diag_key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/ege_diag_key" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/ege_diag_key" >/dev/null
+          ssh -T -o BatchMode=yes -o IdentitiesOnly=yes -o PasswordAuthentication=no \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=10 -i "$HOME/.ssh/ege_diag_key" \
+            "$SSH_USER@$SSH_HOST" /bin/bash -s <<'REMOTE'
+          set -u
+          echo 'READ_ONLY_DIAGNOSTIC_STARTED'
+          echo "SERVICE_STATUS=$(systemctl is-active ege-blizko 2>&1)"
+          expected='d8705d88184d1943932aea4b638a3baea5ad40b4dda8237778952b65b92d854d'
+          actual="$(sha256sum /opt/bots/ege-blizko/ege_lab_webapp.py 2>/dev/null | cut -d' ' -f1)"
+          if [ "$actual" = "$expected" ]; then
+            echo 'LAB_FILE_RESTORED_TO_PREFLIGHT_HASH'
+          elif [ -z "$actual" ]; then
+            echo 'LAB_FILE_CANNOT_BE_READ'
+          else
+            echo 'LAB_FILE_HASH_DIFFERS_FROM_PREFLIGHT'
+          fi
+          for route in health lab-app; do
+            url="https://77-233-212-200.sslip.io/$route"
+            code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$url" 2>/dev/null)"
+            status=$?
+            printf 'PROBE_%s_HTTP=%s CURL_EXIT=%s\n' "$route" "$code" "$status"
+            if [ "$route" = 'lab-app' ] && [ "$status" -eq 0 ] && [ "$code" = '200' ]; then
+              if curl -sS --max-time 10 "$url" 2>/dev/null | grep -Fq 'Лаборатория'; then
+                echo LAB_CONTENT_MARKER_OK
+              else
+                echo LAB_CONTENT_MARKER_MISSING
+              fi
+            fi
+          done
+          echo 'READ_ONLY_DIAGNOSTIC_COMPLETE'
+          REMOTE
