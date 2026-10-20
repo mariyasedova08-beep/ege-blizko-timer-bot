@@ -313,6 +313,52 @@ class GroupWorkspaceTest(unittest.TestCase):
         self.assertEqual(page["payment_issues"],0)
         self.assertIsNone(self.group_payments._plan(202,self.pid))
 
+    def test_contextual_group_action_uses_authenticated_server_and_chat_id(self):
+        import io
+        import json
+        from unittest.mock import patch
+
+        action = {"action":"group_quick","group_id":self.gid,"section":"payments"}
+        with patch.object(base,"BOT_TOKEN","FAKE_TEST_TOKEN"):
+            with patch("urllib.request.urlopen", return_value=io.BytesIO(b'{"ok":true}')) as post:
+                response = webapp._teacher_action(101,action)
+        self.assertTrue(response["ok"],response)
+        request = post.call_args.args[0]
+        sent = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(sent["chat_id"],101)
+        self.assertEqual(
+            sent["reply_markup"]["inline_keyboard"][0][0]["callback_data"],
+            f"gpay:group:{self.gid}",
+        )
+        self.assertEqual(
+            sent["reply_markup"]["inline_keyboard"][1][0]["callback_data"],
+            f"gmem:group:{self.gid}",
+        )
+        self.assertNotIn("FAKE_TEST_TOKEN",str(sent))
+
+    def test_contextual_actions_reject_other_teachers_and_wrong_group(self):
+        from unittest.mock import patch
+        for payload, who in [
+            ({"action":"group_quick","group_id":self.gid,"section":"payments"}, 202),
+            ({"action":"group_quick","group_id":999999,"section":"payments"}, 101),
+            ({"action":"group_quick","group_id":self.gid,"section":"bad"}, 101),
+            ({"action":"group_quick","group_id":"oops","section":"payments"}, 101),
+        ]:
+            with patch("urllib.request.urlopen") as post:
+                result = webapp._teacher_action(who,payload)
+            self.assertFalse(result["ok"])
+            post.assert_not_called()
+
+    def test_group_quick_does_not_depend_on_telegram_senddata(self):
+        html_content=webapp.HTML_PATH.read_text(encoding="utf-8")
+        start=html_content.index("async function openGroupBotAction(")
+        end=html_content.index("function groupSection(",start)
+        fragment=html_content[start:end]
+        self.assertIn("teacherAction({action:'group_quick'",fragment)
+        self.assertIn("tg.openTelegramLink",fragment)
+        self.assertNotIn("sendData(",fragment)
+
+
     def test_webapp_has_real_group_routes_and_no_pretend_buttons(self):
         html_content = webapp.HTML_PATH.read_text(encoding="utf-8")
         for phrase in (

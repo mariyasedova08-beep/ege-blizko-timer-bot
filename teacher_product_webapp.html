@@ -309,14 +309,20 @@ function renderStudents(d){
  out+='</div>';document.getElementById('app').innerHTML=out;
 }
 
-function openGroupBotAction(section,gid){
+async function openGroupBotAction(section,gid){
  var allowed=['members','schedule','payments','homework'];
  if(allowed.indexOf(section)<0)return;
- if(!tg||typeof tg.sendData!=='function'){
-  reportClientError('group_bot_action',new Error('telegram_client_unavailable'));
-  return;
+ try{
+  await teacherAction({action:'group_quick',section:section,group_id:Number(gid)});
+  if(tg&&typeof tg.openTelegramLink==='function'){
+   tg.openTelegramLink('https://t.me/prepodmin_bot');
+  }else{
+   window.open('https://t.me/prepodmin_bot','_blank');
+  }
+ }catch(e){
+  await reportClientError('group_quick',e);
+  alert('Не удалось открыть действие в Telegram. Попробуй чуть позже.');
  }
- tg.sendData(JSON.stringify({action:'group_quick',section:section,group_id:Number(gid)}));
 }
 function groupSection(id){
  var item=document.getElementById(id);

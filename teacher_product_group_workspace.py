@@ -167,6 +167,66 @@ def member_view(uid, pid):
     }
 
 
+
+def send_group_action(uid, payload):
+    """Send an authorized inline control to the teacher's own Telegram chat.
+
+    Inline-button Mini Apps do not support Telegram.WebApp.sendData().
+    This server action uses validated WebApp auth and never accepts chat_id
+    or bot token from a client.
+    """
+    import json
+    from urllib.request import Request, urlopen
+
+    try:
+        gid = int(payload.get("group_id"))
+    except (TypeError, ValueError, OverflowError):
+        return {"ok": False, "error": "invalid_group_id"}
+    group = _owned(uid, gid)
+    if not group:
+        return {"ok": False, "error": "group_not_found"}
+    section = str(payload.get("section") or "")
+    options = {
+        "members": ("Добавить ученика", f"gmem:add:{gid}"),
+        "schedule": ("Настроить расписание", f"gs:add:{gid}"),
+        "payments": ("Оплаты группы", f"gpay:group:{gid}"),
+        "homework": ("Выдать ДЗ группе", f"edu:hwquick:group:{gid}"),
+    }
+    choice = options.get(section)
+    if not choice:
+        return {"ok": False, "error": "invalid_group_action"}
+    token = base.BOT_TOKEN
+    if not token:
+        return {"ok": False, "error": "bot_unavailable"}
+    request_body = json.dumps({
+        "chat_id": int(uid),
+        "text": f"ПРЕПАДМИН · {group['name']}\\nНажми кнопку, чтобы продолжить работу:",
+        "reply_markup": {
+            "inline_keyboard": [
+                [{"text": choice[0], "callback_data": choice[1]}],
+                [{"text": "Карточка группы", "callback_data": f"gmem:group:{gid}"}],
+            ],
+        },
+    }, ensure_ascii=False).encode("utf-8")
+    request = Request(
+        "https://api.telegram.org/bot" + token + "/sendMessage",
+        data=request_body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=8) as response:
+            body = json.load(response)
+        if not body.get("ok"):
+            return {"ok": False, "error": "message_not_delivered"}
+    except Exception as exc:
+        # Never expose Telegram token or request URL via logs and API errors.
+        print(f"PREPODMIN group action delivery failed: {type(exc).__name__}", flush=True)
+        return {"ok": False, "error": "message_not_delivered"}
+    return {"ok": True, "section": section, "group_id": gid}
+
+
+
 def mark_attendance(uid, payload):
     try:
         gid = int(payload.get("group_id"))

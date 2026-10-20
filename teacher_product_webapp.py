@@ -511,6 +511,8 @@ def _teacher_action(uid, payload):
         return {"ok": True, "name": name, "subject": subject, "subject_id": subject_id}
     if action_name == "group_attendance":
         return group_workspace.mark_attendance(uid, payload)
+    if action_name == "group_quick":
+        return group_workspace.send_group_action(uid, payload)
     if action_name != "task_done":
         return {"ok": False, "error": "unknown_action"}
 
