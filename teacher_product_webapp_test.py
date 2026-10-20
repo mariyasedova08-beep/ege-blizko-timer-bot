@@ -62,15 +62,15 @@ class TeacherDashboardTest(unittest.TestCase):
         self.assertIn("--paper",html)
         self.assertNotIn("teacherAction(",desktop)
 
-    def test_external_browser_window_and_security_guards(self):
+    def test_single_direct_browser_launch_without_extra_window_prompt(self):
         html = webapp.HTML_PATH.read_text(encoding="utf-8")
+        # Personalized URL links must not leak through Referer.
         self.assertIn('<meta name="referrer" content="no-referrer">',html)
-        self.assertIn("function inExternalBrowser()",html)
-        self.assertIn("function openPrepadminDesktopWindow()",html)
-        self.assertIn("window.open(dest.toString(),'prepodmin-desktop'",html)
-        self.assertIn("dest.searchParams.set('standalone','1')",html)
-        self.assertIn("if(inExternalBrowser()&&(new URLSearchParams(window.location.search)).get('standalone')!=='1')",html)
-        self.assertIn("↗ Открыть отдельным окном",html)
+        # No redundant extra-window button or JavaScript popup anymore.
+        self.assertNotIn("function inExternalBrowser()",html)
+        self.assertNotIn("function openPrepadminDesktopWindow()",html)
+        self.assertNotIn("↗ Открыть отдельным окном",html)
+        self.assertNotIn("browser-window-hint",html)
         self.assertIn("if(app.platform==='tdesktop'||app.platform==='macos')return;",html)
 
     def test_main_navigation_has_five_clear_destinations(self):
@@ -295,46 +295,45 @@ class CompactTelegramMenuTest(unittest.IsolatedAsyncioTestCase):
         home_markup = query.edit_message_text.await_args.kwargs["reply_markup"]
         self.assertEqual(len(self.actions(home_markup)), 6)
 
-    def test_browser_link_is_https_signed_and_expires_within_workday(self):
+    def test_single_signed_browser_button_opens_without_extra_choice(self):
         import time
         from unittest.mock import patch
         from urllib.parse import parse_qs, urlsplit
         with patch.object(webapp, "WEBAPP_URL", "https://prepodmin.example/webapp"):
             with patch.object(base, "BOT_TOKEN", "test-bot-token-for-automatic-tests"):
-                markup = webapp._launch_markup(101)
-                self.assertEqual(len(markup.inline_keyboard), 2)
-                telegram_button = markup.inline_keyboard[0][0]
-                browser_button = markup.inline_keyboard[1][0]
-                self.assertIsNotNone(telegram_button.web_app)
-                self.assertIn("Открыть в браузере",browser_button.text)
-                self.assertIsNone(browser_button.web_app)
-                parsed = urlsplit(browser_button.url)
-                self.assertEqual(parsed.scheme, "https")
-                self.assertEqual(parsed.netloc, "prepodmin.example")
-                token = parse_qs(parsed.query)["launch"][0]
-                self.assertEqual(webapp._validate_launch_token(token), 101)
-                expires = int(token.split(".")[1])
-                self.assertGreater(expires, int(time.time()) + 11*60*60)
-                self.assertLessEqual(expires, int(time.time()) + 12*60*60 + 2)
-                # Teachers can also reach the external browser from the bot cabinet.
-                with patch.object(webapp,"WEBAPP_URL","https://prepodmin.example/webapp"):
-                    cabinet=webapp._bot_cabinet_markup(101)
-                    self.assertEqual(len(cabinet.inline_keyboard), 5)
-                    self.assertIsNotNone(cabinet.inline_keyboard[-2][0].web_app)
-                    self.assertTrue(cabinet.inline_keyboard[-1][0].url.startswith("https://"))
+                markup=webapp._launch_markup(101)
+                self.assertEqual(len(markup.inline_keyboard),1)
+                button=markup.inline_keyboard[0][0]
+                self.assertEqual(button.text,"💗 Открыть ПРЕПАДМИН")
+                self.assertIsNone(button.web_app)
+                parsed=urlsplit(button.url)
+                self.assertEqual(parsed.scheme,"https")
+                self.assertEqual(parsed.netloc,"prepodmin.example")
+                token=parse_qs(parsed.query)["launch"][0]
+                self.assertEqual(webapp._validate_launch_token(token),101)
+                expires=int(token.split(".")[1])
+                self.assertGreater(expires,int(time.time())+11*60*60)
+                self.assertLessEqual(expires,int(time.time())+12*60*60+2)
+                # Bot cabinet also has only one direct signed URL button.
+                cabinet=webapp._bot_cabinet_markup(101)
+                self.assertEqual(len(cabinet.inline_keyboard),4)
+                self.assertEqual(cabinet.inline_keyboard[-1][0].text,"💗 Открыть ПРЕПАДМИН")
+                self.assertIsNone(cabinet.inline_keyboard[-1][0].web_app)
+                self.assertTrue(cabinet.inline_keyboard[-1][0].url.startswith("https://"))
 
     def test_app_launch_still_available_when_configured(self):
         from unittest.mock import patch
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         launched = InlineKeyboardMarkup([[
             InlineKeyboardButton("💗 Открыть ПРЕПАДМИН",
-                                 web_app=WebAppInfo(url="https://example.com/webapp?launch=test"))
+                                 url="https://example.com/webapp?launch=test")
         ]])
         with patch.object(webapp, "WEBAPP_URL", "https://example.com/webapp"):
             with patch.object(webapp, "_launch_markup", return_value=launched):
                 markup = webapp._bot_cabinet_markup(101)
         self.assertEqual(len(markup.inline_keyboard), 4)
-        self.assertIsNotNone(markup.inline_keyboard[-1][0].web_app)
+        self.assertIsNone(markup.inline_keyboard[-1][0].web_app)
+        self.assertEqual(markup.inline_keyboard[-1][0].url,"https://example.com/webapp?launch=test")
         self.assertEqual(len(self.actions(markup)), 6)
 
 
