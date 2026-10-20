@@ -409,9 +409,13 @@ function renderGroup(d){
  });
  if(!(d.members||[]).length)out+='<div class="empty">Участников пока нет</div>';
  out+='</div></section>';
- out+='<section data-gpanel="lessons" class="gsection" hidden><div class="gcontrols"><button type="button" onclick="openGroupBotAction(\'schedule\','+gid+')">📅 Изменить расписание</button></div>';
- out+='<div class="gblock"><strong>Регулярные занятия</strong><p class="gquiet">'+((d.slots||[]).length?(d.slots||[]).map(function(x){return ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][Number(x.weekday)]+' '+esc(x.time);}).join(' · '):'Расписание пока не задано')+'</p></div>';
- (d.upcoming||[]).forEach(function(x){out+='<div class="gblock"><strong>'+esc(x.date_label)+' · '+esc(x.time)+'</strong><div class="gquiet">'+(x.moved?'Перенос':'Занятие по расписанию')+'</div></div>';});
+ out+='<section data-gpanel="lessons" class="gsection" hidden><div class="gcontrols"><button type="button" onclick="startGroupLessonForm('+gid+')">＋ Добавить регулярный урок</button></div><div id="group-lesson-form" hidden></div>';
+ if(groupLessonNotice){out+='<div class="gtoast" role="status">'+esc(groupLessonNotice)+'</div>';groupLessonNotice='';}
+ out+='<div class="gblock"><strong>Расписание группы</strong><p class="gquiet">'+((d.slots||[]).length?(d.slots||[]).map(function(x){return ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][Number(x.weekday)]+' '+esc(x.time);}).join(' · '):'Регулярных занятий пока нет')+'</p><p class="gquiet">Добавление создаёт еженедельное занятие. Перенос и отмена ниже действуют только на выбранный урок.</p></div>';
+ (d.lesson_occurrences||[]).forEach(function(x){
+   out+='<div class="gblock"><div class="gblockhead"><strong>'+esc(x.date_label)+' · '+esc(x.time)+'</strong><span class="statuspill">'+(x.moved?'Перенесено':'По расписанию')+'</span></div><div class="gcontrols"><button type="button" onclick="startGroupLessonForm('+gid+',\'move\','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\',\''+esc(x.date)+'\',\''+esc(x.time)+'\')">↪ Перенести</button><button type="button" onclick="startGroupLessonForm('+gid+',\'cancel\','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\',\''+esc(x.date)+'\',\''+esc(x.time)+'\')">× Отменить</button></div></div>';
+ });
+ if(!(d.lesson_occurrences||[]).length)out+='<p class="gquiet">Ближайших занятий нет.</p>';
  var a=d.attendance_session;
  if(a){
   out+='<h3>Посещаемость · '+esc(a.date_label)+' · '+esc(a.time)+'</h3><div class="gquiet">Отметки сохраняются сразу; абонементы списываются по действующим правилам.</div>';
@@ -519,6 +523,93 @@ async function setGroupAttendance(gid,pid,slot,day,status){
  }catch(e){await reportClientError('group_attendance',e);alert('Не удалось сохранить посещаемость. Попробуй снова.');}
 }
 
+
+
+var groupLessonNotice='',groupLessonSavePending=false,groupLessonRequestKey='';
+function newGroupLessonKey(){
+ if(window.crypto&&typeof window.crypto.randomUUID==='function'){
+  return window.crypto.randomUUID().replace(/-/g,'');
+ }
+ return String(Date.now())+'_'+Math.random().toString(36).slice(2,14);
+}
+function startGroupLessonForm(gid,kind,slot,key,actualDate,actualTime){
+ var form=document.getElementById('group-lesson-form');
+ if(!form)return;
+ kind=kind||'add';
+ groupLessonRequestKey=newGroupLessonKey();
+ var inner='<div class="gblock"><div class="gform">';
+ if(kind==='add'){
+  var days=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+  inner+='<strong>Новое регулярное занятие</strong><p class="gquiet">Повторяется каждую неделю; существующие уроки останутся на месте.</p>';
+  inner+='<label for="gl-weekday">День недели</label><select id="gl-weekday">'+days.map(function(x,i){return '<option value="'+i+'">'+x+'</option>';}).join('')+'</select>';
+  inner+='<label for="gl-time">Время</label><input id="gl-time" type="time" value="18:00">';
+ }else{
+  inner+='<strong>'+(kind==='move'?'Перенести одно занятие':'Отменить одно занятие')+'</strong>';
+  inner+='<p class="gquiet">Сейчас: '+shortDate(actualDate)+' в '+esc(actualTime)+'. Остальные занятия группы не изменятся.</p>';
+  if(kind==='move'){
+   inner+='<label for="gl-date">Новая дата</label><input id="gl-date" type="date" value="'+esc(actualDate)+'">';
+   inner+='<label for="gl-time">Новое время</label><input id="gl-time" type="time" value="'+esc(actualTime)+'">';
+  }else{
+   inner+='<p class="gquiet">Это действие отменит только выбранный урок. Если к нему уже отмечена посещаемость, отмена будет запрещена.</p>';
+  }
+ }
+ inner+='<div id="gl-error" class="gformerror" role="alert"></div><div class="gcontrols">';
+ inner+='<button type="button" class="gsubmit" id="gl-submit" onclick="saveGroupLesson('+Number(gid)+',\''+kind+'\','+Number(slot||0)+',\''+String(key||'')+'\',\''+String(actualDate||'')+'\',\''+String(actualTime||'')+'\')">'+(kind==='cancel'?'Подтвердить отмену':'Сохранить')+'</button>';
+ inner+='<button type="button" onclick="closeGroupLessonForm()">Закрыть</button></div></div></div>';
+ form.innerHTML=inner;form.hidden=false;
+ form.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function closeGroupLessonForm(){
+ var form=document.getElementById('group-lesson-form');
+ if(form){form.hidden=true;form.innerHTML='';}
+ groupLessonRequestKey='';
+}
+async function saveGroupLesson(gid,kind,slot,key,actualDate,actualTime){
+ if(groupLessonSavePending)return;
+ var button=document.getElementById('gl-submit'),error=document.getElementById('gl-error');
+ if(!button||!error)return;
+ var data={action:'group_lesson_mutate',lesson_action:kind,group_id:Number(gid),request_key:groupLessonRequestKey};
+ if(kind==='add'){
+  data.weekday=Number(document.getElementById('gl-weekday').value);
+  data.time=document.getElementById('gl-time').value;
+ }else{
+  data.slot_id=Number(slot);
+  data.occurrence_key=key;
+  data.expected_date=actualDate;
+  data.expected_time=actualTime;
+  if(kind==='move'){
+   data.new_date=document.getElementById('gl-date').value;
+   data.new_time=document.getElementById('gl-time').value;
+  }
+ }
+ groupLessonSavePending=true;button.disabled=true;error.textContent='';
+ try{
+  var reply=await teacherAction(data);
+  groupLessonRequestKey='';
+  groupLessonNotice=reply.duplicate?'Изменение уже сохранено; повтор не создан.':(
+   kind==='add'?'Еженедельное занятие добавлено.':
+   kind==='move'?'Занятие перенесено. Уведомления обрабатываются по настройкам преподавателя.':
+   'Один урок отменён. Уведомления обрабатываются по настройкам преподавателя.'
+  );
+  activeGroupTab='lessons';
+  await openView('group:'+Number(gid));
+ }catch(e){
+  var errors={
+   slot_already_exists:'Такой урок уже есть в расписании.',
+   lesson_cancelled:'Этот урок уже отменён.',
+   lesson_changed_refresh:'Данные занятия изменились. Обнови кабинет группы.',
+   attendance_already_recorded:'Для этого занятия уже записана посещаемость. Сначала проверь отметки.',
+   lesson_in_past:'Изменять прошедшее занятие здесь нельзя.',
+   lesson_unchanged:'Дата и время не изменились.',
+   invalid_new_date:'Проверь новую дату.',
+   invalid_time:'Проверь время.',
+   invalid_weekday:'Проверь день недели.',
+   request_key_conflict:'Состояние формы устарело — закрой и открой её снова.'
+  };
+  error.textContent=errors[e.message]||'Не удалось сохранить. Попробуй снова — повторного изменения не будет.';
+  await reportClientError('group_lesson_mutate',e);
+ }finally{groupLessonSavePending=false;button.disabled=false;}
+}
 
 var groupHomeworkNotice='',groupHomeworkSavePending=false,groupHomeworkRequestKey='';
 function toggleGroupHomeworkForm(gid){
