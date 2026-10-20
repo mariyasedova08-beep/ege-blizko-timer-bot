@@ -1,0 +1,35 @@
+name: EGE lab safe-release validation
+
+on:
+  push:
+    branches:
+      - 'feature/lab-safe-release-*'
+    paths:
+      - 'deploy/ege-blizko-lab-release'
+      - 'tests/test_lab_release_safety.py'
+      - '.github/workflows/ege-lab-manual-release.yml'
+      - '.github/workflows/ege-lab-release-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'deploy/ege-blizko-lab-release'
+      - 'tests/test_lab_release_safety.py'
+      - '.github/workflows/ege-lab-manual-release.yml'
+      - '.github/workflows/ege-lab-release-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate helper syntax and release guardrails (never deploy)
+        run: |
+          bash -n deploy/ege-blizko-lab-release
+          python -m unittest discover -s tests -p 'test_lab_release_safety.py' -v

@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+# Fixed, root-owned, laboratory-only production installer.
+# All modifications are scoped to explicitly approved files and are reversible.
+set -Eeuo pipefail
+umask 077
+
+APP_DIR="/opt/bots/ege-blizko"
+SERVICE="ege-blizko"
+RELEASE_REF="refs/remotes/origin/release/ege-lab"
+INITIAL_SHA="9eddd2528e8e5a163369f09177573af3015b569d"
+STATE_DIR="/var/lib/ege-blizko-lab-release"
+STATE_FILE="$STATE_DIR/last-sha"
+HEALTH_URL="https://77-233-212-200.sslip.io/health"
+LAB_URL="https://77-233-212-200.sslip.io/lab-app"
+LOCK_FILE="/run/lock/ege-blizko-autodeploy.lock"
+
+[[ "$(id -u)" -eq 0 ]] || { echo "ERROR: requires root" >&2; exit 1; }
+[[ $# -eq 1 ]] || { echo "USAGE: ege-blizko-lab-release SHA_OR_--bootstrap" >&2; exit 2; }
+ACTION="$1"
+[[ "$ACTION" == "--bootstrap" || "$ACTION" =~ ^[a-f0-9]{40}$ ]] || {
+  echo "ERROR: invalid release commit" >&2; exit 2;
+}
+
+exec 9>"$LOCK_FILE"
+flock -w 60 9 || { echo "ERROR: another EGE release is in progress" >&2; exit 1; }
+cd "$APP_DIR"
+[[ -f ege_lab_webapp.py && -d .git ]] || { echo "ERROR: unexpected installation directory" >&2; exit 1; }
+git fetch --quiet --no-tags origin \
+  'refs/heads/release/ege-lab:refs/remotes/origin/release/ege-lab'
+REMOTE_SHA="$(git rev-parse "$RELEASE_REF")"
+git cat-file -e "$INITIAL_SHA^{commit}"
+mkdir -p "$STATE_DIR/backups"
+chmod 0700 "$STATE_DIR" "$STATE_DIR/backups"
+
+if [[ "$ACTION" == "--bootstrap" ]]; then
+  [[ ! -e "$STATE_FILE" ]] || { echo "ERROR: already bootstrapped" >&2; exit 1; }
+  git merge-base --is-ancestor "$INITIAL_SHA" "$REMOTE_SHA" || {
+    echo "ERROR: release branch is not based on approved initial version" >&2; exit 1;
+  }
+  # Initial gel patch was deployed manually; guard against an old lab version.
+  grep -Fq 'REAGENTS = dict(LAB_REAGENTS)' ege_lab_webapp.py
+  grep -Fq 'class="gel-bed"' ege_lab_webapp.py
+  grep -Fq 'class="gel-cloud"' ege_lab_webapp.py
+  grep -Fq 'REACTIONS.extend(EXTRA_REACTIONS)' ege_lab_webapp.py
+  grep -Fq 'REACTIONS.extend(TASK6_REACTIONS)' ege_lab_webapp.py
+  python3 -m py_compile ege_lab_webapp.py
+  systemctl is-active --quiet "$SERVICE"
+  printf '%s\n' "$INITIAL_SHA" > "$STATE_FILE"
+  chmod 0600 "$STATE_FILE"
+  echo "LAB_BOOTSTRAP_OK baseline=$INITIAL_SHA installed=$REMOTE_SHA"
+  exit 0
+fi
+
+[[ -f "$STATE_FILE" ]] || { echo "ERROR: bootstrap is required" >&2; exit 1; }
+[[ "$ACTION" == "$REMOTE_SHA" ]] || {
+  echo "ERROR: release SHA is not the current approved branch tip" >&2; exit 1;
+}
+BASE_SHA="$(tr -d '\r\n' < "$STATE_FILE")"
+[[ "$BASE_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo "ERROR: invalid saved baseline" >&2; exit 1; }
+git cat-file -e "$BASE_SHA^{commit}"
+git merge-base --is-ancestor "$BASE_SHA" "$ACTION" || {
+  echo "ERROR: release history is not a forward update" >&2; exit 1;
+}
+if [[ "$ACTION" == "$BASE_SHA" ]]; then
+  echo "LAB_ALREADY_CURRENT $ACTION"
+  exit 0
+fi
+
+allowed_application_file() {
+  case "$1" in
+    ege_lab_webapp.py|ege_lab_substances.py|ege_lab_inorganic_reactions.py|\
+    ege_task6_reactions.py|ege_task6_bank.py|ege_task6_progress.py|\
+    oge_task12_bank.py|oge_task23_bank.py|ege_lab_solubility_public.html)
+      return 0 ;;
+  esac
+  return 1
+}
+allowed_non_application_file() {
+  case "$1" in
+    tests/*|deploy/*|.github/workflows/*|docs/*|README.md)
+      return 0 ;;
+  esac
+  return 1
+}
+
+changed=()
+while IFS=$'\t' read -r kind path; do
+  [[ -n "${kind:-}" ]] || continue
+  if allowed_application_file "$path"; then
+    [[ "$kind" == "M" || "$kind" == "A" ]] || {
+      echo "ERROR: unsupported laboratory file change $kind $path" >&2; exit 1;
+    }
+    changed+=("$path")
+  elif allowed_non_application_file "$path"; then
+    [[ "$kind" == "M" || "$kind" == "A" ]] || {
+      echo "ERROR: unsupported support-file change $kind $path" >&2; exit 1;
+    }
+  else
+    echo "ERROR: release unexpectedly changes $path" >&2
+    exit 1
+  fi
+done < <(git diff --no-renames --name-status "$BASE_SHA" "$ACTION")
+[[ "${#changed[@]}" -gt 0 ]] || {
+  echo "LAB_NO_APPLICATION_CHANGES (no restart)" >&2; exit 1;
+}
+
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+BACKUP="$STATE_DIR/backups/$STAMP-${ACTION:0:12}"
+mkdir -p "$BACKUP/files"
+PATCH="$BACKUP/lab.patch"
+git diff --no-ext-diff --binary "$BASE_SHA" "$ACTION" -- "${changed[@]}" > "$PATCH"
+[[ -s "$PATCH" ]] || { echo "ERROR: empty application patch" >&2; exit 1; }
+# Preserve local modifications: no checkout, hard reset, clean or overwrite.
+git apply --check "$PATCH"
+for path in "${changed[@]}"; do
+  if [[ -e "$path" ]]; then
+    mkdir -p "$BACKUP/files/$(dirname "$path")"
+    cp --preserve=mode,timestamps -- "$path" "$BACKUP/files/$path"
+    printf 'EXISTING\t%s\n' "$path" >> "$BACKUP/manifest"
+  else
+    printf 'NEW\t%s\n' "$path" >> "$BACKUP/manifest"
+  fi
+done
+
+applied=0
+rollback() {
+  code="$?"
+  trap - ERR INT TERM
+  if [[ "$applied" -eq 1 ]]; then
+    echo "LAB_RELEASE_FAILED restoring $BACKUP" >&2
+    while IFS=$'\t' read -r original_type path; do
+      if [[ "$original_type" == "EXISTING" ]]; then
+        cp --preserve=mode,timestamps -- "$BACKUP/files/$path" "$APP_DIR/$path"
+      else
+        rm -f -- "$APP_DIR/$path"
+      fi
+    done < "$BACKUP/manifest"
+    systemctl restart "$SERVICE" || true
+  fi
+  echo "LAB_ROLLED_BACK status=$code" >&2
+  exit "$code"
+}
+trap rollback ERR INT TERM
+applied=1
+git apply "$PATCH"
+for path in "${changed[@]}"; do
+  if [[ "$path" == *.py ]]; then
+    python3 -m py_compile "$path"
+  fi
+done
+systemctl restart "$SERVICE"
+healthy=0
+for _ in $(seq 1 15); do
+  if systemctl is-active --quiet "$SERVICE" && \
+     curl --silent --show-error --fail --max-time 8 "$HEALTH_URL" >/dev/null 2>&1 && \
+     curl --silent --show-error --fail --max-time 8 "$LAB_URL" -o "$BACKUP/health-page.html" && \
+     grep -Fq 'Лаборатория' "$BACKUP/health-page.html"; then
+    healthy=1
+    break
+  fi
+  sleep 2
+done
+[[ "$healthy" -eq 1 ]] || { echo "ERROR: post-release health check failed" >&2; false; }
+printf '%s\n' "$ACTION" > "$STATE_FILE.tmp"
+chmod 0600 "$STATE_FILE.tmp"
+mv -f "$STATE_FILE.tmp" "$STATE_FILE"
+applied=0
+trap - ERR INT TERM
+echo "LAB_RELEASE_OK sha=$ACTION backup=$BACKUP"
