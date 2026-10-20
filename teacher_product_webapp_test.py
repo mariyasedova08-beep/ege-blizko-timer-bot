@@ -32,6 +32,42 @@ class TeacherDashboardTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_home_transfer_cancel_tiles_use_group_lesson_editor_not_send_data(self):
+        html = webapp.HTML_PATH.read_text(encoding="utf-8")
+        for item in (
+            "['transfer','Перенести занятие','lesson','transfer']",
+            "['cancel','Отменить занятие','lesson','cancel']",
+            "async function openHomeLessonAction(action)",
+            "async function openGroupLessonFromHome(gid,action)",
+            "await api('students')",
+            "activeGroupTab='lessons'",
+            "await openView('group:'+Number(gid))",
+        ):
+            self.assertIn(item,html)
+        self.assertIn(
+            """a[2]==='lesson'?"openHomeLessonAction('"+a[3]+"')""",
+            html,
+        )
+        self.assertNotIn(
+            "['transfer','Перенести занятие','bot','transfer']",
+            html,
+        )
+        self.assertNotIn(
+            "['cancel','Отменить занятие','bot','cancel']",
+            html,
+        )
+
+    def test_group_picker_api_only_displays_owned_groups(self):
+        own=groups.add_group(501,"ОГЭ 2027")
+        base.upsert_teacher(502,name="Анна",subject="Математика",
+            onboarding_completed_at="2026-10-20")
+        groups.add_group(502,"Чужая группа")
+        group_rows=webapp._view(501,"students")["groups"]
+        self.assertEqual(
+            [{"id":int(x["id"]),"name":x["name"]} for x in group_rows],
+            [{"id":own,"name":"ОГЭ 2027"}],
+        )
+
     def test_dashboard_contains_all_main_screen_sections(self):
         data = webapp._dashboard(501)
         self.assertIsNotNone(data)
