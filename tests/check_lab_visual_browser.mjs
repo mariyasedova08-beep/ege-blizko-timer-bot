@@ -70,6 +70,7 @@ try {
           animation: tube?.querySelector('.solidBed.dissolving-solid')
             ? getComputedStyle(tube.querySelector('.solidBed.dissolving-solid')).animationName : '',
           viewportWidth: window.innerWidth, viewportHeight: window.innerHeight,
+          tabsBottom: document.querySelector('.tabs')?.getBoundingClientRect().bottom || 0,
           navRight: Math.max(...[...document.querySelectorAll('.lab-nav a,.lab-nav button')]
             .map(el => el.getBoundingClientRect().right)),
         };
@@ -87,6 +88,9 @@ try {
       assert.ok(state.cardRect?.top >= -2 &&
         state.cardRect?.bottom <= state.viewportHeight + 2,
         label + ': result card stays in viewport');
+      if (viewport.name === 'mobile')
+        assert.ok(state.cardRect?.top >= state.tabsBottom - 2,
+          label + ': result does not obscure navigation tabs');
       if (c.texture === 'gel') assert.ok(state.visual.includes('gel-sediment'), label);
       if (c.texture === 'fine') assert.ok(state.visual.includes('particle fine'), label);
       if (c.texture === 'crystal') assert.ok(state.visual.includes('particle crystal'), label);
