@@ -149,6 +149,28 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
 @media(max-width:430px){.app{padding:19px 14px 112px}.top{margin-bottom:20px}.brand-wordmark{font-size:21px}.big{font-size:33px}.card{padding:14px;min-height:142px}.actions{grid-template-columns:repeat(3,minmax(0,1fr))}.action{font-size:11px;padding:13px 5px;min-height:104px}.action .aicon{width:36px;height:36px}.hero{padding:19px}.hero-main{align-items:flex-start}}
 @media(max-width:355px){.actions{grid-template-columns:repeat(2,minmax(0,1fr))}.nav button{font-size:10px}.brand-wordmark{font-size:19px}}
 @media(prefers-reduced-motion:no-preference){.card,.action,.subject-tile,.theme-tile{transition:transform .14s ease,background .14s ease}.card:active,.action:active,.subject-tile:active,.theme-tile:active{transform:scale(.985)}}
+
+/* PREPODMIN: contextual group workspace, themed and responsive. */
+.group-pills{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 16px}
+.group-pill{background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:9px 13px;font:inherit;font-size:12px;cursor:pointer}
+.group-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0 20px}
+.group-action{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:15px;padding:13px 9px;font:inherit;font-size:12px;text-align:left;cursor:pointer}
+.group-action.primary{background:var(--soft)}
+.group-open{display:flex;width:100%;gap:12px;align-items:center;justify-content:space-between;cursor:pointer;background:transparent;color:var(--ink);border:0;text-align:left;padding:2px 0;font:inherit}
+.group-open .person-name{overflow-wrap:anywhere}
+.group-open .person-meta{font-size:12px}
+.group-open svg{width:19px;height:19px;color:var(--hot);flex-shrink:0}
+.group-item-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.group-item-heading .info-title{overflow-wrap:anywhere}
+.group-attendance-actions{display:flex;gap:7px;margin-top:10px}
+.group-attendance-actions button{background:var(--soft);border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:9px 13px;font:inherit;font-size:12px;cursor:pointer}
+.group-attendance-actions button[aria-pressed="true"]{outline:2px solid var(--hot);outline-offset:0}
+.group-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.group-summary .statbox{padding:12px;min-width:0}
+.group-summary .statbox b{font-size:21px}
+.group-note{color:var(--muted);font-size:12px;line-height:1.5;margin:10px 2px}
+.group-section{scroll-margin-top:12px}
+@media(max-width:430px){.group-buttons{grid-template-columns:repeat(2,minmax(0,1fr))}.group-summary .statbox{padding:9px}.group-summary .statbox b{font-size:20px}}
 </style>
 </head>
 <body>
@@ -283,9 +305,88 @@ function renderStudents(d){
  (d.students||[]).forEach(function(x){out+='<div class="person-card"><div class="person-top"><div style="display:flex;gap:11px;align-items:flex-start"><div class="person-icon">👤</div><div><div class="person-name">'+esc(x.name)+'</div><div class="person-meta">'+esc(x.contact||'индивидуальный ученик')+'</div></div></div><span class="badge ok">активен</span></div></div>';});
  out+='</div><div class="section"><div class="section-title"><strong>Группы</strong><span>обучение</span></div>';
  if(!(d.groups||[]).length)out+='<div class="list"><div class="empty">Групп пока нет</div></div>';
- (d.groups||[]).forEach(function(x){out+='<div class="person-card"><div class="person-top"><div style="display:flex;gap:11px;align-items:flex-start"><div class="person-icon">👥</div><div><div class="person-name">'+esc(x.name)+'</div><div class="person-meta">учебная группа</div></div></div><span class="badge">группа</span></div></div>';});
+ (d.groups||[]).forEach(function(x){out+='<div class="person-card"><button type="button" class="group-open" onclick="openView(\'group:'+Number(x.id)+'\')"><span style="display:flex;gap:11px;align-items:center"><span class="person-icon">👥</span><span><span class="person-name">'+esc(x.name)+'</span><span class="person-meta" style="display:block">Открыть рабочий кабинет группы</span></span></span>'+uiIcon('back')+'</button></div>';});
  out+='</div>';document.getElementById('app').innerHTML=out;
 }
+
+function openGroupBotAction(section,gid){
+ var allowed=['members','schedule','payments','homework'];
+ if(allowed.indexOf(section)<0)return;
+ if(!tg||typeof tg.sendData!=='function'){
+  reportClientError('group_bot_action',new Error('telegram_client_unavailable'));
+  return;
+ }
+ tg.sendData(JSON.stringify({action:'group_quick',section:section,group_id:Number(gid)}));
+}
+function groupSection(id){
+ var item=document.getElementById(id);
+ if(item)item.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function groupHeader(title,subtitle,backView){
+ return '<div class="screen-head"><button class="back" type="button" aria-label="Назад" onclick="openView(\''+backView+'\')">'+uiIcon('back')+'</button><div><h2>'+esc(title)+'</h2><div class="small">'+esc(subtitle||'')+'</div></div></div>';
+}
+function groupPaymentLine(p){
+ if(!p)return '<span class="statuspill">Оплата не настроена</span>';
+ var color=p.level==='bad'?'bad':p.level==='ok'?'ok':p.level==='warn'?'warn':'';
+ return '<span class="statuspill '+color+'">'+esc(p.label)+'</span>'+(p.amount!=null?'<span class="statuspill">'+money(p.amount)+'</span>':'');
+}
+function renderGroup(d){
+ var gid=Number(d.group_id);
+ var a=d.attendance_session;
+ var out=groupHeader(d.title,(d.member_count||0)+' учеников · '+(d.connected_count||0)+' подключено к Telegram','students');
+ out+='<div class="group-summary"><div class="statbox pink"><b>'+Number(d.member_count||0)+'</b><span>учеников</span></div><div class="statbox"><b>'+Number((d.upcoming||[]).length)+'</b><span>занятий за 14 дней</span></div><div class="statbox"><b>'+Number(d.payment_issues||0)+'</b><span>долгов по оплате</span></div></div>';
+ out+='<div class="group-pills"><button class="group-pill" onclick="groupSection(\'grp-members\')">Ученики</button><button class="group-pill" onclick="groupSection(\'grp-schedule\')">Занятия</button><button class="group-pill" onclick="groupSection(\'grp-payments\')">Оплаты</button><button class="group-pill" onclick="groupSection(\'grp-homework\')">ДЗ</button></div>';
+ out+='<div class="group-buttons"><button type="button" class="group-action primary" onclick="openGroupBotAction(\'members\','+gid+')">＋ Добавить ученика</button><button type="button" class="group-action" onclick="openGroupBotAction(\'schedule\','+gid+')">📅 Изменить расписание</button><button type="button" class="group-action" onclick="openGroupBotAction(\'payments\','+gid+')">💳 Управлять оплатами</button><button type="button" class="group-action" onclick="openGroupBotAction(\'homework\','+gid+')">📚 Выдать ДЗ группе</button></div>';
+ out+='<section id="grp-members" class="section group-section"><div class="section-title"><strong>Ученики</strong><span>карточки →</span></div>';
+ if(!(d.members||[]).length)out+='<div class="empty">Участников пока нет</div>';
+ (d.members||[]).forEach(function(m){
+  out+='<div class="person-card"><button type="button" class="group-open" onclick="openView(\'member:'+Number(m.id)+'\')"><span><span class="person-name">'+esc(m.name)+'</span><span class="person-meta" style="display:block">'+(m.connected?'Telegram подключён':'Telegram не подключён')+'</span></span><span>→</span></button><div class="statusline">'+groupPaymentLine(m.payment)+'</div></div>';
+ });
+ out+='</section>';
+ out+='<section id="grp-schedule" class="section group-section"><div class="section-title"><strong>Расписание и посещаемость</strong><span>по группе</span></div>';
+ if(!(d.slots||[]).length)out+='<div class="group-note">Регулярное расписание ещё не задано.</div>';
+ else out+='<div class="group-note">'+(d.slots||[]).map(function(x){return ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][Number(x.weekday)]+' '+esc(x.time);}).join(' · ')+'</div>';
+ if(!(d.upcoming||[]).length)out+='<div class="list"><div class="empty">Ближайших занятий нет</div></div>';
+ else {
+  out+='<div class="list">';
+  (d.upcoming||[]).forEach(function(x){out+='<div class="row"><div class="time">'+esc(x.date_label)+'</div><div class="row-main"><div class="row-title">'+esc(x.time)+'</div><div class="row-sub">'+(x.moved?'Перенесённое занятие':'Групповое занятие')+'</div></div></div>';});
+  out+='</div>';
+ }
+ if(a){
+  out+='<div class="section-title" style="margin-top:17px"><strong>Отметить посещаемость</strong><span>'+esc(a.date_label)+' · '+esc(a.time)+'</span></div>';
+  out+='<div class="group-note">Отметка сохраняется сразу. Если у ученика абонемент, списание занятия происходит по действующим правилам. Можно исправить ошибочную отметку.</div>';
+  (d.members||[]).forEach(function(m){
+   var status=m.attendance;
+   out+='<div class="info-card"><div class="group-item-heading"><span class="info-title">'+esc(m.name)+'</span><span class="statuspill '+(status==='present'?'ok':status==='absent'?'bad':'')+'">'+(status==='present'?'Был(а)':status==='absent'?'Отсутствовал(а)':'Не отмечено')+'</span></div><div class="group-attendance-actions"><button type="button" aria-pressed="'+(status==='present')+'" onclick="setGroupAttendance('+gid+','+Number(m.id)+','+Number(a.slot_id)+',\''+esc(a.date)+'\',\'present\')">✓ Был(а)</button><button type="button" aria-pressed="'+(status==='absent')+'" onclick="setGroupAttendance('+gid+','+Number(m.id)+','+Number(a.slot_id)+',\''+esc(a.date)+'\',\'absent\')">× Не был(а)</button></div></div>';
+  });
+ }else out+='<div class="group-note">За последние 14 дней занятий для отметки нет.</div>';
+ out+='</section><section id="grp-payments" class="section group-section"><div class="section-title"><strong>Оплаты группы</strong><span>актуальные статусы</span></div>';
+ (d.members||[]).forEach(function(m){out+='<div class="info-card"><div class="group-item-heading"><button class="group-open" onclick="openView(\'member:'+Number(m.id)+'\')"><span class="info-title">'+esc(m.name)+'</span><span>→</span></button></div><div class="statusline">'+groupPaymentLine(m.payment)+'</div></div>';});
+ if(!(d.members||[]).length)out+='<div class="empty">Участников нет</div>';
+ out+='</section><section id="grp-homework" class="section group-section"><div class="section-title"><strong>Домашние задания</strong><span>по этой группе</span></div>';
+ (d.homework||[]).forEach(function(h){out+='<div class="info-card"><div class="info-title">'+esc(h.text)+'</div><div class="info-meta">До '+shortDate(h.due)+'</div><div class="statusline"><span class="statuspill">'+Number(h.done)+'/'+Number(h.total)+' выполнено</span></div></div>';});
+ if(!(d.homework||[]).length)out+='<div class="list"><div class="empty">ДЗ группе пока нет</div></div>';
+ out+='</section>';
+ document.getElementById('app').innerHTML=out;
+}
+function renderMember(d){
+ var gid=Number(d.group_id);
+ var out=groupHeader(d.title,d.group_name,'group:'+gid);
+ out+='<div class="hero"><div class="hero-title">Ученик группы</div><div class="hero-note">'+(d.connected?'Telegram подключён':'Telegram ещё не подключён')+'</div></div>';
+ out+='<div class="section"><div class="section-title"><strong>Оплата</strong></div><div class="info-card"><div class="statusline">'+groupPaymentLine(d.payment)+'</div></div></div>';
+ out+='<div class="group-buttons"><button class="group-action primary" onclick="openGroupBotAction(\'payments\','+gid+')">💳 Управлять оплатами</button><button class="group-action" onclick="openGroupBotAction(\'homework\','+gid+')">📚 Выдать ДЗ группе</button></div>';
+ out+='<div class="section"><div class="section-title"><strong>Домашние задания</strong><span>история ученика</span></div>';
+ (d.homework||[]).forEach(function(h){out+='<div class="info-card"><div class="info-title">'+esc(h.text)+'</div><div class="info-meta">До '+shortDate(h.due)+'</div><div class="statusline"><span class="statuspill '+(h.status==='done'?'ok':'')+'">'+(h.status==='done'?'Выполнено':'Ожидается')+'</span></div></div>';});
+ if(!(d.homework||[]).length)out+='<div class="list"><div class="empty">Домашних заданий пока нет</div></div>';
+ out+='</div>';document.getElementById('app').innerHTML=out;
+}
+async function setGroupAttendance(gid,pid,slot,day,status){
+ try{
+  await teacherAction({action:'group_attendance',group_id:gid,member_id:pid,slot_id:slot,date:day,status:status});
+  await openView('group:'+gid,true);
+ }catch(e){await reportClientError('group_attendance',e);alert('Не удалось сохранить посещаемость. Попробуй снова.');}
+}
+
 function renderSchedule(d){
  var out=screenHeader('Расписание','ближайшие 7 дней');
  (d.days||[]).forEach(function(day){var rows='';(day.events||[]).forEach(function(e){rows+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+'</div></div><span class="badge '+(e.moved?'warn':'')+'">'+(e.moved?'перенос':'занятие')+'</span></div>';});out+='<div class="day-panel '+(day.is_today?'tomorrow':'')+'" style="margin-bottom:10px"><div class="day-panel-head"><strong>'+esc(day.weekday)+' · '+esc(day.date)+'</strong><span>'+(day.is_today?'Сегодня':'')+'</span></div>'+(rows||'<div class="empty">Нет занятий</div>')+'</div>';});
@@ -426,8 +527,8 @@ async function saveTheme(){
  }
 }
 function renderFallback(view,d){document.getElementById('app').innerHTML=screenHeader((d&&d.title)||'Раздел','данные загружены')+'<div class="list"><div class="empty">Раздел пока открывается в Telegram-меню.</div></div>';}
-function renderView(view,d){if(view==='settings')return renderSettings(d);if(view==='profile')return renderProfile(d);if(view==='home')return renderHome(d);if(view==='students')return renderStudents(d);if(view==='schedule')return renderSchedule(d);if(view==='homework')return renderHomework(d);if(view==='payments')return renderPayments(d);if(view==='attention')return renderAttention(d);if(view==='tasks')return renderTasks(d);if(view==='attendance')return renderAttendance(d);if(view==='reports')return renderReports(d);if(view==='slots')return renderSlots(d);return renderFallback(view,d);}
-async function openView(view){currentView=view;setNav(['home','tasks','students','schedule'].indexOf(view)>=0?view:'');document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(view);if(p.theme){savedTheme=p.theme;applyTheme(p.theme);}try{renderView(p.view,p.data);}catch(renderError){await reportClientError('render:'+view,renderError);renderFallback(view,p.data||{});}try{window.scrollTo(0,0);}catch(_){}}catch(e){await reportClientError('open:'+view,e);document.getElementById('app').innerHTML='<div class="error">Раздел не загрузился. Нажми «Кабинет» и попробуй ещё раз.</div>';}}
+function renderView(view,d){if(view.indexOf('group:')===0)return renderGroup(d);if(view.indexOf('member:')===0)return renderMember(d);if(view==='settings')return renderSettings(d);if(view==='profile')return renderProfile(d);if(view==='home')return renderHome(d);if(view==='students')return renderStudents(d);if(view==='schedule')return renderSchedule(d);if(view==='homework')return renderHomework(d);if(view==='payments')return renderPayments(d);if(view==='attention')return renderAttention(d);if(view==='tasks')return renderTasks(d);if(view==='attendance')return renderAttendance(d);if(view==='reports')return renderReports(d);if(view==='slots')return renderSlots(d);return renderFallback(view,d);}
+async function openView(view,retainScroll){var oldY=retainScroll?window.scrollY:0;currentView=view;setNav(['home','tasks','students','schedule'].indexOf(view)>=0?view:'');document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(view);if(p.theme){savedTheme=p.theme;applyTheme(p.theme);}try{renderView(p.view,p.data);}catch(renderError){await reportClientError('render:'+view,renderError);renderFallback(view,p.data||{});}try{window.scrollTo(0,retainScroll?oldY:0);}catch(_){}}catch(e){await reportClientError('open:'+view,e);document.getElementById('app').innerHTML='<div class="error">Раздел не загрузился. Нажми «Кабинет» и попробуй ещё раз.</div>';}}
 async function boot(){if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="top"><div><div class="brand-wordmark"><span>ПРЕП</span>АДМИН</div><div class="top-kicker">кабинет преподавателя</div><h1>Мой кабинет</h1><div class="sub">Открой этот экран через кнопку «Мой кабинет» внутри бота.</div></div><div class="logo">'+uiIcon('layers')+'</div></div>';return;}await openView('home');}
 hydrateNavIcons();
 boot();
