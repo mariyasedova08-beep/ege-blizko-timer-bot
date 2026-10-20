@@ -49,5 +49,70 @@ class QuickSetupStatusTest(unittest.TestCase):
         self.assertTrue(status["payments"])
 
 
+
+class QuickSetupRefreshFeedbackTest(unittest.IsolatedAsyncioTestCase):
+    """The Refresh button must visibly acknowledge both unchanged and new data."""
+
+    async def test_unchanged_progress_confirms_without_editing_or_db_changes(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock, patch
+        from telegram.ext import ApplicationHandlerStop
+
+        query = SimpleNamespace(
+            message=SimpleNamespace(text="Готово: 1/4 шагов"),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=101),
+            callback_query=query,
+        )
+        progress = {
+            "profile": True, "people": False,
+            "schedule": False, "payments": False,
+        }
+        with patch.object(onboarding, "_progress_text", return_value=query.message.text), \
+                patch.object(onboarding, "_progress_markup", return_value="markup"), \
+                patch.object(onboarding, "setup_status", return_value=progress):
+            with self.assertRaises(ApplicationHandlerStop):
+                await onboarding.show_setup(update, None)
+        query.answer.assert_awaited_once_with(
+            "✅ Проверено: 1/4 шага. Новых изменений нет.",
+            show_alert=True,
+        )
+        query.edit_message_text.assert_not_awaited()
+
+    async def test_changed_progress_updates_message_and_shows_confirmation(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock, patch
+        from telegram.ext import ApplicationHandlerStop
+
+        query = SimpleNamespace(
+            message=SimpleNamespace(text="Готово: 1/4 шагов"),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=101),
+            callback_query=query,
+        )
+        progress = {
+            "profile": True, "people": True,
+            "schedule": False, "payments": False,
+        }
+        with patch.object(onboarding, "_progress_text", return_value="Готово: 2/4 шагов"), \
+                patch.object(onboarding, "_progress_markup", return_value="markup"), \
+                patch.object(onboarding, "setup_status", return_value=progress):
+            with self.assertRaises(ApplicationHandlerStop):
+                await onboarding.show_setup(update, None)
+        query.answer.assert_awaited_once_with(
+            "✅ Прогресс обновлён: 2/4 шага.",
+            show_alert=True,
+        )
+        query.edit_message_text.assert_awaited_once_with(
+            "Готово: 2/4 шагов", reply_markup="markup",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

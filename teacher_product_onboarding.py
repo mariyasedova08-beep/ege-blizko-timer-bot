@@ -193,9 +193,17 @@ async def show_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         status = setup_status(uid)
         completed = sum(bool(status[key]) for key in ("profile", "people", "schedule", "payments"))
         if q.message and q.message.text == text:
-            await q.answer(f"Прогресс уже актуален: {completed}/4", show_alert=False)
+            # An invisible toast made this button appear broken. Acknowledge
+            # unchanged data clearly, without rewriting user records.
+            await q.answer(
+                f"✅ Проверено: {completed}/4 шага. Новых изменений нет.",
+                show_alert=True,
+            )
         else:
-            await q.answer("Прогресс обновлён", show_alert=False)
+            await q.answer(
+                f"✅ Прогресс обновлён: {completed}/4 шага.",
+                show_alert=True,
+            )
             await q.edit_message_text(text, reply_markup=markup)
     else:
         await update.message.reply_text(text, reply_markup=markup)
