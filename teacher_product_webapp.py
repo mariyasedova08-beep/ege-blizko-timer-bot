@@ -32,6 +32,7 @@ import teacher_product_transfer_button as transfer_button
 import teacher_product_cancellations as cancellations
 import teacher_product_onboarding as onboarding
 import teacher_product_help as help_guide
+import teacher_product_group_workspace as group_workspace
 
 PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
 WEBAPP_URL = os.getenv(
@@ -508,6 +509,8 @@ def _teacher_action(uid, payload):
         # Authenticated Telegram UID scopes all updates; no user-supplied teacher ID.
         base.upsert_teacher(int(uid), name=name, subject=subject, subject_id=subject_id)
         return {"ok": True, "name": name, "subject": subject, "subject_id": subject_id}
+    if action_name == "group_attendance":
+        return group_workspace.mark_attendance(uid, payload)
     if action_name != "task_done":
         return {"ok": False, "error": "unknown_action"}
 
@@ -611,6 +614,16 @@ def _slots_view(uid):
 
 
 def _view(uid, name):
+    if name.startswith("group:") or name.startswith("member:"):
+        kind, _, raw_id = name.partition(":")
+        if not raw_id.isascii() or not raw_id.isdecimal() or len(raw_id) > 12:
+            return None
+        identifier = int(raw_id)
+        if identifier <= 0:
+            return None
+        return (group_workspace.group_view(uid, identifier) if kind == "group"
+                else group_workspace.member_view(uid, identifier))
+
     builders = {
         "home": _dashboard,
         "profile": _profile_view,
@@ -1004,6 +1017,30 @@ async def webapp_action(update, context):
         action = str(payload.get("action") or "")
     except Exception:
         action = ""
+
+    if action == "group_quick":
+        try:
+            gid = int(payload.get("group_id"))
+        except (TypeError, ValueError):
+            return
+        if not groups.get_group(update.effective_user.id, gid):
+            await update.message.reply_text("Группа недоступна.")
+            return
+        section = str(payload.get("section") or "")
+        choices = {
+            "members": ("➕ Добавить ученика", f"gmem:add:{gid}"),
+            "schedule": ("📅 Настроить расписание", f"gs:add:{gid}"),
+            "payments": ("💳 Оплаты группы", f"gpay:group:{gid}"),
+            "homework": ("📚 Выдать домашнее задание", f"edu:hwquick:group:{gid}"),
+        }
+        choice = choices.get(section)
+        if not choice:
+            return
+        await update.message.reply_text(
+            "Выбрана группа: " + groups.get_group(update.effective_user.id, gid)["name"],
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(choice[0], callback_data=choice[1])]]),
+        )
+        return
 
     mapping = {
         "students": groups.people_menu,
