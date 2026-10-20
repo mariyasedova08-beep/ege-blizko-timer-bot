@@ -150,17 +150,30 @@ for path in "${changed[@]}"; do
 done
 systemctl restart "$SERVICE"
 healthy=0
-for _ in $(seq 1 15); do
-  if systemctl is-active --quiet "$SERVICE" && \
-     curl --silent --show-error --fail --max-time 8 "$HEALTH_URL" >/dev/null 2>&1 && \
-     curl --silent --show-error --fail --max-time 8 "$LAB_URL" -o "$BACKUP/health-page.html" && \
-     grep -Fq 'Лаборатория' "$BACKUP/health-page.html"; then
+last_failure="unknown"
+# Report the failing probe before rolling back. Never emit response bodies,
+# environment values, Telegram data or service journals in CI logs.
+for attempt in $(seq 1 15); do
+  if ! systemctl is-active --quiet "$SERVICE"; then
+    last_failure="service_not_active"
+  elif ! curl --silent --fail --max-time 8 "$HEALTH_URL" >/dev/null 2>&1; then
+    last_failure="health_url_failed"
+  elif ! curl --silent --fail --max-time 8 "$LAB_URL" -o "$BACKUP/health-page.html" 2>/dev/null; then
+    last_failure="lab_url_failed"
+  elif ! grep -Fq 'Лаборатория' "$BACKUP/health-page.html"; then
+    last_failure="lab_page_marker_missing"
+  else
     healthy=1
+    echo "LAB_HEALTH_CHECK_OK"
     break
   fi
+  echo "LAB_HEALTH_RETRY attempt=$attempt reason=$last_failure"
   sleep 2
 done
-[[ "$healthy" -eq 1 ]] || { echo "ERROR: post-release health check failed" >&2; false; }
+[[ "$healthy" -eq 1 ]] || {
+  echo "ERROR: post-release health check failed reason=$last_failure" >&2
+  false
+}
 printf '%s\n' "$ACTION" > "$STATE_FILE.tmp"
 chmod 0600 "$STATE_FILE.tmp"
 mv -f "$STATE_FILE.tmp" "$STATE_FILE"
