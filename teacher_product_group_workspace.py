@@ -278,6 +278,7 @@ def group_view(uid, gid):
             for r in groups.group_slots(uid) if int(r["group_id"]) == int(gid)
         ],
         "upcoming": upcoming,
+        "lesson_occurrences": __import__("teacher_product_webapp_lessons").upcoming(uid, gid),
         "attendance_session": last_session,
         "homework": homework,
     }
