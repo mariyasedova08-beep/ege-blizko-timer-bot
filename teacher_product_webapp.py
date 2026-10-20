@@ -509,6 +509,8 @@ def _teacher_action(uid, payload):
         # Authenticated Telegram UID scopes all updates; no user-supplied teacher ID.
         base.upsert_teacher(int(uid), name=name, subject=subject, subject_id=subject_id)
         return {"ok": True, "name": name, "subject": subject, "subject_id": subject_id}
+    if action_name == "member_payment_update":
+        return group_workspace.update_member_payment(uid, payload)
     if action_name == "group_attendance":
         return group_workspace.mark_attendance(uid, payload)
     if action_name == "group_quick":
