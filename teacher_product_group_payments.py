@@ -982,6 +982,21 @@ def validate():
     print("PREPADMIN group payments ready: per-member plans + package attendance charging", flush=True)
 
 
+def _payment_setup_conversation():
+    """Expose the group payment wizard for isolated routing regression tests."""
+    return ConversationHandler(
+        entry_points=[CallbackQueryHandler(setup_begin, pattern=r"^gpay:setup:\d+$")],
+        states={
+            GPAY_TYPE: [CallbackQueryHandler(setup_type, pattern=r"^gpay:type:(?:once|monthly|package)$")],
+            GPAY_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_amount)],
+            GPAY_FINAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_final)],
+        },
+        fallbacks=[CallbackQueryHandler(setup_cancel, pattern=r"^gpay:cancel:\d+$")],
+        allow_reentry=True,
+        per_message=False,
+    )
+
+
 def install(app):
     ensure_tables()
     patch_attendance()
@@ -993,18 +1008,7 @@ def install(app):
     # legacy individual-only screen.
     individual_payments.payments_menu = payments_home
 
-    setup = ConversationHandler(
-        entry_points=[CallbackQueryHandler(setup_begin, pattern=r"^gpay:setup:\d+$")],
-        states={
-            GPAY_TYPE: [CallbackQueryHandler(setup_type, pattern=r"^gpay:type:(?:once|monthly|package)$")],
-            GPAY_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_amount)],
-            GPAY_FINAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_final)],
-        },
-        fallbacks=[CallbackQueryHandler(setup_cancel, pattern=r"^gpay:cancel:\d+$")],
-        allow_reentry=True,
-        per_message=False,
-    )
-    app.add_handler(setup, group=-2)
+    app.add_handler(_payment_setup_conversation(), group=-2)
     app.add_handler(MessageHandler(filters.Regex(r"^💳 Оплаты$"), payments_home), group=-2)
     app.add_handler(CallbackQueryHandler(home_callback, pattern=r"^gpay:home$"), group=-2)
     app.add_handler(CallbackQueryHandler(individual_view, pattern=r"^gpay:individual$"), group=-2)
