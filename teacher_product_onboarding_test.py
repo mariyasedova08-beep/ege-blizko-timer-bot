@@ -526,5 +526,149 @@ class GroupPaymentsFastNavigationTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Настроено: 3/3", self.payments._group_payment_hub(101, self.gid)[0])
 
 
+
+class FullyPaidCoursePaymentsTest(unittest.IsolatedAsyncioTestCase):
+    """Full-course receipts must not be treated as overdue single lessons."""
+
+    def setUp(self):
+        from unittest.mock import AsyncMock
+        from datetime import date
+        import teacher_product_group_payments as payments
+        self.payments = payments
+        self.AsyncMock = AsyncMock
+        self.tmp = tempfile.TemporaryDirectory()
+        base.DB_PATH = os.path.join(self.tmp.name, "course.sqlite3")
+        base.ensure_tables()
+        groups.ensure_tables()
+        payments.ensure_tables()
+        base.upsert_teacher(
+            101, name="Мария", subject="Химия",
+            onboarding_completed_at="2026-10-20",
+        )
+        base.upsert_teacher(
+            202, name="Другой учитель", subject="Физика",
+            onboarding_completed_at="2026-10-20",
+        )
+        self.gid = groups.add_group(101, "ОГЭ 2027")
+        self.pid = int(student_reminders.add_member(101, self.gid, "Алина")["id"])
+        self.received = date(2026, 10, 18)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _data(self, amount=85100):
+        return {
+            "pid": self.pid, "gid": self.gid, "name": "Алина",
+            "type": "course_paid", "amount": amount,
+        }
+
+    def test_existing_group_payment_schema_is_extended_additively(self):
+        with base.db() as conn:
+            columns = {r[1] for r in conn.execute("PRAGMA table_info(group_member_payment_plans)")}
+            self.assertIn("course_paid", columns)
+            self.assertIn("course_paid_date", columns)
+            conn.execute(
+                "INSERT INTO group_member_payment_plans("
+                "teacher_telegram_user_id,person_id,group_id,payment_type,amount_rub,"
+                "next_due_date,active,created_at,updated_at) "
+                "VALUES(?,?,?,?,?,?,?,?,?)",
+                (101,self.pid,self.gid,"once",9900,"2026-11-02",1,"now","now"),
+            )
+            conn.commit()
+        self.payments.ensure_tables()
+        with base.db() as conn:
+            plan = conn.execute(
+                "SELECT amount_rub,course_paid FROM group_member_payment_plans WHERE person_id=?",
+                (self.pid,),
+            ).fetchone()
+            self.assertEqual(int(plan["amount_rub"]), 9900)
+            self.assertEqual(int(plan["course_paid"]), 0)
+
+    def test_full_course_is_paid_not_due_and_history_logged_once(self):
+        p = self.payments
+        p._save_group_plan(101, self._data(), received=self.received)
+        plan = p._plan(101, self.pid)
+        self.assertTrue(plan["active"])
+        self.assertEqual(plan["payment_type"], "once")  # existing SQLite CHECK retained
+        self.assertEqual(plan["course_paid"], 1)
+        self.assertEqual(plan["course_paid_date"], self.received.isoformat())
+        self.assertIsNone(plan["next_due_date"])
+        self.assertEqual(plan["amount_rub"], 85100)
+        self.assertIn("курс оплачен полностью", p._status(101, plan)[0])
+        self.assertEqual(p._status(101, plan)[1], "ok")
+        self.assertIn("Настроено: 1/1", p._group_payment_hub(101, self.gid)[0])
+        self.assertIn("весь курс", p._group_payment_payload(101, self.pid)["hint"])
+        self.assertIsNone(p._plan(202, self.pid))
+        text, markup = p._member_card(101, self.pid)
+        self.assertIn("весь курс", text)
+        callbacks = [b.callback_data for line in markup.inline_keyboard for b in line]
+        self.assertNotIn(f"gpay:paid:{self.pid}", callbacks)
+        p._save_group_plan(101, self._data(), received=self.received)
+        with base.db() as conn:
+            history = conn.execute(
+                "SELECT amount_rub,payment_type,paid_at FROM group_member_payment_history "
+                "WHERE teacher_telegram_user_id=? AND person_id=?",
+                (101,self.pid),
+            ).fetchall()
+            self.assertEqual(len(history), 1)
+            self.assertEqual(history[0]["payment_type"], "course_paid")
+            self.assertEqual(history[0]["amount_rub"], 85100)
+            self.assertTrue(history[0]["paid_at"].startswith("2026-10-18"))
+
+    def test_existing_receipt_cannot_silently_change_or_duplicate(self):
+        p = self.payments
+        p._save_group_plan(101, self._data(), received=self.received)
+        with self.assertRaises(ValueError):
+            p._save_group_plan(101, self._data(85110), received=self.received)
+        self.assertEqual(int(p._plan(101, self.pid)["amount_rub"]), 85100)
+
+    def test_regular_lesson_monthly_and_package_plan_still_work(self):
+        from datetime import date
+        p = self.payments
+        p._save_group_plan(
+            101, {"pid":self.pid,"gid":self.gid,"type":"monthly","amount":9900},
+            due=date(2026,11,2),
+        )
+        self.assertEqual(p._plan(101, self.pid)["course_paid"], 0)
+        self.assertEqual(p._plan(101, self.pid)["payment_type"], "monthly")
+        p._save_group_plan(
+            101, {"pid":self.pid,"gid":self.gid,"type":"package","amount":9000},
+            lessons=8,
+        )
+        self.assertEqual(p._plan(101, self.pid)["lessons_remaining"], 8)
+        self.assertEqual(p._plan(101, self.pid)["course_paid"], 0)
+
+    def test_received_date_parser_rejects_future_and_accepts_past(self):
+        from datetime import date
+        parser = self.payments._parse_received_date
+        today = date(2026,10,20)
+        self.assertIsNone(parser("21.10.2026", today))
+        self.assertIsNone(parser("нескоро", today))
+        self.assertEqual(parser("18.10.2026", today), date(2026,10,18))
+        self.assertEqual(parser("18.10", today), date(2026,10,18))
+
+    async def test_full_course_wizard_saves_confirmed_receipt(self):
+        from types import SimpleNamespace
+        from telegram.ext import ConversationHandler
+        ctx=SimpleNamespace(user_data={"gpay": self._data()})
+        message=SimpleNamespace(text="18.10.2026", reply_text=self.AsyncMock())
+        update=SimpleNamespace(effective_user=SimpleNamespace(id=101),message=message)
+        state=await self.payments.setup_final(update,ctx)
+        self.assertEqual(state,ConversationHandler.END)
+        self.assertNotIn("gpay",ctx.user_data)
+        self.assertIn("оплачен полностью",message.reply_text.await_args.args[0])
+        self.assertIn("85 100",message.reply_text.await_args.args[0])
+        self.assertIsNone(self.payments._plan(101,self.pid)["next_due_date"])
+
+    async def test_future_receipt_date_does_not_save(self):
+        from types import SimpleNamespace
+        ctx=SimpleNamespace(user_data={"gpay":self._data()})
+        message=SimpleNamespace(text="21.10.2026", reply_text=self.AsyncMock())
+        update=SimpleNamespace(effective_user=SimpleNamespace(id=101),message=message)
+        state=await self.payments.setup_final(update,ctx)
+        self.assertEqual(state,self.payments.GPAY_FINAL)
+        self.assertIsNone(self.payments._plan(101,self.pid))
+
+
 if __name__ == "__main__":
     unittest.main()
