@@ -872,6 +872,13 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
 }
 
 /* Lesson pilot: two independent working areas, with the live lab catalogue. */
+/* Keep the lesson focused on materials rather than general app navigation. */
+body:has(#lesson.page.on) .lab-title-wrap,body:has(#lesson.page.on) .lab-topbar{display:none}
+body:has(#lesson.page.on) .tabs{display:flex;gap:5px;justify-content:flex-start;margin-bottom:5px}
+body:has(#lesson.page.on) .tabs button:not([data-page="free"]):not([data-page="lesson"]){display:none}
+body:has(#lesson.page.on) .tabs button{padding:7px 12px;font-size:12px}
+body:has(#lesson.page.on) .lesson-studio{height:calc(100dvh - 66px);min-height:560px}
+
 #lesson.page{min-width:0}
 body:has(#lesson.page.on) .app{max-width:none}
 .lesson-studio{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,7fr);gap:10px;height:calc(100dvh - 196px);min-height:550px}
@@ -921,7 +928,7 @@ body:has(#lesson.page.on) .app{max-width:none}
     <a id="labBackCabinet" href="#">⌂ В кабинет</a>
   </div>
 </div>
-<p style="margin:0 0 8px;background:#ffebf6;padding:8px;border-radius:8px;font-size:12px">Пробная версия урока. PDF и пометки остаются только в браузере. Для письма и опыта выбери вкладку «✍ Урок».</p><div class="lab-title-wrap">
+<div class="lab-title-wrap">
   <div><h1>🧪 Лаборатория</h1><div class="lab-title-note">Опыты, тренажёры и экзаменационная практика</div></div>
   <div class="logo">ЕГЭ БЛИЗКО</div>
 </div>
@@ -2482,7 +2489,7 @@ api({action:"load"}).then(j=>{
  data.reactions.forEach(x=>{const k=key(x.a,x.b);if(!reactionMap.has(k))reactionMap.set(k,[]);reactionMap.get(k).push(x)});
  const cv=document.getElementById("labCoverage");if(cv&&data.coverage)cv.textContent="В текущем ЕГЭ-каталоге: "+data.coverage.substances+" веществ · "+data.coverage.reactions+" реакций/условий.";
  renderTubes();renderReagents();setupMobileTubePicker();setupReagentFilters();setupReagentSearch();setupLab();renderStats();lessonSetup();
- const requestedPage=labQs.get("page")||"";
+ const requestedPage=labQs.get("page")||"lesson";
  if(requestedPage){
    const btn=document.querySelector('[data-page="'+requestedPage+'"]');
    if(btn)btn.click();
