@@ -716,6 +716,10 @@ class GroupLessonsMiniAppTest(unittest.IsolatedAsyncioTestCase):
         rows=[s for s in groups.group_slots(101) if int(s["group_id"])==self.gid]
         self.assertEqual(len(rows),2)
         self.assertEqual(webapp._teacher_action(101,{**data,"request_key":"webapp-add-lesson-02"})["error"],"slot_already_exists")
+        self.assertEqual(
+            webapp._teacher_action(101,{**data,"weekday":2})["error"],
+            "request_key_conflict",
+        )
         self.assertEqual(webapp._teacher_action(202,data)["error"],"group_not_found")
         self.assertEqual(webapp._teacher_action(101,{**data,"time":"not time"})["error"],"invalid_time")
 
