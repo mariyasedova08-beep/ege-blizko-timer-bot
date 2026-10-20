@@ -1294,6 +1294,10 @@ def install(app):
         group=-17,
     )
 
+    # WebApp homework uses the same messaging gateway but a durable queue:
+    # the synchronous WebApp HTTP handler must never send Telegram messages.
+    import teacher_product_webapp_homework as webapp_homework
+    webapp_homework.ensure_tables()
     if app.job_queue is not None:
         app.job_queue.run_repeating(
             homework_reminder_tick,
@@ -1301,8 +1305,14 @@ def install(app):
             first=20,
             name="teacher_homework_reminders",
         )
+        app.job_queue.run_repeating(
+            webapp_homework.delivery_tick,
+            interval=30,
+            first=12,
+            name="prepodmin_webapp_homework_outbox",
+        )
     else:
-        print("WARNING: JobQueue unavailable; homework reminders will not run", flush=True)
+        print("WARNING: JobQueue unavailable; homework reminders and WebApp delivery will not run", flush=True)
 
     print(
         "PREPODMIN learning flow ready: homework + attendance + student completion + debt reminders",
