@@ -145,14 +145,20 @@ def save(uid, payload):
         if previous:
             if previous["kind"] != kind or int(previous["group_id"]) != gid:
                 return {"ok":False,"error":"request_key_conflict"}
-            if (kind == "add" and previous["new_time"] != new_time
-                    or kind != "add" and (
-                        int(previous["slot_id"]) != slot_id
-                        or previous["original_date"] != occurrence.isoformat()
-                        or kind == "move" and (
-                            previous["new_date"] != new_date.isoformat()
-                            or previous["new_time"] != new_time
-                        )
+            if kind == "add":
+                original_slot = conn.execute(
+                    "SELECT weekday,time_text FROM group_schedule_slots "
+                    "WHERE id=? AND teacher_telegram_user_id=?",
+                    (int(previous["slot_id"]),int(uid)),
+                ).fetchone()
+                if (not original_slot or int(original_slot["weekday"]) != weekday
+                        or original_slot["time_text"] != new_time):
+                    return {"ok":False,"error":"request_key_conflict"}
+            elif (int(previous["slot_id"]) != slot_id
+                    or previous["original_date"] != occurrence.isoformat()
+                    or kind == "move" and (
+                        previous["new_date"] != new_date.isoformat()
+                        or previous["new_time"] != new_time
                     )):
                 return {"ok":False,"error":"request_key_conflict"}
             return {"ok":True,"duplicate":True,"action_id":int(previous["id"]),"state":previous["state"]}
