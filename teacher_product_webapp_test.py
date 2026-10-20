@@ -32,30 +32,66 @@ class TeacherDashboardTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_home_transfer_cancel_tiles_use_group_lesson_editor_not_send_data(self):
+    def test_main_navigation_has_five_clear_destinations(self):
         html = webapp.HTML_PATH.read_text(encoding="utf-8")
-        for item in (
-            "['transfer','Перенести занятие','lesson','transfer']",
-            "['cancel','Отменить занятие','lesson','cancel']",
-            "async function openHomeLessonAction(action)",
-            "async function openGroupLessonFromHome(gid,action)",
-            "await api('students')",
-            "activeGroupTab='lessons'",
-            "await openView('group:'+Number(gid))",
+        menu = html.split('<div class="bottom"><div class="nav">', 1)[1].split('</div></div>', 1)[0]
+        self.assertEqual(menu.count('<button id="nav-'),5)
+        for nav, label, view in (
+            ('home','Главная','home'),('students','Ученики','students'),
+            ('schedule','Занятия','schedule'),('tasks','Задачи','tasks'),
+            ('more','Ещё','more'),
         ):
-            self.assertIn(item,html)
-        self.assertIn(
-            """a[2]==='lesson'?"openHomeLessonAction('"+a[3]+"')""",
-            html,
-        )
-        self.assertNotIn(
-            "['transfer','Перенести занятие','bot','transfer']",
-            html,
-        )
-        self.assertNotIn(
-            "['cancel','Отменить занятие','bot','cancel']",
-            html,
-        )
+            self.assertIn(f'id="nav-{nav}"',menu)
+            self.assertIn(f"openView('{view}')",menu)
+            self.assertIn(label,menu)
+        self.assertIn("grid-template-columns:repeat(5,minmax(0,1fr))",html)
+
+    def test_large_tiles_removed_from_home_and_rare_functions_retained_in_more(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        home=html.split("function renderHome(d){",1)[1].split("function renderStudents(d){",1)[0]
+        self.assertNotIn("Все разделы",home)
+        self.assertNotIn('<div class="actions">',home)
+        self.assertIn("Всё остальное — во вкладке «Ещё»",home)
+        self.assertIn("function renderMore()",html)
+        self.assertIn('<details class="more-category">',html)
+        for action in (
+            "openView('homework')",
+            "openView('attendance')",
+            "openView('payments')",
+            "openView('reports')",
+            "openView('attention')",
+            "openHomeLessonAction('transfer')",
+            "openHomeLessonAction('cancel')",
+            "openView('slots')",
+            "openView('profile')",
+            "openView('settings')",
+        ):
+            self.assertIn(action,html)
+        self.assertIn('function openPrepadminBot()',html)
+        self.assertIn("Материалы, напоминания, настройки рассылок и инструкция",html)
+
+    def test_more_view_renders_client_side_without_unauthorized_api_routes(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        self.assertIn("if(view==='more'){renderMore();",html)
+        self.assertIn("if(view==='more')return renderMore()",html)
+        self.assertIn("'students':view==='lesson-picker'?'schedule'",html)
+        self.assertIn("async function openHomeLessonAction(action)",html)
+        self.assertIn("async function openGroupLessonFromHome(gid,action)",html)
+        self.assertIn("await api('students')",html)
+        self.assertIn("activeGroupTab='lessons'",html)
+        self.assertIn("await openView('group:'+Number(gid))",html)
+        self.assertIn('Перенести в группе',html)
+        self.assertIn('Отменить в группе',html)
+        self.assertNotIn("['transfer','Перенести занятие','bot','transfer']",html)
+        self.assertNotIn("['cancel','Отменить занятие','bot','cancel']",html)
+
+    def test_look_and_feel_retains_all_themable_css(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        self.assertIn("--paper",html)
+        self.assertIn("var vars={'--milk':c.background",html)
+        self.assertIn("background:var(--soft)",html)
+        self.assertIn("function renderSettings(d)",html)
+        self.assertIn("14 цветовых тем",html)
 
     def test_group_picker_api_only_displays_owned_groups(self):
         own=groups.add_group(501,"ОГЭ 2027")

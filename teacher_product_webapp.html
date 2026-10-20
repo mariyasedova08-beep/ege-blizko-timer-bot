@@ -219,15 +219,41 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
 .glesson-notify legend{font-size:13px;font-weight:650;padding:0 5px}
 .glesson-notify label{display:flex;gap:9px;align-items:center;font-size:12px;line-height:1.45;color:var(--ink);cursor:pointer}
 .glesson-notify input{width:17px;height:17px;accent-color:var(--hot);flex-shrink:0}
+
+/* Rarely used features are deliberately disclosed by category, rather than
+   repeated as sixteen large home tiles. Existing themes remain CSS-driven. */
+.nav{grid-template-columns:repeat(5,minmax(0,1fr))}
+.nav button{min-width:0}
+.home-nav-hint{color:var(--muted);font-size:12px;line-height:1.5;margin:20px 4px 0}
+.more-intro{font-size:12px;color:var(--muted);line-height:1.5;margin:0 0 18px}
+.more-category{border:1px solid var(--line);border-radius:18px;background:var(--paper);margin:0 0 10px;overflow:hidden}
+.more-category summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;padding:17px 16px}
+.more-category summary::-webkit-details-marker{display:none}
+.more-category summary:focus-visible,.more-link:focus-visible,.more-bot-link:focus-visible{outline:2px solid var(--hot);outline-offset:-2px}
+.more-category .more-heading{display:flex;flex-direction:column;gap:3px}
+.more-category .more-title{font-size:14px;font-weight:650}
+.more-category .more-subtitle{font-size:11px;color:var(--muted)}
+.more-category .more-chevron{color:var(--muted);transition:transform .15s ease;font-size:20px}
+.more-category[open] .more-chevron{transform:rotate(90deg)}
+.more-items{border-top:1px solid var(--line)}
+.more-link{display:flex;align-items:center;gap:12px;padding:13px 16px;width:100%;font:inherit;color:var(--ink);background:transparent;text-align:left;border:0;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
+.more-link:last-child{border-bottom:0}
+.more-link .more-link-icon{width:27px;height:27px;border-radius:9px;background:var(--soft);color:var(--hot);display:grid;place-items:center;flex-shrink:0}
+.more-link .more-link-icon svg{width:16px;height:16px}
+.more-link .more-link-text{flex:1}
+.more-link .more-arrow{font-size:16px;color:var(--muted)}
+.more-bot-link{display:block;border:1px solid var(--line);border-radius:14px;background:var(--soft);color:var(--ink);padding:13px 15px;font:inherit;font-size:12px;text-align:left;width:100%;cursor:pointer}
+@media(max-width:360px){.nav{gap:2px}.nav button{font-size:10px;padding-left:0;padding-right:0}.nav i svg{width:19px;height:19px}}
 </style>
 </head>
 <body>
 <div class="app" id="app"><div class="loading">Открываю ПРЕПАДМИН…</div></div>
 <div class="bottom"><div class="nav">
-<button id="nav-home" class="active" onclick="openView('home')"><i data-ui-icon="home"></i>Кабинет</button>
-<button id="nav-tasks" onclick="openView('tasks')"><i data-ui-icon="tasks"></i>Задачи</button>
+<button id="nav-home" class="active" onclick="openView('home')"><i data-ui-icon="home"></i>Главная</button>
 <button id="nav-students" onclick="openView('students')"><i data-ui-icon="users"></i>Ученики</button>
-<button id="nav-schedule" onclick="openView('schedule')"><i data-ui-icon="calendar"></i>Расписание</button>
+<button id="nav-schedule" onclick="openView('schedule')"><i data-ui-icon="calendar"></i>Занятия</button>
+<button id="nav-tasks" onclick="openView('tasks')"><i data-ui-icon="tasks"></i>Задачи</button>
+<button id="nav-more" onclick="openView('more')"><i data-ui-icon="layers"></i>Ещё</button>
 </div></div>
 <script>
 // Telegram owns the native Mini App window size. On modern desktop clients,
@@ -296,7 +322,7 @@ function hydrateNavIcons(){
 }
 function money(n){return n?String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' ')+' ₽':'—';}
 function shortDate(s){var p=String(s||'').split('-');return p.length===3?p[2]+'.'+p[1]:String(s||'');}
-function setNav(v){['home','tasks','students','schedule'].forEach(function(x){var e=document.getElementById('nav-'+x);if(e)e.classList.toggle('active',x===v);});}
+function setNav(v){['home','students','schedule','tasks','more'].forEach(function(x){var e=document.getElementById('nav-'+x);if(e)e.classList.toggle('active',x===v);});}
 async function reportClientError(where,e){try{await fetch('/api/client-error',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({role:'teacher',where:where,message:String((e&&e.message)||e||'unknown')})});}catch(_){}}
 window.addEventListener('error',function(e){reportClientError('window.error',e.error||e.message);});
 window.addEventListener('unhandledrejection',function(e){reportClientError('unhandledrejection',e.reason);});
@@ -371,28 +397,55 @@ function renderHome(d){
  out+='<div class="section"><div class="section-title"><strong>Невыполненные задачи</strong><span onclick="openView(\'tasks\')">все →</span></div><div class="list">'+(taskRows||'<div class="empty">Задач нет 🎉</div>')+'</div></div>';
  out+='<div class="section"><div class="section-title"><strong>Долги по оплате и ДЗ</strong><span>только актуальное</span></div><div class="list">'+(debts||'<div class="empty">Долгов нет 🎉</div>')+'</div></div>';
  if(attention){out+='<div class="section"><div class="section-title"><strong>Зона внимания</strong><span onclick="openView(\'attention\')">подробнее →</span></div><div class="list">'+attention+'</div></div>';}
- out+='<div class="section"><div class="section-title"><strong>Все разделы</strong></div><div class="actions">';
- [
-  ['users','Ученики и группы','view','students'],
-  ['calendar','Расписание','view','schedule'],
-  ['tasks','Задачи','view','tasks'],
-  ['files','Материалы','bot','materials'],
-  ['homework','Домашние задания','view','homework'],
-  ['credit','Оплаты','view','payments'],
-  ['transfer','Перенести занятие','lesson','transfer'],
-  ['cancel','Отменить занятие','lesson','cancel'],
-  ['bell','Напоминания','bot','reminders'],
-  ['target','Посещаемость','view','attendance'],
-  ['chart','Отчёты','view','reports'],
-  ['clock','Свободные окна','view','slots'],
-  ['user','Мой профиль','view','profile'],
-  ['palette','Темы кабинета','view','settings'],
-  ['settings','Настройки','bot','settings'],
-  ['help','Инструкция','bot','help']
- ].forEach(function(a){var click=a[2]==='view'?"openView('"+a[3]+"')":a[2]==='lesson'?"openHomeLessonAction('"+a[3]+"')":"openBotAction('"+a[3]+"')";out+='<button class="action" onclick="'+click+'"><span class="aicon">'+uiIcon(a[0])+'</span>'+a[1]+'</button>';});
- out+='</div></div><div class="brand-foot">ПРЕПАДМИН · меньше админки, больше преподавания</div>';
+ out+='<p class="home-nav-hint">Всё остальное — во вкладке «Ещё». Перенос и отмена занятий находятся внутри группы.</p>';
+ out+='<div class="brand-foot">ПРЕПАДМИН · меньше админки, больше преподавания</div>';
  document.getElementById('app').innerHTML=out;
 }
+
+function moreLink(icon,label,action){
+ return '<button type="button" class="more-link" onclick="'+action+'"><span class="more-link-icon">'+uiIcon(icon)+'</span><span class="more-link-text">'+esc(label)+'</span><span class="more-arrow" aria-hidden="true">›</span></button>';
+}
+function openPrepadminBot(){
+ var url='https://t.me/prepodmin_bot';
+ try{
+  if(tg&&typeof tg.openTelegramLink==='function'){tg.openTelegramLink(url);return;}
+  window.open(url,'_blank','noopener,noreferrer');
+ }catch(e){reportClientError('bot-tools-link',e);alert('Открой @prepodmin_bot в Telegram.');}
+}
+function renderMore(){
+ var parts=[
+  {name:'Обучение',desc:'Домашние задания, посещаемость',items:[
+   ['homework','Домашние задания',"openView('homework')"],
+   ['target','Посещаемость',"openView('attendance')"]
+  ]},
+  {name:'Финансы и результаты',desc:'Оплаты и отчёты',items:[
+   ['credit','Оплаты',"openView('payments')"],
+   ['chart','Отчёты',"openView('reports')"],
+   ['alert','Зона внимания',"openView('attention')"]
+  ]},
+  {name:'Организация',desc:'Переносы, отмены, свободные окна',items:[
+   ['transfer','Перенести занятие',"openHomeLessonAction('transfer')"],
+   ['cancel','Отменить занятие',"openHomeLessonAction('cancel')"],
+   ['clock','Свободные окна',"openView('slots')"]
+  ]},
+  {name:'Настройки и помощь',desc:'Профиль, оформление, инструменты бота',items:[
+   ['user','Мой профиль',"openView('profile')"],
+   ['palette','Темы кабинета',"openView('settings')"]
+  ]}
+ ];
+ var out=screenHeader('Ещё','дополнительные инструменты');
+ out+='<p class="more-intro">Основная работа — в нижнем меню. Здесь собраны функции, которыми пользуешься реже.</p>';
+ parts.forEach(function(section){
+  out+='<details class="more-category"><summary><span class="more-heading"><span class="more-title">'+esc(section.name)+'</span><span class="more-subtitle">'+esc(section.desc)+'</span></span><span class="more-chevron" aria-hidden="true">›</span></summary><div class="more-items">';
+  section.items.forEach(function(item){out+=moreLink(item[0],item[1],item[2]);});
+  if(section.name==='Настройки и помощь'){
+   out+='<div style="padding:12px"><p class="gquiet">Материалы, напоминания, настройки рассылок и инструкция пока доступны в Telegram-боте.</p><button type="button" class="more-bot-link" onclick="openPrepadminBot()">Открыть инструменты в Telegram ↗</button></div>';
+  }
+  out+='</div></details>';
+ });
+ document.getElementById('app').innerHTML=out;
+}
+
 function renderStudents(d){
  var out=screenHeader('Ученики и группы',(d.students||[]).length+' учеников · '+(d.groups||[]).length+' групп');
  out+='<div class="section"><div class="section-title"><strong>Ученики</strong><span>индивидуально</span></div>';
@@ -735,6 +788,7 @@ async function setMemberHomework(aid,pid,status){
 
 function renderSchedule(d){
  var out=screenHeader('Расписание','ближайшие 7 дней');
+ out+='<div class="gcontrols"><button type="button" onclick="openHomeLessonAction(\'transfer\')">↪ Перенести в группе</button><button type="button" onclick="openHomeLessonAction(\'cancel\')">× Отменить в группе</button></div>';
  (d.days||[]).forEach(function(day){var rows='';(day.events||[]).forEach(function(e){rows+='<div class="row"><div class="time">'+esc(e.time)+'</div><div class="row-main"><div class="row-title">'+esc(e.name)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+esc(e.kind)+'</div></div><span class="badge '+(e.moved?'warn':'')+'">'+(e.moved?'перенос':'занятие')+'</span></div>';});out+='<div class="day-panel '+(day.is_today?'tomorrow':'')+'" style="margin-bottom:10px"><div class="day-panel-head"><strong>'+esc(day.weekday)+' · '+esc(day.date)+'</strong><span>'+(day.is_today?'Сегодня':'')+'</span></div>'+(rows||'<div class="empty">Нет занятий</div>')+'</div>';});
  document.getElementById('app').innerHTML=out;
 }
@@ -873,8 +927,8 @@ async function saveTheme(){
  }
 }
 function renderFallback(view,d){document.getElementById('app').innerHTML=screenHeader((d&&d.title)||'Раздел','данные загружены')+'<div class="list"><div class="empty">Раздел пока открывается в Telegram-меню.</div></div>';}
-function renderView(view,d){if(view.indexOf('group:')===0)return renderGroup(d);if(view.indexOf('member:')===0)return renderMember(d);if(view==='settings')return renderSettings(d);if(view==='profile')return renderProfile(d);if(view==='home')return renderHome(d);if(view==='students')return renderStudents(d);if(view==='schedule')return renderSchedule(d);if(view==='homework')return renderHomework(d);if(view==='payments')return renderPayments(d);if(view==='attention')return renderAttention(d);if(view==='tasks')return renderTasks(d);if(view==='attendance')return renderAttendance(d);if(view==='reports')return renderReports(d);if(view==='slots')return renderSlots(d);return renderFallback(view,d);}
-async function openView(view,retainScroll){var oldY=retainScroll?window.scrollY:0;currentView=view;setNav(['home','tasks','students','schedule'].indexOf(view)>=0?view:'');document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(view);if(p.theme){savedTheme=p.theme;applyTheme(p.theme);}try{renderView(p.view,p.data);}catch(renderError){await reportClientError('render:'+view,renderError);renderFallback(view,p.data||{});}try{window.scrollTo(0,retainScroll?oldY:0);}catch(_){}}catch(e){await reportClientError('open:'+view,e);document.getElementById('app').innerHTML='<div class="error">Раздел не загрузился. Нажми «Кабинет» и попробуй ещё раз.</div>';}}
+function renderView(view,d){if(view==='more')return renderMore();if(view.indexOf('group:')===0)return renderGroup(d);if(view.indexOf('member:')===0)return renderMember(d);if(view==='settings')return renderSettings(d);if(view==='profile')return renderProfile(d);if(view==='home')return renderHome(d);if(view==='students')return renderStudents(d);if(view==='schedule')return renderSchedule(d);if(view==='homework')return renderHomework(d);if(view==='payments')return renderPayments(d);if(view==='attention')return renderAttention(d);if(view==='tasks')return renderTasks(d);if(view==='attendance')return renderAttendance(d);if(view==='reports')return renderReports(d);if(view==='slots')return renderSlots(d);return renderFallback(view,d);}
+async function openView(view,retainScroll){var oldY=retainScroll?window.scrollY:0;currentView=view;var section=view.indexOf('group:')===0||view.indexOf('member:')===0?'students':view==='lesson-picker'?'schedule':(['home','tasks','students','schedule','more'].indexOf(view)>=0?view:'more');setNav(section);if(view==='more'){renderMore();try{window.scrollTo(0,0);}catch(_){}return;}document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(view);if(p.theme){savedTheme=p.theme;applyTheme(p.theme);}try{renderView(p.view,p.data);}catch(renderError){await reportClientError('render:'+view,renderError);renderFallback(view,p.data||{});}try{window.scrollTo(0,retainScroll?oldY:0);}catch(_){}}catch(e){await reportClientError('open:'+view,e);document.getElementById('app').innerHTML='<div class="error">Раздел не загрузился. Нажми «Кабинет» и попробуй ещё раз.</div>';}}
 async function boot(){if((!tg||!tg.initData)&&!launch){document.getElementById('app').innerHTML='<div class="top"><div><div class="brand-wordmark"><span>ПРЕП</span>АДМИН</div><div class="top-kicker">кабинет преподавателя</div><h1>Мой кабинет</h1><div class="sub">Открой этот экран через кнопку «Мой кабинет» внутри бота.</div></div><div class="logo">'+uiIcon('layers')+'</div></div>';return;}await openView('home');}
 hydrateNavIcons();
 boot();
