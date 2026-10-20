@@ -27,8 +27,8 @@ class ThemeCatalogTest(unittest.TestCase):
             for color in theme["colors"].values():
                 self.assertRegex(color, r"^#[0-9A-Fa-f]{6}$")
 
-    def test_auto_expand_desktop_only_where_telegram_supports_it(self):
-        """Exercise the launch helper in Node without a real bot or browser."""
+    def test_desktop_telegram_never_enters_fullscreen(self):
+        """Keep a resizable Telegram desktop Mini App and expand only mobile."""
         import subprocess
 
         html = Path(webapp.HTML_PATH).read_text(encoding="utf-8")
@@ -37,32 +37,28 @@ class ThemeCatalogTest(unittest.TestCase):
         helper = html[start:end]
         script = helper + """
 const assert = require('node:assert/strict');
-function simulate(platform, modern, fullscreen, requestWorks=true) {
+function simulate(platform) {
   const calls=[];
   const app={
-    platform: platform,
-    isFullscreen: fullscreen,
+    platform,
     ready(){calls.push('ready')},
     expand(){calls.push('expand')},
-    isVersionAtLeast(v){assert.equal(v,'8.0');return modern},
-    requestFullscreen(){calls.push('fullscreen');if(!requestWorks)throw Error('unsupported')}
+    requestFullscreen(){throw Error('fullscreen forbidden')},
   };
   initializePrepadminViewport(app);
   return calls;
 }
-assert.deepEqual(simulate('tdesktop',true,false), ['ready','expand','fullscreen']);
-assert.deepEqual(simulate('macos',true,false), ['ready','expand','fullscreen']);
-assert.deepEqual(simulate('android',true,false), ['ready','expand']);
-assert.deepEqual(simulate('ios',true,false), ['ready','expand']);
-assert.deepEqual(simulate('tdesktop',false,false), ['ready','expand']);
-assert.deepEqual(simulate('tdesktop',true,true), ['ready','expand']);
-assert.deepEqual(simulate('tdesktop',true,false,false), ['ready','expand','fullscreen']);
+assert.deepEqual(simulate('tdesktop'),['ready']);
+assert.deepEqual(simulate('macos'),['ready']);
+assert.deepEqual(simulate('android'),['ready','expand']);
+assert.deepEqual(simulate('ios'),['ready','expand']);
 initializePrepadminViewport(null);
-console.log('PREPODMIN_DESKTOP_VIEWPORT_OK');
+console.log('PREPODMIN_DESKTOP_WINDOWED_OK');
 """
         result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("PREPODMIN_DESKTOP_VIEWPORT_OK", result.stdout)
+        self.assertIn("PREPODMIN_DESKTOP_WINDOWED_OK", result.stdout)
+        self.assertNotIn("requestFullscreen",helper)
 
     def test_html_has_theme_ui_and_live_palette_tokens(self):
         html = Path(webapp.HTML_PATH).read_text(encoding="utf-8")
