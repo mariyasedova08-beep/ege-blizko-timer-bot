@@ -1111,6 +1111,55 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
     left:var(--callout-arrow-left,50%)!important;
   }
 }
+
+/* Lesson pilot: two independent working areas, with the live lab catalogue. */
+/* Keep the lesson focused on materials rather than general app navigation. */
+body:has(#lesson.page.on) .lab-title-wrap,body:has(#lesson.page.on) .lab-topbar{display:none}
+body:has(#lesson.page.on) .tabs{display:flex;gap:5px;justify-content:flex-start;margin-bottom:5px}
+body:has(#lesson.page.on) .tabs button:not([data-page="free"]):not([data-page="lesson"]){display:none}
+body:has(#lesson.page.on) .tabs button{padding:7px 12px;font-size:12px}
+body:has(#lesson.page.on) .lesson-studio{height:calc(100dvh - 66px);min-height:560px}
+
+#lesson.page{min-width:0}
+body:has(#lesson.page.on) .app{max-width:none}
+.lesson-studio{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,7fr);gap:10px;height:calc(100dvh - 196px);min-height:550px}
+.lesson-lab-pane,.lesson-pdf-pane{min-width:0;min-height:0;display:flex;flex-direction:column;background:#fff;border:1px solid #efd9e3;border-radius:15px;overflow:hidden}
+.lesson-pane-head{min-height:49px;padding:9px 12px;display:flex;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #f1e5eb}
+.lesson-pane-head h2{font-size:15px;margin:0;font-weight:650}
+.lesson-pane-head small{color:#82717b;font-size:11px}
+.lesson-lab-body{padding:12px;overflow:auto;flex:1;min-height:0}
+.lesson-lab-body label{font-size:11px;color:#756774;display:block;margin:8px 0 3px}
+.lesson-lab-body select{width:100%;max-width:100%;border:1px solid #dfd2d9;border-radius:10px;padding:10px 7px;background:#fff;color:#171719;font-size:12px}
+.lesson-lab-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:11px 0}
+.lesson-lab-actions button,.lesson-pane-head button,.lesson-lesson-tools button,.lesson-lesson-tools label{padding:8px 10px;border-radius:11px;font-weight:550}
+#lessonConduct{background:#f00087;color:#fff;border:1px solid #f00087}
+#lessonHeat[aria-pressed=true]{background:#fff0f8;color:#bc006a;border-color:#f00087}
+.lesson-visual{background:#f9f6f8;border:1px solid #efdee6;border-radius:15px;min-height:255px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:8px 0;overflow:hidden}
+.lesson-tube-frame{width:130px;height:238px;padding:10px 20px 0}
+.lesson-tube-frame .tube{height:206px;width:90px;margin:auto}
+.lesson-observation{font-size:12px;line-height:1.45;padding:8px 0}
+.lesson-observation .reaction-card{font-size:12px;padding:10px;border-radius:12px;overflow-wrap:anywhere}
+.lesson-observation .reaction-equation{font-size:12px;white-space:normal}
+.lesson-observation .reaction-gas{font-size:11px}
+.lesson-footnote{color:#766874;font-size:11px;line-height:1.45}
+.lesson-lesson-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.lesson-file-label{display:inline-flex;align-items:center;cursor:pointer;background:#fff}
+#lessonPDFInput{display:none}
+#lessonExport{background:#f00087;color:#fff;border:1px solid #f00087}
+#lessonToolPen[aria-pressed=true],#lessonToolEraser[aria-pressed=true]{border-color:#f00087;background:#fff1f8}
+.lesson-paper-space{flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:12px;background:#f7f4f6;position:relative}
+#lessonCanvasWrap{position:relative;flex:none;box-shadow:0 4px 23px #21131f26;background:#fff;touch-action:none}
+#lessonPdfCanvas,#lessonInkCanvas{display:block}
+#lessonInkCanvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
+#lessonInkCanvas.eraser{cursor:cell}
+.lesson-pdf-foot{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid #f2e6ec;gap:8px;color:#786e77;font-size:11px}
+.lesson-extra-menu{margin-left:auto;position:relative}
+.lesson-extra-menu summary{cursor:pointer;background:#fff;border:1px solid #edd2e0;border-radius:10px;padding:8px 11px;list-style:none}
+.lesson-extra-menu[open] .lesson-extra-items{position:absolute;top:100%;right:0;background:#fff;z-index:90;width:235px;padding:12px;box-shadow:0 8px 32px #21131f36;border:1px solid #ecdbe3;border-radius:12px;display:grid;gap:7px}
+.lesson-extra-items label{font-size:11px}
+.lesson-extra-items button{width:100%}
+.lesson-message{color:#806575;font-size:11px;max-width:100%;overflow-wrap:anywhere}
+@media(max-width:760px){.lesson-studio{grid-template-columns:minmax(0,1fr);height:auto;min-height:0}.lesson-lab-pane{min-height:465px}.lesson-pdf-pane{min-height:500px}.lesson-pane-head{flex-wrap:wrap}.lesson-paper-space{min-height:350px}}
 </style></head><body><div class="app">
 <div class="lab-topbar">
   <div class="lab-brand">ЕГЭ БЛИЗКО</div>
@@ -1131,7 +1180,62 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
 <button data-page="ege">ЕГЭ</button>
 <button data-page="exam">Экзамен</button>
 <button data-page="stats">Прогресс</button>
+<button data-page="lesson">✍ Урок</button>
 </div>
+
+<section id="lesson" class="page">
+<div class="lesson-studio" aria-label="Урок с интерактивной лабораторией">
+  <aside class="lesson-lab-pane">
+    <div class="lesson-pane-head"><h2>🧪 Опыт</h2><small>30% экрана</small></div>
+    <div class="lesson-lab-body">
+      <label for="lessonReagentA">Первое вещество</label><select id="lessonReagentA"></select>
+      <label for="lessonReagentB">Добавить реактив</label><select id="lessonReagentB"></select>
+      <div class="lesson-lab-actions">
+        <button id="lessonConduct" type="button">▶ Провести</button>
+        <button id="lessonHeat" type="button" aria-pressed="false">🔥 Нагрев</button>
+        <button id="lessonReset" type="button">↺ Сброс</button>
+      </div>
+      <div class="lesson-visual" aria-label="Ход химического опыта">
+        <div id="lessonTube" class="lesson-tube-frame"></div>
+      </div>
+      <div id="lessonReaction" class="lesson-observation" aria-live="polite">Выбери два вещества и нажми «Провести». PDF останется открытым справа.</div>
+      <div class="lesson-footnote">Опыты и признаки берутся из действующей химической базы. Если реакции в ней пока нет, результат не выдумываем.</div>
+    </div>
+  </aside>
+  <section class="lesson-pdf-pane" aria-label="Рабочая тетрадь преподавателя">
+    <div class="lesson-pane-head">
+      <div class="lesson-lesson-tools">
+        <label for="lessonPDFInput" class="lesson-file-label" title="Открыть свой PDF">📄 PDF</label>
+        <input id="lessonPDFInput" type="file" accept="application/pdf,.pdf">
+        <button id="lessonPrevious" type="button" title="Предыдущая страница">←</button>
+        <span id="lessonPageCounter">1 / 1</span>
+        <button id="lessonNext" type="button" title="Следующая страница">→</button>
+        <button id="lessonToolPen" type="button" aria-pressed="true">✎ Ручка</button>
+        <button id="lessonToolEraser" type="button" aria-pressed="false">⌫ Ластик</button>
+        <button id="lessonExport" type="button">↓ Сохранить PDF</button>
+      </div>
+      <details class="lesson-extra-menu">
+        <summary aria-label="Настройки письма">⋯</summary>
+        <div class="lesson-extra-items">
+          <label>Цвет ручки <input id="lessonPenColor" type="color" value="#f00087"></label>
+          <label>Толщина <input id="lessonPenWidth" type="range" min="1" max="10" value="3"></label>
+          <button type="button" id="lessonUndo">↶ Отменить последний штрих</button>
+          <button type="button" id="lessonExportNotes">↓ Резервная копия записей</button>
+          <label for="lessonImportNotes" class="lesson-file-label">↑ Загрузить записи</label>
+          <input id="lessonImportNotes" type="file" accept=".json,application/json" style="display:none">
+        </div>
+      </details>
+    </div>
+    <div id="lessonPaperSpace" class="lesson-paper-space">
+      <div id="lessonCanvasWrap"><canvas id="lessonPdfCanvas"></canvas><canvas id="lessonInkCanvas" aria-label="Писать стилусом по странице"></canvas></div>
+    </div>
+    <div class="lesson-pdf-foot">
+      <span id="lessonFileName">Загрузи свой PDF или пиши на пустой доске.</span>
+      <span id="lessonStatus" class="lesson-message" role="status">Пометки сохраняются только в браузере до выгрузки PDF.</span>
+    </div>
+  </section>
+</div>
+</section>
 
 <section id="free" class="page on">
 <div class="lab-shell">
@@ -2316,9 +2420,306 @@ function renderStats(){
  '<div class="stat"><b>'+s.accuracy+'%</b>точность</div>'+
  '<div class="stat"><b>'+s.labworks_completed+'</b>лабораторных</div>';
 }
+
+// Teacher's live lesson studio. Both panels stay interactive at the same time.
+// PDF input, ink notes and downloads remain entirely local to the browser.
+let lessonReady=false,lessonStarted=false,lessonHeated=false;
+let lessonPdfDocument=null,lessonPdfOriginalBytes=null,lessonPdfName="",lessonPdfKey="ege-lesson-blank";
+let lessonPage=1,lessonPageCount=1,lessonTool="pen",lessonDrawing=null;
+let lessonNotes={},lessonPageSize={},lessonRendering=0;
+const lessonLibraries={};
+function lessonStatus(message){
+ const el=document.getElementById("lessonStatus");if(el)el.textContent=message;
+}
+function lessonLibrary(src,globalName){
+ if(window[globalName])return Promise.resolve(window[globalName]);
+ if(lessonLibraries[globalName])return lessonLibraries[globalName];
+ lessonLibraries[globalName]=new Promise((resolve,reject)=>{
+  const node=document.createElement("script");
+  node.src=src;node.crossOrigin="anonymous";node.async=true;
+  node.onload=()=>window[globalName]?resolve(window[globalName]):reject(new Error("library_missing"));
+  node.onerror=()=>reject(new Error("library_download_failed"));
+  document.head.appendChild(node);
+ });
+ return lessonLibraries[globalName];
+}
+function lessonSaveLocal(){
+ try{
+  localStorage.setItem(lessonPdfKey,JSON.stringify({version:1,notes:lessonNotes}));
+ }catch(err){
+  lessonStatus("Автосохранение недоступно — сохрани PDF или резервную копию записей.");
+ }
+}
+function lessonRestoreLocal(){
+ try{
+  const raw=localStorage.getItem(lessonPdfKey);
+  const parsed=raw?JSON.parse(raw):null;
+  lessonNotes=parsed&&parsed.version===1&&parsed.notes&&typeof parsed.notes==="object"?parsed.notes:{};
+ }catch(err){lessonNotes={};}
+}
+function lessonCurrentStrokes(){
+ const key=String(lessonPage);
+ if(!Array.isArray(lessonNotes[key]))lessonNotes[key]=[];
+ return lessonNotes[key];
+}
+function lessonGetPoint(event){
+ const box=document.getElementById("lessonInkCanvas").getBoundingClientRect();
+ return {x:Math.max(0,Math.min(1,(event.clientX-box.left)/box.width)),
+         y:Math.max(0,Math.min(1,(event.clientY-box.top)/box.height))};
+}
+function lessonRedrawInk(){
+ const canvas=document.getElementById("lessonInkCanvas");
+ const ctx=canvas.getContext("2d");
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ const rect=canvas.getBoundingClientRect();
+ const ratio=canvas.width/Math.max(1,rect.width);
+ for(const stroke of lessonCurrentStrokes()){
+  if(!stroke||!Array.isArray(stroke.points)||!stroke.points.length)continue;
+  ctx.lineCap="round";ctx.lineJoin="round";
+  ctx.strokeStyle=stroke.color||"#f00087";
+  ctx.fillStyle=stroke.color||"#f00087";
+  ctx.lineWidth=Math.max(1,Number(stroke.width)||3)*ratio;
+  ctx.beginPath();
+  for(let i=0;i<stroke.points.length;i++){
+   const p=stroke.points[i],px=p.x*canvas.width,py=p.y*canvas.height;
+   if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+  }
+  if(stroke.points.length===1){
+   const p=stroke.points[0];ctx.beginPath();
+   ctx.arc(p.x*canvas.width,p.y*canvas.height,ctx.lineWidth/2,0,Math.PI*2);ctx.fill();
+  }else ctx.stroke();
+ }
+}
+function lessonEraseAt(point){
+ const arr=lessonCurrentStrokes();
+ for(let i=arr.length-1;i>=0;i--){
+  if(arr[i].points&&arr[i].points.some(p=>Math.hypot(p.x-point.x,p.y-point.y)<.026)){
+   arr.splice(i,1);lessonRedrawInk();lessonSaveLocal();return;
+  }
+ }
+}
+function lessonSetTool(which){
+ lessonTool=which;
+ document.getElementById("lessonToolPen").setAttribute("aria-pressed",String(which==="pen"));
+ document.getElementById("lessonToolEraser").setAttribute("aria-pressed",String(which==="erase"));
+ document.getElementById("lessonInkCanvas").classList.toggle("eraser",which==="erase");
+}
+function lessonSetCanvasDimensions(width,height){
+ const paper=document.getElementById("lessonPdfCanvas"),ink=document.getElementById("lessonInkCanvas");
+ const wrap=document.getElementById("lessonCanvasWrap");
+ const pixelRatio=Math.min(window.devicePixelRatio||1,2);
+ wrap.style.width=width+"px";wrap.style.height=height+"px";
+ paper.style.width=ink.style.width=width+"px";
+ paper.style.height=ink.style.height=height+"px";
+ paper.width=ink.width=Math.max(1,Math.round(width*pixelRatio));
+ paper.height=ink.height=Math.max(1,Math.round(height*pixelRatio));
+ return pixelRatio;
+}
+async function lessonRenderPage(){
+ const ticket=++lessonRendering;
+ const space=document.getElementById("lessonPaperSpace");
+ const canvas=document.getElementById("lessonPdfCanvas");
+ const baseWidth=Math.max(120,space.clientWidth-24);
+ const baseHeight=Math.max(160,space.clientHeight-24);
+ let page=null,logicalWidth=960,logicalHeight=540;
+ if(lessonPdfDocument){
+  try{
+   page=await lessonPdfDocument.getPage(lessonPage);
+   if(ticket!==lessonRendering)return;
+   const viewport=page.getViewport({scale:1});
+   logicalWidth=viewport.width;logicalHeight=viewport.height;
+  }catch(err){lessonStatus("Не удалось прочитать страницу PDF.");return;}
+ }
+ lessonPageSize[String(lessonPage)]={width:logicalWidth,height:logicalHeight};
+ const scale=Math.min(baseWidth/logicalWidth,baseHeight/logicalHeight);
+ const width=Math.max(1,Math.round(scale*logicalWidth));
+ const height=Math.max(1,Math.round(scale*logicalHeight));
+ const pixelRatio=lessonSetCanvasDimensions(width,height);
+ const ctx=canvas.getContext("2d");
+ if(page){
+  try{
+   const viewport=page.getViewport({scale:scale*pixelRatio});
+   await page.render({canvasContext:ctx,viewport}).promise;
+  }catch(err){lessonStatus("Не удалось отобразить страницу PDF.");return;}
+ }else{
+  ctx.fillStyle="#ffffff";ctx.fillRect(0,0,canvas.width,canvas.height);
+ }
+ if(ticket!==lessonRendering)return;
+ document.getElementById("lessonPageCounter").textContent=lessonPage+" / "+lessonPageCount;
+ document.getElementById("lessonPrevious").disabled=lessonPage<=1;
+ document.getElementById("lessonNext").disabled=lessonPage>=lessonPageCount;
+ lessonRedrawInk();
+}
+async function lessonOpenPDF(file){
+ if(!file)return;
+ if(file.size>25*1024*1024){lessonStatus("PDF больше 25 МБ — выбери файл меньшего размера.");return;}
+ lessonStatus("Открываю PDF...");
+ try{
+  const reader=await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");
+  reader.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+  const buffer=await file.arrayBuffer();
+  const documentPDF=await reader.getDocument({data:new Uint8Array(buffer.slice(0)),isEvalSupported:false}).promise;
+  lessonPdfDocument=documentPDF;
+  lessonPdfOriginalBytes=buffer;
+  lessonPdfName=file.name;
+  lessonPdfKey="ege-lab-lesson-notes-v1:"+file.name+":"+file.size+":"+file.lastModified;
+  lessonPage=1;lessonPageCount=documentPDF.numPages;
+  lessonRestoreLocal();
+  await lessonRenderPage();
+  document.getElementById("lessonFileName").textContent=file.name;
+  lessonStatus("PDF и рукописные записи работают одновременно с опытом.");
+ }catch(err){
+  lessonStatus("Не удалось открыть PDF. Проверь интернет и формат файла.");
+ }
+}
+function lessonColorToPDF(hex){
+ const c=String(hex||"#f00087").replace("#","");
+ const v=/^[0-9a-f]{6}$/i.test(c)?c:"f00087";
+ return [parseInt(v.slice(0,2),16)/255,parseInt(v.slice(2,4),16)/255,parseInt(v.slice(4,6),16)/255];
+}
+function lessonDownload(bytes,name,type){
+ const blob=new Blob([bytes],{type:type});
+ const url=URL.createObjectURL(blob);
+ const link=document.createElement("a");link.href=url;link.download=name;
+ document.body.appendChild(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+async function lessonExportPDF(){
+ lessonStatus("Собираю PDF с твоими записями...");
+ try{
+  const lib=await lessonLibrary("https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js","PDFLib");
+  const pdf=lessonPdfOriginalBytes?
+   await lib.PDFDocument.load(lessonPdfOriginalBytes.slice(0)):
+   await lib.PDFDocument.create();
+  if(!lessonPdfOriginalBytes)pdf.addPage([960,540]);
+  const pages=pdf.getPages();
+  for(let i=0;i<pages.length;i++){
+   const sheet=pages[i],w=sheet.getWidth(),h=sheet.getHeight();
+   const arr=lessonNotes[String(i+1)]||[];
+   const logical=(lessonPageSize[String(i+1)]||{width:w,height:h}).width;
+   for(const stroke of arr){
+    const pts=stroke.points||[];
+    const rgb=lessonColorToPDF(stroke.color);
+    const color=lib.rgb(rgb[0],rgb[1],rgb[2]);
+    const thickness=Math.max(.6,Number(stroke.width||3)*w/Math.max(1,logical));
+    for(let k=1;k<pts.length;k++){
+     sheet.drawLine({
+      start:{x:pts[k-1].x*w,y:(1-pts[k-1].y)*h},
+      end:{x:pts[k].x*w,y:(1-pts[k].y)*h},
+      thickness:thickness,color:color,opacity:1
+     });
+    }
+    if(pts.length===1)sheet.drawCircle({
+     x:pts[0].x*w,y:(1-pts[0].y)*h,size:thickness/2,color:color
+    });
+   }
+  }
+  const bytes=await pdf.save();
+  const title=(lessonPdfName||"Урок").replace(/\.pdf$/i,"")+"_с_записями.pdf";
+  lessonDownload(bytes,title,"application/pdf");
+  lessonStatus("PDF со всеми страницами и твоими записями сохранён.");
+ }catch(err){
+  lessonStatus("Не удалось сохранить PDF. Проверь подключение и попробуй ещё раз.");
+ }
+}
+function lessonPopulateReagents(){
+ const opts=Object.entries(data.reagents).sort((a,b)=>
+  String(a[1][1]||"").localeCompare(String(b[1][1]||""),"ru")||
+  String(a[1][0]||"").localeCompare(String(b[1][0]||""),"ru"));
+ const a=document.getElementById("lessonReagentA"),b=document.getElementById("lessonReagentB");
+ for(const sel of [a,b]){
+  sel.textContent="";
+  const empty=document.createElement("option");empty.value="";empty.textContent="Выбери вещество";sel.appendChild(empty);
+  for(const entry of opts){
+   const option=document.createElement("option");
+   option.value=entry[0];
+   option.textContent=entry[1][0]+" — "+entry[1][1];
+   sel.appendChild(option);
+  }
+  sel.onchange=()=>{lessonStarted=false;lessonRenderExperiment();};
+ }
+ if(data.reagents.kmno4)a.value="kmno4";
+ if(data.reagents.na2so3)b.value="na2so3";
+ lessonRenderExperiment();
+}
+function lessonRenderExperiment(){
+ const a=document.getElementById("lessonReagentA").value;
+ const b=document.getElementById("lessonReagentB").value;
+ const x=lessonStarted&&a&&b?findReaction(a,b,lessonHeated):null;
+ const v=lessonStarted&&x?[a,b]:(a?[a]:[]);
+ document.getElementById("lessonTube").innerHTML=tubeHTML(v,0,true,lessonHeated,"");
+ const info=document.getElementById("lessonReaction");
+ if(!lessonStarted){
+  info.textContent="Готово к опыту. Веди запись реакции справа и нажми «Провести».";
+ }else if(x){
+  info.innerHTML=reactionResultHTML(x,lessonHeated);
+ }else{
+  const candidate=a&&b?reactionExpected(a,b):null;
+  info.textContent=candidate&&candidate.heat&&!lessonHeated?
+   "Для этой реакции нужно включить нагрев. До этого признаки не показываем.":
+   "Для выбранных веществ в лабораторной базе пока нет подтверждённой реакции. Результат не моделируем.";
+ }
+}
+function lessonSetup(){
+ if(lessonReady)return;
+ lessonReady=true;
+ lessonPopulateReagents();
+ lessonRestoreLocal();
+ document.getElementById("lessonPDFInput").onchange=event=>lessonOpenPDF(event.target.files[0]);
+ document.getElementById("lessonConduct").onclick=()=>{lessonStarted=true;lessonRenderExperiment();};
+ document.getElementById("lessonReset").onclick=()=>{lessonStarted=false;lessonHeated=false;document.getElementById("lessonHeat").setAttribute("aria-pressed","false");lessonRenderExperiment();};
+ document.getElementById("lessonHeat").onclick=()=>{lessonHeated=!lessonHeated;document.getElementById("lessonHeat").setAttribute("aria-pressed",String(lessonHeated));lessonRenderExperiment();};
+ document.getElementById("lessonPrevious").onclick=()=>{if(lessonPage>1){lessonPage--;lessonRenderPage();}};
+ document.getElementById("lessonNext").onclick=()=>{if(lessonPage<lessonPageCount){lessonPage++;lessonRenderPage();}};
+ document.getElementById("lessonToolPen").onclick=()=>lessonSetTool("pen");
+ document.getElementById("lessonToolEraser").onclick=()=>lessonSetTool("erase");
+ document.getElementById("lessonUndo").onclick=()=>{lessonCurrentStrokes().pop();lessonRedrawInk();lessonSaveLocal();};
+ document.getElementById("lessonExport").onclick=lessonExportPDF;
+ document.getElementById("lessonExportNotes").onclick=()=>{
+  const payload=JSON.stringify({version:1,notes:lessonNotes,fileName:lessonPdfName, pages:lessonPageCount});
+  lessonDownload(payload, "Записи_ЕГЭ_БЛИЗКО.json","application/json");
+ };
+ document.getElementById("lessonImportNotes").onchange=async event=>{
+  try{
+   const file=event.target.files[0];if(!file||file.size>3000000)throw Error("bad-size");
+   const parsed=JSON.parse(await file.text());
+   if(parsed.version!==1||!parsed.notes||!Array.isArray(parsed.notes[String(lessonPage)]||[]))throw Error("invalid");
+   if(parsed.pages!==lessonPageCount)throw Error("pages");
+   lessonNotes=parsed.notes;lessonSaveLocal();lessonRedrawInk();lessonStatus("Рукописные записи восстановлены.");
+  }catch(err){lessonStatus("Не удалось прочитать записи или не совпадает число страниц.");}
+ };
+ const canvas=document.getElementById("lessonInkCanvas");
+ canvas.onpointerdown=event=>{
+  if(event.button!==0&&event.pointerType==="mouse")return;
+  event.preventDefault();canvas.setPointerCapture(event.pointerId);
+  const point=lessonGetPoint(event);
+  if(lessonTool==="erase"){lessonEraseAt(point);return;}
+  lessonDrawing={color:document.getElementById("lessonPenColor").value,
+                 width:Number(document.getElementById("lessonPenWidth").value),
+                 points:[point]};
+  lessonCurrentStrokes().push(lessonDrawing);lessonRedrawInk();
+ };
+ canvas.onpointermove=event=>{
+  if(!canvas.hasPointerCapture(event.pointerId))return;
+  event.preventDefault();const point=lessonGetPoint(event);
+  if(lessonTool==="erase"){lessonEraseAt(point);return;}
+  if(!lessonDrawing)return;
+  lessonDrawing.points.push(point);lessonRedrawInk();
+ };
+ const endDrawing=()=>{
+  if(lessonDrawing){lessonDrawing=null;lessonSaveLocal();}
+ };
+ canvas.onpointerup=endDrawing;canvas.onpointercancel=endDrawing;canvas.onlostpointercapture=endDrawing;
+ if(window.ResizeObserver){
+  const watcher=new ResizeObserver(()=>{if(document.getElementById("lesson").classList.contains("on"))lessonRenderPage();});
+  watcher.observe(document.getElementById("lessonPaperSpace"));
+ }
+ lessonSetTool("pen");
+}
+
 document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{
  document.querySelectorAll("[data-page]").forEach(x=>x.classList.remove("on"));document.querySelectorAll(".page").forEach(x=>x.classList.remove("on"));
- b.classList.add("on");document.getElementById(b.dataset.page).classList.add("on");if(b.dataset.page==="exam"&&!exam)nextExam();if(b.dataset.page==="oge")renderOge();if(b.dataset.page==="ege")renderEge();
+ b.classList.add("on");document.getElementById(b.dataset.page).classList.add("on");if(b.dataset.page==="lesson"){lessonRenderPage();}if(b.dataset.page==="exam"&&!exam)nextExam();if(b.dataset.page==="oge")renderOge();if(b.dataset.page==="ege")renderEge();
 });
 api({action:"load"}).then(j=>{
  if(!j.ok){document.body.innerHTML="<p>Не удалось открыть лабораторию.</p>";return}
@@ -2327,7 +2728,7 @@ api({action:"load"}).then(j=>{
  if(task6Session){task6SelectedX=task6Session.selected_x||"";task6SelectedY=task6Session.selected_y||"";task6Target=task6SelectedX&&!task6SelectedY?"y":"x";}
  data.reactions.forEach(x=>{const k=key(x.a,x.b);if(!reactionMap.has(k))reactionMap.set(k,[]);reactionMap.get(k).push(x)});
  const cv=document.getElementById("labCoverage");if(cv&&data.coverage)cv.textContent="В текущем ЕГЭ-каталоге: "+data.coverage.substances+" веществ · "+data.coverage.reactions+" реакций/условий.";
- renderTubes();renderReagents();setupMobileTubePicker();setupReagentFilters();setupReagentSearch();setupLab();renderStats();
+ renderTubes();renderReagents();setupMobileTubePicker();setupReagentFilters();setupReagentSearch();setupLab();renderStats();lessonSetup();
  const requestedPage=labQs.get("page")||"";
  if(requestedPage){
    const btn=document.querySelector('[data-page="'+requestedPage+'"]');
