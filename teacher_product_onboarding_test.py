@@ -313,5 +313,97 @@ class GroupMultidayRoutingTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("gs_gid", context.user_data)
 
 
+
+class GroupPaymentWizardRecoveryTest(unittest.IsolatedAsyncioTestCase):
+    """Payment editing should recover from unfinished amount/date entry."""
+
+    def setUp(self):
+        from unittest.mock import AsyncMock
+        import teacher_product_group_payments as group_payments
+        self.group_payments = group_payments
+        self.tmp = tempfile.TemporaryDirectory()
+        base.DB_PATH = os.path.join(self.tmp.name, "payments_recovery.sqlite3")
+        base.ensure_tables()
+        groups.ensure_tables()
+        group_payments.ensure_tables()
+        base.upsert_teacher(101, name="Мария", subject="Химия",
+                            onboarding_completed_at="2026-10-20")
+        self.gid = groups.add_group(101, "ОГЭ 2027")
+        self.member = student_reminders.add_member(101, self.gid, "Алина")
+        self.pid = int(self.member["id"])
+        self.AsyncMock = AsyncMock
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def callback(self, action, teacher=101):
+        from types import SimpleNamespace
+        q = SimpleNamespace(
+            from_user=SimpleNamespace(id=teacher),
+            data=action,
+            answer=self.AsyncMock(),
+            edit_message_text=self.AsyncMock(),
+        )
+        return SimpleNamespace(callback_query=q)
+
+    def test_wizard_reentry_and_cancel_are_registered(self):
+        conv = self.group_payments._payment_setup_conversation()
+        self.assertTrue(conv.allow_reentry)
+        self.assertTrue(conv.entry_points[0].pattern.fullmatch(f"gpay:setup:{self.pid}"))
+        self.assertTrue(conv.fallbacks[0].pattern.fullmatch(f"gpay:cancel:{self.pid}"))
+        self.assertIn(self.group_payments.GPAY_AMOUNT, conv.states)
+        self.assertIn(self.group_payments.GPAY_FINAL, conv.states)
+
+    async def test_repeated_configure_restarts_instead_of_reusing_stale_amount(self):
+        from types import SimpleNamespace
+        from telegram.ext import ConversationHandler
+        context = SimpleNamespace(user_data={
+            "gpay": {"pid": self.pid, "type": "monthly", "amount": 5000},
+        })
+        update = self.callback(f"gpay:setup:{self.pid}")
+        state = await self.group_payments.setup_begin(update, context)
+        self.assertEqual(state, self.group_payments.GPAY_TYPE)
+        self.assertEqual(context.user_data["gpay"]["pid"], self.pid)
+        self.assertNotIn("amount", context.user_data["gpay"])
+        self.assertNotIn("type", context.user_data["gpay"])
+        self.assertIn("Как оплачивает", update.callback_query.edit_message_text.await_args.args[0])
+
+        type_update = self.callback("gpay:type:package")
+        state = await self.group_payments.setup_type(type_update, context)
+        self.assertEqual(state, self.group_payments.GPAY_AMOUNT)
+        self.assertIn("сумму", type_update.callback_query.edit_message_text.await_args.args[0])
+
+        cancel = self.callback(f"gpay:cancel:{self.pid}")
+        state = await self.group_payments.setup_cancel(cancel, context)
+        self.assertEqual(state, ConversationHandler.END)
+        self.assertNotIn("gpay", context.user_data)
+        self.assertIn("Оплата не настроена", cancel.callback_query.edit_message_text.await_args.args[0])
+        self.assertIsNone(self.group_payments._plan(101, self.pid))
+
+    async def test_invalid_amount_has_cancel_and_does_not_save_payment(self):
+        from types import SimpleNamespace
+        context = SimpleNamespace(user_data={
+            "gpay": {"pid": self.pid, "gid": self.gid,
+                     "name": "Алина", "type": "package"},
+        })
+        message = SimpleNamespace(text="не знаю", reply_text=self.AsyncMock())
+        state = await self.group_payments.setup_amount(
+            SimpleNamespace(message=message), context)
+        self.assertEqual(state, self.group_payments.GPAY_AMOUNT)
+        buttons = message.reply_text.await_args.kwargs["reply_markup"].inline_keyboard
+        self.assertEqual(buttons[0][0].callback_data, f"gpay:cancel:{self.pid}")
+        self.assertIsNone(self.group_payments._plan(101, self.pid))
+
+    async def test_other_teacher_cannot_edit_members_payment(self):
+        from types import SimpleNamespace
+        from telegram.ext import ConversationHandler
+        context = SimpleNamespace(user_data={})
+        update = self.callback(f"gpay:setup:{self.pid}", teacher=202)
+        state = await self.group_payments.setup_begin(update, context)
+        self.assertEqual(state, ConversationHandler.END)
+        self.assertNotIn("gpay", context.user_data)
+        self.assertIsNone(self.group_payments._plan(101, self.pid))
+
+
 if __name__ == "__main__":
     unittest.main()
