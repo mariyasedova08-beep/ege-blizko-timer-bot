@@ -38,7 +38,7 @@ try {
       route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html }));
     await page.goto(url, { waitUntil: 'load', timeout: 25000 });
     await page.waitForFunction(() =>
-      document.querySelectorAll('#tubes .tube-slot').length === 4, { timeout: 15000 });
+      document.querySelectorAll('#tubes .tube-slot').length === 4, null, { timeout: 15000 });
 
     for (const c of cases) {
       await page.evaluate(pair => {
@@ -95,7 +95,7 @@ try {
         assert.ok(state.callout.includes(c.gas), label + ': gas named');
       }
       await page.screenshot({ path: target + '/' + viewport.name + '-' + c.id + '.png',
-        fullPage: false, animations: 'disabled' });
+        fullPage: false });
       console.log('LAB_VISUAL_OK ' + label);
     }
     assert.deepEqual(pageErrors, [], viewport.name + ': uncaught browser errors');
