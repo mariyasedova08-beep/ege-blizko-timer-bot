@@ -345,7 +345,7 @@ async def setup_begin(update, context):
             [InlineKeyboardButton("1️⃣ Разовая", callback_data="gpay:type:once")],
             [InlineKeyboardButton("📅 Ежемесячно", callback_data="gpay:type:monthly")],
             [InlineKeyboardButton("🎟 Абонемент на занятия", callback_data="gpay:type:package")],
-            [InlineKeyboardButton("Отмена", callback_data=f"gpay:member:{pid}")],
+            [InlineKeyboardButton("Отмена", callback_data=f"gpay:cancel:{pid}")],
         ]),
     )
     return GPAY_TYPE
@@ -359,7 +359,12 @@ async def setup_type(update, context):
         return ConversationHandler.END
     payment_type = q.data.rsplit(":", 1)[1]
     data["type"] = payment_type
-    await q.edit_message_text("Напиши сумму в рублях, например: 15000")
+    await q.edit_message_text(
+        "Напиши сумму в рублях, например: 15000",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("← Отмена", callback_data=f"gpay:cancel:{data['pid']}")
+        ]]),
+    )
     return GPAY_AMOUNT
 
 
@@ -369,14 +374,41 @@ async def setup_amount(update, context):
         return ConversationHandler.END
     amount = _parse_amount(update.message.text)
     if amount is None:
-        await update.message.reply_text("Не поняла сумму. Напиши только число, например: 15000")
+        await update.message.reply_text(
+            "Не поняла сумму. Напиши только число, например: 15000",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("← Отмена", callback_data=f"gpay:cancel:{data['pid']}")
+            ]]),
+        )
         return GPAY_AMOUNT
     data["amount"] = amount
-    if data["type"] == "package":
-        await update.message.reply_text("Сколько занятий входит в абонемент? Например: 8")
-    else:
-        await update.message.reply_text("На какую дату ждём оплату? Например: 28.09")
+    prompt = (
+        "Сколько занятий входит в абонемент? Например: 8"
+        if data["type"] == "package"
+        else "На какую дату ждём оплату? Например: 28.09"
+    )
+    await update.message.reply_text(
+        prompt,
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("← Отмена", callback_data=f"gpay:cancel:{data['pid']}")
+        ]]),
+    )
     return GPAY_FINAL
+
+
+async def setup_cancel(update, context):
+    """Leave the wizard and discard only unfinished form input, never saved plans."""
+    q = update.callback_query
+    await q.answer()
+    uid = int(q.from_user.id)
+    pid = int(q.data.rsplit(":", 1)[1])
+    context.user_data.pop("gpay", None)
+    text, markup = _member_card(uid, pid)
+    if text is None:
+        await q.edit_message_text("Ученик не найден.")
+    else:
+        await q.edit_message_text(text, reply_markup=markup)
+    return ConversationHandler.END
 
 
 def _save_group_plan(uid, data, due=None, lessons=None):
@@ -425,7 +457,12 @@ async def setup_final(update, context):
         digits = "".join(ch for ch in str(update.message.text or "") if ch.isdigit())
         count = int(digits) if digits else 0
         if count <= 0 or count > 100:
-            await update.message.reply_text("Напиши количество занятий числом, например: 8")
+            await update.message.reply_text(
+                "Напиши количество занятий числом, например: 8",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("← Отмена", callback_data=f"gpay:cancel:{data['pid']}")
+                ]]),
+            )
             return GPAY_FINAL
         _save_group_plan(uid, data, lessons=count)
         message = (
@@ -437,7 +474,12 @@ async def setup_final(update, context):
     else:
         due = schedule.parse_date(update.message.text, datetime.now(schedule.tz(uid)).date())
         if not due:
-            await update.message.reply_text("Не поняла дату. Напиши, например: 28.09")
+            await update.message.reply_text(
+                "Не поняла дату. Напиши, например: 28.09",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("← Отмена", callback_data=f"gpay:cancel:{data['pid']}")
+                ]]),
+            )
             return GPAY_FINAL
         _save_group_plan(uid, data, due=due)
         message = (
@@ -940,6 +982,21 @@ def validate():
     print("PREPADMIN group payments ready: per-member plans + package attendance charging", flush=True)
 
 
+def _payment_setup_conversation():
+    """Expose the group payment wizard for isolated routing regression tests."""
+    return ConversationHandler(
+        entry_points=[CallbackQueryHandler(setup_begin, pattern=r"^gpay:setup:\d+$")],
+        states={
+            GPAY_TYPE: [CallbackQueryHandler(setup_type, pattern=r"^gpay:type:(?:once|monthly|package)$")],
+            GPAY_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_amount)],
+            GPAY_FINAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_final)],
+        },
+        fallbacks=[CallbackQueryHandler(setup_cancel, pattern=r"^gpay:cancel:\d+$")],
+        allow_reentry=True,
+        per_message=False,
+    )
+
+
 def install(app):
     ensure_tables()
     patch_attendance()
@@ -951,17 +1008,7 @@ def install(app):
     # legacy individual-only screen.
     individual_payments.payments_menu = payments_home
 
-    setup = ConversationHandler(
-        entry_points=[CallbackQueryHandler(setup_begin, pattern=r"^gpay:setup:\d+$")],
-        states={
-            GPAY_TYPE: [CallbackQueryHandler(setup_type, pattern=r"^gpay:type:(?:once|monthly|package)$")],
-            GPAY_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_amount)],
-            GPAY_FINAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_final)],
-        },
-        fallbacks=[],
-        per_message=False,
-    )
-    app.add_handler(setup, group=-2)
+    app.add_handler(_payment_setup_conversation(), group=-2)
     app.add_handler(MessageHandler(filters.Regex(r"^💳 Оплаты$"), payments_home), group=-2)
     app.add_handler(CallbackQueryHandler(home_callback, pattern=r"^gpay:home$"), group=-2)
     app.add_handler(CallbackQueryHandler(individual_view, pattern=r"^gpay:individual$"), group=-2)
