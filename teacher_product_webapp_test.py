@@ -531,6 +531,8 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
         schedule.ensure_tables()
         student_reminders.ensure_tables()
         hwapp.ensure_tables()
+        import teacher_product_group_payments as group_payments
+        group_payments.ensure_tables()
         base.upsert_teacher(101, name="Мария", subject="Химия", onboarding_completed_at="2026-10-20")
         base.upsert_teacher(202, name="Другая", subject="Биология", onboarding_completed_at="2026-10-20")
         self.gid = groups.add_group(101, "ОГЭ 2027")
