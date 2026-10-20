@@ -77,7 +77,10 @@ console.log('PREPODMIN_DESKTOP_VIEWPORT_OK');
     def test_prepodmin_light_typography_and_independent_branding(self):
         teacher = Path(webapp.HTML_PATH).read_text(encoding="utf-8")
         self.assertNotIn("<span>как в ЕГЭ БЛИЗКО</span>", teacher)
-        self.assertIn("<strong>Все разделы</strong></div>", teacher)
+        # A calm five-tab navigation replaces the former giant home tile catalog.
+        self.assertIn('id="nav-more"', teacher)
+        self.assertIn("function renderMore()", teacher)
+        self.assertNotIn("<strong>Все разделы</strong></div>", teacher)
         for token in (
             ".brand-wordmark{font-size:23px;font-weight:720",
             "h1{font-size:clamp(27px,5vw,32px);font-weight:670",
@@ -101,7 +104,7 @@ console.log('PREPODMIN_DESKTOP_VIEWPORT_OK');
         for fragment in (
             "brand-wordmark", "top-kicker", "function uiIcon(name)",
             "function hydrateNavIcons()", 'data-ui-icon="home"',
-            "uiIcon(a[0])", "uiIcon(icon)", "var(--soft)",
+            "uiIcon(item[0])", "uiIcon(icon)", "var(--soft)",
             "var(--paper)", "var(--hot)", "var(--muted)",
         ):
             self.assertIn(fragment, teacher)
