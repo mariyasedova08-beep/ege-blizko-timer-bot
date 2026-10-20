@@ -285,7 +285,10 @@ def patched_groups_build_app():
     app.add_handler(CallbackQueryHandler(groups.group_schedule_menu, pattern=r"^groups:schedule$"))
 
     app.add_handler(ConversationHandler(
-        entry_points=[CallbackQueryHandler(groups.group_slot_add_begin, pattern=r"^gs:add$")],
+        entry_points=[
+            CallbackQueryHandler(groups.group_slot_add_begin, pattern=r"^gs:add$"),
+            CallbackQueryHandler(group_pick_group, pattern=r"^gs:add:\d+$"),
+        ],
         states={
             groups.ADD_GROUP_SLOT_GROUP: [CallbackQueryHandler(group_pick_group, pattern=r"^gs:group:\d+$")],
             groups.ADD_GROUP_SLOT_DAY: [CallbackQueryHandler(group_pick_days, pattern=r"^gs:day:(?:[0-6]|done)$")],
