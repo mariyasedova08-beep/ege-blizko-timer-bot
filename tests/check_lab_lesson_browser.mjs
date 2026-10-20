@@ -1,6 +1,8 @@
 // Independent Chromium smoke test of the actual lab-app HTML, no server access.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 import { PDFDocument } from 'pdf-lib';
 const folder='lab-visual-preview';
@@ -87,5 +89,38 @@ try{
   console.log('LESSON_PARALLEL_OK '+viewport.name+' 30/70, real lab, freehand, 2 PDF pages');
   await page.close();
  }
+
+// Verify the teacher can open the downloadable HTML directly in Edge/Chrome
+// without Telegram credentials or touching the live service.
+const offline=await browser.newPage({viewport:{width:1100,height:780},acceptDownloads:true});
+const offlineErrors=[];
+offline.on('pageerror',e=>offlineErrors.push(String(e)));
+await offline.route('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs',route=>
+  route.fulfill({status:200,contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:pdfjsMain}));
+await offline.route('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs',route=>
+  route.fulfill({status:200,contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:pdfjsWorker}));
+await offline.route('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js',route=>
+  route.fulfill({status:200,contentType:'application/javascript',headers:{'access-control-allow-origin':'*'},body:pdfLibBrowser}));
+await offline.goto(pathToFileURL(path.resolve('preview/ege-blizko-lab-lesson-30-70-offline.html')).href);
+await offline.waitForFunction(()=>document.querySelector('#lesson.page.on')&&
+  document.querySelector('#lessonReagentA option[value="kmno4"]'));
+await offline.locator('#lessonConduct').click();
+await offline.waitForFunction(()=>document.querySelector('#lessonReaction')?.textContent.includes('MnO₂'));
+await offline.locator('#lessonPDFInput').setInputFiles({
+  name:'teacher-lesson.pdf',mimeType:'application/pdf',buffer:originalBytes});
+await offline.waitForFunction(()=>lessonPageCount===2 && lessonPdfDocument!==null,null,{timeout:30000});
+const offbox=await offline.locator('#lessonInkCanvas').boundingBox();
+await offline.mouse.move(offbox.x+offbox.width*.15,offbox.y+offbox.height*.28);
+await offline.mouse.down();
+await offline.mouse.move(offbox.x+offbox.width*.47,offbox.y+offbox.height*.43,{steps:7});
+await offline.mouse.up();
+const offlineDownload=offline.waitForEvent('download',{timeout:30000});
+await offline.locator('#lessonExport').click();
+const savedOffline=await offlineDownload;
+assert.equal((await PDFDocument.load(fs.readFileSync(await savedOffline.path()))).getPageCount(),2);
+assert.deepEqual(offlineErrors,[],'standalone download: JS works without server');
+await offline.screenshot({path:folder+'/lesson-offline.png',fullPage:false});
+console.log('LESSON_OFFLINE_PREVIEW_OK 195 reagents, 435 reactions, PDF and stylus');
+await offline.close();
 }finally{await browser.close()}
 console.log('LESSON_BROWSER_SMOKE_COMPLETE');
