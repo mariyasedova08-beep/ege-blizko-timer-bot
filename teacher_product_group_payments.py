@@ -266,6 +266,78 @@ async def groups_view(update, context):
     raise ApplicationHandlerStop
 
 
+def _next_group_member(uid, gid, after_pid, only_unconfigured=False):
+    """Pick the next student of this teacher's group (wrapping to the first)."""
+    rows = _group_rows(uid, gid)
+    if not rows:
+        return None
+    ids = [int(member["id"]) for member, _ in rows]
+    start = ids.index(int(after_pid)) + 1 if int(after_pid) in ids else 0
+    ordered = rows[start:] + rows[:start]
+    for member, plan in ordered:
+        if int(member["id"]) == int(after_pid):
+            continue
+        if only_unconfigured and plan is not None and int(plan["active"] or 0):
+            continue
+        return member
+    return None
+
+
+def _group_payment_hub(uid, gid):
+    """One-screen group payment overview with direct setup per student."""
+    group = groups.get_group(uid, gid)
+    if not group:
+        return None, None
+    rows = _group_rows(uid, gid)
+    configured = sum(bool(p and int(p["active"] or 0)) for _, p in rows)
+    lines = [
+        f"💳 Оплаты · {group['name']}", "",
+        f"Настроено: {configured}/{len(rows)} · осталось: {len(rows)-configured}", "",
+        "Выбери ученика для просмотра или нажми «⚙️» для настройки:",
+    ]
+    kb = []
+    for member, plan in rows[:60]:
+        status, _level = _status(uid, plan)
+        lines.append(f"• {member['name']} — {status}")
+        pid = int(member["id"])
+        kb.append([
+            InlineKeyboardButton(member["name"], callback_data=f"gpay:member:{pid}"),
+            InlineKeyboardButton("⚙️ Настроить" if not plan or not int(plan["active"] or 0) else "✏️ Изменить",
+                                 callback_data=f"gpay:setup:{pid}"),
+        ])
+    if not rows:
+        lines += ["", "Пока нет учеников — сначала добавь участников группы."]
+    kb.append([InlineKeyboardButton("👥 Состав и участники", callback_data=f"gmem:members:{gid}")])
+    kb.append([InlineKeyboardButton("🏠 Карточка группы", callback_data=f"gmem:group:{gid}")])
+    kb.append([InlineKeyboardButton("← Все группы", callback_data="gpay:groups")])
+    return "\n".join(lines), InlineKeyboardMarkup(kb)
+
+
+def _payment_next_markup(uid, gid, pid):
+    """Continue with next unconfigured member without returning through menus."""
+    buttons = []
+    member = _next_group_member(uid, gid, pid, only_unconfigured=True)
+    if member:
+        buttons.append([
+            InlineKeyboardButton(
+                f"➡️ Настроить: {member['name']}",
+                callback_data=f"gpay:setup:{member['id']}",
+            )
+        ])
+    else:
+        next_member = _next_group_member(uid, gid, pid)
+        if next_member:
+            buttons.append([
+                InlineKeyboardButton(
+                    f"➡️ Следующий: {next_member['name']}",
+                    callback_data=f"gpay:member:{next_member['id']}",
+                )
+            ])
+    buttons.append([InlineKeyboardButton("💳 Все оплаты группы", callback_data=f"gpay:group:{gid}")])
+    buttons.append([InlineKeyboardButton("🏠 Карточка группы", callback_data=f"gmem:group:{gid}")])
+    return InlineKeyboardMarkup(buttons)
+
+
 async def group_view(update, context):
     q = update.callback_query
     await q.answer()
@@ -274,21 +346,11 @@ async def group_view(update, context):
         gid = int(q.data.rsplit(":", 1)[1])
     except Exception:
         raise ApplicationHandlerStop
-    group = groups.get_group(uid, gid)
-    if not group:
+    text, markup = _group_payment_hub(uid, gid)
+    if text is None:
         await q.edit_message_text("Группа не найдена.")
         raise ApplicationHandlerStop
-    rows = _group_rows(uid, gid)
-    lines = [f"👥 {group['name']}", "", "Оплата по каждому ученику:"]
-    kb = []
-    for member, plan in rows[:60]:
-        status_text, _level = _status(uid, plan)
-        lines.append(f"• {member['name']} — {status_text}")
-        kb.append([InlineKeyboardButton(member["name"], callback_data=f"gpay:member:{member['id']}")])
-    if not rows:
-        lines += ["", "В группе пока нет учеников."]
-    kb.append([InlineKeyboardButton("← К группам", callback_data="gpay:groups")])
-    await q.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(kb))
+    await q.edit_message_text(text, reply_markup=markup)
     raise ApplicationHandlerStop
 
 
@@ -312,7 +374,20 @@ def _member_card(uid, pid):
     ]
     if plan and int(plan["active"] or 0):
         kb.append([InlineKeyboardButton("✅ Получила оплату", callback_data=f"gpay:paid:{pid}")])
-    kb.append([InlineKeyboardButton("← К группе", callback_data=f"gpay:group:{member['group_id']}")])
+    next_member = _next_group_member(uid, member["group_id"], pid, only_unconfigured=True)
+    if next_member:
+        kb.append([InlineKeyboardButton(
+            f"➡️ Настроить: {next_member['name']}",
+            callback_data=f"gpay:setup:{next_member['id']}",
+        )])
+    else:
+        neighbor = _next_group_member(uid, member["group_id"], pid)
+        if neighbor:
+            kb.append([InlineKeyboardButton(
+                f"➡️ Следующий: {neighbor['name']}",
+                callback_data=f"gpay:member:{neighbor['id']}",
+            )])
+    kb.append([InlineKeyboardButton("💳 Все оплаты группы", callback_data=f"gpay:group:{member['group_id']}")])
     return "\n".join(lines), InlineKeyboardMarkup(kb)
 
 
@@ -488,7 +563,10 @@ async def setup_final(update, context):
             f"Дата: {due.strftime('%d.%m.%Y')}"
         )
     context.user_data.pop("gpay", None)
-    await update.message.reply_text(message, reply_markup=base.MAIN_KB)
+    await update.message.reply_text(
+        message + "\n\nМожешь сразу настроить следующего ученика, не возвращаясь в меню.",
+        reply_markup=_payment_next_markup(uid, data["gid"], data["pid"]),
+    )
     return ConversationHandler.END
 
 
