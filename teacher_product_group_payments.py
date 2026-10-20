@@ -53,6 +53,8 @@ def ensure_tables():
                 next_due_date TEXT,
                 lessons_total INTEGER,
                 lessons_remaining INTEGER,
+                course_paid INTEGER NOT NULL DEFAULT 0,
+                course_paid_date TEXT,
                 active INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
@@ -90,6 +92,12 @@ def ensure_tables():
             ON group_member_payment_history(teacher_telegram_user_id,paid_at);
             """
         )
+        # Additive migration; existing group payment rows and history remain intact.
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(group_member_payment_plans)")}
+        if "course_paid" not in columns:
+            conn.execute("ALTER TABLE group_member_payment_plans ADD COLUMN course_paid INTEGER NOT NULL DEFAULT 0")
+        if "course_paid_date" not in columns:
+            conn.execute("ALTER TABLE group_member_payment_plans ADD COLUMN course_paid_date TEXT")
         conn.commit()
 
 
@@ -103,6 +111,22 @@ def _parse_amount(text):
         return None
     value = int(digits)
     return value if 0 < value <= 10_000_000 else None
+
+
+def _parse_received_date(value, today):
+    """Only an actual received date, not a projected future due date."""
+    value = str(value or "").strip()
+    for fmt in ("%d.%m.%Y", "%d.%m"):
+        try:
+            paid = datetime.strptime(value, fmt).date()
+            if fmt == "%d.%m":
+                paid = paid.replace(year=today.year)
+                if paid > today:
+                    paid = paid.replace(year=today.year - 1)
+            return paid if paid <= today else None
+        except ValueError:
+            continue
+    return None
 
 
 def _add_month(d):
@@ -144,6 +168,8 @@ def _plan(uid, pid):
 def _status(uid, row):
     if not row or not int(row["active"] or 0):
         return "⚪ не настроено", "muted"
+    if int(row["course_paid"] or 0):
+        return "✅ курс оплачен полностью", "ok"
     if row["payment_type"] == "package":
         left = int(row["lessons_remaining"] or 0)
         total = int(row["lessons_total"] or 0)
@@ -364,7 +390,10 @@ def _member_card(uid, pid):
         lines.append("💳 Оплата не настроена.")
     else:
         status_text, _level = _status(uid, plan)
-        type_label = {"once": "разовая", "monthly": "ежемесячно", "package": "абонемент"}.get(plan["payment_type"], plan["payment_type"])
+        type_label = (
+            "весь курс" if int(plan["course_paid"] or 0)
+            else {"once": "за одно занятие", "monthly": "ежемесячно", "package": "абонемент"}.get(plan["payment_type"], plan["payment_type"])
+        )
         lines += [
             f"💳 {_money(plan['amount_rub'])} · {type_label}",
             status_text,
@@ -372,7 +401,7 @@ def _member_card(uid, pid):
     kb = [
         [InlineKeyboardButton("⚙️ Настроить / изменить", callback_data=f"gpay:setup:{pid}")],
     ]
-    if plan and int(plan["active"] or 0):
+    if plan and int(plan["active"] or 0) and not int(plan["course_paid"] or 0):
         kb.append([InlineKeyboardButton("✅ Получила оплату", callback_data=f"gpay:paid:{pid}")])
     next_member = _next_group_member(uid, member["group_id"], pid, only_unconfigured=True)
     if next_member:
@@ -417,9 +446,10 @@ async def setup_begin(update, context):
     await q.edit_message_text(
         f"💳 {member['name']}\n\nКак оплачивает ученик?",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("1️⃣ Разовая", callback_data="gpay:type:once")],
+            [InlineKeyboardButton("1️⃣ За одно занятие", callback_data="gpay:type:once")],
             [InlineKeyboardButton("📅 Ежемесячно", callback_data="gpay:type:monthly")],
             [InlineKeyboardButton("🎟 Абонемент на занятия", callback_data="gpay:type:package")],
+            [InlineKeyboardButton("✅ Весь курс уже оплачен", callback_data="gpay:type:course_paid")],
             [InlineKeyboardButton("Отмена", callback_data=f"gpay:cancel:{pid}")],
         ]),
     )
@@ -457,11 +487,15 @@ async def setup_amount(update, context):
         )
         return GPAY_AMOUNT
     data["amount"] = amount
-    prompt = (
-        "Сколько занятий входит в абонемент? Например: 8"
-        if data["type"] == "package"
-        else "На какую дату ждём оплату? Например: 28.09"
-    )
+    if data["type"] == "course_paid":
+        prompt = (
+            "Когда получена полная оплата курса? Укажи фактическую дату "
+            "поступления денег, например 20.10.2026 (или 20.10)."
+        )
+    elif data["type"] == "package":
+        prompt = "Сколько занятий входит в абонемент? Например: 8"
+    else:
+        prompt = "На какую дату ждём оплату? Например: 28.09"
     await update.message.reply_text(
         prompt,
         reply_markup=InlineKeyboardMarkup([[
@@ -1065,7 +1099,7 @@ def _payment_setup_conversation():
     return ConversationHandler(
         entry_points=[CallbackQueryHandler(setup_begin, pattern=r"^gpay:setup:\d+$")],
         states={
-            GPAY_TYPE: [CallbackQueryHandler(setup_type, pattern=r"^gpay:type:(?:once|monthly|package)$")],
+            GPAY_TYPE: [CallbackQueryHandler(setup_type, pattern=r"^gpay:type:(?:once|monthly|package|course_paid)$")],
             GPAY_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_amount)],
             GPAY_FINAL: [MessageHandler(filters.TEXT & ~filters.COMMAND, setup_final)],
         },
