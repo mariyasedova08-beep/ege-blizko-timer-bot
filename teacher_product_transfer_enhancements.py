@@ -34,7 +34,7 @@ def _delivery_summary(uid, kind, sent, failed, total):
     )
 
 
-async def _notify_transfer(context, uid, kind, slot_id, original, old_time, new_date, new_time):
+async def _notify_transfer(context, uid, kind, slot_id, original, old_time, new_date, new_time, *, mode_override=None):
     if kind == "individual":
         row = schedule.slot(uid, slot_id)
         if not row:
@@ -67,6 +67,7 @@ async def _notify_transfer(context, uid, kind, slot_id, original, old_time, new_
             "\n".join(lines),
             recipient_name=person["name"],
             category="transfer",
+            mode_override=mode_override,
             source_key=(
                 f"transfer:{kind}:{slot_id}:{original}:{new_date}:{new_time}:{person['id']}"
             ),
