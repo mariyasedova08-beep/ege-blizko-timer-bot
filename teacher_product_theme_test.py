@@ -37,6 +37,24 @@ class ThemeCatalogTest(unittest.TestCase):
             self.assertIn(token, html)
 
 
+    def test_prepodmin_light_typography_and_independent_branding(self):
+        teacher = Path(webapp.HTML_PATH).read_text(encoding="utf-8")
+        self.assertNotIn("<span>как в ЕГЭ БЛИЗКО</span>", teacher)
+        self.assertIn("<strong>Все разделы</strong></div>", teacher)
+        for token in (
+            ".brand-wordmark{font-size:23px;font-weight:720",
+            "h1{font-size:clamp(27px,5vw,32px);font-weight:670",
+            ".section-title strong{font-size:17px;font-weight:640",
+            ".subject-tile span{font-size:12px;font-weight:530",
+            ".theme-name{font-size:13px;font-weight:590",
+        ):
+            self.assertIn(token, teacher)
+        # All user themes still use live CSS palette variables.
+        self.assertIn("function applyTheme(", teacher)
+        self.assertIn("var(--soft)", teacher)
+        self.assertIn("var(--hot)", teacher)
+
+
     def test_elegant_cabinet_matches_ege_blizko_font_and_outline_icons(self):
         teacher = Path(webapp.HTML_PATH).read_text(encoding="utf-8")
         student = Path("ege_student_webapp.html").read_text(encoding="utf-8")
