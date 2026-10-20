@@ -60,7 +60,7 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: timeweb-production
+    environment: ege-lab-production
     steps:
       - name: Configure restricted pinned SSH connection
         shell: bash
