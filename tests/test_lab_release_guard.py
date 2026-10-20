@@ -3,6 +3,7 @@
 This suite never imports the bot or touches SQLite/Telegram/server state.
 """
 import ast
+import json
 import re
 import shutil
 import subprocess
@@ -62,11 +63,127 @@ class LaboratoryReleaseChecks(unittest.TestCase):
 
     def test_gel_visualization_and_colour_source(self):
         # Both Cu(OH)2 and Fe(OH)2 should use soft clouds, not round bubbles.
-        self.assertIn(r"cu\(oh\)[₂2]|fe\(oh\)[₂2]", self.html)
+        self.assertIn('"Cu(OH)₂":"gel"', self.html)
+        self.assertIn('"Fe(OH)₂":"gel"', self.html)
+        self.assertIn('"Fe(OH)₃":"gel"', self.html)
         self.assertIn('class="gel-bed"', self.html)
         self.assertIn('class="gel-cloud"', self.html)
         self.assertIn("@keyframes gelCloudSettle", self.html)
         self.assertIn("--pc:'+x.ppt", self.html)
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js required for live visual rules")
+    def test_eight_reference_experiments_use_correct_visuals(self):
+        """Evaluate actual production JavaScript against 8 reference chemical pairs."""
+        expected = {
+            ("cuso4", "naoh"): ("gel", ""),
+            ("feso4", "naoh"): ("gel", ""),
+            ("fecl3", "naoh"): ("gel", ""),
+            ("alcl3", "naoh"): ("gel", ""),
+            ("bacl2", "h2so4"): ("fine", ""),
+            ("pbno3", "ki"): ("crystal", ""),
+            ("cuo", "hcl"): ("", "dissolving_solid"),
+            ("caco3", "hcl"): ("", "dissolving_solid"),
+        }
+        by_pair = {frozenset((rx[0], rx[1])): rx for rx in self.reactions}
+        cases = []
+        for pair, (texture, solid) in expected.items():
+            rx = by_pair[frozenset(pair)]
+            cases.append({
+                "pair": list(pair), "texture": texture, "solid": solid,
+                "rx": {
+                    "eq": rx[2], "t": rx[3], "sign": rx[4], "sol": rx[5],
+                    "ppt": rx[6], "gas": rx[7], "heat": bool(rx[8]),
+                },
+            })
+        scripts = re.findall(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", self.html)
+        self.assertTrue(scripts)
+        js = next(part for part in scripts if "const PRECIPITATE_STYLES=" in part)
+        precipitate_rules = js[
+            js.index("const PRECIPITATE_STYLES="):js.index("function bubblesHTML(x){")
+        ]
+        solid_rules = js[
+            js.index("function solidReactionMode("):js.index("function metalDepositHTML(")
+        ]
+        snippet = "\n".join((
+            "const cases=" + json.dumps(cases, ensure_ascii=False) + ";",
+            "const reagents=" + json.dumps(self.reagents, ensure_ascii=False) + ";",
+            "function reagent(id){return reagents[id];}",
+            precipitate_rules,
+            solid_rules,
+            """const results=cases.map(c=>{
+              const visual=precipitateHTML(c.rx);
+              const solidVisual=solidReagentHTML(c.pair,c.rx);
+              return {
+                texture:pptTexture(c.rx), solid:solidReactionMode(c.pair,c.rx),
+                output:visual, solidOutput:solidVisual
+              };
+            });""",
+            "process.stdout.write(JSON.stringify(results));",
+        ))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = Path(tmpdir) / "reference_visuals.js"
+            target.write_text(snippet, encoding="utf-8")
+            process = subprocess.run(
+                ["node", str(target)], capture_output=True, text=True, check=False,
+            )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        actual = json.loads(process.stdout)
+        self.assertEqual(len(actual), 8)
+        for item, state in zip(cases, actual):
+            label = " + ".join(item["pair"])
+            self.assertEqual(state["texture"], item["texture"], label)
+            self.assertEqual(state["solid"], item["solid"], label)
+            if item["texture"] == "gel":
+                self.assertIn("gel-sediment", state["output"], label)
+            if item["texture"] == "fine":
+                self.assertIn("particle fine", state["output"], label)
+            if item["texture"] == "crystal":
+                self.assertIn("particle crystal", state["output"], label)
+            if item["solid"]:
+                self.assertIn("dissolving-solid", state["solidOutput"], label)
+            if item["rx"]["ppt"]:
+                self.assertIn(item["rx"]["ppt"], state["output"], label)
+        self.assertEqual(cases[-1]["rx"]["gas"], "CO₂")
+        self.assertIn("растворяется", cases[-1]["rx"]["sign"].lower())
+        self.assertIn("CuCl₂", cases[-2]["rx"]["eq"])
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js required for live visual rules")
+    def test_solid_consumption_requires_a_real_reaction(self):
+        js = next(part for part in re.findall(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", self.html)
+                  if "function solidReactionMode(" in part)
+        rules = js[js.index("function solidReactionMode("):js.index("function metalDepositHTML(")]
+        source = "\n".join((
+            "const reagents=" + json.dumps(self.reagents, ensure_ascii=False) + ";",
+            "function reagent(id){return reagents[id];}",
+            rules,
+            """const solid=['cuo','hcl'], metal=['zn','hcl'], noReaction=['cu','hcl'];
+            const reactive={t:'c',sign:'чёрный CuO растворяется'};
+            const activeMetal={t:'g',sign:'цинк растворяется'};
+            const passive={t:'z',sign:'реакция не идёт'};
+            const output={
+                solid:solidReactionMode(solid,reactive),
+                metal:solidReactionMode(metal,activeMetal),
+                missing:solidReactionMode(solid,null),
+                passive:solidReactionMode(noReaction,passive),
+                kept:solidReagentHTML(solid,null),
+                consumed:solidReagentHTML(solid,reactive)
+            };
+            process.stdout.write(JSON.stringify(output));""",
+        ))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = Path(tmpdir) / "solid_rules.js"
+            target.write_text(source, encoding="utf-8")
+            result = subprocess.run(
+                ["node", str(target)], capture_output=True, text=True, check=False,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertEqual(data["solid"], "dissolving_solid")
+        self.assertEqual(data["metal"], "reactive_metal")
+        self.assertEqual(data["missing"], "")
+        self.assertEqual(data["passive"], "")
+        self.assertNotIn("dissolving-solid", data["kept"])
+        self.assertIn("dissolving-solid", data["consumed"])
 
     def test_existing_modes_and_gas_effects_remain(self):
         for marker in (
