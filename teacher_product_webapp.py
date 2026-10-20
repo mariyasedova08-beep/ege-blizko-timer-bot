@@ -34,6 +34,7 @@ import teacher_product_onboarding as onboarding
 import teacher_product_help as help_guide
 import teacher_product_group_workspace as group_workspace
 import teacher_product_webapp_homework as webapp_homework
+import teacher_product_webapp_lessons as webapp_lessons
 
 PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
 WEBAPP_URL = os.getenv(
@@ -510,6 +511,8 @@ def _teacher_action(uid, payload):
         # Authenticated Telegram UID scopes all updates; no user-supplied teacher ID.
         base.upsert_teacher(int(uid), name=name, subject=subject, subject_id=subject_id)
         return {"ok": True, "name": name, "subject": subject, "subject_id": subject_id}
+    if action_name == "group_lesson_mutate":
+        return webapp_lessons.save(uid, payload)
     if action_name == "group_homework_create":
         return webapp_homework.create_group_assignment(uid, payload)
     if action_name == "group_homework_mark":
@@ -1225,7 +1228,14 @@ def install(app):
         MessageHandler(filters.StatusUpdate.WEB_APP_DATA, webapp_action),
         group=-40,
     )
+    webapp_lessons.ensure_tables()
     if app.job_queue is not None:
+        app.job_queue.run_repeating(
+            webapp_lessons.delivery_tick,
+            interval=30,
+            first=14,
+            name="prepodmin_webapp_lesson_change_notifications",
+        )
         app.job_queue.run_once(
             _push_keyboard_migration,
             when=3,
