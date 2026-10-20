@@ -325,7 +325,7 @@ class GroupWorkspaceTest(unittest.TestCase):
             self.assertIn(phrase,html_content)
         self.assertIn("group_attendance",html_content)
         self.assertIn("groupSection(",html_content)
-        self.assertIn("openView('member:",html_content)
+        self.assertIn("member:'+Number(m.id)",html_content)
 
 
 
