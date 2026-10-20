@@ -99,7 +99,7 @@ class LaboratoryReleaseChecks(unittest.TestCase):
         self.assertTrue(scripts)
         js = next(part for part in scripts if "const PRECIPITATE_STYLES=" in part)
         precipitate_rules = js[
-            js.index("const PRECIPITATE_STYLES="):js.index("function bubblesHTML(x){")
+            js.index("const PRECIPITATE_STYLES="):js.index("function bubblesHTML(")
         ]
         solid_rules = js[
             js.index("function solidReactionMode("):js.index("function metalDepositHTML(")
@@ -203,7 +203,7 @@ class LaboratoryReleaseChecks(unittest.TestCase):
 
     def test_existing_modes_and_gas_effects_remain(self):
         for marker in (
-            "function bubblesHTML(x)",
+            "function bubblesHTML(x,v=[])",
             "function renderTubes()",
             "function setupMobileTubePicker()",
             '"task6":TASK6_BANK',
