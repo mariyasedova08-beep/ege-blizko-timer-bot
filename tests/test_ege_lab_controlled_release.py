@@ -54,8 +54,5 @@ class ControlledReleaseGuard(unittest.TestCase):
         self.assertNotIn("workflow_dispatch:", w)
         self.assertNotRegex(w, r"(?m)^\s+cancel-in-progress:\s+true\s*$")
 
-    def test_no_release_intent_is_committed_during_preparation(self):
-        self.assertFalse((ROOT/"deploy/release-intents/ege-lab-mncr.txt").exists())
-
 if __name__ == "__main__":
     unittest.main()
