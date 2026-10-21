@@ -101,11 +101,14 @@ def _homework(uid, gid):
                     "name": members[member_id],
                     "status": "done" if st["status"] == "done" else "pending",
                 })
+    import teacher_product_homework_submissions as submissions
     modes = webapp_homework.mode_map(ids)
     origins = webapp_homework.status_origins(ids)
+    attempts = submissions.for_teacher(uid,ids)
     for aid, people in statuses.items():
         for member in people:
             member["completed_by"] = origins.get((aid,"group_member",member["id"])) if member["status"] == "done" else None
+            member["submission"] = attempts.get((aid,"group_member",member["id"]))
     return [{
         "id": int(r["id"]),
         "submission_mode": modes.get(int(r["id"]),"self"),
@@ -113,6 +116,10 @@ def _homework(uid, gid):
         "due": r["due_date"],
         "done": int(r["done"] or 0),
         "total": int(r["total"] or 0),
+        "submitted": sum(1 for m in statuses.get(int(r["id"]),[]) if
+                         m.get("submission") and m["submission"]["status"]=="submitted"),
+        "approved": sum(1 for m in statuses.get(int(r["id"]),[]) if
+                        m.get("submission") and m["submission"]["status"]=="approved"),
         "members": sorted(statuses.get(int(r["id"]), []), key=lambda m: m["name"].casefold()),
         "delivery": ({
             "state": r["delivery_state"],
