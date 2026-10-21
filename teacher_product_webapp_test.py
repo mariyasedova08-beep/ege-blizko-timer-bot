@@ -139,6 +139,51 @@ class TeacherDashboardTest(unittest.TestCase):
         self.assertIn("Telegram подключён",group)
         self.assertIn("p.amount!=null?money(p.amount)",group)
 
+    def test_home_removes_empty_cards_and_keeps_actionable_task_and_debt_sections(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        home=html.split("function renderHome(d){",1)[1].split("function moreLink(",1)[0]
+        self.assertIn('<div class="hero-title">Обзор дня</div>',home)
+        self.assertIn('<strong>Сегодня</strong>',home)  # the timetable still says Today
+        self.assertIn("if(taskRows){",home)
+        self.assertIn("if(debts){",home)
+        self.assertIn("if(!taskRows&&!debts){",home)
+        self.assertIn('class="home-all-clear" role="status"',home)
+        self.assertIn("<strong>Всё выполнено</strong>",home)
+        self.assertNotIn("Задач нет 🎉",home)
+        self.assertNotIn("Долгов нет 🎉",home)
+        self.assertIn("'+taskRows+'",home)
+        self.assertIn("'+debts+'",home)
+        self.assertIn("if(attention){",home)
+        # Statistical cards remain interactive and show true counts.
+        for destination in ("'tasks'","'schedule'","'payments'","'attention'"):
+            self.assertIn(destination,home)
+
+    def test_group_row_shows_only_pending_homework_and_no_decorative_arrow(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        fragment=html.split("function renderGroup(d){",1)[1].split('out+=\'<section data-gpanel="lessons"',1)[0]
+        self.assertNotIn("Нет ДЗ к выполнению",fragment)
+        self.assertNotIn('class="gmemberarrow"',fragment)
+        self.assertIn("pending?'<span class=\"gmemberhw has-work\">ДЗ к выполнению: '+pending+'</span>':'')",fragment)
+        self.assertIn("m.connected?'Telegram подключён':'Telegram не подключён'",fragment)
+        self.assertIn("p.amount!=null?money(p.amount)",fragment)
+        self.assertIn("esc(p.label||'')",fragment)
+        self.assertIn("openMemberQuick('+pid+',\\'profile\\')",fragment)
+        self.assertIn("openMemberQuick('+pid+',\\'payment\\')",fragment)
+        self.assertIn("openMemberQuick('+pid+',\\'homework\\')",fragment)
+        self.assertIn("function renderMember(d)",html)
+        css=html.split("/* PREPODMIN final overview / group row polish;",1)[1].split("</style>",1)[0]
+        for expected in (
+            ".home-all-clear{display:flex;",
+            ".gmemberprimary{display:grid;grid-template-columns:minmax(0,1fr) auto;",
+            ".gmemberpayment{max-width:none;min-width:105px;text-align:right}",
+            ".gmemberbottom{min-width:224px;align-items:flex-end;gap:5px}",
+            "@media(min-width:900px) and (max-width:1020px)",
+        ):
+            self.assertIn(expected,css)
+        self.assertNotIn("zoom:",css)
+        self.assertNotIn("transform:scale",css)
+        self.assertIn("function applyTheme(theme)",html)
+
     def test_single_direct_browser_launch_without_extra_window_prompt(self):
         html = webapp.HTML_PATH.read_text(encoding="utf-8")
         # Personalized URL links must not leak through Referer.
