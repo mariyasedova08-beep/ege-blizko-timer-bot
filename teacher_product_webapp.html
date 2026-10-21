@@ -355,6 +355,46 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
 .directory-person-meta{font-size:12px;color:var(--muted);display:block;margin-top:4px}
 @media(max-width:580px){.directory-group{padding:16px}.directory-group-layout{flex-direction:column;gap:12px}.directory-group-next{max-width:100%;min-width:0;text-align:left}.directory-group-title{font-size:16px}.directory-group-lesson{font-size:14px}}
 @media(min-width:900px){.directory-intro,.directory-group-sub,.directory-group-caption,.directory-person-meta{font-size:14px}.directory-group{padding:23px 26px}.directory-group-title{font-size:20px}.directory-group-count,.directory-group-lesson,.directory-person-name{font-size:17px}.directory-issue,.directory-calm{font-size:14px}}
+/* Group workspace: teacher actions in-place and compact individual rows. */
+.gquickbar{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 13px}
+.gquickbar button{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:12px;padding:11px 15px;background:var(--paper);color:var(--ink);cursor:pointer}
+.gquickbar button.gquickbar-primary{background:var(--soft);font-weight:640}
+.gquickbar button:hover,.gmemberlinks button:hover{border-color:var(--hot)}
+.gquickbar button:focus-visible,.gmemberrow button:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
+.glist-caption{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:19px 1px 11px;font-size:16px;font-weight:650}
+.glist-caption span{font-size:12px;font-weight:400;color:var(--muted)}
+.gmemberlist{background:var(--paper);border:1px solid var(--line);border-radius:19px;overflow:hidden}
+.gmemberrow{padding:14px 18px;border-bottom:1px solid var(--line)}
+.gmemberrow:last-child{border-bottom:0}
+.gmemberprimary{width:100%;border:0;background:transparent;color:var(--ink);text-align:left;display:flex;align-items:center;gap:18px;cursor:pointer;padding:0;font:inherit}
+.gmemberidentity{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.gmemberpayment{display:flex;flex-direction:column;gap:4px;text-align:right;min-width:0;max-width:47%}
+.gmemberpayment .gstudenthint{display:block}
+.gmemberamount{font-size:14px;font-weight:620;white-space:nowrap}
+.gmemberarrow{color:var(--hot);font-size:19px}
+.gmemberbottom{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:9px}
+.gmemberhw{font-size:12px;color:var(--muted)}
+.gmemberhw.has-work{color:var(--ink)}
+.gmemberlinks{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px}
+.gmemberlinks button{font:inherit;font-size:11px;padding:5px 9px;border:1px solid var(--line);border-radius:9px;background:var(--milk);color:var(--ink);cursor:pointer}
+#group-member-form:not([hidden]){margin:0 0 14px}
+@media(max-width:530px){
+ .gquickbar button{font-size:12px;padding:10px 12px}
+ .gmemberrow{padding:13px 12px}
+ .gmemberprimary{gap:9px}
+ .gmemberpayment{max-width:54%}
+ .gmemberamount{font-size:12px}
+ .gmemberbottom{flex-direction:column;align-items:flex-start;gap:9px}
+ .gmemberlinks{justify-content:flex-start}
+}
+@media(min-width:900px){
+ .gquickbar button{font-size:15px;padding:12px 18px}
+ .glist-caption{font-size:19px}
+ .glist-caption span,.gmemberhw{font-size:14px}
+ .gmemberrow{padding:17px 22px}
+ .gmemberamount{font-size:16px}
+ .gmemberlinks button{font-size:13px;padding:7px 11px}
+}
 </style>
 </head>
 <body>
@@ -629,6 +669,73 @@ function groupPaymentLine(p){
 }
 
 var activeGroupTab='members',memberPaymentNotice='';
+var groupMemberSavePending=false,groupMemberInviteUrl='',groupMemberInviteNotice='';
+var pendingMemberQuickAction='';
+function showGroupTool(gid,tab,action){
+ setGroupTab(tab);
+ if(action==='add_homework'){
+  var form=document.getElementById('group-homework-form');
+  if(form&&form.hidden)toggleGroupHomeworkForm(gid);
+ }
+ if(action==='add_lesson'){
+  var form=document.getElementById('group-lesson-form');
+  if(form&&form.hidden)startGroupLessonForm(gid);
+ }
+}
+async function openMemberQuick(pid,kind){
+ if(!Number.isSafeInteger(Number(pid))||Number(pid)<=0)return;
+ pendingMemberQuickAction=kind;
+ await openView('member:'+Number(pid));
+}
+function toggleGroupMemberForm(gid){
+ var form=document.getElementById('group-member-form');
+ if(!form)return;
+ if(!form.hidden){form.hidden=true;return;}
+ form.innerHTML='<div class="gblock"><div class="gform"><p class="gquiet">Добавь ученика в эту группу. После сохранения появится персональная ссылка-приглашение в Telegram.</p>'+
+ '<label for="group-member-name">Имя ученика</label><input type="text" id="group-member-name" maxlength="100" autocomplete="off" placeholder="Например, Алина Иванова">'+
+ '<div class="gformerror" role="alert" id="group-member-error"></div>'+
+ '<div class="gcontrols"><button type="button" class="gsubmit" id="group-member-submit" onclick="saveGroupMember('+Number(gid)+')">Добавить в группу</button><button type="button" onclick="toggleGroupMemberForm('+Number(gid)+')">Отмена</button></div></div></div>';
+ form.hidden=false;
+ var input=document.getElementById('group-member-name');
+ if(input)input.focus();
+}
+async function saveGroupMember(gid){
+ if(groupMemberSavePending)return;
+ var input=document.getElementById('group-member-name'),error=document.getElementById('group-member-error'),button=document.getElementById('group-member-submit');
+ if(!input||!error||!button)return;
+ var name=input.value.trim().replace(/\s+/g,' ');
+ if(name.length<2||name.length>100){error.textContent='Укажи имя ученика от 2 до 100 символов.';return;}
+ groupMemberSavePending=true;button.disabled=true;error.textContent='';
+ try{
+  var result=await teacherAction({action:'group_student_add',group_id:Number(gid),name:name});
+  groupMemberInviteUrl=result.invite_url||'';
+  groupMemberInviteNotice=result.name+' добавлен(а) в группу. Скопируй ссылку и отправь ученику.';
+  activeGroupTab='members';
+  await openView('group:'+Number(gid));
+ }catch(e){
+  var errors={
+   student_already_in_group:'Ученик с таким именем уже есть в группе. Проверь список.',
+   invalid_student_name:'Укажи корректное имя ученика (до 100 символов).',
+   group_not_found:'Группа не найдена. Обнови кабинет.',
+   teacher_not_ready:'Заверши регистрацию преподавателя.'
+  };
+  error.textContent=errors[e.message]||'Не удалось добавить ученика. Попробуй ещё раз.';
+  await reportClientError('group_student_add',e);
+ }finally{groupMemberSavePending=false;if(button)button.disabled=false;}
+}
+async function copyGroupMemberInvite(){
+ if(!groupMemberInviteUrl)return;
+ try{
+  if(!navigator.clipboard||!navigator.clipboard.writeText)throw new Error('clipboard_not_available');
+  await navigator.clipboard.writeText(groupMemberInviteUrl);
+  var node=document.getElementById('group-invite-status');
+  if(node)node.textContent='Ссылка скопирована. Отправь её нужному ученику.';
+ }catch(e){
+  // Fallback for browsers that deny Clipboard API.
+  window.prompt('Скопируй персональную ссылку ученика:',groupMemberInviteUrl);
+ }
+}
+
 function setGroupTab(tab){
  if(['members','lessons','payments','homework'].indexOf(tab)<0)return;
  activeGroupTab=tab;
@@ -650,12 +757,22 @@ function renderGroup(d){
  out+='<div class="gtabs" role="tablist" aria-label="Разделы группы">';
  [['members','Ученики'],['lessons','Занятия'],['payments','Оплаты'],['homework','ДЗ']].forEach(function(x){out+='<button type="button" role="tab" data-gtab="'+x[0]+'" aria-selected="false" onclick="setGroupTab(\''+x[0]+'\')">'+x[1]+'</button>';});
  out+='</div>';
- out+='<section data-gpanel="members" class="gsection"><div class="gcontrols"><button type="button" onclick="openGroupBotAction(\'members\','+gid+')">＋ Добавить ученика</button></div>';
- out+='<div class="gcompactlist">';
+ out+='<section data-gpanel="members" class="gsection">';
+ out+='<div class="gquickbar" aria-label="Действия с группой"><button type="button" class="gquickbar-primary" onclick="toggleGroupMemberForm('+gid+')">＋ Добавить ученика</button><button type="button" onclick="showGroupTool('+gid+',\'homework\',\'add_homework\')">Выдать ДЗ</button><button type="button" onclick="showGroupTool('+gid+',\'lessons\')">Расписание</button><button type="button" onclick="showGroupTool('+gid+',\'payments\')">Все оплаты</button></div>';
+ out+='<div id="group-member-form" hidden></div>';
+ if(groupMemberInviteNotice&&groupMemberInviteUrl){
+  out+='<div class="gtoast" role="status"><strong>'+esc(groupMemberInviteNotice)+'</strong><div class="gcontrols"><button type="button" onclick="copyGroupMemberInvite()">Скопировать ссылку-приглашение</button></div><div id="group-invite-status" class="gquiet">Ссылка персональная — отправляй только этому ученику.</div></div>';
+ }
+ out+='<div class="glist-caption">Состав группы <span>'+Number(d.member_count||0)+' учеников</span></div><div class="gmemberlist">';
  (d.members||[]).forEach(function(m){
-  out+='<button type="button" class="gstudent" onclick="openView(\'member:'+Number(m.id)+'\')"><span class="gstudentmain"><span class="gstudentname">'+esc(m.name)+'</span><span class="gstudenthint" style="display:block">'+(m.connected?'Telegram подключён':'Telegram не подключён')+' · ДЗ к выполнению: '+Number(m.pending_homework||0)+'</span></span><span class="gstudentright">'+(m.payment&&m.payment.amount!=null?money(m.payment.amount):'Оплата не настроена')+'<span class="gstudenthint" style="display:block">'+esc(m.payment&&m.payment.label||'')+'</span></span><span aria-hidden="true">→</span></button>';
+  var pid=Number(m.id);if(!Number.isSafeInteger(pid)||pid<=0)return;
+  var p=m.payment||{},pending=Math.max(0,Number(m.pending_homework||0));
+  out+='<div class="gmemberrow"><button type="button" class="gmemberprimary" onclick="openMemberQuick('+pid+',\'profile\')" aria-label="Профиль: '+esc(m.name)+'">';
+  out+='<span class="gmemberidentity"><span class="gstudentname">'+esc(m.name)+'</span><span class="gstudenthint">'+(m.connected?'Telegram подключён':'Telegram не подключён')+'</span></span>';
+  out+='<span class="gmemberpayment"><span class="gmemberamount">'+(p.amount!=null?money(p.amount):'Оплата не настроена')+'</span><span class="gstudenthint">'+esc(p.label||'')+'</span></span><span class="gmemberarrow" aria-hidden="true">→</span></button>';
+  out+='<div class="gmemberbottom"><span class="gmemberhw'+(pending?' has-work':'')+'">'+(pending?'ДЗ к выполнению: '+pending:'Все ДЗ выполнены')+'</span><div class="gmemberlinks"><button type="button" onclick="openMemberQuick('+pid+',\'payment\')" aria-label="Оплата: '+esc(m.name)+'">Оплата</button><button type="button" onclick="openMemberQuick('+pid+',\'homework\')" aria-label="Домашние задания: '+esc(m.name)+'">ДЗ</button><button type="button" onclick="openMemberQuick('+pid+',\'profile\')" aria-label="Профиль: '+esc(m.name)+'">Профиль</button></div></div></div>';
  });
- if(!(d.members||[]).length)out+='<div class="empty">Участников пока нет</div>';
+ if(!(d.members||[]).length)out+='<div class="empty">Участников пока нет. Добавь первого ученика кнопкой выше.</div>';
  out+='</div></section>';
  out+='<section data-gpanel="lessons" class="gsection" hidden>';
  if(homeLessonAction){
@@ -700,7 +817,7 @@ function renderMember(d){
  var out=groupHeader(d.title,d.group_name+' · '+(d.connected?'Telegram подключён':'Telegram не подключён'),'group:'+gid);
  out+='<div class="gmembernav"><button type="button" '+(prev==null?'disabled':'onclick="openView(\'member:'+prev+'\')"')+'>← Предыдущий</button><span class="gquiet">'+(idx+1)+' из '+ids.length+'</span><button type="button" '+(next==null?'disabled':'onclick="openView(\'member:'+next+'\')"')+'>Следующий →</button></div>';
  if(memberPaymentNotice){out+='<div class="gtoast" role="status">'+esc(memberPaymentNotice)+'</div>';memberPaymentNotice='';}
- out+='<div class="gblock"><div class="gblockhead"><strong>Оплата</strong><button type="button" class="gsoftbutton" onclick="toggleMemberPaymentForm()">✎ Изменить</button></div>';
+ out+='<div class="gblock" id="member-payment-section"><div class="gblockhead"><strong>Оплата</strong><button type="button" class="gsoftbutton" onclick="toggleMemberPaymentForm()">✎ Изменить</button></div>';
  out+='<div class="gprice">'+(p.amount==null?'Не настроена':money(p.amount))+'</div><div class="gquiet">'+esc(groupPaymentType(p))+'</div>';
  out+='<div class="statusline">'+groupPaymentLine(p)+'</div>';
  if(p.type==='monthly'||p.type==='once'){out+='<div class="gquiet" style="margin-top:7px">Следующая дата: '+(p.due?shortDate(p.due):'не задана')+'</div>';}
@@ -711,12 +828,19 @@ function renderMember(d){
  out+='<div class="gsection"><h3>Посещаемость</h3><div class="gattendance"><div class="gblock"><strong>'+Number(history.present||0)+'</strong><div class="gquiet">посетил(а)</div></div><div class="gblock"><strong>'+Number(history.absent||0)+'</strong><div class="gquiet">пропущено</div></div></div>';
  (history.items||[]).slice(0,8).forEach(function(a){out+='<div class="gblock gblockhead"><span>'+shortDate(a.date)+'</span><span class="statuspill '+(a.status==='present'?'ok':'bad')+'">'+(a.status==='present'?'Был(а)':'Не был(а)')+'</span></div>';});
  if(!(history.items||[]).length)out+='<p class="gquiet">Отметок посещаемости пока нет</p>';
- out+='</div><div class="gsection"><h3>Домашние задания</h3>';
+ out+='</div><div class="gsection" id="member-homework-section"><h3>Домашние задания</h3>';
  (d.homework||[]).forEach(function(h){out+='<div class="gblock"><div class="gblockhead"><strong>'+esc(h.text)+'</strong><span class="statuspill '+(h.status==='done'?'ok':'')+'">'+(h.status==='done'?'Выполнено':'В работе')+'</span></div><div class="gquiet">До '+shortDate(h.due)+'</div><div class="gcontrols"><button type="button" onclick="setMemberHomework('+Number(h.id)+','+pid+',\''+(h.status==='done'?'pending':'done')+'\')">'+(h.status==='done'?'↶ Вернуть в работу':'✓ Отметить выполненным')+'</button></div></div>';});
  if(!(d.homework||[]).length)out+='<p class="gquiet">Домашних заданий пока нет</p>';
  out+='</div><div class="gsection"><h3>Настройки ученика</h3><p class="gquiet">Связь с Telegram: '+(d.connected?'подключена':'не подключена')+'. Управлять приглашением и составом можно через проверенный раздел группы.</p><button class="gsoftbutton" onclick="openGroupBotAction(\'members\','+gid+')">Открыть управление участниками</button></div>';
  document.getElementById('app').innerHTML=out;
  activeMemberPayment=d;
+ if(pendingMemberQuickAction){
+  var action=pendingMemberQuickAction;
+  pendingMemberQuickAction='';
+  if(action==='payment')toggleMemberPaymentForm();
+  var target=document.getElementById(action==='homework'?'member-homework-section':'member-payment-section');
+  if(action!=='profile'&&target)target.scrollIntoView({behavior:'smooth',block:'start'});
+ }
 }
 var activeMemberPayment=null,paymentSavePending=false;
 function toggleMemberPaymentForm(){
