@@ -19,6 +19,7 @@ import teacher_product_student_reminders as student_reminders
 import teacher_product_learning as learning
 import teacher_product_cancellations as cancellations
 import teacher_product_materials as materials
+import teacher_product_webapp_homework as homework_modes
 
 PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
 STUDENT_WEBAPP_URL = os.getenv(
@@ -176,6 +177,8 @@ def _homework(link):
             (int(link["teacher_id"]), subject_kind, subject_id),
         ).fetchall()
     items = []
+    modes = homework_modes.mode_map([int(r["id"]) for r in rows])
+    origins = homework_modes.status_origins([int(r["id"]) for r in rows])
     for r in rows:
         if r["target_kind"] == "group":
             target = link["group_name"] or "Группа"
@@ -190,6 +193,9 @@ def _homework(link):
             "due_iso": r["due_date"],
             "target": target,
             "status": r["status"],
+            "submission_mode": modes.get(int(r["id"]),"self"),
+            "completed_by": (origins.get((int(r["id"]),subject_kind,subject_id))
+                             if r["status"] == "done" else None),
             "overdue": r["status"] != "done" and r["due_date"] < today.isoformat(),
         })
     return items
@@ -474,22 +480,48 @@ def action(telegram_uid, payload):
         expected_kind, expected_id = _subject(link)
         if subject_kind != expected_kind or subject_id != expected_id:
             return {"ok": False, "error": "forbidden"}
-        a = learning._assignment(aid)
+        a = learning._assignment(aid, int(link["teacher_id"]))
         if not a or not int(a["active"]):
             return {"ok": False, "error": "closed"}
+        if a["target_kind"] == "group":
+            if link["kind"] != "group" or int(a["target_id"]) != int(link["group_id"]):
+                return {"ok": False, "error": "forbidden"}
+        else:
+            if link["kind"] != "individual" or int(a["target_id"]) != int(link["student_id"]):
+                return {"ok": False, "error": "forbidden"}
+        if homework_modes.mode_for_assignment(aid) != "self":
+            return {"ok": False, "error": "attachment_required"}
         learning._sync_statuses(a)
         now = datetime.utcnow().isoformat()
         with base.db() as conn:
             cur = conn.execute(
                 """
                 UPDATE teacher_homework_status
-                SET status='done',done_at=?,updated_at=?
+                SET status='done',done_at=COALESCE(done_at,?),updated_at=?
                 WHERE assignment_id=? AND subject_kind=? AND subject_id=?
+                  AND status='pending'
                 """,
                 (now, now, aid, subject_kind, subject_id),
             )
+            if cur.rowcount:
+                conn.execute(
+                    "INSERT INTO teacher_webapp_homework_status_origin "
+                    "(assignment_id,subject_kind,subject_id,completed_by,updated_at) "
+                    "VALUES(?,?,?,'student',?) "
+                    "ON CONFLICT(assignment_id,subject_kind,subject_id) "
+                    "DO UPDATE SET completed_by='student',updated_at=excluded.updated_at",
+                    (aid,subject_kind,subject_id,now),
+                )
+            if not cur.rowcount:
+                existing = conn.execute(
+                    "SELECT status FROM teacher_homework_status "
+                    "WHERE assignment_id=? AND subject_kind=? AND subject_id=?",
+                    (aid,subject_kind,subject_id),
+                ).fetchone()
+                if not existing:
+                    return {"ok": False, "error": "forbidden"}
             conn.commit()
-        return {"ok": bool(cur.rowcount), "action": "homework_done"}
+        return {"ok": True, "action": "homework_done", "unchanged":not bool(cur.rowcount)}
 
     if action_name == "lesson_reply":
         try:
