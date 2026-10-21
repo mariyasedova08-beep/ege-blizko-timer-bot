@@ -8,12 +8,15 @@ on:
       - 'feature/lab-chemistry-batch2-*'
       - 'feature/lab-chemistry-cr3-exchange-*'
       - 'feature/lab-import-mn-cr-pdf-*'
+      - 'feature/lab-mn-cr-reviewed-release-*'
     paths:
       - 'preview/ege-blizko-lab-lesson-30-70-offline.html'
       - 'ege_lab_inorganic_reactions.py'
       - 'ege_lab_substances.py'
       - 'ege_lab_mn_cr_pdf_import.py'
       - 'ege_lab_webapp.py'
+      - 'tests/prepare_lab_medium_live_fixture.py'
+      - 'tests/check_lab_medium_live.mjs'
       - 'tests/test_lab_redox_exchange_expansion.py'
       - 'tests/check_lab_lesson_medium_search.mjs'
       - '.github/workflows/ege-lab-lesson-search-ci.yml'
@@ -49,3 +52,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Test lesson search, medium-specific signs, and PDF controls
         run: node tests/check_lab_lesson_medium_search.mjs
+      - name: Prepare read-only live lesson test data
+        run: python3 tests/prepare_lab_medium_live_fixture.py
+      - name: Test medium selection in actual lab-app lesson
+        run: node tests/check_lab_medium_live.mjs
