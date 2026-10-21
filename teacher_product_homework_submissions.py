@@ -235,6 +235,8 @@ def submit(link,aid):
     with base.db() as conn:
         conn.execute("BEGIN IMMEDIATE")
         attempt=_latest(conn,int(a["id"]),kind,sid)
+        if attempt and attempt["status"]=="submitted":
+            return {"ok":True,"status":"submitted","attempt_id":int(attempt["id"]),"duplicate":True}
         if not attempt or attempt["status"]!="draft":
             return {"ok":False,"error":"no_draft"}
         files=conn.execute(
@@ -267,6 +269,8 @@ def review(uid,aid,mid,decision,feedback):
     with base.db() as conn:
         conn.execute("BEGIN IMMEDIATE")
         attempt=_latest(conn,int(aid),"group_member",int(mid))
+        if attempt and attempt["status"]==decision and attempt["feedback"]==feedback.strip():
+            return {"ok":True,"status":decision,"attempt_id":int(attempt["id"]),"unchanged":True}
         if not attempt or attempt["status"]!="submitted":
             return {"ok":False,"error":"not_submitted"}
         conn.execute(
