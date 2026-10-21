@@ -469,6 +469,31 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
 .glesson-topic-link:focus-visible,.glesson-show-more:focus-visible,.glesson-topic-buttons button:focus-visible,.glesson-topic-form input:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
 @media(min-width:900px){.glesson-topic-link,.glesson-show-more,.glesson-topic-form label,.glesson-topic-buttons button{font-size:15px}.glesson-topic-form input{font-size:16px}}
 
+
+/* Group recordings: URLs and private MP4 files, usable for recent past lessons. */
+.glesson-recording-link{display:block;border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;padding:3px 0;text-align:left;cursor:pointer}
+.glesson-recording-link:hover{color:var(--hot)}
+.glesson-recording-form{border-top:1px solid var(--line);padding:16px;background:var(--milk)}
+.glesson-recording-form[hidden]{display:none}
+.glesson-recording-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.glesson-recording-grid strong{display:block;font-size:14px;font-weight:630;margin:0 0 9px}
+.glesson-recording-grid label{display:block;font-size:12px;margin:8px 0 7px}
+.glesson-recording-grid input{display:block;width:100%;font:inherit;font-size:13px;padding:10px 12px;border-radius:11px;color:var(--ink);background:var(--paper);border:1px solid var(--line)}
+.glesson-recording-grid button,.glesson-recording-close{font:inherit;font-size:13px;padding:10px 12px;border-radius:10px;margin-top:11px;background:var(--paper);color:var(--ink);border:1px solid var(--line);cursor:pointer}
+.glesson-recording-grid button:first-of-type{background:var(--soft)}
+.glesson-recording-grid button:disabled{opacity:.5;cursor:wait}
+.glesson-recording-status{font-size:12px;margin-top:10px;color:var(--muted)}
+.glesson-recording-video-actions{display:flex;gap:8px;flex-wrap:wrap}
+.glesson-past{margin:16px 0;border:1px solid var(--line);background:var(--paper);border-radius:16px;overflow:hidden}
+.glesson-past summary{padding:14px 16px;cursor:pointer;font-size:14px;font-weight:630}
+.glesson-past-list{border-top:1px solid var(--line)}
+.glesson-past-entry{padding:12px 16px;border-bottom:1px solid var(--line)}
+.glesson-past-entry:last-child{border-bottom:0}
+.glesson-past-info strong{font-size:13px;font-weight:610}
+.glesson-recording-link:focus-visible,.glesson-recording-close:focus-visible,.glesson-recording-grid input:focus-visible,.glesson-past summary:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
+@media(max-width:620px){.glesson-recording-grid{grid-template-columns:1fr;gap:9px}}
+@media(min-width:900px){.glesson-recording-grid strong,.glesson-past summary{font-size:16px}.glesson-recording-grid label,.glesson-recording-link,.glesson-recording-grid button{font-size:14px}}
+
 </style>
 </head>
 <body>
@@ -872,16 +897,27 @@ function renderGroup(d){
   var actionId=index+1,extra=index>=4;
   out+='<div class="glesson-entry" role="listitem"'+(extra?' data-lesson-extra':'')+(extra&&!expandedLessons?' hidden':'')+'>';
   out+='<div class="glesson-row"><div class="glesson-primary"><span class="glesson-row-date">'+esc(lessonDayLabel(x.date))+' · '+esc(x.date_label)+'</span>';
-  out+='<button type="button" id="glesson-topic-trigger-'+actionId+'" class="glesson-topic-link" data-topic="'+esc(x.topic||'')+'" onclick="startGroupLessonTopicForm('+gid+','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\','+actionId+')">'+(x.topic?'✎ '+esc(x.topic):'＋ Указать тему')+'</button></div>';
+  out+='<button type="button" id="glesson-topic-trigger-'+actionId+'" class="glesson-topic-link" data-topic="'+esc(x.topic||'')+'" onclick="startGroupLessonTopicForm('+gid+','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\','+actionId+')">'+(x.topic?'✎ '+esc(x.topic):'＋ Указать тему')+'</button>';
+  out+=groupRecordingButton(gid,x,actionId)+'</div>';
   out+='<strong class="glesson-row-time">'+esc(x.time)+'</strong><span class="statuspill '+(x.moved?'warn':'')+'">'+(x.moved?'Перенесено':'По расписанию')+'</span>';
   out+='<button type="button" class="glesson-row-toggle" aria-expanded="false" aria-controls="glesson-actions-'+actionId+'" onclick="toggleGroupLessonActions('+actionId+')">Действия ▾</button></div>';
   out+='<div id="glesson-actions-'+actionId+'" class="glesson-entry-actions" data-lesson-actions hidden><button type="button" onclick="startGroupLessonForm('+gid+',\'move\','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\',\''+esc(x.date)+'\',\''+esc(x.time)+'\')">↪ Перенести</button><button type="button" onclick="startGroupLessonForm('+gid+',\'cancel\','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\',\''+esc(x.date)+'\',\''+esc(x.time)+'\')">× Отменить</button></div>';
-  out+='<div id="glesson-topic-form-'+actionId+'" class="glesson-topic-form" hidden></div></div>';
+  out+='<div id="glesson-topic-form-'+actionId+'" class="glesson-topic-form" hidden></div>'+groupRecordingFormContainer(actionId)+'</div>';
  });
  if(!lessonEvents.length)out+='<div class="empty">Ближайших занятий нет. Добавь регулярное занятие кнопкой выше.</div>';
  out+='</div>';
  if(extraLessons){
   out+='<button type="button" id="glesson-show-more" class="glesson-show-more" aria-expanded="'+expandedLessons+'" onclick="toggleGroupLessonList('+gid+')">'+(expandedLessons?'Свернуть расписание':'Показать ещё ('+extraLessons+')')+'</button>';
+ }
+ var oldLessons=d.past_lesson_occurrences||[];
+ if(oldLessons.length){
+  out+='<details class="glesson-past"><summary>Прошедшие занятия · '+oldLessons.length+' за последний месяц</summary><div class="glesson-past-list">';
+  oldLessons.forEach(function(x,index){
+   var recordingId=1000+index;
+   out+='<div class="glesson-past-entry"><div class="glesson-past-info"><strong>'+esc(lessonDayLabel(x.date))+' · '+esc(x.date_label)+' · '+esc(x.time)+'</strong>';
+   out+=groupRecordingButton(gid,x,recordingId)+'</div>'+groupRecordingFormContainer(recordingId)+'</div>';
+  });
+  out+='</div></details>';
  }
  var a=d.attendance_session;
  if(a){
@@ -1001,6 +1037,124 @@ async function setGroupAttendance(gid,pid,slot,day,status){
 }
 
 
+
+var recordingSavePending=false;
+function groupRecordingButton(gid,lesson,index){
+ var r=lesson.recording||{},text=(r.url||r.has_file)?'🎥 Запись прикреплена · Изменить':'🎥 Прикрепить запись';
+ return '<button type="button" class="glesson-recording-link" id="glesson-recording-trigger-'+index+'" '+
+  'data-recording-url="'+esc(r.url||'')+'" data-has-file="'+(r.has_file?'1':'0')+'" '+
+  'onclick="startGroupLessonRecordingForm('+gid+','+Number(lesson.slot_id)+',\''+esc(lesson.occurrence_key)+'\','+Number(index)+')">'+text+'</button>';
+}
+function groupRecordingFormContainer(index){
+ return '<div id="glesson-recording-form-'+Number(index)+'" class="glesson-recording-form" hidden></div>';
+}
+function startGroupLessonRecordingForm(gid,slotId,occurrenceKey,index){
+ var form=document.getElementById('glesson-recording-form-'+Number(index));
+ var trigger=document.getElementById('glesson-recording-trigger-'+Number(index));
+ if(!form||!trigger)return;
+ if(!form.hidden){form.hidden=true;form.innerHTML='';return;}
+ document.querySelectorAll('.glesson-recording-form').forEach(function(other){other.hidden=true;other.innerHTML='';});
+ var hasFile=trigger.getAttribute('data-has-file')==='1';
+ form.innerHTML='<div class="glesson-recording-grid"><div><strong>Ссылка на запись</strong>'+
+  '<label for="glesson-recording-url">HTTPS-ссылка (Google Диск, Яндекс Диск, Zoom)</label>'+
+  '<input type="url" id="glesson-recording-url" placeholder="https://..." maxlength="2048" inputmode="url">'+
+  '<button type="button" data-recording-save-url>Сохранить ссылку</button>'+
+  '<p class="gquiet">Очисти поле и сохрани, чтобы убрать ссылку. MP4 при этом останется.</p></div>'+
+  '<div><strong>Видеофайл MP4</strong><label for="glesson-recording-file">Выбери файл до 200 МБ</label>'+
+  '<input type="file" id="glesson-recording-file" accept=".mp4,video/mp4">'+
+  '<button type="button" data-recording-upload>Загрузить MP4</button>'+
+  (hasFile?'<div class="glesson-recording-video-actions"><button type="button" data-recording-play>▶ Просмотреть MP4</button><button type="button" data-recording-delete>Удалить MP4</button></div>':'')+
+  '<p class="gquiet">Видео хранится отдельно на сервере ПРЕПАДМИНА. Доступ ученикам автоматически не открывается.</p></div></div>'+
+  '<div class="gformerror" role="alert"></div><div class="glesson-recording-status" role="status"></div><div data-recording-preview></div>'+
+  '<button type="button" data-recording-close class="glesson-recording-close">Закрыть</button>';
+ form.hidden=false;
+ form.querySelector('input[type=url]').value=trigger.getAttribute('data-recording-url')||'';
+ form.querySelector('[data-recording-save-url]').addEventListener('click',function(){saveGroupLessonRecordingUrl(gid,slotId,occurrenceKey,form);});
+ form.querySelector('[data-recording-upload]').addEventListener('click',function(){uploadGroupLessonRecording(gid,slotId,occurrenceKey,form);});
+ form.querySelector('[data-recording-close]').addEventListener('click',function(){form.innerHTML='';form.hidden=true;});
+ if(hasFile){
+  form.querySelector('[data-recording-play]').addEventListener('click',function(){playGroupLessonRecording(gid,slotId,occurrenceKey,form);});
+  form.querySelector('[data-recording-delete]').addEventListener('click',function(){removeGroupLessonRecording(gid,slotId,occurrenceKey,form);});
+ }
+ form.querySelector('input[type=url]').focus();
+}
+function recordingPayload(gid,slotId,occurrenceKey){
+ return {group_id:Number(gid),slot_id:Number(slotId),occurrence_key:String(occurrenceKey)};
+}
+function recordingFailure(form,message){
+ var target=form.querySelector('[role=alert]');
+ if(target)target.textContent=message||'Не удалось выполнить действие.';
+}
+async function recordingReload(gid,message){
+ groupLessonNotice=message;
+ activeGroupTab='lessons';
+ await openView('group:'+Number(gid),true);
+}
+async function saveGroupLessonRecordingUrl(gid,slotId,occurrenceKey,form){
+ if(recordingSavePending)return;
+ var url=form.querySelector('input[type=url]').value.trim();
+ if(url&&(!url.startsWith('https://')||url.length>2048)){recordingFailure(form,'Нужна HTTPS-ссылка на запись.');return;}
+ recordingSavePending=true;
+ try{
+  await teacherAction({action:'group_lesson_recording_url',...recordingPayload(gid,slotId,occurrenceKey),url:url});
+  await recordingReload(gid,url?'Ссылка на запись сохранена.':'Ссылка на запись удалена.');
+ }catch(e){recordingFailure(form,'Не удалось сохранить ссылку. Проверь её и попробуй ещё раз.');await reportClientError('recording_url',e);}
+ finally{recordingSavePending=false;}
+}
+async function uploadGroupLessonRecording(gid,slotId,occurrenceKey,form){
+ if(recordingSavePending)return;
+ var fileInput=form.querySelector('input[type=file]'),file=fileInput&&fileInput.files&&fileInput.files[0];
+ if(!file||!file.name.toLowerCase().endsWith('.mp4')||file.size<12||file.size>200*1024*1024){
+  recordingFailure(form,'Выбери MP4-файл размером до 200 МБ.');return;
+ }
+ var trigger=form.parentElement.querySelector('.glesson-recording-link');
+ if(trigger&&trigger.getAttribute('data-has-file')==='1'&&!window.confirm('Заменить существующий MP4 этого урока?'))return;
+ recordingSavePending=true;
+ var status=form.querySelector('[role=status]'),button=form.querySelector('[data-recording-upload]');
+ button.disabled=true;status.textContent='Загружаю MP4. Не закрывай вкладку до завершения.';recordingFailure(form,'');
+ try{
+  var result=await fetch('/api/teacher/recording/upload',{
+   method:'POST',cache:'no-store',credentials:'same-origin',
+   headers:{
+    'Content-Type':'video/mp4',
+    'X-Prepodmin-Init-Data':(tg&&tg.initData)||'',
+    'X-Prepodmin-Launch':launch,
+    'X-Prepodmin-Group-Id':String(gid),
+    'X-Prepodmin-Slot-Id':String(slotId),
+    'X-Prepodmin-Occurrence-Key':String(occurrenceKey)
+   },
+   body:file
+  });
+  var data={};try{data=await result.json();}catch(_){}
+  if(!result.ok||!data.ok)throw new Error(data.error||('HTTP '+result.status));
+  await recordingReload(gid,'MP4 успешно прикреплён к занятию.');
+ }catch(e){
+  var reason={invalid_recording_size:'Размер MP4 превышает 200 МБ.',invalid_recording_type:'Поддерживается только MP4.',invalid_mp4_or_storage:'Не удалось проверить или сохранить MP4.',recording_disk_full:'На сервере недостаточно места.',lesson_not_available:'Занятие недоступно для изменения.',unauthorized:'Войди в кабинет ещё раз.'};
+  recordingFailure(form,reason[e.message]||'Загрузка не завершилась. Проверь соединение и настройки сервера.');
+  status.textContent='';
+  await reportClientError('recording_upload',e);
+ }finally{recordingSavePending=false;button.disabled=false;}
+}
+async function playGroupLessonRecording(gid,slotId,occurrenceKey,form){
+ var preview=form.querySelector('[data-recording-preview]');
+ if(!preview)return;
+ try{
+  var response=await teacherAction({action:'group_lesson_recording_ticket',...recordingPayload(gid,slotId,occurrenceKey)});
+  preview.innerHTML='';
+  var video=document.createElement('video');video.controls=true;video.preload='metadata';video.playsInline=true;
+  video.style.width='100%';video.style.maxHeight='350px';video.src=response.url;
+  preview.appendChild(video);
+ }catch(e){recordingFailure(form,'Не удалось открыть MP4. Возможно, нужно снова войти.');await reportClientError('recording_ticket',e);}
+}
+async function removeGroupLessonRecording(gid,slotId,occurrenceKey,form){
+ if(recordingSavePending||!window.confirm('Удалить MP4 этого урока с сервера? Ссылка на запись останется.'))return;
+ recordingSavePending=true;
+ try{
+  await teacherAction({action:'group_lesson_recording_remove',...recordingPayload(gid,slotId,occurrenceKey)});
+  await recordingReload(gid,'MP4 удалён. Ссылка на запись сохранена.');
+ }catch(e){recordingFailure(form,'Не удалось удалить MP4.');await reportClientError('recording_remove',e);}
+ finally{recordingSavePending=false;}
+}
 
 var expandedGroupLessonsId=0,groupLessonTopicSavePending=false;
 function lessonDayLabel(date){
