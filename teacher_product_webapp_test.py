@@ -135,7 +135,8 @@ class TeacherDashboardTest(unittest.TestCase):
             "openMemberQuick('+pid+',\\'profile\\')",
         ):
             self.assertIn(action,group)
-        self.assertIn("Нет ДЗ к выполнению",group)
+        self.assertNotIn("Нет ДЗ к выполнению",group)
+        self.assertIn("ДЗ к выполнению: '+pending",group)
         self.assertIn("Telegram подключён",group)
         self.assertIn("p.amount!=null?money(p.amount)",group)
 
