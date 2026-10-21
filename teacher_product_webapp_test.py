@@ -66,7 +66,7 @@ class TeacherDashboardTest(unittest.TestCase):
         html=webapp.HTML_PATH.read_text(encoding="utf-8")
         marker="/* PREPODMIN DESKTOP COMPACT DENSITY (2026-10-21)"
         self.assertEqual(html.count(marker),1)
-        style=html.split(marker,1)[1].split("</style>",1)[0]
+        style=html.split(marker,1)[1].split("/* PREPODMIN desktop workspace: home overview + group directory density.",1)[0]
         self.assertIn("@media (min-width:900px){",style)
         for token in (
             ".app{max-width:1020px;padding:19px 24px 98px}",
