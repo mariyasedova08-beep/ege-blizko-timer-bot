@@ -8,6 +8,8 @@ import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+BOOTSTRAP = ROOT / "deploy/bootstrap-ege-lab-deploy.sh"
+ENTRY = ROOT / "deploy/ege-lab-restricted-ssh-entry.sh"
 RELEASE = ROOT / "deploy/ege-lab-mncr-approved-release.sh"
 WORKFLOW = ROOT / ".github/workflows/ege-lab-controlled-release.yml"
 EXPECTED_SHA = "23153dd715d2277d437e35c63b8345c53fb59d46c6b908f02ee0b0094656d58e"
@@ -22,13 +24,29 @@ class ControlledReleaseGuard(unittest.TestCase):
     def test_release_requires_pinned_source_and_live_version(self):
         s = RELEASE.read_text(encoding="utf-8")
         for required in (EXPECTED_SHA, EXPECTED_COMMIT, EXPECTED_LIVE,
-                         "EGE_LAB_APPROVED_RELEASE", "EGE_LAB_REMOTE_EXECUTION",
+                         "Requires exact pinned release ID", "Must run as the restricted sudo target",
                          "flock -w 30 9", "CONSISTENT_DATABASE_BACKUP_OK",
                          "PRE_DEPLOY_BACKUP_OK", "ROLLING_BACK_LAB_ONLY"):
             self.assertIn(required, s)
         self.assertIn("trap rollback ERR", s)
         self.assertIn("return 1; }", s)
         self.assertIn("sha256sum -c", s)
+
+    def test_limited_ssh_has_forced_command_and_exact_sudo_scope(self):
+        entry = ENTRY.read_text(encoding="utf-8")
+        setup = BOOTSTRAP.read_text(encoding="utf-8")
+        for path in (ENTRY, BOOTSTRAP):
+            check = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True)
+            self.assertEqual(check.returncode, 0, check.stderr)
+        self.assertIn('SSH_ORIGINAL_COMMAND:-', entry)
+        self.assertIn('"release-ege-lab-mncr"', entry)
+        self.assertIn('sudo -n /usr/local/sbin/ege-lab-mncr-approved-release.sh EGE-LAB-MNCR-20261021-CHECKED', entry)
+        self.assertIn('command="/usr/local/libexec/ege-lab-release-entry",restrict', setup)
+        self.assertIn('useradd --create-home --user-group', setup)
+        self.assertIn('passwd -l "$USER"', setup)
+        self.assertIn("visudo -cf", setup)
+        self.assertNotIn("root@77.233.212.200", entry)
+        self.assertNotIn('git reset', setup)
 
     def test_does_not_reset_live_git_or_change_bot_data(self):
         s = RELEASE.read_text(encoding="utf-8")
@@ -51,6 +69,8 @@ class ControlledReleaseGuard(unittest.TestCase):
         self.assertIn("StrictHostKeyChecking=yes", w)
         self.assertIn("EGE_LAB_DEPLOY_SSH_KEY", w)
         self.assertIn("EGE_LAB_DEPLOY_KNOWN_HOSTS", w)
+        self.assertIn("ege-lab-deploy@77.233.212.200", w)
+        self.assertNotIn("root@77.233.212.200", w)
         self.assertNotIn("workflow_dispatch:", w)
         self.assertNotRegex(w, r"(?m)^\s+cancel-in-progress:\s+true\s*$")
 
