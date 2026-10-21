@@ -1,0 +1,88 @@
+name: EGE lab — controlled Mn/Cr release (not automatic)
+# PRs run static checks ONLY. A release requires an owner's explicit, separate
+# release-intent commit on main PLUS approval in the protected GitHub environment.
+# Creating this workflow or merging its PR CANNOT deploy anything.
+on:
+  pull_request:
+    paths:
+      - .github/workflows/ege-lab-controlled-release.yml
+      - deploy/ege-lab-mncr-approved-release.sh
+      - tests/test_ege_lab_controlled_release.py
+  push:
+    branches: [main]
+    paths:
+      - deploy/release-intents/ege-lab-mncr.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ege-lab-manual-production
+  cancel-in-progress: false
+
+jobs:
+  verify-release-script:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Get checked-in release scripts
+        uses: actions/checkout@v4
+      - name: Verify shell safety and expected release pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n deploy/ege-lab-mncr-approved-release.sh
+          python3 -m unittest discover -s tests -p 'test_ege_lab_controlled_release.py' -v
+
+  deploy-laboratory:
+    # NOT active on PR creation, regular pushes, or other users' changes.
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor == 'mariyasedova08-beep' }}
+    needs: [verify-release-script]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-lab
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify explicit release intent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f deploy/release-intents/ege-lab-mncr.txt
+          expected="$(printf 'EGE-LAB-MNCR-20261021-CHECKED\nfcfcac8a8177342d764845933ad6c1a1316d525c\n23153dd715d2277d437e35c63b8345c53fb59d46c6b908f02ee0b0094656d58e')"
+          test "$(cat deploy/release-intents/ege-lab-mncr.txt)" = "$expected"
+          echo "EXPLICIT_RELEASE_INTENT_VERIFIED"
+      - name: Prepare pinned SSH credentials from protected environment
+        shell: bash
+        env:
+          KEY: ${{ secrets.EGE_LAB_DEPLOY_SSH_KEY }}
+          HOST_KEYS: ${{ secrets.EGE_LAB_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST_KEYS"
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$KEY" > "$HOME/.ssh/ege_lab_deploy_key"
+          printf '%s\n' "$HOST_KEYS" > "$HOME/.ssh/known_hosts"
+          test -s "$HOME/.ssh/ege_lab_deploy_key"
+          test -s "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -P '' -f "$HOME/.ssh/ege_lab_deploy_key" >/dev/null
+          echo "SSH_RELEASE_CREDENTIALS_VALID"
+      - name: Run lab-only release on Timeweb
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -T -F /dev/null \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=10 \
+            -i "$HOME/.ssh/ege_lab_deploy_key" \
+            root@77.233.212.200 \
+            "EGE_LAB_APPROVED_RELEASE=EGE-LAB-MNCR-20261021-CHECKED EGE_LAB_REMOTE_EXECUTION=github-approved-environment bash -se" \
+            < deploy/ege-lab-mncr-approved-release.sh
+      - name: Delete runner SSH credentials
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$HOME/.ssh/ege_lab_deploy_key" "$HOME/.ssh/known_hosts"
