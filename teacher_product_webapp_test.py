@@ -1321,5 +1321,25 @@ class GroupLessonsMiniAppTest(unittest.IsolatedAsyncioTestCase):
 
 
 
+    def test_group_lessons_compact_inline_workspace_and_attendance(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        start=html.index('out+=\'<section data-gpanel="lessons"')
+        end=html.index('out+=\'<section data-gpanel="payments"',start)
+        fragment=html[start:end]
+        for token in (
+            "glesson-head","glesson-recurring","glesson-list",
+            "glesson-row-toggle","glesson-entry-actions",
+            "glesson-attendance","glesson-attendee",
+            "startGroupLessonForm(","setGroupAttendance(",
+            "id=\"group-lesson-form\"","Перенести","Отменить",
+        ):
+            self.assertIn(token,fragment)
+        self.assertIn("function toggleGroupLessonActions(actionId)",html)
+        self.assertIn("groupAttendanceOpen=this.open",fragment)
+        self.assertIn("group_lesson_mutate",html)
+        self.assertIn("name=\"gl-notify\"",html)
+        self.assertNotIn("openGroupBotAction",fragment)
+
+
 if __name__ == "__main__":
     unittest.main()
