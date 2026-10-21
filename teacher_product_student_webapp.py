@@ -20,6 +20,7 @@ import teacher_product_learning as learning
 import teacher_product_cancellations as cancellations
 import teacher_product_materials as materials
 import teacher_product_webapp_homework as homework_modes
+import teacher_product_homework_submissions as submissions
 
 PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
 STUDENT_WEBAPP_URL = os.getenv(
@@ -198,6 +199,11 @@ def _homework(link):
                              if r["status"] == "done" else None),
             "overdue": r["status"] != "done" and r["due_date"] < today.isoformat(),
         })
+    attempt_map = submissions.for_student(link,[x["assignment_id"] for x in items])
+    for item in items:
+        kind = item["subject_kind"]
+        key = (item["assignment_id"],kind,item["subject_id"])
+        item["submission"] = attempt_map.get(key)
     return items
 
 
@@ -469,6 +475,13 @@ def action(telegram_uid, payload):
             return {"ok": False, "error": "forbidden"}
         materials.mark_opened(material_id)
         return {"ok": True, "action": "material_open", "url": row["url"]}
+
+    if action_name == "homework_submit":
+        try:
+            aid=int(payload.get("assignment_id"))
+        except (TypeError,ValueError,OverflowError):
+            return {"ok":False,"error":"bad_request"}
+        return submissions.submit(link,aid)
 
     if action_name == "homework_done":
         try:
