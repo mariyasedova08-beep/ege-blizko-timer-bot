@@ -469,7 +469,7 @@ SOURCE_RECORDS = json.loads(r'''[
     "a": "kmno4",
     "b": "ki",
     "medium": "neutral",
-    "status": "imported",
+    "status": "needs_chemical_review",
     "eq": "2KMnO₄ + 6KI + 4H₂O → 2MnO₂↓ + 3I₂ + 8KOH",
     "condition": "Исходно нейтральная водная среда",
     "t": "p",
@@ -483,7 +483,9 @@ SOURCE_RECORDS = json.loads(r'''[
       }
     ],
     "gas": "",
-    "heat": false
+    "heat": false,
+    "review_reason": "Нейтральная среда: I₂ может быть промежуточным продуктом, но при дальнейшем окислении существенен IO₃⁻; нельзя гарантировать единственный конечный продукт по исходному уравнению без уточнения состава и условий.",
+    "review_action": "Не использовать в визуализации как подтверждённый результат; исходное уравнение сохраняется для аудита."
   },
   {
     "group": "mn",
@@ -521,7 +523,7 @@ SOURCE_RECORDS = json.loads(r'''[
     "a": "kmno4",
     "b": "nabr",
     "medium": "neutral",
-    "status": "imported",
+    "status": "needs_chemical_review",
     "eq": "2KMnO₄ + 6NaBr + 4H₂O → 2MnO₂↓ + 3Br₂ + 2KOH + 6NaOH",
     "condition": "Исходно нейтральная водная среда",
     "t": "p",
@@ -535,7 +537,9 @@ SOURCE_RECORDS = json.loads(r'''[
       }
     ],
     "gas": "",
-    "heat": false
+    "heat": false,
+    "review_reason": "Нейтральная среда: Br⁻ → Br₂ с MnO₄⁻ → MnO₂ не подтверждается стандартными потенциалами; требуется подкисление для окисления бромида.",
+    "review_action": "Не использовать в визуализации как подтверждённый результат; исходное уравнение сохраняется для аудита."
   },
   {
     "group": "mn",
@@ -812,7 +816,9 @@ SOURCE_RECORDS = json.loads(r'''[
     "ppt": "",
     "precipitates": [],
     "gas": "",
-    "heat": false
+    "heat": false,
+    "review_reason": "Сильнощелочная среда: MnO₄⁻ → MnO₄²⁻ E°≈+0,564 В недостаточен для окисления Br⁻ → Br₂ (Br₂/Br⁻≈+1,09 В).",
+    "review_action": "Не использовать в визуализации как подтверждённый результат; исходное уравнение сохраняется для аудита."
   },
   {
     "group": "mn",
@@ -833,7 +839,9 @@ SOURCE_RECORDS = json.loads(r'''[
     "ppt": "",
     "precipitates": [],
     "gas": "",
-    "heat": false
+    "heat": false,
+    "review_reason": "Сильнощелочная среда: образование свободного I₂ не описывает надёжные конечные продукты, поскольку иод в щёлочи превращается в оксоиодные анионы; требуется химическая реконструкция.",
+    "review_action": "Не использовать в визуализации как подтверждённый результат; исходное уравнение сохраняется для аудита."
   },
   {
     "group": "mn",
@@ -2189,20 +2197,6 @@ PDF_MEDIUM_REACTIONS = json.loads(r'''[
   },
   {
     "a": "kmno4",
-    "b": "ki",
-    "medium": "neutral",
-    "eq": "2KMnO₄ + 6KI + 4H₂O → 2MnO₂↓ + 3I₂ + 8KOH",
-    "t": "p",
-    "sign": "бурый осадок MnO₂; бурая окраска иода.",
-    "sol": "#977047",
-    "ppt": "#69432e",
-    "gas": "",
-    "heat": false,
-    "condition": "Исходно нейтральная водная среда",
-    "source_id": "MN-21"
-  },
-  {
-    "a": "kmno4",
     "b": "na3p",
     "medium": "neutral",
     "eq": "8KMnO₄ + 3Na₃P + 4H₂O → 8MnO₂↓ + 3Na₃PO₄ + 8KOH",
@@ -2214,20 +2208,6 @@ PDF_MEDIUM_REACTIONS = json.loads(r'''[
     "heat": false,
     "condition": "Исходно нейтральная водная среда; только виртуальная демонстрация",
     "source_id": "MN-22"
-  },
-  {
-    "a": "kmno4",
-    "b": "nabr",
-    "medium": "neutral",
-    "eq": "2KMnO₄ + 6NaBr + 4H₂O → 2MnO₂↓ + 3Br₂ + 2KOH + 6NaOH",
-    "t": "p",
-    "sign": "бурый осадок MnO₂; оранжево-бурая окраска брома.",
-    "sol": "#a46836",
-    "ppt": "#69432e",
-    "gas": "",
-    "heat": false,
-    "condition": "Исходно нейтральная водная среда",
-    "source_id": "MN-23"
   },
   {
     "a": "kmno4",
@@ -2933,4 +2913,4 @@ PDF_EXTRA_REACTIONS = json.loads(r'''[
     1
   ]
 ]''')
-SOURCE_AUDIT = {"source_total":87,"by_status":{"imported":68,"already_in_lab":16,"needs_chemical_review":2,"duplicate_in_pdf":1},"imported_medium":65,"imported_ordinary":3}
+SOURCE_AUDIT = {"source_total":87,"by_status":{"imported":66,"already_in_lab":16,"needs_chemical_review":4,"duplicate_in_pdf":1},"imported_medium":63,"imported_ordinary":3}
