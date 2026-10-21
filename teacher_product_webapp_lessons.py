@@ -46,6 +46,16 @@ def ensure_tables():
             );
             CREATE INDEX IF NOT EXISTS idx_teacher_webapp_lesson_action_queue
             ON teacher_webapp_lesson_actions(state,id);
+            CREATE TABLE IF NOT EXISTS teacher_webapp_lesson_topics(
+                teacher_telegram_user_id INTEGER NOT NULL,
+                group_id INTEGER NOT NULL,
+                schedule_slot_id INTEGER NOT NULL,
+                occurrence_key TEXT NOT NULL,
+                topic TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(teacher_telegram_user_id,group_id,schedule_slot_id,occurrence_key)
+            );
             """
         )
         # Safe additive migration for every existing installation: historic jobs
@@ -62,10 +72,11 @@ def ensure_tables():
 
 
 def upcoming(uid, gid, days=45):
-    """Future occurrences with stable original dates for one-off actions."""
+    """Future occurrences with stable original dates and individual topics."""
     if not groups.get_group(uid, gid):
         return []
-    return [{
+    ensure_tables()  # additive; old plans/attendance/moves stay untouched
+    events = [{
         "slot_id": int(e["slot_id"]),
         "occurrence_key": e["occurrence_key"],
         "date": e["actual_date"].isoformat(),
@@ -74,6 +85,74 @@ def upcoming(uid, gid, days=45):
         "moved": bool(e["moved"]),
     } for e in cancellations._upcoming_occurrences(uid, kind="group", days=days)
         if int(e["person_id"]) == int(gid)][:25]
+    with base.db() as conn:
+        saved = conn.execute(
+            "SELECT schedule_slot_id,occurrence_key,topic "
+            "FROM teacher_webapp_lesson_topics "
+            "WHERE teacher_telegram_user_id=? AND group_id=?",
+            (int(uid), int(gid)),
+        ).fetchall()
+    topics = {(int(r["schedule_slot_id"]), r["occurrence_key"]): r["topic"] for r in saved}
+    for event in events:
+        event["topic"] = topics.get((event["slot_id"], event["occurrence_key"]), "")
+    return events
+
+
+def save_topic(uid, payload):
+    """Set/clear one lesson's theme; no notification or payment side effects."""
+    try:
+        gid = int(payload.get("group_id"))
+        slot_id = int(payload.get("slot_id"))
+    except (TypeError, ValueError, OverflowError):
+        return {"ok": False, "error": "invalid_occurrence"}
+    if (isinstance(payload.get("group_id"), bool)
+            or isinstance(payload.get("slot_id"), bool)
+            or gid <= 0 or slot_id <= 0):
+        return {"ok": False, "error": "invalid_occurrence"}
+    if not base.teacher(uid) or not groups.get_group(uid, gid):
+        return {"ok": False, "error": "group_not_found"}
+    occurrence_key = str(payload.get("occurrence_key") or "")
+    try:
+        original = date.fromisoformat(occurrence_key)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "invalid_occurrence"}
+    if original.isoformat() != occurrence_key:
+        return {"ok": False, "error": "invalid_occurrence"}
+    slot = groups.group_slot(uid, slot_id)
+    if not slot or int(slot["group_id"]) != gid:
+        return {"ok": False, "error": "slot_not_found"}
+    if original.weekday() != int(slot["weekday"]):
+        return {"ok": False, "error": "invalid_occurrence"}
+    raw_topic = payload.get("topic")
+    if not isinstance(raw_topic, str):
+        return {"ok": False, "error": "invalid_topic"}
+    topic = " ".join(raw_topic.split())
+    if len(topic) > 160:
+        return {"ok": False, "error": "invalid_topic"}
+    # Only lessons currently visible to this teacher can be edited.
+    if not any(e["slot_id"] == slot_id and e["occurrence_key"] == occurrence_key
+               for e in upcoming(uid, gid)):
+        return {"ok": False, "error": "lesson_not_available"}
+    now = datetime.utcnow().isoformat()
+    with base.db() as conn:
+        if topic:
+            conn.execute(
+                "INSERT INTO teacher_webapp_lesson_topics "
+                "(teacher_telegram_user_id,group_id,schedule_slot_id,occurrence_key,"
+                "topic,created_at,updated_at) VALUES(?,?,?,?,?,?,?) "
+                "ON CONFLICT(teacher_telegram_user_id,group_id,schedule_slot_id,occurrence_key) "
+                "DO UPDATE SET topic=excluded.topic,updated_at=excluded.updated_at",
+                (int(uid),gid,slot_id,occurrence_key,topic,now,now),
+            )
+        else:
+            conn.execute(
+                "DELETE FROM teacher_webapp_lesson_topics "
+                "WHERE teacher_telegram_user_id=? AND group_id=? "
+                "AND schedule_slot_id=? AND occurrence_key=?",
+                (int(uid),gid,slot_id,occurrence_key),
+            )
+        conn.commit()
+    return {"ok": True, "group_id": gid, "slot_id": slot_id, "topic": topic}
 
 
 def _clock(value):
