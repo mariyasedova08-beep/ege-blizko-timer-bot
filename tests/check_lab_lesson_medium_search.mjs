@@ -92,6 +92,27 @@ try{
     assert.match(await page.locator("#lessonReaction").innerText(),/PbCrO₄/);
     assert.match(await page.locator("#lessonReaction").innerText(),/жёлт/i);
 
+    // Batch 2: verify peroxide redox with dichromate and visible gas.
+    await page.locator("#lessonReagentA").fill("K2Cr2O7");
+    await page.locator("#lessonSuggestionsA button").first().click();
+    await page.locator("#lessonReagentB").fill("H2O2");
+    await page.locator("#lessonSuggestionsB button").first().click();
+    assert.equal(await page.locator("#lessonMediumField").isVisible(),true);
+    await page.locator("#lessonMedium").selectOption("acid");
+    await page.locator("#lessonConduct").click();
+    assert.match(await page.locator("#lessonReaction").innerText(),/Cr₂\\(SO₄\\)₃/);
+    assert.match(await page.locator("#lessonReaction").innerText(),/O₂/);
+
+    // Batch 2: combined hydrolysis must show both precipitate and gas.
+    await page.locator("#lessonReagentA").fill("AlCl3");
+    await page.locator("#lessonSuggestionsA button").first().click();
+    await page.locator("#lessonReagentB").fill("Na2CO3");
+    await page.locator("#lessonSuggestionsB button").first().click();
+    assert.equal(await page.locator("#lessonMediumField").isVisible(),false);
+    await page.locator("#lessonConduct").click();
+    assert.match(await page.locator("#lessonReaction").innerText(),/Al\\(OH\\)₃/);
+    assert.match(await page.locator("#lessonReaction").innerText(),/CO₂/);
+
     // Existing PDF-stylus functionality remains on the same screen.
     for(const selector of ["#lessonPDFInput","#lessonInkCanvas","#lessonExport","#lessonToolPen"]){
       assert.equal(await page.locator(selector).count(),1,selector+" missing");
