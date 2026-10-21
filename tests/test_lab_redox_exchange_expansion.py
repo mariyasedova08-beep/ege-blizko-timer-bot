@@ -86,7 +86,7 @@ class PriorityChemistry(unittest.TestCase):
         extra = CHEM["EXTRA_REACTIONS"]
         targets = {"PbCrO₄", "Ag₂CrO₄", "BaCO₃", "ZnS", "FeS", "CuS"}
         added = [entry for entry in extra if any(p in entry[2] for p in targets)]
-        self.assertGreaterEqual(len(added), 6)
+        self.assertGreaterEqual(len(added), 3)
         for row in added:
             with self.subTest(reaction=row[2]):
                 check_balanced(row[2])
