@@ -4,8 +4,12 @@ on:
   push:
     branches:
       - 'feature/lab-lesson-medium-search-*'
+      - 'feature/lab-redox-exchange-displacement-*'
     paths:
       - 'preview/ege-blizko-lab-lesson-30-70-offline.html'
+      - 'ege_lab_inorganic_reactions.py'
+      - 'ege_lab_webapp.py'
+      - 'tests/test_lab_redox_exchange_expansion.py'
       - 'tests/check_lab_lesson_medium_search.mjs'
       - '.github/workflows/ege-lab-lesson-search-ci.yml'
 
@@ -32,6 +36,8 @@ jobs:
           Path("/tmp/ege-lesson-script.js").write_text(scripts[-1])
           PY
           node --check /tmp/ege-lesson-script.js
+      - name: Check all new chemical equations atom by atom
+        run: python3 -m unittest discover -s tests -p "test_lab_redox_exchange_expansion.py" -v
       - name: Install isolated headless browser
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1

@@ -435,6 +435,205 @@ REACTION_VARIANTS = [
 ]
 
 
+
+# Verified, high-priority EGE additions; do not generate arbitrary reaction pairs.
+EXTRA_REACTIONS.extend([
+    ("k2cro4", "pbno3", "K₂CrO₄ + Pb(NO₃)₂ → PbCrO₄↓ + 2KNO₃", "p", "Жёлтый осадок PbCrO₄.", "#f8fbff", "#f1c934", "", 0),
+    ("k2cro4", "agno3", "K₂CrO₄ + 2AgNO₃ → Ag₂CrO₄↓ + 2KNO₃", "p", "Кирпично-красный осадок Ag₂CrO₄.", "#f8fbff", "#a9503e", "", 0),
+    ("mg", "znso4", "Mg + ZnSO₄ → MgSO₄ + Zn↓", "x", "Магний растворяется; образуется серый налёт цинка.", "#f8fbff", "#88898a", "", 0),
+    ("fe", "pbno3", "Fe + Pb(NO₃)₂ → Fe(NO₃)₂ + Pb↓", "x", "На железе выделяется серый свинец, раствор светло-зелёный.", "#c8e5c8", "#64686b", "", 0),
+    ("zn", "pbno3", "Zn + Pb(NO₃)₂ → Zn(NO₃)₂ + Pb↓", "x", "Цинк вытесняет свинец, серый налёт.", "#f8fbff", "#64686b", "", 0),
+    ("fecl2", "na2s", "FeCl₂ + Na₂S → FeS↓ + 2NaCl", "p", "Чёрный осадок FeS.", "#f8fbff", "#232323", "", 0),
+])
+
+# Medium-specific OVR outcomes are never mixed into ordinary pair reactions:
+# they require the explicit environment picker.
+import json
+MEDIUM_REACTIONS = json.loads(r'''[
+  {
+    "a": "kmno4",
+    "b": "na2so3",
+    "medium": "acid",
+    "eq": "2KMnO₄ + 5Na₂SO₃ + 3H₂SO₄ → K₂SO₄ + 2MnSO₄ + 5Na₂SO₄ + 3H₂O",
+    "t": "c",
+    "sign": "Фиолетовая окраска исчезает; Mn(VII) → Mn(II).",
+    "sol": "#f8fbff",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "kmno4",
+    "b": "na2so3",
+    "medium": "neutral",
+    "eq": "2KMnO₄ + 3Na₂SO₃ + H₂O → 2MnO₂↓ + 3Na₂SO₄ + 2KOH",
+    "t": "p",
+    "sign": "Фиолетовая окраска исчезает, выпадает бурый MnO₂.",
+    "sol": "#f3eee6",
+    "ppt": "#69432e",
+    "gas": "",
+    "condition": "Исходно нейтральная среда",
+    "heat": false
+  },
+  {
+    "a": "kmno4",
+    "b": "na2so3",
+    "medium": "alkaline",
+    "eq": "2KMnO₄ + Na₂SO₃ + 2KOH → 2K₂MnO₄ + Na₂SO₄ + H₂O",
+    "t": "c",
+    "sign": "Фиолетовый раствор становится зелёным: манганат MnO₄²⁻.",
+    "sol": "#69c053",
+    "ppt": "",
+    "gas": "",
+    "condition": "Избыток KOH",
+    "heat": false
+  },
+  {
+    "a": "kmno4",
+    "b": "h2o2",
+    "medium": "acid",
+    "eq": "2KMnO₄ + 5H₂O₂ + 3H₂SO₄ → K₂SO₄ + 2MnSO₄ + 5O₂↑ + 8H₂O",
+    "t": "g",
+    "sign": "Обесцвечивание фиолетового раствора, выделяется бесцветный O₂.",
+    "sol": "#f8fbff",
+    "ppt": "",
+    "gas": "O₂",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "kmno4",
+    "b": "h2o2",
+    "medium": "neutral",
+    "eq": "2KMnO₄ + 3H₂O₂ → 2MnO₂↓ + 3O₂↑ + 2KOH + 2H₂O",
+    "t": "x",
+    "sign": "Выпадает бурый MnO₂, выделяется бесцветный O₂.",
+    "sol": "#f3eee6",
+    "ppt": "#69432e",
+    "gas": "O₂",
+    "condition": "Исходно нейтральная среда",
+    "heat": false
+  },
+  {
+    "a": "kmno4",
+    "b": "h2o2",
+    "medium": "alkaline",
+    "eq": "2KMnO₄ + H₂O₂ + 2KOH → 2K₂MnO₄ + O₂↑ + 2H₂O",
+    "t": "g",
+    "sign": "Фиолетовый раствор становится зелёным, выделяется O₂.",
+    "sol": "#69c053",
+    "ppt": "",
+    "gas": "O₂",
+    "condition": "Избыток KOH",
+    "heat": false
+  },
+  {
+    "a": "kmno4",
+    "b": "feso4",
+    "medium": "acid",
+    "eq": "2KMnO₄ + 10FeSO₄ + 8H₂SO₄ → K₂SO₄ + 2MnSO₄ + 5Fe₂(SO₄)₃ + 8H₂O",
+    "t": "c",
+    "sign": "Фиолетовый цвет исчезает; Fe(II) окисляется до Fe(III).",
+    "sol": "#e1b562",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "kmno4",
+    "b": "ki",
+    "medium": "acid",
+    "eq": "2KMnO₄ + 10KI + 8H₂SO₄ → 6K₂SO₄ + 2MnSO₄ + 5I₂ + 8H₂O",
+    "t": "c",
+    "sign": "Перманганат расходуется, выделяется бурый иод I₂.",
+    "sol": "#a16640",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "kmno4",
+    "b": "nano2",
+    "medium": "acid",
+    "eq": "2KMnO₄ + 5NaNO₂ + 3H₂SO₄ → K₂SO₄ + 2MnSO₄ + 5NaNO₃ + 3H₂O",
+    "t": "c",
+    "sign": "Фиолетовый раствор обесцвечивается; нитрит окисляется до нитрата.",
+    "sol": "#f8fbff",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "k2cr2o7",
+    "b": "feso4",
+    "medium": "acid",
+    "eq": "K₂Cr₂O₇ + 6FeSO₄ + 7H₂SO₄ → K₂SO₄ + Cr₂(SO₄)₃ + 3Fe₂(SO₄)₃ + 7H₂O",
+    "t": "c",
+    "sign": "Оранжевый Cr(VI) восстанавливается до зелёного Cr(III); Fe(III) даёт жёлтый оттенок.",
+    "sol": "#76936a",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "k2cr2o7",
+    "b": "ki",
+    "medium": "acid",
+    "eq": "K₂Cr₂O₇ + 6KI + 7H₂SO₄ → 4K₂SO₄ + Cr₂(SO₄)₃ + 3I₂ + 7H₂O",
+    "t": "c",
+    "sign": "Оранжевая окраска исчезает, образуются Cr(III) и бурый иод I₂.",
+    "sol": "#87684a",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "k2cr2o7",
+    "b": "na2so3",
+    "medium": "acid",
+    "eq": "K₂Cr₂O₇ + 3Na₂SO₃ + 4H₂SO₄ → K₂SO₄ + Cr₂(SO₄)₃ + 3Na₂SO₄ + 4H₂O",
+    "t": "c",
+    "sign": "Оранжевый дихромат восстанавливается до зелёного Cr(III).",
+    "sol": "#6e966f",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "k2cro4",
+    "b": "feso4",
+    "medium": "acid",
+    "eq": "2K₂CrO₄ + 6FeSO₄ + 8H₂SO₄ → 2K₂SO₄ + Cr₂(SO₄)₃ + 3Fe₂(SO₄)₃ + 8H₂O",
+    "t": "c",
+    "sign": "Жёлтый хромат через кислую форму Cr(VI) восстанавливается до Cr(III).",
+    "sol": "#76936a",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "k2cro4",
+    "b": "na2so3",
+    "medium": "acid",
+    "eq": "2K₂CrO₄ + 3Na₂SO₃ + 5H₂SO₄ → 2K₂SO₄ + Cr₂(SO₄)₃ + 3Na₂SO₄ + 5H₂O",
+    "t": "c",
+    "sign": "Жёлтая окраска исчезает; образуется зелёный Cr(III).",
+    "sol": "#6e966f",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  }
+]''')
+
 def validate_reactions(known_ids):
     for row in EXTRA_REACTIONS:
         if row[0] not in known_ids or row[1] not in known_ids:
@@ -446,4 +645,17 @@ def validate_reactions(known_ids):
             raise RuntimeError(f"unknown reagent in variant: {row}")
         if row.get("excess") not in {row["a"], row["b"]}:
             raise RuntimeError(f"bad excess reagent: {row}")
+    seen_medium = set()
+    for row in MEDIUM_REACTIONS:
+        if row["a"] not in known_ids or row["b"] not in known_ids:
+            raise RuntimeError(f"unknown medium reagent: {row}")
+        if row["medium"] not in {"acid", "neutral", "alkaline"}:
+            raise RuntimeError(f"bad medium: {row}")
+        key = (tuple(sorted((row["a"], row["b"]))), row["medium"])
+        if key in seen_medium:
+            raise RuntimeError(f"duplicate medium reaction: {key}")
+        seen_medium.add(key)
+        for field in ("eq", "sign", "sol", "condition"):
+            if not row.get(field):
+                raise RuntimeError(f"missing {field} in medium reaction: {row}")
     return True

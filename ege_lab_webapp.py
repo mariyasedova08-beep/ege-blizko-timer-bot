@@ -13,7 +13,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 import run_bot_live90 as live90
 from ege_lab_substances import REAGENTS as LAB_REAGENTS, category_counts
-from ege_lab_inorganic_reactions import EXTRA_REACTIONS, REACTION_VARIANTS, validate_reactions
+from ege_lab_inorganic_reactions import EXTRA_REACTIONS, REACTION_VARIANTS, MEDIUM_REACTIONS, validate_reactions
 from ege_task6_bank import TASK6_BANK, validate_task6_bank
 from ege_task6_reactions import TASK6_REACTIONS, TASK6_VARIANTS, validate_task6_reactions
 import ege_task6_progress
@@ -2791,6 +2791,7 @@ def do_post(self):
             return self._send_json(200,{"ok":True,"data":{
                 "reagents":REAGENTS,
                 "reactions":reaction_payload(),
+                "medium_reactions":MEDIUM_REACTIONS,
                 "coverage":{"substances":len(REAGENTS),"reactions":len(reaction_payload()),"categories":category_counts()},
                 "lab":["cuso4","fecl3","na2co3","nacl","na2so4"],
                 "tools":["naoh","hcl","agno3","bacl2"],
