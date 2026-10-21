@@ -1,0 +1,74 @@
+name: EGE lab - SAFE SSH connectivity test (NO RELEASE)
+# Triggered ONLY by an intentional file commit to main AFTER infrastructure setup.
+# This workflow CANNOT publish: it sends an explicitly forbidden SSH command.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/connectivity-probes/ege-lab-ssh.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ege-lab-safe-ssh-probe
+  cancel-in-progress: false
+
+jobs:
+  test-ssh-authentication:
+    runs-on: ubuntu-latest
+    environment: production-lab
+    timeout-minutes: 10
+    steps:
+      - name: Validate and install environment SSH secret securely
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.EGE_LAB_DEPLOY_SSH_KEY }}
+          SERVER_HOST_KEY: ${{ secrets.EGE_LAB_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY"
+          test -n "$SERVER_HOST_KEY"
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" | tr -d '\r' > "$HOME/.ssh/lab_readonly_probe"
+          printf '%s\n' "$SERVER_HOST_KEY" | tr -d '\r' > "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -P '' -f "$HOME/.ssh/lab_readonly_probe" > /dev/null
+          # The hostname, algorithm and base64 host key must match the server
+          # through the independent Timeweb serial console source.
+          awk 'NF != 3 || $1 != "77.233.212.200" || $2 != "ssh-ed25519" { bad=1 } END { exit bad || NR != 1 }' "$HOME/.ssh/known_hosts"
+          ssh-keygen -lf "$HOME/.ssh/known_hosts" > /dev/null
+          echo "SSH_SECRET_FORMAT_OK"
+      - name: Verify SSH login is ALLOWED but all commands other than release are DENIED
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$(mktemp)"
+          trap 'rm -f "$log"' EXIT
+          set +e
+          ssh -T -F /dev/null \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=10 \
+            -i "$HOME/.ssh/lab_readonly_probe" \
+            ege-lab-deploy@77.233.212.200 \
+            "verify-ege-lab-connection" > "$log" 2>&1
+          result=$?
+          set -e
+          # An exact rejection proves the authenticated key reaches the
+          # root-owned forced-command wrapper; NO release or sudo is executed.
+          if [ "$result" -ne 1 ] || ! grep -Fxq 'DEPLOY_SSH_DENIED: unrecognized command' "$log"; then
+            echo "SSH_PROBE_FAILED: expected forced-command rejection was not returned."
+            echo "Check private key, public key on Timeweb, server host key and port 22."
+            exit 1
+          fi
+          echo "SSH_AUTHENTICATION_OK"
+          echo "FORCED_COMMAND_RESTRICTION_OK"
+          echo "NO_RELEASE_EXECUTED"
+      - name: Remove temporary credentials
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$HOME/.ssh/lab_readonly_probe" "$HOME/.ssh/known_hosts"
