@@ -1018,6 +1018,69 @@ class GroupLessonsMiniAppTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.lessons.upcoming(202,self.gid),[])
         self.assertIn("lesson_occurrences",webapp._view(101,f"group:{self.gid}"))
 
+    def test_lesson_topic_edit_persists_and_survives_single_move(self):
+        payload={"action":"group_lesson_topic_update","group_id":self.gid,
+                 "slot_id":self.slot_id,"occurrence_key":self.original,
+                 "topic":"  ОВР.   Соединения хрома  "}
+        saved=webapp._teacher_action(101,payload)
+        self.assertTrue(saved["ok"],saved)
+        self.assertEqual(saved["topic"],"ОВР. Соединения хрома")
+        view=webapp._view(101,f"group:{self.gid}")
+        lesson=next(e for e in view["lesson_occurrences"]
+                    if e["occurrence_key"]==self.original)
+        self.assertEqual(lesson["topic"],"ОВР. Соединения хрома")
+        next_lesson=next(e for e in view["lesson_occurrences"]
+                         if e["occurrence_key"]!=self.original)
+        self.assertEqual(next_lesson["topic"],"")
+        with base.db() as conn:
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_webapp_lesson_actions").fetchone()[0],0)
+        moved=webapp._teacher_action(101,self.mutation())
+        self.assertTrue(moved["ok"],moved)
+        after=next(e for e in self.lessons.upcoming(101,self.gid)
+                   if e["occurrence_key"]==self.original)
+        self.assertEqual(after["time"],"19:00")
+        self.assertTrue(after["moved"])
+        self.assertEqual(after["topic"],"ОВР. Соединения хрома")
+        updated=webapp._teacher_action(101,{**payload,"topic":"Гидролиз солей"})
+        self.assertTrue(updated["ok"],updated)
+        self.assertEqual(next(e for e in self.lessons.upcoming(101,self.gid)
+                         if e["occurrence_key"]==self.original)["topic"],"Гидролиз солей")
+        cleared=webapp._teacher_action(101,{**payload,"topic":"  "})
+        self.assertTrue(cleared["ok"],cleared)
+        self.assertEqual(next(e for e in self.lessons.upcoming(101,self.gid)
+                         if e["occurrence_key"]==self.original)["topic"],"")
+        with base.db() as conn:
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_webapp_lesson_topics").fetchone()[0],0)
+
+    def test_lesson_topic_blocks_cross_teacher_group_and_invalid_occurrence(self):
+        from datetime import timedelta
+        payload={"action":"group_lesson_topic_update","group_id":self.gid,
+                 "slot_id":self.slot_id,"occurrence_key":self.original,
+                 "topic":"Растворимость"}
+        self.assertEqual(webapp._teacher_action(202,payload)["error"],"group_not_found")
+        self.assertEqual(webapp._teacher_action(101,{**payload,"group_id":self.other_gid})["error"],"slot_not_found")
+        self.assertEqual(webapp._teacher_action(101,{**payload,"slot_id":99999})["error"],"slot_not_found")
+        self.assertEqual(webapp._teacher_action(101,{**payload,"occurrence_key":"2026-02-30"})["error"],"invalid_occurrence")
+        self.assertEqual(webapp._teacher_action(101,{**payload,"occurrence_key":(self.occurrence+timedelta(days=1)).isoformat()})["error"],"invalid_occurrence")
+        self.assertEqual(webapp._teacher_action(101,{**payload,"occurrence_key":(self.occurrence+timedelta(weeks=30)).isoformat()})["error"],"lesson_not_available")
+        self.assertEqual(webapp._teacher_action(101,{**payload,"topic":"х"*161})["error"],"invalid_topic")
+        self.assertEqual(webapp._teacher_action(101,{**payload,"topic":None})["error"],"invalid_topic")
+        self.assertEqual(webapp._teacher_action(101,{**payload,"slot_id":True})["error"],"invalid_occurrence")
+        with base.db() as conn:
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_webapp_lesson_topics").fetchone()[0],0)
+        cancel=webapp._teacher_action(101,{
+            "action":"group_lesson_mutate","lesson_action":"cancel",
+            "group_id":self.gid,"request_key":"cancel-topic-lesson-01",
+            "slot_id":self.slot_id,"occurrence_key":self.original,
+            "expected_date":self.original,"expected_time":"18:00",
+            "notification_choice":"off",
+        })
+        self.assertTrue(cancel["ok"],cancel)
+        self.assertEqual(webapp._teacher_action(101,payload)["error"],"lesson_not_available")
+
     def test_add_weekly_lesson_is_idempotent_and_keeps_old_slot(self):
         data={"action":"group_lesson_mutate","lesson_action":"add",
               "group_id":self.gid,"request_key":"webapp-add-lesson-01",
@@ -1339,6 +1402,27 @@ class GroupLessonsMiniAppTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("group_lesson_mutate",html)
         self.assertIn("name=\"gl-notify\"",html)
         self.assertNotIn("openGroupBotAction",fragment)
+
+    def test_lesson_schedule_preview_weekdays_and_topic_ui(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        start=html.index('out+=\'<div class="glesson-list-title"')
+        end=html.index('var a=d.attendance_session',start)
+        fragment=html[start:end]
+        for marker in (
+            "index>=4", "data-lesson-extra","Показать ещё","Свернуть расписание",
+            "lessonDayLabel(x.date)","glesson-topic-trigger-","glesson-topic-form-",
+            "esc(x.topic||'')","Указать тему",
+        ):
+            self.assertIn(marker,fragment)
+        for marker in (
+            "function toggleGroupLessonList(gid)","function startGroupLessonTopicForm(",
+            "async function saveGroupLessonTopic(", "action:'group_lesson_topic_update'",
+            "maxlength=\"160\"", "getUTCDay()",
+        ):
+            self.assertIn(marker,html)
+        self.assertIn("group_lesson_mutate",html)
+        self.assertIn("group_attendance",html)
+
 
 
 if __name__ == "__main__":

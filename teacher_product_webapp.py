@@ -672,6 +672,8 @@ def _teacher_action(uid, payload):
         return _group_student_add(uid, payload)
     if action_name == "group_lesson_mutate":
         return webapp_lessons.save(uid, payload)
+    if action_name == "group_lesson_topic_update":
+        return webapp_lessons.save_topic(uid, payload)
     if action_name == "group_homework_create":
         return webapp_homework.create_group_assignment(uid, payload)
     if action_name == "group_homework_mark":
