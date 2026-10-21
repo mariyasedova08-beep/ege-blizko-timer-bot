@@ -133,7 +133,7 @@ def main():
     ):
         print(f"## {title} — {len(outcome[key])}")
         for name in outcome[key]:
-            print(f"- \`{name}\`")
+            print(f"- `{name}`")
         print()
     print("NO_SERVER_FILES_CHANGED")
     print("NO_DEPLOYMENT_PERFORMED")
