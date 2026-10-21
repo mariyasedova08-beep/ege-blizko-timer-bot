@@ -42,10 +42,10 @@ jobs:
       - name: Establish restricted pinned SSH and read source checksums
         shell: bash
         env:
-          DEPLOY_KEY: \${{ secrets.TIMEWEB_DEPLOY_KEY }}
-          KNOWN_HOSTS: \${{ secrets.TIMEWEB_KNOWN_HOSTS }}
-          SSH_HOST: \${{ secrets.TIMEWEB_HOST }}
-          SSH_USER: \${{ secrets.TIMEWEB_USER }}
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
         run: |
           set -Eeuo pipefail
           test "$GITHUB_REF" = "refs/heads/main"
