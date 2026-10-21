@@ -22,6 +22,7 @@ import teacher_product_webapp_homework as homework
 MAX_BYTES = 8 * 1024 * 1024
 MAX_FILES = 5
 MAX_ATTEMPTS = 20
+MAX_TEACHER_BYTES = 2 * 1024 * 1024 * 1024
 MAX_FILE_NAME = 120
 TICKET_SECONDS = 15 * 60
 _STORAGE_NAME = re.compile(r"[a-f0-9]{32}\.(?:pdf|png|jpg)\Z")
@@ -187,6 +188,14 @@ def upload(link,aid,stream,length,filename,claimed_type):
                     "attempt_number,status,created_at) VALUES(?,?,?,?,?,'draft',?)",
                     (int(a["id"]),int(link["teacher_id"]),kind,sid,number,now),
                 ).lastrowid)
+            used=conn.execute(
+                "SELECT COALESCE(SUM(f.size_bytes),0) "
+                "FROM teacher_webapp_homework_files f "
+                "JOIN teacher_webapp_homework_attempts a ON a.id=f.attempt_id "
+                "WHERE a.teacher_telegram_user_id=?",(int(link["teacher_id"]),),
+            ).fetchone()[0]
+            if int(used)+length>MAX_TEACHER_BYTES:
+                return {"ok":False,"error":"storage_quota"}
             num=conn.execute(
                 "SELECT COUNT(*) FROM teacher_webapp_homework_files WHERE attempt_id=?",
                 (attempt_id,),
@@ -302,10 +311,13 @@ def _descriptions_for_assignments(uid,ids,subject_kind=None,subject_id=None):
         for r in rows:
             key=(int(r["assignment_id"]),r["subject_kind"],int(r["subject_id"]))
             if key in out:
+                if r["status"]=="revision" and not out[key].get("previous_feedback"):
+                    out[key]["previous_feedback"]=r["feedback"]
                 continue
             out[key]={
                 "attempt":int(r["attempt_number"]),
                 "status":r["status"],"feedback":r["feedback"],
+                "previous_feedback":"",
                 "submitted_at":r["submitted_at"],
                 "files":_files_for(conn,int(r["id"])),
             }
