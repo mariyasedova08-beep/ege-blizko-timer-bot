@@ -2541,8 +2541,14 @@ function lessonPopulateReagents(){
        else lessonCloseSuggestions(slot);
      }
    };
-   inp.onblur=()=>{setTimeout(()=>lessonCloseSuggestions(slot),120);};
+   // Do not hide suggestions on blur: keyboard/mouse click may need to scroll.
+   // Instead dismiss only when the pointer leaves the search field.
  }
+ document.addEventListener("pointerdown",event=>{
+   if(!event.target.closest(".lesson-search-field")){
+     lessonCloseSuggestions("a");lessonCloseSuggestions("b");
+   }
+ });
  document.getElementById("lessonMedium").onchange=()=>{
    lessonStarted=false;lessonUpdateMediumField();lessonRenderExperiment();
  };
