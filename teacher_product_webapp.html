@@ -729,6 +729,18 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
 .ghw-mode label{display:flex;gap:8px;align-items:flex-start;margin:8px 0;font-size:13px;font-weight:450}
 .ghw-mode label input{width:auto;margin:4px 0 0;flex-shrink:0}
 
+
+/* PREPODMIN private homework review UI: never infer checking from self-mark. */
+.ghw-member{grid-template-columns:minmax(0,1fr) auto minmax(140px,1fr)}
+.ghw-submission{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0}
+.ghw-file{border:0;background:transparent;color:var(--hot);padding:4px 0;cursor:pointer;font:inherit;font-size:12px;text-align:left;overflow-wrap:anywhere}
+.ghw-review-actions{display:flex;flex-wrap:wrap;gap:6px}
+.ghw-revision-form{width:100%;min-width:0}
+.ghw-revision-form[hidden]{display:none}
+.ghw-revision-form label{display:block;font-size:12px;font-weight:600;margin-bottom:6px}
+.ghw-revision-form textarea{width:100%;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit;font-size:13px}
+@media(max-width:620px){.ghw-member{grid-template-columns:minmax(0,1fr) auto}.ghw-submission{grid-column:1/-1}}
+
 </style>
 </head>
 <body>
@@ -1180,7 +1192,7 @@ function renderGroup(d){
  out+='</div></section>';
  out+='<section data-gpanel="homework" class="gsection" hidden><div class="gcontrols"><button type="button" onclick="toggleGroupHomeworkForm('+gid+')">＋ Выдать ДЗ группе</button></div><div id="group-homework-form" hidden></div>';
  if(groupHomeworkNotice){out+='<div class="gtoast" role="status">'+esc(groupHomeworkNotice)+'</div>';groupHomeworkNotice='';}
- if((d.homework||[]).length)out+='<p class="gquiet ghw-explain">Отметка «Я выполнил(а)» не означает проверку. Загрузка письменных работ пока не доступна.</p>';
+ if((d.homework||[]).length)out+='<p class="gquiet ghw-explain">Для тестов отметка «Я выполнил(а)» не означает проверку. Для письменных работ нужен файл и решение преподавателя.</p>';
  (d.homework||[]).forEach(function(h){
   var aid=Number(h.id),delivery=h.delivery||null,ds=delivery?delivery.state:'';
   var dlabel=ds==='pending'?'Уведомления в очереди':ds==='sending'?'Уведомления обрабатываются':ds==='failed'?'Проверь доставку в Telegram':ds==='done'?'Отправка обработана':'';
@@ -1192,10 +1204,33 @@ function renderGroup(d){
   out+='<details class="ghw-details" '+(isExpanded?'open ':'')+'ontoggle="rememberGroupHomeworkExpanded('+aid+',this.open)"><summary>Статусы учеников <span aria-hidden="true">⌄</span></summary>';
   (h.members||[]).forEach(function(member){
    var mid=Number(member.id),finished=member.status==='done',fileRequired=h.submission_mode==='attachment';
-   var markLabel=fileRequired?'Ожидает работу':(finished?(member.completed_by==='student'?'Отмечено учеником':member.completed_by==='teacher'?'Отмечено преподавателем':'Отмечено выполненным'):'Не отмечено');
+   var attempt=member.submission||null,attStatus=attempt?attempt.status:'none';
+   var markLabel=fileRequired?(
+    attStatus==='submitted'?'На проверке':
+    attStatus==='revision'?'На доработке':
+    attStatus==='approved'?'Проверено':
+    attStatus==='draft'?'Загружает файлы':'Не сдано'
+   ):(finished?(member.completed_by==='student'?'Отмечено учеником':member.completed_by==='teacher'?'Отмечено преподавателем':'Отмечено выполненным'):'Не отмечено');
    out+='<div class="ghw-member"><span class="ghw-member-name">'+esc(member.name)+'</span>';
-   out+='<span class="statuspill '+(finished?'ok':'')+'">'+markLabel+'</span>';
-   if(!fileRequired)out+='<button type="button" class="ghw-toggle" onclick="setGroupHomeworkMember('+gid+','+aid+','+mid+',\''+(finished?'pending':'done')+'\')">'+(finished?'↶ Снять отметку':'✓ Отметить выполненным')+'</button>';
+   out+='<span class="statuspill '+((fileRequired?attStatus==='approved':finished)?'ok':'')+'">'+markLabel+'</span>';
+   if(!fileRequired){
+    out+='<button type="button" class="ghw-toggle" onclick="setGroupHomeworkMember('+gid+','+aid+','+mid+',\''+(finished?'pending':'done')+'\')">'+(finished?'↶ Снять отметку':'✓ Отметить выполненным')+'</button>';
+   }else{
+    var files=attempt&&attempt.files||[];
+    out+='<div class="ghw-submission">';
+    if(attempt&&attempt.feedback)out+='<div class="gquiet">Комментарий: '+esc(attempt.feedback)+'</div>';
+    if(attempt&&attempt.attempt)out+='<div class="gquiet">Попытка №'+Number(attempt.attempt)+'</div>';
+    files.forEach(function(file){
+     out+='<button type="button" class="ghw-file" onclick="openHomeworkFile('+Number(file.id)+')">📎 '+esc(file.name)+'</button>';
+    });
+    if(attStatus==='submitted'){
+     out+='<div class="ghw-review-actions"><button type="button" class="ghw-toggle" onclick="reviewGroupHomework('+gid+','+aid+','+mid+',\'approved\')">✓ Принять работу</button>';
+     out+='<button type="button" class="ghw-toggle" onclick="toggleHomeworkRevisionForm('+aid+','+mid+')">↶ На доработку</button></div>';
+     out+='<div id="ghw-revision-'+aid+'-'+mid+'" class="ghw-revision-form" hidden><label for="ghw-note-'+aid+'-'+mid+'">Что исправить?</label><textarea id="ghw-note-'+aid+'-'+mid+'" maxlength="2000" rows="3" placeholder="Например: перепроверь коэффициенты в реакциях"></textarea>';
+     out+='<button type="button" class="ghw-toggle" onclick="reviewGroupHomework('+gid+','+aid+','+mid+',\'revision\')">Отправить на доработку</button></div>';
+    }
+    out+='</div>';
+   }
    out+='</div>';
   });
   if(!(h.members||[]).length)out+='<div class="gquiet ghw-empty">Нет доступных учеников с отметками для этого ДЗ.</div>';
@@ -1519,6 +1554,45 @@ async function saveGroupLesson(gid,kind,slot,key,actualDate,actualTime){
 }
 
 var expandedGroupHomeworkId=0,groupHomeworkActionPending=false;
+function toggleHomeworkRevisionForm(aid,mid){
+ var form=document.getElementById('ghw-revision-'+Number(aid)+'-'+Number(mid));
+ if(form)form.hidden=!form.hidden;
+}
+async function openHomeworkFile(fileId){
+ var tab=window.open('about:blank','_blank');
+ if(tab)tab.opener=null;
+ try{
+  var result=await teacherAction({action:'group_homework_file_ticket',file_id:Number(fileId)});
+  if(tab)tab.location.replace(result.url);
+  else window.open(result.url,'_blank','noopener,noreferrer');
+ }catch(e){
+  if(tab)tab.close();
+  await reportClientError('homework_file_ticket',e);
+  alert('Файл недоступен. Проверь доступ и попробуй снова.');
+ }
+}
+async function reviewGroupHomework(gid,aid,mid,decision){
+ if(groupHomeworkActionPending)return;
+ var feedback='';
+ if(decision==='revision'){
+  var field=document.getElementById('ghw-note-'+Number(aid)+'-'+Number(mid));
+  feedback=field?field.value.trim():'';
+  if(!feedback){alert('Напиши ученику, что нужно исправить.');return;}
+ }
+ groupHomeworkActionPending=true;
+ try{
+  await teacherAction({action:'group_homework_review',assignment_id:Number(aid),
+   member_id:Number(mid),decision:decision,feedback:feedback});
+  expandedGroupHomeworkId=Number(aid);
+  activeGroupTab='homework';
+  groupHomeworkNotice=decision==='approved'?'Работа проверена и принята.':'Работа возвращена на доработку.';
+  await openView('group:'+Number(gid),true);
+ }catch(e){
+  await reportClientError('homework_review',e);
+  alert('Не удалось сохранить проверку. Попробуй ещё раз.');
+ }finally{groupHomeworkActionPending=false;}
+}
+
 function rememberGroupHomeworkExpanded(aid,isOpen){
  if(isOpen)expandedGroupHomeworkId=Number(aid);
  else if(expandedGroupHomeworkId===Number(aid))expandedGroupHomeworkId=0;
@@ -1557,7 +1631,7 @@ function toggleGroupHomeworkForm(gid){
  '<fieldset class="ghw-mode"><legend>Как ученик сдаёт ДЗ?</legend>'+
  '<label><input type="radio" name="g-hw-mode" value="self" checked> Тест, тренажёр или устное задание — отметка «Я выполнил»</label>'+
  '<label><input type="radio" name="g-hw-mode" value="attachment"> Письменная работа — фотографии или PDF</label>'+
- '<p class="gquiet">Письменные ДЗ пока нельзя выдавать: сначала подключим защищённую загрузку и проверку работ.</p></fieldset>'+
+ '<p class="gquiet">Письменные ДЗ доступны только после настройки защищённого хранилища файлов. Ученик сможет отправить фото или PDF, а ты — проверить и вернуть на доработку.</p></fieldset>'+
  '<div id="g-hw-error" class="gformerror" role="alert"></div>'+
  '<div class="gcontrols"><button class="gsubmit" id="g-hw-submit" type="button" onclick="saveGroupHomework('+Number(gid)+')">Сохранить и выдать группе</button><button type="button" onclick="toggleGroupHomeworkForm('+Number(gid)+')">Отмена</button></div></div></div>';
  panel.hidden=false;
@@ -1569,7 +1643,7 @@ async function saveGroupHomework(gid){
  var value=field.value.trim();
  var selectedMode=document.querySelector('input[name="g-hw-mode"]:checked');
  var submissionMode=selectedMode?selectedMode.value:'self';
- if(submissionMode==='attachment'){error.textContent='Режим письменной работы появится после подключения безопасной сдачи файлов. Пока используй вариант с отметкой.';return;}
+ if(submissionMode==='attachment' && !window.confirm('Для письменного ДЗ необходима защищённая загрузка файлов на сервере ПРЕПАДМИНА. Продолжить выдачу?'))return;
  if(value.length<2||value.length>3500){error.textContent='Напиши текст задания (от 2 до 3500 символов).';return;}
  if(!due.value){error.textContent='Выбери срок сдачи.';return;}
  groupHomeworkSavePending=true;button.disabled=true;error.textContent='';
