@@ -1,0 +1,61 @@
+"""Static safety gate for the unattended (but owner-approved) lab-only release.
+
+This test NEVER contacts Timeweb, never reads secrets and never deploys.
+"""
+from pathlib import Path
+import re
+import subprocess
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+RELEASE = ROOT / "deploy/ege-lab-mncr-approved-release.sh"
+WORKFLOW = ROOT / ".github/workflows/ege-lab-controlled-release.yml"
+EXPECTED_SHA = "23153dd715d2277d437e35c63b8345c53fb59d46c6b908f02ee0b0094656d58e"
+EXPECTED_COMMIT = "fcfcac8a8177342d764845933ad6c1a1316d525c"
+EXPECTED_LIVE = "d95b80eb423a6295eac080f66d1707ac1e92e789"
+
+class ControlledReleaseGuard(unittest.TestCase):
+    def test_shell_syntax_only(self):
+        p = subprocess.run(["bash", "-n", str(RELEASE)], capture_output=True, text=True)
+        self.assertEqual(p.returncode, 0, p.stderr)
+
+    def test_release_requires_pinned_source_and_live_version(self):
+        s = RELEASE.read_text(encoding="utf-8")
+        for required in (EXPECTED_SHA, EXPECTED_COMMIT, EXPECTED_LIVE,
+                         "EGE_LAB_APPROVED_RELEASE", "EGE_LAB_REMOTE_EXECUTION",
+                         "flock -w 30 9", "CONSISTENT_DATABASE_BACKUP_OK",
+                         "PRE_DEPLOY_BACKUP_OK", "ROLLING_BACK_LAB_ONLY"):
+            self.assertIn(required, s)
+        self.assertIn("trap rollback ERR", s)
+        self.assertIn("return 1; }", s)
+        self.assertIn("sha256sum -c", s)
+
+    def test_does_not_reset_live_git_or_change_bot_data(self):
+        s = RELEASE.read_text(encoding="utf-8")
+        self.assertNotRegex(s, r"\bgit\s+(?:reset|clean|pull|checkout|switch|push)\b")
+        self.assertNotRegex(s, r"\bsystemctl\s+(?:disable|enable|stop)\b")
+        self.assertNotRegex(s, r"\b(?:sqlite3|rm)\b[^\n]*coreapp_webhooks")
+        self.assertNotIn("deploy/release.ref\n", s)
+        self.assertIn("LIVE_ONLY_FILES=(public_channel_trainers.py run_bot_production.py)", s)
+        self.assertIn("LAB_FILES=(ege_lab_webapp.py ege_lab_substances.py ege_lab_inorganic_reactions.py ege_lab_mn_cr_pdf_import.py)", s)
+
+    def test_workflow_does_not_deploy_on_pr_or_regular_push(self):
+        w = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("pull_request:", w)
+        self.assertIn("push:", w)
+        self.assertIn("deploy/release-intents/ege-lab-mncr.txt", w)
+        self.assertIn("environment: production-lab", w)
+        self.assertIn("github.actor == 'mariyasedova08-beep'", w)
+        self.assertIn("refs/heads/main", w)
+        self.assertIn("EXPLICIT_RELEASE_INTENT_VERIFIED", w)
+        self.assertIn("StrictHostKeyChecking=yes", w)
+        self.assertIn("EGE_LAB_DEPLOY_SSH_KEY", w)
+        self.assertIn("EGE_LAB_DEPLOY_KNOWN_HOSTS", w)
+        self.assertNotIn("workflow_dispatch:", w)
+        self.assertNotRegex(w, r"(?m)^\s+cancel-in-progress:\s+true\s*$")
+
+    def test_no_release_intent_is_committed_during_preparation(self):
+        self.assertFalse((ROOT/"deploy/release-intents/ege-lab-mncr.txt").exists())
+
+if __name__ == "__main__":
+    unittest.main()
