@@ -153,6 +153,11 @@ try{
     await page.locator("#lessonConduct").click();
     const dualSolid=await page.locator("#lessonReaction").innerText();
     assert(dualSolid.includes("MnO₂") && dualSolid.includes("S↓"));
+    assert.equal(await page.locator("#lessonTube .mixed-precipitates .particle").count(),64);
+    const mixedColors=await page.locator("#lessonTube .mixed-precipitates .particle")
+      .evaluateAll(nodes=>new Set(nodes.map(x=>x.style.getPropertyValue("--pc"))).size);
+    assert.equal(mixedColors,2);
+
 
     // Source PDF 33: weakly alkaline chromium complex is a separate result.
     await page.locator("#lessonReagentA").fill("K2Cr2O7");
