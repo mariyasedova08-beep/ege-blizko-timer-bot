@@ -1215,6 +1215,183 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
             self.assertIn(token,student)
         self.assertNotIn("Проверено преподавателем",teacher)
 
+    def test_file_homework_upload_submit_approve_and_new_revision_attempt(self):
+        from unittest.mock import patch
+        from io import BytesIO
+        import teacher_product_homework_submissions as sub
+        import teacher_product_student_webapp as student
+        import teacher_product_webapp_homework as hw
+        import os
+        location=os.path.join(self.tmp.name,"private_hw")
+        with patch.dict(os.environ,{
+            "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":location,
+            "TEACHER_PRODUCT_HOMEWORK_FILE_TICKET_KEY":"strong-sample-secret-only-for-tests-123456",
+        }):
+            payload={**self.payload,"submission_mode":"attachment"}
+            created=webapp._teacher_action(101,payload)
+            self.assertTrue(created["ok"],created)
+            aid=created["assignment_id"]
+            self.assertEqual(hw.mode_for_assignment(aid),"attachment")
+            link={"id":self.mid,"teacher_id":101,"kind":"group","group_id":self.gid,
+                  "group_name":"ОГЭ 2027","name":"Алина"}
+            img=b"\x89PNG\r\n\x1a\n"+b"x"*512
+            uploaded=sub.upload(link,aid,BytesIO(img),len(img),"photo.png","image/png")
+            self.assertTrue(uploaded["ok"],uploaded)
+            info=sub.for_student(link,[aid])[(aid,"group_member",self.mid)]
+            self.assertEqual(info["status"],"draft")
+            self.assertEqual(len(info["files"]),1)
+            self.assertEqual(info["files"][0]["name"],"photo.png")
+            with patch.object(student,"_link",return_value=link):
+                bad_mark=student.action(999,{"action":"homework_done","assignment_id":aid,
+                    "subject_kind":"group_member","subject_id":self.mid})
+                self.assertEqual(bad_mark["error"],"attachment_required")
+                finished=student.action(999,{"action":"homework_submit","assignment_id":aid})
+                self.assertTrue(finished["ok"],finished)
+            group=webapp._view(101,f"group:{self.gid}")["homework"][0]
+            self.assertEqual(group["submitted"],1)
+            self.assertEqual(group["approved"],0)
+            self.assertEqual(group["done"],0)
+            self.assertEqual(group["members"][0]["submission"]["status"],"submitted")
+            self.assertEqual(sub.upload(link,aid,BytesIO(img),len(img),"extra.png","image/png")["error"],"attempt_closed")
+            review=webapp._teacher_action(101,{"action":"group_homework_review",
+                "assignment_id":aid,"member_id":self.mid,"decision":"revision",
+                "feedback":"Перепроверь коэффициенты"})
+            self.assertTrue(review["ok"],review)
+            group=webapp._view(101,f"group:{self.gid}")["homework"][0]
+            self.assertEqual(group["members"][0]["submission"]["feedback"],"Перепроверь коэффициенты")
+            self.assertEqual(group["members"][0]["submission"]["status"],"revision")
+            self.assertEqual(group["done"],0)
+            pdf=b"%PDF-1.4\n"+b"z"*100
+            uploaded=sub.upload(link,aid,BytesIO(pdf),len(pdf),"redo.pdf","application/pdf")
+            self.assertTrue(uploaded["ok"],uploaded)
+            with patch.object(student,"_link",return_value=link):
+                self.assertTrue(student.action(999,{"action":"homework_submit","assignment_id":aid})["ok"])
+            self.assertTrue(webapp._teacher_action(101,{"action":"group_homework_review",
+                "assignment_id":aid,"member_id":self.mid,"decision":"approved",
+                "feedback":"Принято"} )["ok"])
+            group=webapp._view(101,f"group:{self.gid}")["homework"][0]
+            self.assertEqual(group["done"],1)
+            self.assertEqual(group["approved"],1)
+            self.assertEqual(group["members"][0]["submission"]["status"],"approved")
+            self.assertEqual(group["members"][0]["submission"]["attempt"],2)
+            self.assertEqual(group["members"][0]["submission"]["files"][0]["name"],"redo.pdf")
+            with base.db() as conn:
+                versions=conn.execute(
+                    "SELECT attempt_number,status FROM teacher_webapp_homework_attempts "
+                    "WHERE assignment_id=? ORDER BY attempt_number",(aid,),
+                ).fetchall()
+                self.assertEqual([(v["attempt_number"],v["status"]) for v in versions],
+                                 [(1,"revision"),(2,"approved")])
+                count=conn.execute(
+                    "SELECT COUNT(*) FROM teacher_webapp_homework_files"
+                ).fetchone()[0]
+                self.assertEqual(count,2)
+
+    def test_file_homework_rejects_wrong_owner_and_bad_format(self):
+        from io import BytesIO
+        from unittest.mock import patch
+        import teacher_product_homework_submissions as sub
+        import os
+        with patch.dict(os.environ,{
+            "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"files"),
+        }):
+            a=webapp._teacher_action(101,{**self.payload,
+                "submission_mode":"attachment"})
+            self.assertTrue(a["ok"],a)
+            aid=a["assignment_id"]
+            link={"id":self.mid,"teacher_id":101,"kind":"group",
+                  "group_id":self.gid,"name":"Алина"}
+            other={"id":self.other_mid,"teacher_id":101,"kind":"group",
+                   "group_id":self.other_gid,"name":"Ева"}
+            png=b"\x89PNG\r\n\x1a\n"+b"x"*100
+            self.assertEqual(sub.upload(other,aid,BytesIO(png),len(png),"other.png","image/png")["error"],"assignment_unavailable")
+            self.assertEqual(sub.submit(other,aid)["error"],"assignment_unavailable")
+            self.assertEqual(sub.upload(link,aid,BytesIO(b"not an image"+b"x"*30),42,"bad.png","image/png")["error"],"upload_failed")
+            self.assertEqual(sub.upload(link,aid,BytesIO(png),len(png),"big.png","image/png")["ok"],True)
+            self.assertEqual(sub.review(202,aid,self.mid,"approved","")["error"],"assignment_unavailable")
+            self.assertEqual(sub.review(101,aid,self.other_mid,"approved","")["error"],"assignment_unavailable")
+            self.assertEqual(sub.review(101,aid,self.mid,"revision","")["error"],"invalid_feedback")
+            self.assertEqual(sub.file_ticket(202,1)["error"],"file_unavailable")
+        with patch.dict(os.environ,{"TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"0"}):
+            self.assertEqual(sub.submit(link,aid)["error"],"uploads_disabled")
+
+    def test_file_tickets_authorize_range_stream_and_reject_tampering(self):
+        from io import BytesIO
+        from unittest.mock import patch
+        from urllib.parse import parse_qs,urlsplit
+        import os
+        import teacher_product_homework_submissions as sub
+        with patch.dict(os.environ,{
+            "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"files"),
+            "TEACHER_PRODUCT_HOMEWORK_FILE_TICKET_KEY":"strong-sample-secret-only-for-tests-123456",
+        }):
+            a=webapp._teacher_action(101,{**self.payload,"submission_mode":"attachment"})
+            aid=a["assignment_id"]
+            link={"id":self.mid,"teacher_id":101,"kind":"group","group_id":self.gid}
+            pdf=b"%PDF-1.4\n"+b"X"*50
+            self.assertTrue(sub.upload(link,aid,BytesIO(pdf),len(pdf),"calc.pdf","application/pdf")["ok"])
+            file_id=sub.for_student(link,[aid])[(aid,"group_member",self.mid)]["files"][0]["id"]
+            ticket=webapp._teacher_action(101,{"action":"group_homework_file_ticket","file_id":file_id})
+            self.assertTrue(ticket["ok"],ticket)
+            self.assertEqual(webapp._teacher_action(202,{"action":"group_homework_file_ticket",
+                "file_id":file_id})["error"],"file_unavailable")
+            class Handler:
+                def __init__(self):
+                    self.headers={"Range":"bytes=0-12"}
+                    self.wfile=BytesIO()
+                    self.status=None
+                    self.headers_out={}
+                def _send(self,status,body,ctype):self.status=status
+                def send_response(self,status):self.status=status
+                def send_header(self,k,v):self.headers_out[k]=v
+                def end_headers(self):pass
+            path=urlsplit(ticket["url"])
+            token=parse_qs(path.query)["ticket"][0]
+            h=Handler()
+            sub.serve(h,file_id,token)
+            self.assertEqual(h.status,206)
+            self.assertEqual(h.wfile.getvalue(),pdf[:13])
+            self.assertEqual(h.headers_out["Cache-Control"],"private, no-store")
+            self.assertEqual(h.headers_out["Content-Type"],"application/pdf")
+            bad=Handler()
+            sub.serve(bad,file_id,token+"bad")
+            self.assertEqual(bad.status,404)
+            expired=Handler()
+            with patch.object(sub.time,"time",return_value=10**11):
+                sub.serve(expired,file_id,token)
+            self.assertEqual(expired.status,404)
+
+    def test_file_homework_interface_and_nginx_template_require_manual_setup(self):
+        from pathlib import Path
+        teacher=webapp.HTML_PATH.read_text(encoding="utf-8")
+        student=Path("teacher_product_student_webapp.html").read_text(encoding="utf-8")
+        nginx=Path("deployment/prepodmin/nginx-https.conf").read_text(encoding="utf-8")
+        for snippet in (
+            "group_homework_review","group_homework_file_ticket",
+            "reviewGroupHomework(","openHomeworkFile(",
+            "На проверке","На доработке","Проверено",
+            "Отмечено учеником",
+            'name="g-hw-mode" value="self"',
+            'name="g-hw-mode" value="attachment"',
+        ):
+            self.assertIn(snippet,teacher)
+        for snippet in (
+            "uploadHomeworkFiles(","submitHomeworkFiles(",
+            "homework_submit","type=\"file\"",
+            "На проверке","На доработке","Проверено",
+            "/api/student/homework/upload",
+        ):
+            self.assertIn(snippet,student)
+        self.assertIn("location = /api/student/homework/upload",nginx)
+        self.assertIn("location ^~ /api/teacher/homework/file/",nginx)
+        self.assertIn("client_max_body_size 9m",nginx)
+        self.assertIn("access_log off;",nginx)
+        self.assertIn("TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED",
+                      __import__("teacher_product_homework_submissions").enabled.__code__.co_consts.__repr__())
+
     async def test_delivery_worker_uses_existing_send_once_not_in_http_thread(self):
         from types import SimpleNamespace
         from unittest.mock import AsyncMock, patch
