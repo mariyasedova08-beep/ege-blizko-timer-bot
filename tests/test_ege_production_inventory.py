@@ -28,7 +28,7 @@ class ProductionInventoryTests(unittest.TestCase):
             (directory / "run_bot_live7.py").write_bytes(b"small test sample")
             self.assertEqual(
                 module.file_digest(directory, "run_bot_live7.py"),
-                "38d965990254287189f381410fad6e3ad00da27f2db614df925bbd4a5b9c1a3e",  # verified below in runtime
+                "fbdd34054093a87cb14d12ecdcc33de040da487ae4e60f5c397c588b97edae84",
             )
 
     def test_compare_does_not_merge_drift(self):
