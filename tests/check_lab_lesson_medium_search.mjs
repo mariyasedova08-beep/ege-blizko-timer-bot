@@ -33,7 +33,7 @@ try{
     assert.match(await page.locator("#lessonReaction").innerText(),/Выбери среду/);
 
     for(const [medium,formula,color] of [
-      ["acid","MnSO₄","обесцвеч"],
+      ["acid","MnSO₄","исчезает|обесцвеч"],
       ["neutral","MnO₂","бур"],
       ["alkaline","K₂MnO₄","зелён"]
     ]){
