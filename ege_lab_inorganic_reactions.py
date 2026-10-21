@@ -446,6 +446,13 @@ EXTRA_REACTIONS.extend([
     ("fecl2", "na2s", "FeCl₂ + Na₂S → FeS↓ + 2NaCl", "p", "Чёрный осадок FeS.", "#f8fbff", "#232323", "", 0),
 ])
 
+# Batch 2: selected chemically verified exchange and metal displacement cases.
+EXTRA_REACTIONS.extend([
+    ("alcl3", "na2co3", "2AlCl₃ + 3Na₂CO₃ + 3H₂O → 2Al(OH)₃↓ + 3CO₂↑ + 6NaCl", "x", "Совместный гидролиз: белый студенистый Al(OH)₃ и пузырьки CO₂.", "#f8fbff", "#ffffff", "CO₂", 0),
+    ("agno3", "k2co3", "2AgNO₃ + K₂CO₃ → Ag₂CO₃↓ + 2KNO₃", "p", "Светло-жёлтый осадок Ag₂CO₃.", "#f8fbff", "#e8dc8a", "", 0),
+    ("mg", "pbno3", "Mg + Pb(NO₃)₂ → Mg(NO₃)₂ + Pb↓", "x", "Магний растворяется, на нём появляется тёмно-серый налёт свинца.", "#f8fbff", "#73777d", "", 0),
+])
+
 # Medium-specific OVR outcomes are never mixed into ordinary pair reactions:
 # they require the explicit environment picker.
 import json
@@ -630,6 +637,136 @@ MEDIUM_REACTIONS = json.loads(r'''[
     "ppt": "",
     "gas": "",
     "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "kmno4",
+    "b": "na2s",
+    "medium": "acid",
+    "eq": "2KMnO₄ + 5Na₂S + 8H₂SO₄ → K₂SO₄ + 2MnSO₄ + 5Na₂SO₄ + 5S↓ + 8H₂O",
+    "t": "p",
+    "sign": "Фиолетовая окраска исчезает; образуется жёлтая сера.",
+    "sol": "#e0e8d9",
+    "ppt": "#e2ce38",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "kmno4",
+    "b": "h2s",
+    "medium": "acid",
+    "eq": "2KMnO₄ + 5H₂S + 3H₂SO₄ → K₂SO₄ + 2MnSO₄ + 5S↓ + 8H₂O",
+    "t": "p",
+    "sign": "Фиолетовый перманганат обесцвечивается, выделяется жёлтая сера.",
+    "sol": "#e0e8d9",
+    "ppt": "#e2ce38",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄; демонстрация только виртуальная (H₂S токсичен)",
+    "heat": false
+  },
+  {
+    "a": "kmno4",
+    "b": "kbr",
+    "medium": "acid",
+    "eq": "2KMnO₄ + 10KBr + 8H₂SO₄ → 6K₂SO₄ + 2MnSO₄ + 5Br₂ + 8H₂O",
+    "t": "c",
+    "sign": "Фиолетовая окраска исчезает; появляется оранжево-бурая окраска Br₂.",
+    "sol": "#a45a31",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "kmno4",
+    "b": "nano2",
+    "medium": "neutral",
+    "eq": "2KMnO₄ + 3NaNO₂ + H₂O → 2MnO₂↓ + 3NaNO₃ + 2KOH",
+    "t": "p",
+    "sign": "В исходно нейтральной среде образуется бурый осадок MnO₂.",
+    "sol": "#f3eee6",
+    "ppt": "#69432e",
+    "gas": "",
+    "condition": "Исходно нейтральная среда",
+    "heat": false
+  },
+  {
+    "a": "k2cr2o7",
+    "b": "h2o2",
+    "medium": "acid",
+    "eq": "K₂Cr₂O₇ + 3H₂O₂ + 4H₂SO₄ → K₂SO₄ + Cr₂(SO₄)₃ + 3O₂↑ + 7H₂O",
+    "t": "g",
+    "sign": "Оранжевый цвет сменяется зеленоватым; выделяется бесцветный O₂ (возможна кратковременная синяя окраска).",
+    "sol": "#6e966f",
+    "ppt": "",
+    "gas": "O₂",
+    "condition": "Кислая среда, H₂SO₄; кратковременные пероксосоединения Cr(VI)",
+    "heat": false
+  },
+  {
+    "a": "k2cr2o7",
+    "b": "h2s",
+    "medium": "acid",
+    "eq": "K₂Cr₂O₇ + 3H₂S + 4H₂SO₄ → K₂SO₄ + Cr₂(SO₄)₃ + 3S↓ + 7H₂O",
+    "t": "p",
+    "sign": "Оранжевый дихромат восстанавливается до Cr(III); появляется жёлтая сера.",
+    "sol": "#6e966f",
+    "ppt": "#e2ce38",
+    "gas": "",
+    "condition": "Кислая среда, H₂SO₄; демонстрация только виртуальная (H₂S токсичен)",
+    "heat": false
+  },
+  {
+    "a": "k2cr2o7",
+    "b": "nano2",
+    "medium": "acid",
+    "eq": "K₂Cr₂O₇ + 3NaNO₂ + 4H₂SO₄ → K₂SO₄ + Cr₂(SO₄)₃ + 3NaNO₃ + 4H₂O",
+    "t": "c",
+    "sign": "Оранжевый Cr(VI) переходит в зеленоватый Cr(III).",
+    "sol": "#6e966f",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "k2cr2o7",
+    "b": "kbr",
+    "medium": "acid",
+    "eq": "K₂Cr₂O₇ + 6KBr + 7H₂SO₄ → 4K₂SO₄ + Cr₂(SO₄)₃ + 3Br₂ + 7H₂O",
+    "t": "c",
+    "sign": "Оранжевый дихромат восстанавливается; выделяется Br₂ с буро-оранжевой окраской.",
+    "sol": "#a45a31",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "k2cro4",
+    "b": "ki",
+    "medium": "acid",
+    "eq": "2K₂CrO₄ + 6KI + 8H₂SO₄ → 5K₂SO₄ + Cr₂(SO₄)₃ + 3I₂ + 8H₂O",
+    "t": "c",
+    "sign": "Жёлтая окраска хромата исчезает; в растворе появляется бурый I₂.",
+    "sol": "#946b3e",
+    "ppt": "",
+    "gas": "",
+    "condition": "Разбавленная H₂SO₄",
+    "heat": false
+  },
+  {
+    "a": "k2cro4",
+    "b": "h2o2",
+    "medium": "acid",
+    "eq": "2K₂CrO₄ + 3H₂O₂ + 5H₂SO₄ → 2K₂SO₄ + Cr₂(SO₄)₃ + 3O₂↑ + 8H₂O",
+    "t": "g",
+    "sign": "Жёлтый раствор переходит в зеленоватый; пузырьки бесцветного O₂, возможен кратковременный синий оттенок.",
+    "sol": "#6e966f",
+    "ppt": "",
+    "gas": "O₂",
+    "condition": "Кислая среда, H₂SO₄",
     "heat": false
   }
 ]''')
