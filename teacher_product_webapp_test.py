@@ -1102,9 +1102,9 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
             "h.members||[]",
             'class="ghw-member"',
             "setGroupHomeworkMember(",
-            "Выполнено",
-            "В работе",
-            "Письменные решения и файлы через эту вкладку пока не принимаются",
+            "Отмечено учеником",
+            "Не отмечено",
+            "Загрузка письменных работ пока не доступна",
             "Уведомления в очереди",
             "Проверь доставку в Telegram",
         ):
