@@ -12,6 +12,7 @@ BOOTSTRAP = ROOT / "deploy/bootstrap-ege-lab-deploy.sh"
 ENTRY = ROOT / "deploy/ege-lab-restricted-ssh-entry.sh"
 RELEASE = ROOT / "deploy/ege-lab-mncr-approved-release.sh"
 WORKFLOW = ROOT / ".github/workflows/ege-lab-controlled-release.yml"
+SSH_PROBE = ROOT / ".github/workflows/ege-lab-ssh-connectivity-test.yml"
 EXPECTED_SHA = "23153dd715d2277d437e35c63b8345c53fb59d46c6b908f02ee0b0094656d58e"
 EXPECTED_COMMIT = "fcfcac8a8177342d764845933ad6c1a1316d525c"
 EXPECTED_LIVE = "d95b80eb423a6295eac080f66d1707ac1e92e789"
@@ -47,6 +48,21 @@ class ControlledReleaseGuard(unittest.TestCase):
         self.assertIn("visudo -cf", setup)
         self.assertNotIn("root@77.233.212.200", entry)
         self.assertNotIn('git reset', setup)
+
+    def test_ssh_probe_never_calls_release_or_sudo(self):
+        p = SSH_PROBE.read_text(encoding="utf-8")
+        self.assertIn("environment: production-lab", p)
+        self.assertIn("deploy/connectivity-probes/ege-lab-ssh.txt", p)
+        self.assertIn("verify-ege-lab-connection", p)
+        self.assertIn("DEPLOY_SSH_DENIED: unrecognized command", p)
+        self.assertIn("NO_RELEASE_EXECUTED", p)
+        self.assertIn("StrictHostKeyChecking=yes", p)
+        self.assertNotIn("release-ege-lab-mncr", p)
+        self.assertNotIn("systemctl", p)
+        self.assertNotIn("sudo -n", p)
+        self.assertNotIn("workflow_dispatch:", p)
+        self.assertNotIn("pull_request:", p)
+        self.assertIn("branches: [main]", p)
 
     def test_does_not_reset_live_git_or_change_bot_data(self):
         s = RELEASE.read_text(encoding="utf-8")
