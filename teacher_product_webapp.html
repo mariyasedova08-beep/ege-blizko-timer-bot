@@ -395,6 +395,61 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
  .gmemberamount{font-size:16px}
  .gmemberlinks button{font-size:13px;padding:7px 11px}
 }
+
+/* PREPODMIN group lessons: concise inline workspace, entirely theme-driven. */
+.glesson-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:6px 0 14px}
+.glesson-head h3{margin:0 0 3px;font-size:19px;font-weight:650}
+.glesson-head .gquiet{margin:0}
+.glesson-add{flex-shrink:0;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:11px 15px;color:var(--ink);font:inherit;font-weight:620;cursor:pointer}
+.glesson-recurring{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin:0 0 18px}
+.glesson-kicker{display:block;font-size:12px;font-weight:620;color:var(--muted);margin-bottom:9px}
+.glesson-slots{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.glesson-slot{background:var(--soft);border-radius:9px;padding:7px 10px;font-size:12px}
+.glesson-list-title{display:flex;justify-content:space-between;gap:9px;align-items:center;margin:0 2px 9px}
+.glesson-list-title strong{font-size:16px;font-weight:640}
+.glesson-list-title span{font-size:12px;color:var(--muted)}
+.glesson-list{border:1px solid var(--line);background:var(--paper);border-radius:18px;overflow:hidden}
+.glesson-entry+.glesson-entry{border-top:1px solid var(--line)}
+.glesson-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(60px,auto) minmax(110px,auto) auto;align-items:center;gap:14px;padding:14px 16px}
+.glesson-row-date{font-size:14px;font-weight:580}
+.glesson-row-time{font-size:15px;font-weight:650}
+.glesson-row .statuspill{justify-self:start}
+.glesson-row-toggle{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:10px;color:var(--ink);background:var(--milk);padding:8px 12px;cursor:pointer}
+.glesson-entry-actions{display:flex;flex-wrap:wrap;gap:8px;padding:11px 16px 14px;border-top:1px solid var(--line);background:var(--milk)}
+.glesson-entry-actions[hidden]{display:none}
+.glesson-entry-actions button{font:inherit;font-size:13px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);cursor:pointer}
+.glesson-entry-actions button:last-child{color:var(--red)}
+.glesson-attendance{margin:18px 0 0;background:var(--paper);border:1px solid var(--line);border-radius:17px;padding:0 16px 15px}
+.glesson-attendance summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:15px;padding:16px 0}
+.glesson-attendance summary::-webkit-details-marker{display:none}
+.glesson-attendance summary strong{font-size:16px;font-weight:640}
+.glesson-attendance-sub{display:block;font-size:12px;color:var(--muted);margin-top:3px}
+.glesson-attendance-count{font-size:12px;color:var(--muted);text-align:right}
+.glesson-attendance>.gquiet{margin:0 0 12px}
+.glesson-attendance-list{border-top:1px solid var(--line)}
+.glesson-attendee{display:grid;grid-template-columns:minmax(100px,1fr) auto auto;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.glesson-attendee:last-child{border-bottom:0}
+.glesson-attendee-name{font-size:14px;font-weight:570;overflow-wrap:anywhere}
+.glesson-attendee .group-attendance-actions{margin:0}
+.glesson-add:focus-visible,.glesson-row-toggle:focus-visible,.glesson-entry-actions button:focus-visible,.glesson-attendance summary:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
+@media(max-width:600px){
+ .glesson-head{align-items:flex-start;flex-wrap:wrap}
+ .glesson-add{width:100%;text-align:center}
+ .glesson-row{grid-template-columns:minmax(0,1fr) auto;gap:7px 10px;padding:12px}
+ .glesson-row-date{grid-column:1}
+ .glesson-row-time{grid-column:2;text-align:right}
+ .glesson-row .statuspill{grid-column:1;grid-row:2}
+ .glesson-row-toggle{grid-column:2;grid-row:2}
+ .glesson-attendee{grid-template-columns:1fr auto;gap:6px}
+ .glesson-attendee .group-attendance-actions{grid-column:1/-1;justify-content:flex-start;margin-top:1px}
+}
+@media(min-width:900px){
+ .glesson-row-date,.glesson-attendee-name{font-size:16px}
+ .glesson-row-time{font-size:17px}
+ .glesson-row-toggle,.glesson-add,.glesson-entry-actions button{font-size:15px}
+ .glesson-attendance-count,.glesson-attendance-sub,.glesson-kicker,.glesson-slot{font-size:14px}
+}
+
 </style>
 </head>
 <body>
@@ -775,24 +830,40 @@ function renderGroup(d){
  if(!(d.members||[]).length)out+='<div class="empty">Участников пока нет. Добавь первого ученика кнопкой выше.</div>';
  out+='</div></section>';
  out+='<section data-gpanel="lessons" class="gsection" hidden>';
+ out+='<div class="glesson-head"><div><h3>Занятия группы</h3><p class="gquiet">Расписание и посещаемость — без перехода в Telegram</p></div><button type="button" class="glesson-add" onclick="startGroupLessonForm('+gid+')">＋ Добавить занятие</button></div>';
  if(homeLessonAction){
-  out+='<div class="gtoast" role="status">'+(homeLessonAction==='transfer'?'Выбери занятие ниже и нажми «Перенести».':'Выбери занятие ниже и нажми «Отменить».')+'</div>';
+  out+='<div class="gtoast" role="status">'+(homeLessonAction==='transfer'?'Выбери занятие ниже и нажми «Действия → Перенести».':'Выбери занятие ниже и нажми «Действия → Отменить».')+'</div>';
   homeLessonAction='';
  }
- out+='<div class="gcontrols"><button type="button" onclick="startGroupLessonForm('+gid+')">＋ Добавить регулярный урок</button></div><div id="group-lesson-form" hidden></div>';
+ out+='<div id="group-lesson-form" hidden></div>';
  if(groupLessonNotice){out+='<div class="gtoast" role="status">'+esc(groupLessonNotice)+'</div>';groupLessonNotice='';}
- out+='<div class="gblock"><strong>Расписание группы</strong><p class="gquiet">'+((d.slots||[]).length?(d.slots||[]).map(function(x){return ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][Number(x.weekday)]+' '+esc(x.time);}).join(' · '):'Регулярных занятий пока нет')+'</p><p class="gquiet">Добавление создаёт еженедельное занятие. Перенос и отмена ниже действуют только на выбранный урок.</p></div>';
- (d.lesson_occurrences||[]).forEach(function(x){
-   out+='<div class="gblock"><div class="gblockhead"><strong>'+esc(x.date_label)+' · '+esc(x.time)+'</strong><span class="statuspill">'+(x.moved?'Перенесено':'По расписанию')+'</span></div><div class="gcontrols"><button type="button" onclick="startGroupLessonForm('+gid+',\'move\','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\',\''+esc(x.date)+'\',\''+esc(x.time)+'\')">↪ Перенести</button><button type="button" onclick="startGroupLessonForm('+gid+',\'cancel\','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\',\''+esc(x.date)+'\',\''+esc(x.time)+'\')">× Отменить</button></div></div>';
+ out+='<div class="glesson-recurring"><span class="glesson-kicker">Каждую неделю</span><div class="glesson-slots">';
+ if((d.slots||[]).length){
+  (d.slots||[]).forEach(function(x){
+   var weekday=Number(x.weekday),days=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+   out+='<span class="glesson-slot">'+esc(days[weekday]||'День')+' · '+esc(x.time)+'</span>';
+  });
+ }else{out+='<span class="gquiet">Регулярных занятий пока нет</span>';}
+ out+='</div></div>';
+ out+='<div class="glesson-list-title"><strong>Ближайшие занятия</strong><span>'+Number((d.lesson_occurrences||[]).length)+' в расписании</span></div>';
+ out+='<div class="glesson-list" role="list">';
+ (d.lesson_occurrences||[]).forEach(function(x,index){
+  var actionId=index+1;
+  out+='<div class="glesson-entry" role="listitem"><div class="glesson-row"><span class="glesson-row-date">'+esc(x.date_label)+'</span><strong class="glesson-row-time">'+esc(x.time)+'</strong><span class="statuspill '+(x.moved?'warn':'')+'">'+(x.moved?'Перенесено':'По расписанию')+'</span><button type="button" class="glesson-row-toggle" aria-expanded="false" aria-controls="glesson-actions-'+actionId+'" onclick="toggleGroupLessonActions('+actionId+')">Действия ▾</button></div>';
+  out+='<div id="glesson-actions-'+actionId+'" class="glesson-entry-actions" data-lesson-actions hidden><button type="button" onclick="startGroupLessonForm('+gid+',\'move\','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\',\''+esc(x.date)+'\',\''+esc(x.time)+'\')">↪ Перенести</button><button type="button" onclick="startGroupLessonForm('+gid+',\'cancel\','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\',\''+esc(x.date)+'\',\''+esc(x.time)+'\')">× Отменить</button></div></div>';
  });
- if(!(d.lesson_occurrences||[]).length)out+='<p class="gquiet">Ближайших занятий нет.</p>';
+ if(!(d.lesson_occurrences||[]).length)out+='<div class="empty">Ближайших занятий нет. Добавь регулярное занятие кнопкой выше.</div>';
+ out+='</div>';
  var a=d.attendance_session;
  if(a){
-  out+='<h3>Посещаемость · '+esc(a.date_label)+' · '+esc(a.time)+'</h3><div class="gquiet">Отметки сохраняются сразу; абонементы списываются по действующим правилам.</div>';
+  var marked=(d.members||[]).filter(function(m){return m.attendance==='present'||m.attendance==='absent';}).length;
+  out+='<details class="glesson-attendance" '+(groupAttendanceOpen?'open ':'')+'ontoggle="groupAttendanceOpen=this.open"><summary><span><strong>Посещаемость</strong><span class="glesson-attendance-sub">'+esc(a.date_label)+' · '+esc(a.time)+'</span></span><span class="glesson-attendance-count">'+marked+' из '+Number((d.members||[]).length)+' отмечены <span aria-hidden="true">⌄</span></span></summary>';
+  out+='<p class="gquiet">Отметки сохраняются сразу. Абонементы списываются по действующим правилам.</p><div class="glesson-attendance-list">';
   (d.members||[]).forEach(function(m){
    var status=m.attendance;
-   out+='<div class="gblock"><div class="gblockhead"><strong>'+esc(m.name)+'</strong><span class="statuspill '+(status==='present'?'ok':status==='absent'?'bad':'')+'">'+(status==='present'?'Был(а)':status==='absent'?'Не был(а)':'Не отмечено')+'</span></div><div class="group-attendance-actions"><button aria-pressed="'+(status==='present')+'" onclick="setGroupAttendance('+gid+','+Number(m.id)+','+Number(a.slot_id)+',\''+esc(a.date)+'\',\'present\')">✓ Был(а)</button><button aria-pressed="'+(status==='absent')+'" onclick="setGroupAttendance('+gid+','+Number(m.id)+','+Number(a.slot_id)+',\''+esc(a.date)+'\',\'absent\')">× Не был(а)</button></div></div>';
+   out+='<div class="glesson-attendee"><span class="glesson-attendee-name">'+esc(m.name)+'</span><span class="statuspill '+(status==='present'?'ok':status==='absent'?'bad':'')+'">'+(status==='present'?'Был(а)':status==='absent'?'Не был(а)':'Не отмечено')+'</span><div class="group-attendance-actions"><button type="button" aria-pressed="'+(status==='present')+'" onclick="setGroupAttendance('+gid+','+Number(m.id)+','+Number(a.slot_id)+',\''+esc(a.date)+'\',\'present\')">✓ Был(а)</button><button type="button" aria-pressed="'+(status==='absent')+'" onclick="setGroupAttendance('+gid+','+Number(m.id)+','+Number(a.slot_id)+',\''+esc(a.date)+'\',\'absent\')">× Не был(а)</button></div></div>';
   });
+  out+='</div></details>';
  }
  out+='</section>';
  out+='<section data-gpanel="payments" class="gsection" hidden><div class="gquiet">Нажми на ученика, чтобы отредактировать его оплату здесь, в приложении.</div><div class="gcompactlist">';
@@ -901,6 +972,18 @@ async function setGroupAttendance(gid,pid,slot,day,status){
 }
 
 
+
+var groupAttendanceOpen=false;
+function toggleGroupLessonActions(actionId){
+ var target=document.getElementById('glesson-actions-'+Number(actionId));
+ if(!target)return;
+ var shouldOpen=target.hidden;
+ document.querySelectorAll('[data-lesson-actions]').forEach(function(item){item.hidden=true;});
+ document.querySelectorAll('.glesson-row-toggle').forEach(function(button){button.setAttribute('aria-expanded','false');});
+ target.hidden=!shouldOpen;
+ var button=document.querySelector('[aria-controls="glesson-actions-'+Number(actionId)+'"]');
+ if(button)button.setAttribute('aria-expanded',String(shouldOpen));
+}
 
 var groupLessonNotice='',groupLessonSavePending=false,groupLessonRequestKey='';
 function newGroupLessonKey(){
