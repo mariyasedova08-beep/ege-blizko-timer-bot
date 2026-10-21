@@ -2151,7 +2151,17 @@ PDF_MEDIUM_REACTIONS = json.loads(r'''[
     "gas": "",
     "heat": false,
     "condition": "Исходно нейтральная водная среда",
-    "source_id": "MN-19"
+    "source_id": "MN-19",
+    "precipitates": [
+      {
+        "name": "MnO₂",
+        "color": "#69432e"
+      },
+      {
+        "name": "S",
+        "color": "#e1cf3f"
+      }
+    ]
   },
   {
     "a": "kmno4",
@@ -2165,7 +2175,17 @@ PDF_MEDIUM_REACTIONS = json.loads(r'''[
     "gas": "",
     "heat": false,
     "condition": "Исходно нейтральная водная среда",
-    "source_id": "MN-20"
+    "source_id": "MN-20",
+    "precipitates": [
+      {
+        "name": "MnO₂",
+        "color": "#69432e"
+      },
+      {
+        "name": "S",
+        "color": "#e1cf3f"
+      }
+    ]
   },
   {
     "a": "kmno4",
@@ -2711,7 +2731,17 @@ PDF_MEDIUM_REACTIONS = json.loads(r'''[
     "gas": "",
     "heat": false,
     "condition": "Исходно нейтральная водная среда",
-    "source_id": "CR-28"
+    "source_id": "CR-28",
+    "precipitates": [
+      {
+        "name": "Cr(OH)₃",
+        "color": "#729278"
+      },
+      {
+        "name": "S",
+        "color": "#e1cf3f"
+      }
+    ]
   },
   {
     "a": "k2cr2o7",
