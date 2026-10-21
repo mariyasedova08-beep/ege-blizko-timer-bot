@@ -18,7 +18,7 @@ try{
     }};
   });
   await page.route("**/*",async route=>{
-    const url=route.request().url;
+    const url=route.request().url();
     if(url.includes("/lab-app/api")){
       return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(response)});
     }
