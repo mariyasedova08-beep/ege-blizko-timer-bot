@@ -601,7 +601,7 @@ def _group_student_add(uid, payload):
         gid = int(payload.get("group_id"))
     except (TypeError, ValueError, OverflowError):
         return {"ok": False, "error": "invalid_group_id"}
-    if isinstance(payload.get("group_id"), bool) or gid <= 0 or not groups.get_group(uid, gid):
+    if isinstance(payload.get("group_id"), bool) or gid <= 0 or gid > 2**63 - 1 or not groups.get_group(uid, gid):
         return {"ok": False, "error": "group_not_found"}
     name = " ".join(str(payload.get("name") or "").split())
     if (
