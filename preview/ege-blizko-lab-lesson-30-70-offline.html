@@ -888,6 +888,18 @@ body:has(#lesson.page.on) .app{max-width:none}
 .lesson-pane-head small{color:#82717b;font-size:11px}
 .lesson-lab-body{padding:12px;overflow:auto;flex:1;min-height:0}
 .lesson-lab-body label{font-size:11px;color:#756774;display:block;margin:8px 0 3px}
+.lesson-search-field{position:relative;margin-bottom:4px}
+.lesson-search-field input{width:100%;min-width:0;border:1px solid #dfd2d9;border-radius:10px;padding:10px 9px;color:#171719;background:#fff;font-size:13px;line-height:1.35}
+.lesson-search-field input:focus{outline:2px solid #f5cbdf;border-color:#f00087}
+.lesson-search-suggestions{position:absolute;top:100%;left:0;right:0;z-index:200;max-height:180px;overflow:auto;box-shadow:0 9px 20px #17171922;border:1px solid #ebc9d9;background:#fff;border-radius:10px;padding:4px}
+.lesson-search-suggestions[hidden],.lesson-medium-field[hidden]{display:none!important}
+.lesson-search-suggestions button{display:block;border:0;border-radius:7px;width:100%;text-align:left;padding:8px 9px;background:#fff;color:#171719;font-size:12px}
+.lesson-search-suggestions button:hover,.lesson-search-suggestions button:focus{background:#fce7f1}
+.lesson-search-suggestions button small{display:block;color:#756774;font-size:10px;margin-top:2px}
+.lesson-search-empty{font-size:11px;padding:8px;color:#786976}
+.lesson-medium-field{background:#fff7fb;border:1px solid #efccdc;border-radius:11px;padding:8px;margin-top:8px}
+.lesson-medium-field label{margin:0 0 4px;font-size:11px;font-weight:600}
+.lesson-medium-hint{font-size:10px;line-height:1.4;color:#705d69;padding-top:5px}
 .lesson-lab-body select{width:100%;max-width:100%;border:1px solid #dfd2d9;border-radius:10px;padding:10px 7px;background:#fff;color:#171719;font-size:12px}
 .lesson-lab-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:11px 0}
 .lesson-lab-actions button,.lesson-pane-head button,.lesson-lesson-tools button,.lesson-lesson-tools label{padding:8px 10px;border-radius:11px;font-weight:550}
@@ -947,8 +959,26 @@ body:has(#lesson.page.on) .app{max-width:none}
   <aside class="lesson-lab-pane">
     <div class="lesson-pane-head"><h2>🧪 Опыт</h2><small>30% экрана</small></div>
     <div class="lesson-lab-body">
-      <label for="lessonReagentA">Первое вещество</label><select id="lessonReagentA"></select>
-      <label for="lessonReagentB">Добавить реактив</label><select id="lessonReagentB"></select>
+      <div class="lesson-search-field">
+        <label for="lessonReagentA">Первое вещество</label>
+        <input id="lessonReagentA" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="lessonSuggestionsA" placeholder="KMnO4 или перманганат калия" autocomplete="off" spellcheck="false">
+        <div id="lessonSuggestionsA" class="lesson-search-suggestions" role="listbox" hidden></div>
+      </div>
+      <div class="lesson-search-field">
+        <label for="lessonReagentB">Добавить реактив</label>
+        <input id="lessonReagentB" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="lessonSuggestionsB" placeholder="Na2SO3 или сульфит натрия" autocomplete="off" spellcheck="false">
+        <div id="lessonSuggestionsB" class="lesson-search-suggestions" role="listbox" hidden></div>
+      </div>
+      <div id="lessonMediumField" class="lesson-medium-field" hidden>
+        <label for="lessonMedium">Среда реакции с KMnO₄</label>
+        <select id="lessonMedium">
+          <option value="">Выбери среду…</option>
+          <option value="acid">Кислая · H₂SO₄</option>
+          <option value="neutral">Нейтральная</option>
+          <option value="alkaline">Щёлочная · KOH</option>
+        </select>
+        <div id="lessonMediumHint" class="lesson-medium-hint">Среда определяет продукт восстановления марганца.</div>
+      </div>
       <div class="lesson-lab-actions">
         <button id="lessonConduct" type="button">▶ Провести</button>
         <button id="lessonHeat" type="button" aria-pressed="false">🔥 Нагрев</button>
@@ -1133,7 +1163,8 @@ const GAS_REFERENCE=Object.freeze({
  "SO₂":{color:"бесцветный",smell:"резкий удушливый",plume:"rgba(255,255,255,.18)"},
  "H₂S":{color:"бесцветный",smell:"тухлых яиц",plume:"rgba(255,255,255,.18)"},
  "NH₃":{color:"бесцветный",smell:"резкий характерный",plume:"rgba(255,255,255,.18)"},
- "Cl₂":{color:"жёлто-зелёный",smell:"резкий удушливый",plume:"rgba(190,210,92,.46)"}
+ "Cl₂":{color:"жёлто-зелёный",smell:"резкий удушливый",plume:"rgba(190,210,92,.46)"},
+ "O₂":{color:"бесцветный",smell:"без запаха",plume:"rgba(255,255,255,.18)"}
 });
 function gasObservationHTML(x){
  if(!x||!x.gas)return "";
@@ -1269,8 +1300,8 @@ function metalDepositHTML(v,x){
  }
  return '<div class="metalReactionBed"><i class="metalPiece" style="--metalColor:'+m[2]+'"></i>'+crystals.join("")+'</div>';
 }
-function tubeHTML(v,i,active,heated,excess=""){
- const x=v.length===2?findReaction(v[0],v[1],heated,excess):null;
+function tubeHTML(v,i,active,heated,excess="",overrideReaction){
+ const x=overrideReaction===undefined?(v.length===2?findReaction(v[0],v[1],heated,excess):null):overrideReaction;
  const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
  const sol=x?x.sol:base;
  const hasLiquid=v.some(id=>{
