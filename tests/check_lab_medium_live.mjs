@@ -20,7 +20,9 @@ try{
   await page.route("**/*",async route=>{
     const url=route.request().url();
     if(url.includes("/lab-app/api")){
-      return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(response)});
+      const request=route.request().postDataJSON();
+      const result=request.action==="event"?{ok:true,stats:response.data.stats}:response;
+      return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(result)});
     }
     if(url.includes("/lab-app")){
       return route.fulfill({status:200,contentType:"text/html; charset=utf-8",body:html});
@@ -61,6 +63,31 @@ try{
   assert.equal(await page.locator("#lessonMediumField").isVisible(),false);
   await page.locator("#lessonConduct").click();
   assert((await page.locator("#lessonReaction").innerText()).includes("Cu(OH)₂"));
+  // Existing four-tube main laboratory must also use medium-specific registry
+  // without exposing unsupported neutral halide oxidation.
+  await page.locator('[data-page="free"]').first().click();
+  await page.evaluate(()=>{add("kmno4");add("na2so3");});
+  assert.equal(await page.locator("#tubeMediumField").isVisible(),true);
+  assert.match(await page.locator("#tubes .active-slot .tube-callout").innerText(),/Выбери среду/);
+  await page.locator("#tubeMedium").selectOption("acid");
+  assert((await page.locator("#tubes .active-slot .tube-callout").innerText()).includes("MnSO₄"));
+  await page.locator("#tubeMedium").selectOption("neutral");
+  assert((await page.locator("#tubes .active-slot .tube-callout").innerText()).includes("MnO₂"));
+  await page.locator("#clear").click();
+  await page.evaluate(()=>{add("kmno4");add("ki");});
+  await page.locator("#tubeMedium").selectOption("neutral");
+  assert.match(await page.locator("#tubes .active-slot .tube-callout").innerText(),/нет подтверждённой реакции/);
+  await page.locator("#clear").click();
+  await page.evaluate(()=>{add("croh3");add("h2o2");});
+  await page.locator("#tubeMedium").selectOption("alkaline");
+  assert.match(await page.locator("#tubes .active-slot .tube-callout").innerText(),/Нужен нагрев/);
+  await page.locator("#heat").click();
+  assert((await page.locator("#tubes .active-slot .tube-callout").innerText()).includes("Na₂CrO₄"));
+  await page.locator("#clear").click();
+  await page.evaluate(()=>{add("cuso4");add("naoh");});
+  assert.equal(await page.locator("#tubeMediumField").isVisible(),false);
+  assert((await page.locator("#tubes .active-slot .tube-callout").innerText()).includes("Cu(OH)₂"));
+
   for(const selector of ["#lessonPDFInput","#lessonInkCanvas","#lessonExport","#lessonToolPen"]){
     assert.equal(await page.locator(selector).count(),1);
   }
