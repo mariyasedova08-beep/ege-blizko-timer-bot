@@ -113,6 +113,37 @@ try{
     assert.match(await page.locator("#lessonReaction").innerText(),/Al\(OH\)₃/);
     assert.match(await page.locator("#lessonReaction").innerText(),/CO₂/);
 
+    // Batch 3: Cr(III) hydroxo complex, oxidation to Cr(VI) only with alkali + heat.
+    await page.locator("#lessonReagentA").fill("Cr(OH)3");
+    await page.locator("#lessonSuggestionsA button").first().click();
+    await page.locator("#lessonReagentB").fill("H2O2");
+    await page.locator("#lessonSuggestionsB button").first().click();
+    assert.equal(await page.locator("#lessonMediumField").isVisible(),true);
+    assert.match(await page.locator("#lessonMediumField label").innerText(),/Cr\\(III\\)/);
+    await page.locator("#lessonMedium").selectOption("alkaline");
+    await page.locator("#lessonConduct").click();
+    assert.match(await page.locator("#lessonReaction").innerText(),/Нужен нагрев/);
+    await page.locator("#lessonHeat").click();
+    assert.match(await page.locator("#lessonReaction").innerText(),/Na₂CrO₄/);
+    assert.match(await page.locator("#lessonReaction").innerText(),/жёлт/i);
+
+    // Batch 3: no reaction != unrecorded reaction.
+    await page.locator("#lessonReagentA").fill("Br2");
+    await page.locator("#lessonSuggestionsA button").first().click();
+    await page.locator("#lessonReagentB").fill("KCl");
+    await page.locator("#lessonSuggestionsB button").first().click();
+    await page.locator("#lessonConduct").click();
+    assert.match(await page.locator("#lessonReaction").innerText(),/Реакция не идёт/);
+
+    // New Cr(III) reagent is searchable and produces an amphoteric hydroxide.
+    await page.locator("#lessonReagentA").fill("CrCl3");
+    await page.locator("#lessonSuggestionsA button").first().click();
+    await page.locator("#lessonReagentB").fill("NaOH");
+    await page.locator("#lessonSuggestionsB button").first().click();
+    assert.equal(await page.locator("#lessonMediumField").isVisible(),false);
+    await page.locator("#lessonConduct").click();
+    assert.match(await page.locator("#lessonReaction").innerText(),/Cr\\(OH\\)₃/);
+
     // Existing PDF-stylus functionality remains on the same screen.
     for(const selector of ["#lessonPDFInput","#lessonInkCanvas","#lessonExport","#lessonToolPen"]){
       assert.equal(await page.locator(selector).count(),1,selector+" missing");
