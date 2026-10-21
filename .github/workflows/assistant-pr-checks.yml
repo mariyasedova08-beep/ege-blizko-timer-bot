@@ -1,0 +1,89 @@
+name: "ИИ-разработка — безопасная проверка PR"
+
+# No VPS connection, no deployment, no secrets, no write permissions.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: assistant-pr-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    name: Python syntax + no sensitive files
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile tracked Python source without importing bot modules
+        shell: bash
+        run: |
+          python - <<'PY'
+          import ast
+          import subprocess
+          from pathlib import Path
+
+          filenames = subprocess.check_output(
+              ["git", "ls-files", "-z", "--", "*.py"]
+          ).split(b"\0")
+          files = [Path(x.decode("utf-8", "surrogateescape")) for x in filenames if x]
+          failures = []
+          for file in files:
+              try:
+                  with open(file, "r", encoding="utf-8-sig") as stream:
+                      ast.parse(stream.read(), filename=str(file))
+              except (OSError, UnicodeError, SyntaxError) as exc:
+                  failures.append(f"{file}: {exc}")
+          print(f"PYTHON_FILES_CHECKED={len(files)}")
+          if failures:
+              raise SystemExit("\n".join(failures))
+          print("STATIC_PYTHON_SYNTAX_OK")
+          PY
+
+      - name: Refuse committing private keys or local databases
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+
+          changed = subprocess.check_output(
+              ["git", "diff", "--name-only", "--diff-filter=ACMR", "-z",
+               os.environ["BASE_SHA"], os.environ["HEAD_SHA"]]
+          ).split(b"\0")
+          forbidden = []
+          for raw in changed:
+              if not raw:
+                  continue
+              name = raw.decode("utf-8", "surrogateescape")
+              base = name.rsplit("/", 1)[-1].lower()
+              if (base in {"id_rsa", "id_ed25519", ".env"}
+                      or base.startswith(".env.")
+                      or re.search(r"\.(?:sqlite3?|db|pem|p12|pfx|key)$", base)):
+                  forbidden.append(name)
+          if forbidden:
+              raise SystemExit("REFUSED_SENSITIVE_FILES:\n" + "\n".join(forbidden))
+          print("NO_DATABASES_OR_PRIVATE_KEYS_IN_PR")
+          PY
+
+      - name: Confirm read-only scope
+        run: |
+          echo "NO_VPS_CONNECTION"
+          echo "NO_SECRETS_ACCESSED"
+          echo "NO_DEPLOYMENT_PERFORMED"
