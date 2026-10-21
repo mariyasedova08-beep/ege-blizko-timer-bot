@@ -1392,6 +1392,186 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED",
                       __import__("teacher_product_homework_submissions").enabled.__code__.co_consts.__repr__())
 
+    def test_real_http_png_pdf_submission_and_teacher_preview_only(self):
+        """Real loopback HTTP: authentic files, student link, teacher Range GET.
+
+        Uses temporary SQLite, a private temporary file directory and local
+        HTTP port; no cloud, Telegram, Timeweb or production credentials.
+        """
+        from io import BytesIO
+        import json
+        import struct
+        import threading
+        import zlib
+        from http.server import ThreadingHTTPServer
+        from urllib.request import Request, urlopen
+        from urllib.error import HTTPError
+        from unittest.mock import patch
+        import teacher_product_student_webapp as student
+        import teacher_product_homework_submissions as submissions
+
+        # Create a complete 1x1 valid PNG (IHDR/IDAT/IEND + CRC), not
+        # the short signature fixtures used by smaller unit tests.
+        def chunk(kind, body):
+            return (struct.pack(">I",len(body))+kind+body+
+                    struct.pack(">I",zlib.crc32(kind+body)&0xffffffff))
+        png=(b"\x89PNG\r\n\x1a\n"+
+             chunk(b"IHDR",struct.pack(">IIBBBBB",1,1,8,6,0,0,0))+
+             chunk(b"IDAT",zlib.compress(b"\x00\xff\x00\x00\xff"))+
+             chunk(b"IEND",b""))
+
+        # Structurally valid PDF with catalog, page tree, page and trailer.
+        objects=(
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>",
+        )
+        buf=BytesIO()
+        buf.write(b"%PDF-1.4\n")
+        locations=[0]
+        for i,body in enumerate(objects,1):
+            locations.append(buf.tell())
+            buf.write(f"{i} 0 obj\n".encode()+body+b"\nendobj\n")
+        at_xref=buf.tell()
+        buf.write(f"xref\n0 {len(locations)}\n".encode())
+        buf.write(b"0000000000 65535 f \n")
+        for offset in locations[1:]:
+            buf.write(f"{offset:010d} 00000 n \n".encode())
+        buf.write(b"trailer\n<< /Root 1 0 R /Size 4 >>\n")
+        buf.write(f"startxref\n{at_xref}\n%%EOF\n".encode())
+        pdf=buf.getvalue()
+        with patch.dict(os.environ,{
+            "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"http_hw_files"),
+            "TEACHER_PRODUCT_HOMEWORK_FILE_TICKET_KEY":"temporary-test-only-secret-for-signed-download",
+        }),patch.object(base,"BOT_TOKEN","temporary-prepodmin-bot-token-for-http-tests"):
+            with base.db() as conn:
+                conn.execute(
+                    "UPDATE student_reminder_people SET telegram_user_id=? WHERE id=?",
+                    (887654,self.mid),
+                )
+                conn.commit()
+            task=webapp._teacher_action(101,{**self.payload,
+                "submission_mode":"attachment"})
+            self.assertTrue(task["ok"],task)
+            aid=task["assignment_id"]
+            self.assertEqual(submissions._file_type(png[:32]),("image/png","png"))
+            self.assertTrue(pdf.startswith(b"%PDF-"))
+
+            http=ThreadingHTTPServer(("127.0.0.1",0),webapp.WebAppHandler)
+            thread=threading.Thread(target=http.serve_forever,daemon=True)
+            thread.start()
+            root=f"http://127.0.0.1:{http.server_port}"
+            def do_request(path,data=None,headers=None):
+                request=Request(root+path,data=data,headers=headers or {},
+                                method="POST" if data is not None else "GET")
+                with urlopen(request,timeout=8) as response:
+                    return response.status,response.read(),dict(response.headers)
+            try:
+                student_token=student.launch_token(887654)
+                # Missing or invalid auth must not read or save student bytes.
+                bad_headers={"X-Prepodmin-Launch":"invalid",
+                             "X-Prepodmin-Link-Id":str(self.mid),
+                             "X-Prepodmin-Assignment-Id":str(aid),
+                             "X-Prepodmin-File-Name":"sample.png",
+                             "Content-Type":"image/png"}
+                with self.assertRaises(HTTPError) as exc:
+                    do_request("/api/student/homework/upload",png,bad_headers)
+                self.assertEqual(exc.exception.code,401)
+                for filename,typ,content in (
+                    ("sample.png","image/png",png),
+                    ("sample.pdf","application/pdf",pdf),
+                ):
+                    headers=dict(bad_headers)
+                    headers.update({
+                        "X-Prepodmin-Launch":student_token,
+                        "X-Prepodmin-File-Name":filename,
+                        "Content-Type":typ,
+                    })
+                    status,body,_=do_request("/api/student/homework/upload",
+                                             content,headers)
+                    self.assertEqual(status,200)
+                    self.assertTrue(json.loads(body)["ok"])
+
+                # Before explicit submit: a private draft, not a checked work.
+                item=student._homework(student._link(887654,self.mid))[0]
+                self.assertEqual(item["submission"]["status"],"draft")
+                self.assertEqual(len(item["submission"]["files"]),2)
+                student_headers={"Content-Type":"application/json"}
+                action=json.dumps({"action":"homework_submit","assignment_id":aid,
+                                   "link_id":self.mid,"launch":student_token}).encode()
+                code,result,_=do_request("/api/student/action",action,student_headers)
+                self.assertEqual(code,200)
+                self.assertTrue(json.loads(result)["ok"])
+                self.assertEqual(
+                    webapp._view(101,f"group:{self.gid}")["homework"][0]["submitted"],1)
+
+                # Teacher cannot open a file under another teacher identity.
+                file_id=item["submission"]["files"][1]["id"]
+                wrong=json.dumps({
+                    "action":"group_homework_file_ticket","file_id":file_id,
+                    "launch":webapp._launch_token(202),
+                }).encode()
+                with self.assertRaises(HTTPError) as exc:
+                    do_request("/api/teacher/action",wrong,student_headers)
+                self.assertEqual(exc.exception.code,400)
+                self.assertEqual(json.loads(exc.exception.read())["error"],"file_unavailable")
+
+                own=json.dumps({
+                    "action":"group_homework_file_ticket","file_id":file_id,
+                    "launch":webapp._launch_token(101),
+                }).encode()
+                code,result,_=do_request("/api/teacher/action",own,student_headers)
+                self.assertEqual(code,200)
+                url=json.loads(result)["url"]
+                status,body,headers=do_request(url,headers={"Range":"bytes=0-14"})
+                self.assertEqual(status,206)
+                self.assertEqual(body,pdf[:15])
+                self.assertEqual(headers["Cache-Control"],"private, no-store")
+                self.assertEqual(headers["Content-Type"],"application/pdf")
+                self.assertEqual(headers["X-Content-Type-Options"],"nosniff")
+                with self.assertRaises(HTTPError) as exc:
+                    do_request(url+"-tampered")
+                self.assertEqual(exc.exception.code,404)
+            finally:
+                http.shutdown()
+                http.server_close()
+                thread.join(timeout=3)
+
+    def test_rejected_file_upload_does_not_leave_ghost_attempt(self):
+        from io import BytesIO
+        from unittest.mock import patch
+        import teacher_product_homework_submissions as sub
+        with patch.dict(os.environ,{
+            "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"quota_hw_files"),
+        }):
+            created=webapp._teacher_action(101,{**self.payload,
+                "submission_mode":"attachment"})
+            aid=created["assignment_id"]
+            link={"id":self.mid,"teacher_id":101,"kind":"group",
+                  "group_id":self.gid,"name":"Алина"}
+            content=b"%PDF-1.4\n"+b"x"*75
+            # Rejected size/quota and disguised extensions must not enter SQLite.
+            with patch.object(sub,"MAX_TEACHER_BYTES",50):
+                result=sub.upload(link,aid,BytesIO(content),len(content),
+                                  "solution.pdf","application/pdf")
+                self.assertEqual(result["error"],"storage_quota")
+            result=sub.upload(link,aid,BytesIO(content),len(content),
+                              "solution.html","application/pdf")
+            self.assertEqual(result["error"],"upload_failed")
+            result=sub.upload(link,aid,BytesIO(content),len(content),
+                              "solution.pdf","image/png")
+            self.assertEqual(result["error"],"upload_failed")
+            with base.db() as conn:
+                self.assertEqual(conn.execute(
+                    "SELECT COUNT(*) FROM teacher_webapp_homework_attempts"
+                ).fetchone()[0],0)
+                self.assertEqual(conn.execute(
+                    "SELECT COUNT(*) FROM teacher_webapp_homework_files"
+                ).fetchone()[0],0)
+
+
     async def test_delivery_worker_uses_existing_send_once_not_in_http_thread(self):
         from types import SimpleNamespace
         from unittest.mock import AsyncMock, patch
