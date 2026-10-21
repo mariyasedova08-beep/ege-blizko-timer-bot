@@ -12,7 +12,7 @@ SUBS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
 
 
 def atoms(formula):
-    formula = formula.translate(SUBS).replace("↓", "").replace("↑", "").strip()
+    formula = re.sub(r"\((?:конц\.|нед\.|изб\.)\)", "", formula).translate(SUBS).replace("↓", "").replace("↑", "").strip()
     if not formula:
         raise ValueError("empty formula")
     if "·" in formula:
@@ -73,11 +73,11 @@ def check_balanced(equation):
 class PriorityChemistry(unittest.TestCase):
     def test_curated_count_and_identifiers(self):
         medium = CHEM["MEDIUM_REACTIONS"]
-        self.assertEqual(len(medium), 26)
+        self.assertEqual(len(medium), 91)
         for row in medium:
             self.assertIn(row["a"], REAGENTS)
             self.assertIn(row["b"], REAGENTS)
-            self.assertIn(row["medium"], {"acid", "neutral", "alkaline"})
+            self.assertIn(row["medium"], {"acid", "neutral", "alkaline", "weak_alkaline"})
             self.assertTrue(row["condition"])
             self.assertTrue(row["sign"])
         CHEM["validate_reactions"](set(REAGENTS))
@@ -139,6 +139,50 @@ class PriorityChemistry(unittest.TestCase):
             self.assertTrue(row["heat"])
             self.assertIn("Na₂CrO₄", row["eq"])
             self.assertEqual(row["sol"], "#f5d532")
+
+    def test_two_uploaded_pdf_files_have_complete_audit(self):
+        pdf = runpy.run_path(str(ROOT / "ege_lab_mn_cr_pdf_import.py"))
+        audit = pdf["SOURCE_AUDIT"]
+        sources = pdf["SOURCE_RECORDS"]
+        self.assertEqual(audit["source_total"], 87)
+        self.assertEqual(len(sources), 87)
+        self.assertEqual(sum(audit["by_status"].values()), 87)
+        self.assertEqual(audit["by_status"]["imported"], 68)
+        self.assertEqual(audit["by_status"]["already_in_lab"], 16)
+        self.assertEqual(audit["by_status"]["duplicate_in_pdf"], 1)
+        self.assertEqual(audit["by_status"]["needs_chemical_review"], 2)
+        self.assertEqual(len(pdf["PDF_MEDIUM_REACTIONS"]), 65)
+        self.assertEqual(len(pdf["PDF_EXTRA_REACTIONS"]), 3)
+        for source in sources:
+            with self.subTest(id=source["source_id"]):
+                self.assertIn(source["page"], range(1, 9))
+                self.assertIn(source["status"], {"imported", "already_in_lab",
+                                              "duplicate_in_pdf", "needs_chemical_review"})
+                self.assertIn("→", source["eq"])
+                check_balanced(source["eq"])
+
+    def test_pdf_imported_ordinary_reactions_balance(self):
+        pdf = runpy.run_path(str(ROOT / "ege_lab_mn_cr_pdf_import.py"))
+        for a,b,eq,*_ in pdf["PDF_EXTRA_REACTIONS"]:
+            with self.subTest(pair=(a,b)):
+                self.assertIn(a, REAGENTS)
+                self.assertIn(b, REAGENTS)
+                check_balanced(eq)
+
+    def test_source_records_reconcile_with_lab_registry(self):
+        pdf = runpy.run_path(str(ROOT / "ege_lab_mn_cr_pdf_import.py"))
+        imported = [x for x in pdf["SOURCE_RECORDS"] if x["status"] == "imported"]
+        keys_medium = {(frozenset((x["a"],x["b"])),x["medium"]) for x in CHEM["MEDIUM_REACTIONS"]}
+        keys_ordinary = {frozenset((x[0],x[1])) for x in CHEM["EXTRA_REACTIONS"]}
+        for row in imported:
+            with self.subTest(id=row["source_id"]):
+                if row["medium"] == "ordinary":
+                    self.assertIn(frozenset((row["a"],row["b"])),keys_ordinary)
+                else:
+                    self.assertIn((frozenset((row["a"],row["b"])),row["medium"]),keys_medium)
+        for item in pdf["SOURCE_RECORDS"]:
+            if item["status"] == "needs_chemical_review":
+                self.assertNotIn(item["source_id"],{x.get("source_id") for x in pdf["PDF_MEDIUM_REACTIONS"]})
 
     def test_dichromate_and_chromate_remain_separate(self):
         medium = CHEM["MEDIUM_REACTIONS"]
