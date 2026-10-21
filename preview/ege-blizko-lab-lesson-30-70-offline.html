@@ -2413,42 +2413,162 @@ async function lessonExportPDF(){
   lessonStatus("Не удалось сохранить PDF. Проверь подключение и попробуй ещё раз.");
  }
 }
-function lessonPopulateReagents(){
- const opts=Object.entries(data.reagents).sort((a,b)=>
-  String(a[1][1]||"").localeCompare(String(b[1][1]||""),"ru")||
-  String(a[1][0]||"").localeCompare(String(b[1][0]||""),"ru"));
- const a=document.getElementById("lessonReagentA"),b=document.getElementById("lessonReagentB");
- for(const sel of [a,b]){
-  sel.textContent="";
-  const empty=document.createElement("option");empty.value="";empty.textContent="Выбери вещество";sel.appendChild(empty);
-  for(const entry of opts){
-   const option=document.createElement("option");
-   option.value=entry[0];
-   option.textContent=entry[1][0]+" — "+entry[1][1];
-   sel.appendChild(option);
+// The medium is an explicit laboratory condition. Never reuse a neutral
+// outcome for acidic or alkaline solution without a verified reaction record.
+const LESSON_MN_MEDIUM_CASES=Object.freeze({
+  na2so3:{
+    acid:{a:"kmno4",b:"na2so3",eq:"2KMnO₄ + 5Na₂SO₃ + 3H₂SO₄ → K₂SO₄ + 2MnSO₄ + 5Na₂SO₄ + 3H₂O",
+      t:"c",sign:"Фиолетовая окраска исчезает; Mn(VII) восстанавливается до Mn(II).",
+      sol:"#f8fbff",ppt:"",gas:"",heat:false,condition:"Кислая среда — разбавленная H₂SO₄"},
+    alkaline:{a:"kmno4",b:"na2so3",eq:"2KMnO₄ + Na₂SO₃ + 2KOH → 2K₂MnO₄ + Na₂SO₄ + H₂O",
+      t:"c",sign:"Фиолетовый раствор становится зелёным: образуется манганат MnO₄²⁻.",
+      sol:"#69c053",ppt:"",gas:"",heat:false,condition:"Щёлочная среда — KOH"}
+  },
+  h2o2:{
+    acid:{a:"kmno4",b:"h2o2",eq:"2KMnO₄ + 5H₂O₂ + 3H₂SO₄ → K₂SO₄ + 2MnSO₄ + 5O₂↑ + 8H₂O",
+      t:"g",sign:"Фиолетовый раствор обесцвечивается; выделяются пузырьки бесцветного O₂.",
+      sol:"#f8fbff",ppt:"",gas:"O₂",heat:false,condition:"Кислая среда — разбавленная H₂SO₄"},
+    neutral:{a:"kmno4",b:"h2o2",eq:"2KMnO₄ + 3H₂O₂ → 2MnO₂↓ + 3O₂↑ + 2KOH + 2H₂O",
+      t:"x",sign:"Выпадает бурый осадок MnO₂ и выделяется бесцветный O₂.",
+      sol:"#f3eee6",ppt:"#69432e",gas:"O₂",heat:false,condition:"Исходно нейтральная среда; в ходе реакции образуется KOH"},
+    alkaline:{a:"kmno4",b:"h2o2",eq:"2KMnO₄ + H₂O₂ + 2KOH → 2K₂MnO₄ + O₂↑ + 2H₂O",
+      t:"g",sign:"Фиолетовый раствор становится зелёным; выделяется бесцветный O₂.",
+      sol:"#69c053",ppt:"",gas:"O₂",heat:false,condition:"Щёлочная среда — KOH"}
   }
-  sel.onchange=()=>{lessonStarted=false;lessonRenderExperiment();};
+});
+let lessonSelectedReagents={a:"",b:""};
+let lessonSuggested={a:[],b:[]};
+function lessonNormalizeFormula(text){
+ return String(text||"").normalize("NFKC").toLocaleLowerCase("ru")
+   .replace(/[\s\u00a0.,·\-–—()[\]{}]/g,"");
+}
+function lessonSearchMatches(raw){
+ const search=lessonNormalizeFormula(raw);
+ if(!search)return [];
+ return Object.entries(data.reagents).filter(([id,r])=>
+   lessonNormalizeFormula(id).includes(search)||
+   lessonNormalizeFormula(r[0]).includes(search)||
+   lessonNormalizeFormula(r[4]).includes(search)
+ ).sort((a,b)=>{
+   const av=lessonNormalizeFormula(a[1][0]),bv=lessonNormalizeFormula(b[1][0]);
+   const aExact=av===search||lessonNormalizeFormula(a[0])===search?0:1;
+   const bExact=bv===search||lessonNormalizeFormula(b[0])===search?0:1;
+   return aExact-bExact||av.localeCompare(bv,"ru");
+ }).slice(0,8);
+}
+function lessonCloseSuggestions(slot){
+ const box=document.getElementById(slot==="a"?"lessonSuggestionsA":"lessonSuggestionsB");
+ const inp=document.getElementById(slot==="a"?"lessonReagentA":"lessonReagentB");
+ box.hidden=true;inp.setAttribute("aria-expanded","false");
+}
+function lessonSetReagent(slot,id){
+ if(!data.reagents[id])return;
+ lessonSelectedReagents[slot]=id;
+ const inp=document.getElementById(slot==="a"?"lessonReagentA":"lessonReagentB");
+ inp.value=data.reagents[id][0];
+ lessonCloseSuggestions(slot);
+ lessonStarted=false;
+ lessonUpdateMediumField();
+ lessonRenderExperiment();
+}
+function lessonShowSuggestions(slot,term){
+ const box=document.getElementById(slot==="a"?"lessonSuggestionsA":"lessonSuggestionsB");
+ const inp=document.getElementById(slot==="a"?"lessonReagentA":"lessonReagentB");
+ const found=lessonSearchMatches(term);
+ lessonSuggested[slot]=found;
+ box.replaceChildren();
+ if(!term.trim()){lessonCloseSuggestions(slot);return;}
+ if(!found.length){
+   const empty=document.createElement("div");empty.className="lesson-search-empty";
+   empty.textContent="Не найдено в каталоге";box.appendChild(empty);
+ }else{
+   for(const [id,entry] of found){
+     const button=document.createElement("button");button.type="button";button.setAttribute("role","option");
+     const formula=document.createElement("span");formula.textContent=entry[0];
+     const note=document.createElement("small");note.textContent=entry[4]||entry[1]||"";
+     button.append(formula,note);
+     button.addEventListener("pointerdown",event=>event.preventDefault());
+     button.onclick=()=>lessonSetReagent(slot,id);
+     box.appendChild(button);
+   }
  }
- if(data.reagents.kmno4)a.value="kmno4";
- if(data.reagents.na2so3)b.value="na2so3";
+ box.hidden=false;inp.setAttribute("aria-expanded","true");
+}
+function lessonUpdateMediumField(){
+ const a=lessonSelectedReagents.a,b=lessonSelectedReagents.b;
+ const active=a==="kmno4"||b==="kmno4";
+ const field=document.getElementById("lessonMediumField");
+ field.hidden=!active;
+ const menu=document.getElementById("lessonMedium");
+ if(!active){menu.value="";return;}
+ const messages={
+  "":"Сначала выбери среду — продукт восстановления KMnO₄ зависит от неё.",
+  acid:"Mn(VII) → Mn(II): фиолетовая окраска исчезает.",
+  neutral:"Mn(VII) → Mn(IV): бурый осадок MnO₂.",
+  alkaline:"Mn(VII) → Mn(VI): зелёный раствор MnO₄²⁻."
+ };
+ document.getElementById("lessonMediumHint").textContent=messages[menu.value]||messages[""];
+}
+function lessonSelectedReaction(a,b,heated){
+ if(!a||!b)return null;
+ if(a==="kmno4"||b==="kmno4"){
+   const medium=document.getElementById("lessonMedium").value;
+   if(!medium)return null;
+   const other=a==="kmno4"?b:a;
+   const special=LESSON_MN_MEDIUM_CASES[other]||{};
+   if(special[medium])return special[medium];
+   // The existing full laboratory catalogue includes the neutral sulphite record.
+   if(other==="na2so3"&&medium==="neutral")return findReaction(a,b,heated);
+   return null;
+ }
+ return findReaction(a,b,heated);
+}
+function lessonPopulateReagents(){
+ for(const [slot,id] of [["a","lessonReagentA"],["b","lessonReagentB"]]){
+   const inp=document.getElementById(id);
+   inp.oninput=()=>{
+     lessonSelectedReagents[slot]="";
+     lessonStarted=false;lessonUpdateMediumField();lessonRenderExperiment();
+     lessonShowSuggestions(slot,inp.value);
+   };
+   inp.onfocus=()=>{if(inp.value.trim())lessonShowSuggestions(slot,inp.value);};
+   inp.onkeydown=event=>{
+     if(event.key==="Escape"){lessonCloseSuggestions(slot);return;}
+     if(event.key==="Enter"){
+       event.preventDefault();
+       const first=lessonSuggested[slot][0];
+       if(first)lessonSetReagent(slot,first[0]);
+       else lessonCloseSuggestions(slot);
+     }
+   };
+   inp.onblur=()=>{setTimeout(()=>lessonCloseSuggestions(slot),120);};
+ }
+ document.getElementById("lessonMedium").onchange=()=>{
+   lessonStarted=false;lessonUpdateMediumField();lessonRenderExperiment();
+ };
+ if(data.reagents.kmno4)lessonSetReagent("a","kmno4");
+ if(data.reagents.na2so3)lessonSetReagent("b","na2so3");
+ lessonUpdateMediumField();
  lessonRenderExperiment();
 }
 function lessonRenderExperiment(){
- const a=document.getElementById("lessonReagentA").value;
- const b=document.getElementById("lessonReagentB").value;
- const x=lessonStarted&&a&&b?findReaction(a,b,lessonHeated):null;
+ const a=lessonSelectedReagents.a,b=lessonSelectedReagents.b;
+ const mediumActive=a==="kmno4"||b==="kmno4";
+ const medium=document.getElementById("lessonMedium").value;
+ const x=lessonStarted?lessonSelectedReaction(a,b,lessonHeated):null;
  const v=lessonStarted&&x?[a,b]:(a?[a]:[]);
- document.getElementById("lessonTube").innerHTML=tubeHTML(v,0,true,lessonHeated,"");
+ document.getElementById("lessonTube").innerHTML=tubeHTML(v,0,true,lessonHeated,"",x);
  const info=document.getElementById("lessonReaction");
- if(!lessonStarted){
-  info.textContent="Готово к опыту. Веди запись реакции справа и нажми «Провести».";
+ if(!a||!b){
+   info.textContent="Напечатай формулу или название и выбери вещество из найденных.";
+ }else if(mediumActive&&!medium){
+   info.textContent="Выбери среду для KMnO₄: кислая, нейтральная или щёлочная.";
+ }else if(!lessonStarted){
+   info.textContent="Опыт подготовлен. Пиши уравнение справа и нажми «Провести».";
  }else if(x){
-  info.innerHTML=reactionResultHTML(x,lessonHeated);
+   info.innerHTML=reactionResultHTML(x,lessonHeated);
  }else{
-  const candidate=a&&b?reactionExpected(a,b):null;
-  info.textContent=candidate&&candidate.heat&&!lessonHeated?
-   "Для этой реакции нужно включить нагрев. До этого признаки не показываем.":
-   "Для выбранных веществ в лабораторной базе пока нет подтверждённой реакции. Результат не моделируем.";
+   info.textContent="Для этой пары и выбранной среды в базе пока нет проверенной реакции. Признак не моделируем.";
  }
 }
 function lessonSetup(){
