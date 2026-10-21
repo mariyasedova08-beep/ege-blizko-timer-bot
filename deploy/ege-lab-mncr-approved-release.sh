@@ -27,8 +27,9 @@ LIVE_ONLY_FILES=(public_channel_trainers.py run_bot_production.py)
 fatal() { echo "RELEASE_ABORTED: $*" >&2; return 1; }
 sha_of() { sha256sum "$1" | awk '{print $1}'; }
 
-[[ "${EGE_LAB_APPROVED_RELEASE:-}" == "$RELEASE_ID" ]] || fatal "Missing protected release approval"
-[[ "${EGE_LAB_REMOTE_EXECUTION:-}" == "github-approved-environment" ]] || fatal "Missing approved environment marker"
+[[ "$#" == 1 && "$1" == "$RELEASE_ID" ]] || fatal "Requires exact pinned release ID"
+[[ "$(id -u)" == "0" ]] || fatal "Must run as the restricted sudo target"
+[[ -f /usr/local/libexec/ege-lab-release-entry && -f /etc/sudoers.d/ege-lab-deploy ]] || fatal "Restricted SSH entry not installed"
 [[ -d "$APP/.git" && -d "$STAGING_ROOT" ]] || fatal "Production or staging folder missing"
 [[ "$(git -C "$APP" rev-parse HEAD)" == "$EXPECTED_LIVE" ]] || fatal "Unexpected production git head"
 [[ "$(systemctl is-active "$SERVICE")" == "active" ]] || fatal "Bot service not healthy"
