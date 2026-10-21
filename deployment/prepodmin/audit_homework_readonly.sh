@@ -36,10 +36,20 @@ has_backup_files() {
   find "$p" -maxdepth 1 -type f -name 'prepodmin-daily-*.sqlite3' -print -quit | grep -q .
 }
 uploads_disabled() {
-  local p=/etc/prepodmin/prepodmin.env
-  [[ -f "$p" ]] || return 1
-  # Do not show environment contents or tokens; flag is ON only if explicit 1.
-  ! grep -Eq '^[[:space:]]*TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED[[:space:]]*=[[:space:]]*1[[:space:]]*(#.*)?$' "$p"
+  # Read the live process environment, not merely the possibly stale env file.
+  # Never log, copy or print any environment values or secrets.
+  local pid
+  pid="$(systemctl show -p MainPID --value prepodmin)" || return 1
+  [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  python3 - "$pid" <<'PYENV'
+from pathlib import Path
+import sys
+try:
+    values = Path('/proc/'+sys.argv[1]+'/environ').read_bytes().split(b'\0')
+except (OSError, ValueError):
+    sys.exit(1)
+sys.exit(1 if b'TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED=1' in values else 0)
+PYENV
 }
 read_nginx() {
   command -v nginx >/dev/null 2>&1 || return 1
