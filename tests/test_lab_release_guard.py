@@ -46,8 +46,8 @@ class LaboratoryReleaseChecks(unittest.TestCase):
         cls.html = literal_assignment("ege_lab_webapp.py", "HTML")
 
     def test_catalogue_coverage_not_reduced(self):
-        self.assertEqual(len(self.reagents), 196)  # added NaNO₂ for OVR demonstration
-        self.assertEqual(len(self.reactions) + len(self.variants), 435)
+        self.assertGreaterEqual(len(self.reagents), 200)  # Cr(III) catalogue extensions must not disappear
+        self.assertGreaterEqual(len(self.reactions) + len(self.variants), 461)  # curated batch 3
 
     def test_reaction_references_and_shapes(self):
         known = set(self.reagents)
