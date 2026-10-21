@@ -439,7 +439,7 @@ class GroupWorkspaceTest(unittest.TestCase):
             conn.execute(
                 "UPDATE teacher_homework SET due_date=? WHERE id=? "
                 "AND teacher_telegram_user_id=?",
-                (yesterday,self.assignment,101),
+                (yesterday,self.assignment["id"],101),
             )
             conn.commit()
         first=webapp._view(101,"students")
@@ -454,7 +454,7 @@ class GroupWorkspaceTest(unittest.TestCase):
             conn.execute(
                 "UPDATE teacher_homework_status SET status='done' "
                 "WHERE assignment_id=? AND subject_kind='group_member' AND subject_id=?",
-                (self.assignment,self.pid),
+                (self.assignment["id"],self.pid),
             )
             conn.commit()
         second=webapp._view(101,"students")
