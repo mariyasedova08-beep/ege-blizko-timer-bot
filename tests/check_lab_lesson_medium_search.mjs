@@ -90,7 +90,7 @@ try{
     assert.equal(await page.locator("#lessonMediumField").isVisible(),false);
     await page.locator("#lessonConduct").click();
     assert.match(await page.locator("#lessonReaction").innerText(),/PbCrO₄/);
-    assert.match(await page.locator("#lessonReaction").innerText(),/жёлт/);
+    assert.match(await page.locator("#lessonReaction").innerText(),/жёлт/i);
 
     // Existing PDF-stylus functionality remains on the same screen.
     for(const selector of ["#lessonPDFInput","#lessonInkCanvas","#lessonExport","#lessonToolPen"]){
