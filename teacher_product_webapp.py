@@ -9,6 +9,7 @@ import traceback
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import RLock
 from types import SimpleNamespace
 from urllib.parse import parse_qsl
 
@@ -35,6 +36,7 @@ import teacher_product_help as help_guide
 import teacher_product_group_workspace as group_workspace
 import teacher_product_webapp_homework as webapp_homework
 import teacher_product_webapp_lessons as webapp_lessons
+import teacher_product_student_reminders as student_reminders
 
 PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
 WEBAPP_URL = os.getenv(
@@ -43,6 +45,7 @@ WEBAPP_URL = os.getenv(
 ).strip()
 MAX_AUTH_AGE = 24 * 60 * 60
 WEBAPP_BUILD = "20261015-prepodmin-themes-1"
+_GROUP_STUDENT_ADD_LOCK = RLock()
 HTML_PATH = Path(__file__).with_name("teacher_product_webapp.html")
 _INSTALLED = False
 
@@ -584,6 +587,46 @@ def _profile_view(uid):
     }
 
 
+def _group_student_add(uid, payload):
+    """Add an owned group member without leaving the teacher's WebApp.
+
+    Existing student reminders remain the authoritative records. A teacher
+    must be fully onboarded; repeated clicks or requests with the same group
+    and normalized name return a clear duplicate error instead of a second row.
+    """
+    teacher = base.teacher(uid)
+    if not teacher or not teacher["onboarding_completed_at"]:
+        return {"ok": False, "error": "teacher_not_ready"}
+    try:
+        gid = int(payload.get("group_id"))
+    except (TypeError, ValueError, OverflowError):
+        return {"ok": False, "error": "invalid_group_id"}
+    if isinstance(payload.get("group_id"), bool) or gid <= 0 or gid > 2**63 - 1 or not groups.get_group(uid, gid):
+        return {"ok": False, "error": "group_not_found"}
+    name = " ".join(str(payload.get("name") or "").split())
+    if (
+        len(name) < 2 or len(name) > 100 or name.startswith("/")
+        or not any(c.isalpha() for c in name)
+        or any(ord(c) < 32 or c in "<>\\\u007f" for c in name)
+    ):
+        return {"ok": False, "error": "invalid_student_name"}
+
+    with _GROUP_STUDENT_ADD_LOCK:
+        # No new tables, no changes to existing group, payment or invite schema.
+        existing = student_reminders._members(uid, gid)
+        if any(" ".join(str(m["name"]).split()).casefold() == name.casefold() for m in existing):
+            return {"ok": False, "error": "student_already_in_group"}
+        member = student_reminders.add_member(uid, gid, name)
+        if not member:
+            return {"ok": False, "error": "group_not_found"}
+    return {
+        "ok": True,
+        "member_id": int(member["id"]),
+        "name": member["name"],
+        "invite_url": student_reminders._invite(member),
+    }
+
+
 def _teacher_action(uid, payload):
     action_name = str(payload.get("action") or "")
     if action_name == "theme_update":
@@ -625,6 +668,8 @@ def _teacher_action(uid, payload):
         # Authenticated Telegram UID scopes all updates; no user-supplied teacher ID.
         base.upsert_teacher(int(uid), name=name, subject=subject, subject_id=subject_id)
         return {"ok": True, "name": name, "subject": subject, "subject_id": subject_id}
+    if action_name == "group_student_add":
+        return _group_student_add(uid, payload)
     if action_name == "group_lesson_mutate":
         return webapp_lessons.save(uid, payload)
     if action_name == "group_homework_create":

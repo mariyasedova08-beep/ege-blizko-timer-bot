@@ -482,6 +482,88 @@ class GroupWorkspaceTest(unittest.TestCase):
         self.assertEqual(next_lesson["date"],(tomorrow+timedelta(days=7)).strftime("%d.%m"))
         self.assertFalse(next_lesson["moved"])
 
+    def test_inline_add_group_member_creates_one_real_student_with_invite(self):
+        from urllib.parse import urlsplit
+        before=webapp._view(101,f"group:{self.gid}")["member_count"]
+        result=webapp._teacher_action(101,{
+            "action":"group_student_add","group_id":self.gid,"name":"  Катя   Иванова  ",
+        })
+        self.assertTrue(result["ok"],result)
+        self.assertEqual(result["name"],"Катя Иванова")
+        self.assertEqual(urlsplit(result["invite_url"]).scheme,"https")
+        self.assertIn("start=join_",result["invite_url"])
+        with base.db() as conn:
+            member=conn.execute(
+                "SELECT group_id,teacher_id,name,invite_token,telegram_user_id "
+                "FROM student_reminder_people WHERE id=?",(result["member_id"],)
+            ).fetchone()
+        self.assertEqual(member["group_id"],self.gid)
+        self.assertEqual(member["teacher_id"],101)
+        self.assertEqual(member["name"],"Катя Иванова")
+        self.assertIsNone(member["telegram_user_id"])
+        self.assertTrue(result["invite_url"].endswith(member["invite_token"]))
+        self.assertEqual(webapp._view(101,f"group:{self.gid}")["member_count"],before+1)
+        self.assertEqual(webapp._teacher_action(101,{
+            "action":"group_student_add","group_id":self.gid,"name":"катя иванова",
+        })["error"],"student_already_in_group")
+        self.assertEqual(webapp._view(101,f"group:{self.gid}")["member_count"],before+1)
+
+    def test_inline_add_member_requires_ownership_and_valid_name(self):
+        invalid=[
+            {"group_id":self.gid,"name":""},
+            {"group_id":self.gid,"name":"<script>alert(1)</script>"},
+            {"group_id":self.gid,"name":"/start"},
+            {"group_id":self.gid,"name":"x"*101},
+        ]
+        for data in invalid:
+            with self.subTest(data=data):
+                self.assertEqual(webapp._teacher_action(101,{
+                    "action":"group_student_add",**data,
+                })["error"],"invalid_student_name")
+        for data in [
+            {"group_id":self.gid,"name":"Незваный"},
+            {"group_id":self.other_gid,"name":"Скрытый"},
+            {"group_id":999999,"name":"Неверный"},
+        ]:
+            with self.subTest(data=data):
+                response=webapp._teacher_action(202,{"action":"group_student_add",**data})
+                self.assertFalse(response["ok"])
+                self.assertEqual(response["error"],"group_not_found")
+        self.assertEqual(webapp._teacher_action(101,{
+            "action":"group_student_add","group_id":999999999999999999999,"name":"Пример",
+        })["ok"],False)
+        self.assertEqual(webapp._teacher_action(404,{
+            "action":"group_student_add","group_id":self.gid,"name":"Пример",
+        })["error"],"teacher_not_ready")
+
+    def test_group_student_actions_are_inline_and_no_nested_row_buttons(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        start=html.index("function renderGroup(d){")
+        end=html.index("function renderMember(d){",start)
+        fragment=html[start:end]
+        for token in (
+            "function toggleGroupMemberForm(gid)",
+            "async function saveGroupMember(gid)",
+            "action:'group_student_add'",
+            "function showGroupTool(gid,tab,action)",
+            "function openMemberQuick(pid,kind)",
+            "function copyGroupMemberInvite()",
+            "Скопировать ссылку-приглашение",
+            "Выдать ДЗ","Расписание","Все оплаты",
+            "gmemberrow","gmemberprimary","gmemberbottom","gmemberlinks",
+        ):
+            self.assertIn(token,html)
+        self.assertIn("data-gpanel=\"members\"",fragment)
+        self.assertIn("id=\"group-member-form\"",fragment)
+        self.assertIn("openMemberQuick('+pid+',\\'payment\\')",fragment)
+        self.assertIn("openMemberQuick('+pid+',\\'homework\\')",fragment)
+        self.assertIn("openMemberQuick('+pid+',\\'profile\\')",fragment)
+        self.assertNotIn("openGroupBotAction(\\'members\\'",fragment)
+        self.assertIn("member-homework-section",html)
+        self.assertIn("member-payment-section",html)
+        self.assertIn("function renderGroup(d)",html)
+        self.assertIn("function renderMember(d)",html)
+
     def test_group_workspace_contains_real_data_and_member_payments(self):
         page = webapp._view(101, f"group:{self.gid}")
         self.assertEqual(page["title"], "ОГЭ 2027")
