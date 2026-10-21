@@ -1211,7 +1211,7 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
             self.assertIn(token,teacher)
         for token in ("x.submission_mode==='attachment'",
                       "Отмечено мной","Отмечено преподавателем",
-                      "не означает проверку"):
+                      "проверенной работой он от этого не станет"):
             self.assertIn(token,student)
         self.assertNotIn("Проверено преподавателем",teacher)
 
