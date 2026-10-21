@@ -5,6 +5,7 @@ This suite never imports the bot or touches SQLite/Telegram/server state.
 import ast
 import json
 import re
+import runpy
 import shutil
 import subprocess
 import tempfile
@@ -34,20 +35,23 @@ class LaboratoryReleaseChecks(unittest.TestCase):
     def setUpClass(cls):
         cls.lab_source = LAB.read_text(encoding="utf-8")
         cls.reagents = literal_assignment("ege_lab_substances.py", "REAGENTS")
+        # This pure data module appends curated batches via .extend().
+        # AST literal inspection alone misses the appended entries.
+        data = runpy.run_path(str(ROOT / "ege_lab_inorganic_reactions.py"))
         cls.reactions = (
             literal_assignment("ege_lab_webapp.py", "REACTIONS")
-            + literal_assignment("ege_lab_inorganic_reactions.py", "EXTRA_REACTIONS")
+            + data["EXTRA_REACTIONS"]
             + literal_assignment("ege_task6_reactions.py", "TASK6_REACTIONS")
         )
         cls.variants = (
-            literal_assignment("ege_lab_inorganic_reactions.py", "REACTION_VARIANTS")
+            data["REACTION_VARIANTS"]
             + literal_assignment("ege_task6_reactions.py", "TASK6_VARIANTS")
         )
         cls.html = literal_assignment("ege_lab_webapp.py", "HTML")
 
     def test_catalogue_coverage_not_reduced(self):
-        self.assertEqual(len(self.reagents), 196)  # added NaNO₂ for OVR demonstration
-        self.assertEqual(len(self.reactions) + len(self.variants), 435)
+        self.assertGreaterEqual(len(self.reagents), 200)  # Cr(III) catalogue extensions must not disappear
+        self.assertGreaterEqual(len(self.reactions) + len(self.variants), 461)  # curated batch 3
 
     def test_reaction_references_and_shapes(self):
         known = set(self.reagents)
