@@ -58,6 +58,10 @@ def main():
     import middle_salts_trainer
     middle_salts_trainer.install()
 
+    # Telegram inline-button trainer (no WebApp). Visible in trainer catalog.
+    import decomposition_trainer
+    decomposition_trainer.install()
+
     # Personal launch campaigns at 16:00 Moscow.
     import oxide_properties_campaign  # noqa: F401
     import hydroxides_campaign  # noqa: F401
