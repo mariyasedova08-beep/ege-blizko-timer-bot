@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import RLock
 from types import SimpleNamespace
-from urllib.parse import parse_qs, parse_qsl, urlsplit
+from urllib.parse import parse_qsl
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import ApplicationHandlerStop, CallbackQueryHandler, MessageHandler, filters
@@ -677,10 +677,6 @@ def _teacher_action(uid, payload):
         return webapp_lessons.save_topic(uid, payload)
     if action_name == "group_lesson_recording_url":
         return lesson_recordings.set_link(uid, payload)
-    if action_name == "group_lesson_recording_remove":
-        return lesson_recordings.remove_file(uid, payload)
-    if action_name == "group_lesson_recording_ticket":
-        return lesson_recordings.ticket(uid, payload)
     if action_name == "group_homework_create":
         return webapp_homework.create_group_assignment(uid, payload)
     if action_name == "group_homework_mark":
@@ -897,14 +893,6 @@ class WebAppHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
-        if path.startswith("/api/teacher/recording/file/"):
-            match = __import__("re").fullmatch(r"/api/teacher/recording/file/([1-9][0-9]{0,15})", path)
-            if not match:
-                self._send(404, b"Not found", "text/plain; charset=utf-8")
-                return
-            token = parse_qs(urlsplit(self.path).query).get("token", [""])[0]
-            lesson_recordings.serve(self, int(match.group(1)), token)
-            return
         if path == "/health":
             self._send(200, _json_bytes({
                 "ok": True,
@@ -932,38 +920,6 @@ class WebAppHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
-        if path == "/api/teacher/recording/upload":
-            # Dedicated streaming endpoint: all legacy JSON actions retain
-            # their existing 20 KB size limit and authentication requirements.
-            uid = _validate_init_data(self.headers.get("X-Prepodmin-Init-Data", ""))
-            if not uid:
-                uid = _validate_launch_token(self.headers.get("X-Prepodmin-Launch", ""))
-            if not uid:
-                self._send(401, _json_bytes({"ok":False,"error":"unauthorized"}))
-                return
-            try:
-                length = int(self.headers.get("Content-Length", "0"))
-            except (TypeError, ValueError):
-                length = 0
-            if not (12 <= length <= lesson_recordings.MAX_MP4_BYTES):
-                self._send(413, _json_bytes({"ok":False,"error":"invalid_recording_size"}))
-                return
-            params = {
-                "group_id": self.headers.get("X-Prepodmin-Group-Id", ""),
-                "slot_id": self.headers.get("X-Prepodmin-Slot-Id", ""),
-                "occurrence_key": self.headers.get("X-Prepodmin-Occurrence-Key", ""),
-            }
-            try:
-                self.connection.settimeout(300)
-                data = lesson_recordings.upload(
-                    uid, params, self.rfile, length, self.headers.get("Content-Type", ""),
-                )
-            except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
-                # Do not log teacher credentials, student data or media bytes.
-                print("PREPODMIN recording upload error: " + type(exc).__name__, flush=True)
-                data = {"ok":False,"error":"recording_upload_failed"}
-            self._send(200 if data.get("ok") else 400, _json_bytes(data))
-            return
         if path not in {"/api/dashboard", "/api/teacher/action", "/api/student", "/api/student/action", "/api/client-error"}:
             self._send(404, _json_bytes({"ok": False, "error": "not_found"}))
             return
