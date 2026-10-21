@@ -79,6 +79,7 @@ function renderHomework(d){
     st==='revision'?'На доработке':st==='draft'?'Файлы загружаются':'Не сдано';
    control+='<div class="hw-upload-section"><span class="badge '+(st==='approved'?'done':'')+'">'+statusText+'</span>';
    if(sub&&sub.feedback)control+='<p class="hw-feedback">Замечания: '+esc(sub.feedback)+'</p>';
+   if(sub&&sub.previous_feedback)control+='<p class="hw-feedback">Предыдущие замечания: '+esc(sub.previous_feedback)+'</p>';
    if(sub&&sub.attempt)control+='<p class="hw-subtle">Попытка №'+Number(sub.attempt)+'</p>';
    (sub&&sub.files||[]).forEach(function(file){
     control+='<p class="hw-subtle">📎 '+esc(file.name)+'</p>';
