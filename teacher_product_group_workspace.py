@@ -11,6 +11,7 @@ import teacher_product_mvp as base
 import teacher_product_groups as groups
 import teacher_product_learning as learning
 import teacher_product_schedule as schedule
+import teacher_product_lesson_recordings as lesson_recordings
 import teacher_product_today as today
 
 
@@ -278,7 +279,12 @@ def group_view(uid, gid):
             for r in groups.group_slots(uid) if int(r["group_id"]) == int(gid)
         ],
         "upcoming": upcoming,
-        "lesson_occurrences": __import__("teacher_product_webapp_lessons").upcoming(uid, gid),
+        "lesson_occurrences": lesson_recordings.decorate(
+            uid, gid, __import__("teacher_product_webapp_lessons").upcoming(uid, gid)
+        ),
+        "past_lesson_occurrences": lesson_recordings.decorate(
+            uid, gid, lesson_recordings.past_lessons(uid, gid)
+        ),
         "attendance_session": last_session,
         "homework": homework,
     }
