@@ -673,6 +673,26 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
  .gmemberpayment{max-width:45%}
 }
 
+
+/* PREPODMIN final overview / group row polish; no business-logic changes. */
+.home-all-clear{display:flex;align-items:center;gap:9px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:13px;padding:11px 15px;margin:15px 0;font-size:13px}
+.home-all-clear [aria-hidden="true"]{display:grid;place-items:center;flex:0 0 23px;width:23px;height:23px;background:var(--soft);color:var(--hot);border-radius:50%;font-size:14px}
+.home-all-clear strong{font-weight:620}
+@media(min-width:900px){
+ .home-all-clear{margin:12px 0 15px;padding:10px 13px;font-size:13px}
+ .gmemberrow{column-gap:16px}
+ .gmemberprimary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}
+ .gmemberpayment{max-width:none;min-width:105px;text-align:right}
+ .gmemberbottom{min-width:224px;align-items:flex-end;gap:5px}
+ .gmemberlinks{display:flex;justify-content:flex-end;align-items:center;gap:5px}
+ .gmemberhw.has-work{line-height:1.3}
+}
+@media(min-width:900px) and (max-width:1020px){
+ .gmemberprimary{grid-template-columns:minmax(0,1fr) auto}
+ .gmemberpayment{max-width:none}
+ .gmemberbottom{min-width:0;width:100%;align-items:center;gap:8px}
+}
+
 </style>
 </head>
 <body>
@@ -817,11 +837,18 @@ function renderHome(d){
  var greeting=hasProfile?esc(d.teacher.subject)+' · твой рабочий кабинет':'Заполни имя и предмет, чтобы персонализировать кабинет';
  var profileLabel=hasProfile?'Изменить профиль ↗':'Заполнить профиль ↗';
  var out='<div class="top"><div><div class="brand-wordmark"><span>ПРЕП</span>АДМИН</div><div class="top-kicker">кабинет преподавателя</div><h1>'+heading+'</h1><div class="sub">'+greeting+'</div><button class="profile-link" onclick="openView(&quot;profile&quot;)">'+profileLabel+'</button></div><div class="logo">'+uiIcon('layers')+'</div></div>';
- out+='<div class="hero"><div class="hero-top"><div class="hero-title">Сегодня</div><div class="date">'+esc(d.weekday)+' · '+esc(d.date)+'</div></div><div class="hero-main"><div><div class="big">'+(c.tasks||0)+' задач</div><div class="small">'+(c.lessons||0)+' занятий сегодня</div></div><div class="small">'+(c.attention||0)+' требуют внимания</div></div><div class="hero-note">Кабинет показывает только то, что действительно требует твоего внимания сегодня.</div></div>';
+ out+='<div class="hero"><div class="hero-top"><div class="hero-title">Обзор дня</div><div class="date">'+esc(d.weekday)+' · '+esc(d.date)+'</div></div><div class="hero-main"><div><div class="big">'+(c.tasks||0)+' задач</div><div class="small">'+(c.lessons||0)+' занятий сегодня</div></div><div class="small">'+(c.attention||0)+' требуют внимания</div></div><div class="hero-note">Кабинет показывает только то, что действительно требует твоего внимания сегодня.</div></div>';
  out+='<div class="grid">'+card('tasks',c.tasks||0,'активных задач','на сегодня и дальше',true,'tasks')+card('book',c.lessons||0,'занятий сегодня','расписание на день',false,'schedule')+card('credit',c.payments||0,'по оплатам','срок сегодня или просрочен',false,'payments')+card('alert',c.attention||0,'в зоне внимания','нужна проверка',true,'attention')+'</div>';
  out+='<div class="day-panels"><div class="day-panel" onclick="openView(\'schedule\')"><div class="day-panel-head"><strong>Сегодня</strong><span>расписание →</span></div>'+(eventRows(todayEvents)||'<div class="empty">Сегодня занятий нет 🎉</div>')+'</div><div class="day-panel tomorrow" onclick="openView(\'schedule\')"><div class="day-panel-head"><strong>Дальше</strong><span>7 дней →</span></div>'+(eventRows(tomorrowEvents)||'<div class="empty">Ближайших занятий нет</div>')+'</div></div>';
- out+='<div class="section"><div class="section-title"><strong>Невыполненные задачи</strong><span onclick="openView(\'tasks\')">все →</span></div><div class="list">'+(taskRows||'<div class="empty">Задач нет 🎉</div>')+'</div></div>';
- out+='<div class="section"><div class="section-title"><strong>Долги по оплате и ДЗ</strong><span>только актуальное</span></div><div class="list">'+(debts||'<div class="empty">Долгов нет 🎉</div>')+'</div></div>';
+ if(taskRows){
+  out+='<div class="section"><div class="section-title"><strong>Невыполненные задачи</strong><span onclick="openView(\'tasks\')">все →</span></div><div class="list">'+taskRows+'</div></div>';
+ }
+ if(debts){
+  out+='<div class="section"><div class="section-title"><strong>Долги по оплате и ДЗ</strong><span>только актуальное</span></div><div class="list">'+debts+'</div></div>';
+ }
+ if(!taskRows&&!debts){
+  out+='<div class="home-all-clear" role="status"><span aria-hidden="true">✓</span><strong>Всё выполнено</strong></div>';
+ }
  if(attention){out+='<div class="section"><div class="section-title"><strong>Зона внимания</strong><span onclick="openView(\'attention\')">подробнее →</span></div><div class="list">'+attention+'</div></div>';}
  out+='<p class="home-nav-hint">Всё остальное — во вкладке «Ещё». Перенос и отмена занятий находятся внутри группы.</p>';
  out+='<div class="brand-foot">ПРЕПАДМИН · меньше админки, больше преподавания</div>';
@@ -1047,8 +1074,8 @@ function renderGroup(d){
   var p=m.payment||{},pending=Math.max(0,Number(m.pending_homework||0));
   out+='<div class="gmemberrow"><button type="button" class="gmemberprimary" onclick="openMemberQuick('+pid+',\'profile\')" aria-label="Профиль: '+esc(m.name)+'">';
   out+='<span class="gmemberidentity"><span class="gstudentname">'+esc(m.name)+'</span><span class="gstudenthint">'+(m.connected?'Telegram подключён':'Telegram не подключён')+'</span></span>';
-  out+='<span class="gmemberpayment"><span class="gmemberamount">'+(p.amount!=null?money(p.amount):'Оплата не настроена')+'</span><span class="gstudenthint">'+esc(p.label||'')+'</span></span><span class="gmemberarrow" aria-hidden="true">→</span></button>';
-  out+='<div class="gmemberbottom"><span class="gmemberhw'+(pending?' has-work':'')+'">'+(pending?'ДЗ к выполнению: '+pending:'Нет ДЗ к выполнению')+'</span><div class="gmemberlinks"><button type="button" onclick="openMemberQuick('+pid+',\'payment\')" aria-label="Оплата: '+esc(m.name)+'">Оплата</button><button type="button" onclick="openMemberQuick('+pid+',\'homework\')" aria-label="Домашние задания: '+esc(m.name)+'">ДЗ</button><button type="button" onclick="openMemberQuick('+pid+',\'profile\')" aria-label="Профиль: '+esc(m.name)+'">Профиль</button></div></div></div>';
+  out+='<span class="gmemberpayment"><span class="gmemberamount">'+(p.amount!=null?money(p.amount):'Оплата не настроена')+'</span><span class="gstudenthint">'+esc(p.label||'')+'</span></span></button>';
+  out+='<div class="gmemberbottom">'+(pending?'<span class="gmemberhw has-work">ДЗ к выполнению: '+pending+'</span>':'')+'<div class="gmemberlinks"><button type="button" onclick="openMemberQuick('+pid+',\'payment\')" aria-label="Оплата: '+esc(m.name)+'">Оплата</button><button type="button" onclick="openMemberQuick('+pid+',\'homework\')" aria-label="Домашние задания: '+esc(m.name)+'">ДЗ</button><button type="button" onclick="openMemberQuick('+pid+',\'profile\')" aria-label="Профиль: '+esc(m.name)+'">Профиль</button></div></div></div>';
  });
  if(!(d.members||[]).length)out+='<div class="empty">Участников пока нет. Добавь первого ученика кнопкой выше.</div>';
  out+='</div></section>';
