@@ -231,6 +231,13 @@ REAGENTS = {
     "ag3po4": ("Ag₃PO₄", "Соли", "#e5c92d", "тв.", "фосфат серебра"),
     "na2sio3": ("Na₂SiO₃", "Соли", "#f8fbff", "р-р", "силикат натрия"),
 
+    # Chromium(III) salts and additional reagents for EGE experiments
+    "crcl3": ("CrCl₃", "Соли", "#759b83", "р-р", "хлорид хрома(III)"),
+    "crno3_3": ("Cr(NO₃)₃", "Соли", "#759b83", "р-р", "нитрат хрома(III)"),
+    "cr2so43": ("Cr₂(SO₄)₃", "Соли", "#759b83", "р-р", "сульфат хрома(III)"),
+    "na2cro4": ("Na₂CrO₄", "Соли", "#f5d532", "р-р", "хромат натрия"),
+    "nabr": ("NaBr", "Соли", "#f8fbff", "р-р", "бромид натрия"),
+
     # Chromium / manganese qualitative chemistry
     "k2cro4": ("K₂CrO₄", "Соли", "#f5d532", "р-р", "хромат калия"),
     "k2cr2o7": ("K₂Cr₂O₇", "Соли", "#ef7c2d", "р-р", "дихромат калия"),
