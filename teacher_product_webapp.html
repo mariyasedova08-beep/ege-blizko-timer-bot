@@ -599,6 +599,80 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
  .schedule-day-content .empty,.schedule-day.is-empty .empty{padding:12px 16px;font-size:13px}
 }
 
+
+/* PREPODMIN desktop workspace: home overview + group directory density.
+   Desktop-only media query avoids modifying mobile UX, data, or app actions.
+   Summary card figures stay intact; the large redundant hero figures are
+   visually condensed because identical counts are already in the cards. */
+@media (min-width:900px){
+ /* Home — a short overview instead of a tall repeated-numbers hero. */
+ .top{margin:0 2px 11px;gap:12px}
+ .brand-wordmark{font-size:21px}
+ .top-kicker{font-size:11px;margin-top:3px}
+ .top h1{font-size:26px;margin:11px 0 5px;letter-spacing:-.035em}
+ .top .sub{font-size:13px}
+ .top .profile-link{margin-top:7px;font-size:12px}
+ .top .logo{width:43px;height:43px;flex-basis:43px;border-radius:13px}
+ .top .logo svg{width:23px;height:23px}
+ .hero{padding:11px 17px;border-radius:15px;margin-bottom:10px}
+ .hero:before{width:3px}
+ .hero-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+ .hero-title{font-size:14px}
+ .hero .date{font-size:12px;padding:5px 10px}
+ .hero-main,.hero-note{display:none}
+ .grid{gap:9px;margin-bottom:11px}
+ .grid .card{display:grid;grid-template-columns:30px minmax(0,1fr);grid-template-rows:29px auto;align-items:center;gap:5px 10px;padding:12px 14px;min-height:84px;border-radius:15px;text-align:left}
+ .grid .card .icon{grid-column:1;grid-row:1;width:28px;height:28px;border-radius:9px;margin:0}
+ .grid .card .icon svg{width:17px;height:17px}
+ .grid .card .num{grid-column:2;grid-row:1;font-size:24px;line-height:1.1}
+ .grid .card .label{grid-column:1/-1;grid-row:2;font-size:13px;margin:0;line-height:1.3}
+ .grid .card .hint{display:none}
+ .day-panels{gap:9px;margin:9px 0 12px}
+ .day-panel,.day-panel.tomorrow{border-radius:15px}
+ .day-panel-head{padding:11px 14px 6px}
+ .day-panel-head strong{font-size:15px}
+ .day-panel-head span{font-size:12px}
+ .day-panel .row{padding:10px 14px}
+ .day-panel .row .time{font-size:14px}
+ .day-panel .row .row-title{font-size:14px}
+ .day-panel .row .row-sub{font-size:12px}
+ .section{margin:17px 0 9px}
+ .section-title{margin:0 2px 7px}
+ .section-title strong{font-size:16px}
+ .section-title span{font-size:12px}
+ .section .list{border-radius:15px}
+ .section .empty{padding:15px}
+
+ /* Group — preserve each profile, payment, homework action with shorter rows. */
+ .gcompactsummary{margin-bottom:7px}
+ .gtabs{margin:8px 0 9px}
+ .gquickbar{margin:7px 0 8px}
+ .gquickbar .gquickbar-secondary-nav{display:none}
+ .glist-caption{font-size:15px;margin:10px 1px 7px}
+ .glist-caption span{display:none}
+ .gmemberlist{border-radius:15px}
+ .gmemberrow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:13px;padding:10px 14px}
+ .gmemberprimary{min-width:0;gap:12px;align-items:center}
+ .gmemberidentity{gap:2px}
+ .gmemberidentity .gstudentname{font-size:15px;line-height:1.3}
+ .gmemberidentity .gstudenthint{font-size:12px;line-height:1.3;margin:0}
+ .gmemberpayment{gap:2px;max-width:48%}
+ .gmemberamount{font-size:14px;line-height:1.3}
+ .gmemberpayment .gstudenthint{font-size:12px;line-height:1.3;margin:0}
+ .gmemberarrow{font-size:16px}
+ .gmemberbottom{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:4px;margin:0}
+ .gmemberhw{font-size:11px;line-height:1.2}
+ .gmemberlinks{gap:5px;justify-content:flex-end}
+ .gmemberlinks button{font-size:12px;padding:6px 9px;border-radius:8px}
+ .gmemberrow button:focus-visible,.grid .card:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
+}
+/* Slightly narrower desktop windows keep actions readable without overflow. */
+@media (min-width:900px) and (max-width:1020px){
+ .gmemberrow{grid-template-columns:minmax(0,1fr);gap:7px}
+ .gmemberbottom{flex-direction:row;justify-content:space-between;align-items:center}
+ .gmemberpayment{max-width:45%}
+}
+
 </style>
 </head>
 <body>
@@ -962,7 +1036,7 @@ function renderGroup(d){
  [['members','Ученики'],['lessons','Занятия'],['payments','Оплаты'],['homework','ДЗ']].forEach(function(x){out+='<button type="button" role="tab" data-gtab="'+x[0]+'" aria-selected="false" onclick="setGroupTab(\''+x[0]+'\')">'+x[1]+'</button>';});
  out+='</div>';
  out+='<section data-gpanel="members" class="gsection">';
- out+='<div class="gquickbar" aria-label="Действия с группой"><button type="button" class="gquickbar-primary" onclick="toggleGroupMemberForm('+gid+')">＋ Добавить ученика</button><button type="button" onclick="showGroupTool('+gid+',\'homework\',\'add_homework\')">Выдать ДЗ</button><button type="button" onclick="showGroupTool('+gid+',\'lessons\')">Расписание</button><button type="button" onclick="showGroupTool('+gid+',\'payments\')">Все оплаты</button></div>';
+ out+='<div class="gquickbar" aria-label="Действия с группой"><button type="button" class="gquickbar-primary" onclick="toggleGroupMemberForm('+gid+')">＋ Добавить ученика</button><button type="button" onclick="showGroupTool('+gid+',\'homework\',\'add_homework\')">Выдать ДЗ</button><button type="button" class="gquickbar-secondary-nav" onclick="showGroupTool('+gid+',\'lessons\')">Расписание</button><button type="button" class="gquickbar-secondary-nav" onclick="showGroupTool('+gid+',\'payments\')">Все оплаты</button></div>';
  out+='<div id="group-member-form" hidden></div>';
  if(groupMemberInviteNotice&&groupMemberInviteUrl){
   out+='<div class="gtoast" role="status"><strong>'+esc(groupMemberInviteNotice)+'</strong><div class="gcontrols"><button type="button" onclick="copyGroupMemberInvite()">Скопировать ссылку-приглашение</button></div><div id="group-invite-status" class="gquiet">Ссылка персональная — отправляй только этому ученику.</div></div>';
