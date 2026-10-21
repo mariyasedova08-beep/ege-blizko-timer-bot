@@ -443,10 +443,7 @@ EXTRA_REACTIONS.extend([
     ("mg", "znso4", "Mg + ZnSO₄ → MgSO₄ + Zn↓", "x", "Магний растворяется; образуется серый налёт цинка.", "#f8fbff", "#88898a", "", 0),
     ("fe", "pbno3", "Fe + Pb(NO₃)₂ → Fe(NO₃)₂ + Pb↓", "x", "На железе выделяется серый свинец, раствор светло-зелёный.", "#c8e5c8", "#64686b", "", 0),
     ("zn", "pbno3", "Zn + Pb(NO₃)₂ → Zn(NO₃)₂ + Pb↓", "x", "Цинк вытесняет свинец, серый налёт.", "#f8fbff", "#64686b", "", 0),
-    ("bacl2", "na2co3", "BaCl₂ + Na₂CO₃ → BaCO₃↓ + 2NaCl", "p", "Белый осадок BaCO₃.", "#f8fbff", "#ffffff", "", 0),
-    ("znso4", "na2s", "ZnSO₄ + Na₂S → ZnS↓ + Na₂SO₄", "p", "Белый осадок ZnS.", "#f8fbff", "#ffffff", "", 0),
     ("fecl2", "na2s", "FeCl₂ + Na₂S → FeS↓ + 2NaCl", "p", "Чёрный осадок FeS.", "#f8fbff", "#232323", "", 0),
-    ("cuso4", "na2s", "CuSO₄ + Na₂S → CuS↓ + Na₂SO₄", "p", "Чёрный осадок CuS.", "#f8fbff", "#151515", "", 0),
 ])
 
 # Medium-specific OVR outcomes are never mixed into ordinary pair reactions:
