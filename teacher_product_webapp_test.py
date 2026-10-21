@@ -96,7 +96,7 @@ class TeacherDashboardTest(unittest.TestCase):
         html=webapp.HTML_PATH.read_text(encoding="utf-8")
         marker="/* PREPODMIN desktop workspace: home overview + group directory density."
         self.assertEqual(html.count(marker),1)
-        css=html.split(marker,1)[1].split("</style>",1)[0]
+        css=html.split(marker,1)[1].split("/* PREPODMIN: inline group homework progress and teacher marks. */",1)[0]
         self.assertIn("@media (min-width:900px){",css)
         self.assertIn("@media (min-width:900px) and (max-width:1020px){",css)
         for expected in (
