@@ -129,9 +129,16 @@ def create_group_assignment(uid, payload):
     mode = payload.get("submission_mode", "self")
     if mode not in ("self", "attachment"):
         return {"ok": False, "error": "invalid_submission_mode"}
-    # Never issue a file-required task before secure submission is available.
+    # A protected operator switch is required before file homework is issuable.
+    # It must remain off until private storage, Nginx and backups are verified.
     if mode == "attachment":
-        return {"ok": False, "error": "attachment_submission_not_ready"}
+        import teacher_product_homework_submissions as submissions
+        if not submissions.enabled():
+            return {"ok": False, "error": "attachment_submission_not_ready"}
+        try:
+            submissions.storage_root()
+        except (RuntimeError, OSError):
+            return {"ok": False, "error": "attachment_storage_unavailable"}
 
     request_key = str(payload.get("request_key") or "")
     if not re.fullmatch(r"[a-zA-Z0-9_-]{12,80}", request_key):
