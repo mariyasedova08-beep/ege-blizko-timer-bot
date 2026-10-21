@@ -168,6 +168,18 @@ try{
     await page.locator("#lessonConduct").click();
     assert((await page.locator("#lessonReaction").innerText()).includes("K[Cr(OH)₄]"));
 
+    // Chemically ambiguous neutral bromide and iodide from the source PDF
+    // must never be drawn as confirmed products.
+    for(const [reductant,medium] of [["NaBr","neutral"],["KI","neutral"]]){
+      await page.locator("#lessonReagentA").fill("KMnO4");
+      await page.locator("#lessonSuggestionsA button").first().click();
+      await page.locator("#lessonReagentB").fill(reductant);
+      await page.locator("#lessonSuggestionsB button").first().click();
+      await page.locator("#lessonMedium").selectOption(medium);
+      await page.locator("#lessonConduct").click();
+      assert.match(await page.locator("#lessonReaction").innerText(),/нет проверенной реакции/);
+    }
+
     // Examples held for chemical review must not be shown as verified.
     await page.locator("#lessonReagentA").fill("KMnO4");
     await page.locator("#lessonSuggestionsA button").first().click();

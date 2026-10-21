@@ -9,8 +9,13 @@ on:
       - 'ege_lab_webapp.py'
       - 'ege_lab_substances.py'
       - 'ege_lab_inorganic_reactions.py'
+      - 'ege_lab_mn_cr_pdf_import.py'
       - 'ege_task6_reactions.py'
       - 'tests/test_lab_release_guard.py'
+      - 'tests/test_lab_mncr_preflight_guard.py'
+      - 'tests/test_lab_mncr_merge_guard.py'
+      - 'deploy/resolve_lab_mncr_staging_conflicts.py'
+      - 'deploy/check-ege-lab-mncr-readonly.sh'
       - '.github/workflows/ege-lab-ci.yml'
   pull_request:
     branches:
@@ -42,5 +47,9 @@ jobs:
         run: |
           python -m py_compile ege_lab_webapp.py ege_lab_substances.py ege_lab_inorganic_reactions.py ege_task6_reactions.py
           python -m unittest discover -s tests -p 'test_lab_release_guard.py' -v
+      - name: Read-only Timeweb preflight safety checks
+        run: python -m unittest discover -s tests -p 'test_lab_mncr_preflight_guard.py' -v
+      - name: Verify no live-only functionality is lost during isolated merge
+        run: python -m unittest discover -s tests -p 'test_lab_mncr_merge_guard.py' -v
       - name: Solubility reference regression tests
         run: python -m unittest discover -s tests -p 'test_public_solubility.py' -v

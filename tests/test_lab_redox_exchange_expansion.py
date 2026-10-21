@@ -74,7 +74,7 @@ def check_balanced(equation):
 class PriorityChemistry(unittest.TestCase):
     def test_curated_count_and_identifiers(self):
         medium = CHEM["MEDIUM_REACTIONS"]
-        self.assertEqual(len(medium), 91)
+        self.assertEqual(len(medium), 89)
         for row in medium:
             self.assertIn(row["a"], REAGENTS)
             self.assertIn(row["b"], REAGENTS)
@@ -148,11 +148,11 @@ class PriorityChemistry(unittest.TestCase):
         self.assertEqual(audit["source_total"], 87)
         self.assertEqual(len(sources), 87)
         self.assertEqual(sum(audit["by_status"].values()), 87)
-        self.assertEqual(audit["by_status"]["imported"], 68)
+        self.assertEqual(audit["by_status"]["imported"], 66)
         self.assertEqual(audit["by_status"]["already_in_lab"], 16)
         self.assertEqual(audit["by_status"]["duplicate_in_pdf"], 1)
-        self.assertEqual(audit["by_status"]["needs_chemical_review"], 2)
-        self.assertEqual(len(pdf["PDF_MEDIUM_REACTIONS"]), 65)
+        self.assertEqual(audit["by_status"]["needs_chemical_review"], 4)
+        self.assertEqual(len(pdf["PDF_MEDIUM_REACTIONS"]), 63)
         self.assertEqual(len(pdf["PDF_EXTRA_REACTIONS"]), 3)
         for source in sources:
             with self.subTest(id=source["source_id"]):
@@ -161,6 +161,22 @@ class PriorityChemistry(unittest.TestCase):
                                               "duplicate_in_pdf", "needs_chemical_review"})
                 self.assertIn("→", source["eq"])
                 check_balanced(source["eq"])
+
+    def test_four_questionable_source_equations_are_quarantined(self):
+        pdf = runpy.run_path(str(ROOT / "ege_lab_mn_cr_pdf_import.py"))
+        source = {x["source_id"]: x for x in pdf["SOURCE_RECORDS"]}
+        held = {"MN-21", "MN-23", "MN-35", "MN-36"}
+        for sid in held:
+            with self.subTest(source_id=sid):
+                self.assertEqual(source[sid]["status"], "needs_chemical_review")
+                self.assertTrue(source[sid]["review_reason"])
+                self.assertTrue(source[sid]["review_action"])
+        actual = {x.get("source_id") for x in pdf["PDF_MEDIUM_REACTIONS"]}
+        self.assertTrue(held.isdisjoint(actual))
+        for a,b,mode in [("kmno4","ki","neutral"),("kmno4","nabr","neutral"),
+                          ("kmno4","kbr","alkaline"),("namno4","nai","alkaline")]:
+            self.assertFalse(any(x["medium"] == mode and frozenset((x["a"],x["b"]))==frozenset((a,b))
+                                 for x in CHEM["MEDIUM_REACTIONS"]))
 
     def test_pdf_imported_ordinary_reactions_balance(self):
         pdf = runpy.run_path(str(ROOT / "ege_lab_mn_cr_pdf_import.py"))
