@@ -7,6 +7,8 @@ on:
     paths:
       - .github/workflows/ege-lab-controlled-release.yml
       - deploy/ege-lab-mncr-approved-release.sh
+      - deploy/ege-lab-restricted-ssh-entry.sh
+      - deploy/bootstrap-ege-lab-deploy.sh
       - tests/test_ege_lab_controlled_release.py
   push:
     branches: [main]
@@ -78,9 +80,8 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=10 \
             -i "$HOME/.ssh/ege_lab_deploy_key" \
-            root@77.233.212.200 \
-            "EGE_LAB_APPROVED_RELEASE=EGE-LAB-MNCR-20261021-CHECKED EGE_LAB_REMOTE_EXECUTION=github-approved-environment bash -se" \
-            < deploy/ege-lab-mncr-approved-release.sh
+            ege-lab-deploy@77.233.212.200 \
+            "release-ege-lab-mncr"
       - name: Delete runner SSH credentials
         if: always()
         shell: bash
