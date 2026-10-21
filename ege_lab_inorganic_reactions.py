@@ -818,6 +818,12 @@ MEDIUM_REACTIONS = json.loads(r'''[
   }
 ]''')
 
+# Reactions extracted from the two teacher-provided study PDFs. All source
+# occurrences and their deduplication decisions remain in the same audit module.
+from ege_lab_mn_cr_pdf_import import PDF_MEDIUM_REACTIONS, PDF_EXTRA_REACTIONS
+EXTRA_REACTIONS.extend(PDF_EXTRA_REACTIONS)
+MEDIUM_REACTIONS.extend(PDF_MEDIUM_REACTIONS)
+
 def validate_reactions(known_ids):
     for row in EXTRA_REACTIONS:
         if row[0] not in known_ids or row[1] not in known_ids:
@@ -833,7 +839,7 @@ def validate_reactions(known_ids):
     for row in MEDIUM_REACTIONS:
         if row["a"] not in known_ids or row["b"] not in known_ids:
             raise RuntimeError(f"unknown medium reagent: {row}")
-        if row["medium"] not in {"acid", "neutral", "alkaline"}:
+        if row["medium"] not in {"acid", "neutral", "alkaline", "weak_alkaline"}:
             raise RuntimeError(f"bad medium: {row}")
         key = (tuple(sorted((row["a"], row["b"]))), row["medium"])
         if key in seen_medium:
