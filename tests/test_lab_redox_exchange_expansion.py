@@ -84,9 +84,16 @@ class PriorityChemistry(unittest.TestCase):
 
     def test_new_exchange_replacement_equations_balance(self):
         extra = CHEM["EXTRA_REACTIONS"]
-        targets = {"PbCrO₄", "Ag₂CrO₄", "BaCO₃", "ZnS", "FeS", "CuS"}
-        added = [entry for entry in extra if any(p in entry[2] for p in targets)]
-        self.assertGreaterEqual(len(added), 3)
+        expected_pairs = {
+            frozenset(("k2cro4", "pbno3")),
+            frozenset(("k2cro4", "agno3")),
+            frozenset(("mg", "znso4")),
+            frozenset(("fe", "pbno3")),
+            frozenset(("zn", "pbno3")),
+            frozenset(("fecl2", "na2s")),
+        }
+        added = [row for row in extra if frozenset(row[:2]) in expected_pairs]
+        self.assertEqual(len(added), len(expected_pairs))
         for row in added:
             with self.subTest(reaction=row[2]):
                 check_balanced(row[2])
