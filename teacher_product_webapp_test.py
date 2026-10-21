@@ -1116,6 +1116,105 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("input type=\"file\"",group)
         self.assertNotIn("ДЗ сдано на проверку",group)
 
+    def test_modes_do_not_break_legacy_and_file_issuance_is_guarded(self):
+        import teacher_product_webapp_homework as hw
+        default=webapp._teacher_action(101,self.payload)
+        self.assertTrue(default["ok"],default)
+        self.assertEqual(hw.mode_for_assignment(default["assignment_id"]),"self")
+        self.assertEqual(webapp._view(101,f"group:{self.gid}")["homework"][0]["submission_mode"],"self")
+        self.assertEqual(webapp._teacher_action(101,{**self.payload,"submission_mode":"unknown"})["error"],"invalid_submission_mode")
+        forbidden=webapp._teacher_action(101,{
+            **self.payload,
+            "request_key":"prepodmin-file-001",
+            "submission_mode":"attachment",
+        })
+        self.assertEqual(forbidden["error"],"attachment_submission_not_ready")
+        with base.db() as conn:
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_homework WHERE teacher_telegram_user_id=101"
+            ).fetchone()[0],1)
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_webapp_homework_delivery"
+            ).fetchone()[0],1)
+            # Simulate a homework issued by legacy Telegram: it has no mode record.
+            cur=conn.execute(
+                "INSERT INTO teacher_homework "
+                "(teacher_telegram_user_id,target_kind,target_id,homework_text,due_date,active,created_at) "
+                "VALUES(101,'group',?,?,?,1,'2026-10-21')",
+                (self.gid,"Старое задание",self.due),
+            )
+            conn.commit()
+            old=cur.lastrowid
+        self.assertEqual(hw.mode_for_assignment(old),"self")
+
+    def test_student_and_teacher_completion_have_distinct_unverified_origin(self):
+        from unittest.mock import patch
+        import teacher_product_student_webapp as student
+        first=webapp._teacher_action(101,self.payload)
+        aid=first["assignment_id"]
+        # Mock only authentication's student lookup, never backend authorization.
+        link={"id":self.mid,"kind":"group","teacher_id":101,
+              "group_id":self.gid,"group_name":"ОГЭ 2027","name":"Алина"}
+        request={"action":"homework_done","assignment_id":aid,
+                 "subject_kind":"group_member","subject_id":self.mid}
+        with patch.object(student,"_link",return_value=link):
+            done=student.action(123,request)
+            again=student.action(123,request)
+            self.assertTrue(done["ok"],done)
+            self.assertTrue(again["unchanged"])
+            item=student._homework(link)[0]
+            self.assertEqual(item["submission_mode"],"self")
+            self.assertEqual(item["completed_by"],"student")
+        group=webapp._view(101,f"group:{self.gid}")["homework"][0]
+        self.assertEqual(group["members"][0]["completed_by"],"student")
+        teacher=webapp._teacher_action(101,{"action":"group_homework_mark",
+            "assignment_id":aid,"member_id":self.mid,"status":"pending"})
+        self.assertTrue(teacher["ok"],teacher)
+        teacher=webapp._teacher_action(101,{"action":"group_homework_mark",
+            "assignment_id":aid,"member_id":self.mid,"status":"done"})
+        self.assertTrue(teacher["ok"],teacher)
+        group=webapp._view(101,f"group:{self.gid}")["homework"][0]
+        self.assertEqual(group["members"][0]["completed_by"],"teacher")
+        with patch.object(student,"_link",return_value=link):
+            self.assertTrue(student.action(123,request)["unchanged"])
+        group=webapp._view(101,f"group:{self.gid}")["homework"][0]
+        self.assertEqual(group["members"][0]["completed_by"],"teacher")
+
+    def test_student_self_mark_denies_other_group_assignment(self):
+        from unittest.mock import patch
+        import teacher_product_student_webapp as student
+        created=webapp._teacher_action(101,self.payload)
+        aid=created["assignment_id"]
+        wrong={"id":self.other_mid,"kind":"group","teacher_id":101,
+               "group_id":self.other_gid,"group_name":"ЕГЭ 2027","name":"Ева"}
+        request={"action":"homework_done","assignment_id":aid,
+                 "subject_kind":"group_member","subject_id":self.other_mid}
+        with patch.object(student,"_link",return_value=wrong):
+            result=student.action(888,request)
+        self.assertEqual(result["error"],"forbidden")
+        self.assertEqual(webapp._view(101,f"group:{self.gid}")["homework"][0]["done"],0)
+
+    def test_homework_ui_mode_selector_and_no_false_verified_label(self):
+        teacher=webapp.HTML_PATH.read_text(encoding="utf-8")
+        from pathlib import Path
+        student=Path("teacher_product_student_webapp.html").read_text(encoding="utf-8")
+        for token in (
+            'name="g-hw-mode" value="self"',
+            'name="g-hw-mode" value="attachment"',
+            "submission_mode:submissionMode",
+            "submissionMode==='attachment'",
+            "attachment_submission_not_ready",
+            "Отмечено учеником",
+            "Отмечено преподавателем",
+            "Загрузка письменных работ пока не доступна",
+        ):
+            self.assertIn(token,teacher)
+        for token in ("x.submission_mode==='attachment'",
+                      "Отмечено мной","Отмечено преподавателем",
+                      "не означает проверку"):
+            self.assertIn(token,student)
+        self.assertNotIn("Проверено преподавателем",teacher)
+
     async def test_delivery_worker_uses_existing_send_once_not_in_http_thread(self):
         from types import SimpleNamespace
         from unittest.mock import AsyncMock, patch
