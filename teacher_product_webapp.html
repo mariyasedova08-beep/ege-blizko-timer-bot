@@ -450,6 +450,25 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
  .glesson-attendance-count,.glesson-attendance-sub,.glesson-kicker,.glesson-slot{font-size:14px}
 }
 
+
+/* PREPODMIN lesson topics and the first-four schedule preview. */
+.glesson-entry[hidden]{display:none}
+.glesson-primary{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0}
+.glesson-topic-link{display:block;max-width:100%;border:0;background:transparent;padding:2px 0;color:var(--muted);font:inherit;font-size:12px;line-height:1.4;text-align:left;cursor:pointer;white-space:normal;overflow-wrap:anywhere}
+.glesson-topic-link:hover{color:var(--hot)}
+.glesson-show-more{display:block;margin:12px auto 18px;padding:11px 18px;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:12px;font:inherit;font-size:13px;cursor:pointer}
+.glesson-topic-form{border-top:1px solid var(--line);padding:16px;background:var(--milk)}
+.glesson-topic-form[hidden]{display:none}
+.glesson-topic-form label{display:block;font-size:13px;font-weight:620;margin-bottom:8px}
+.glesson-topic-form input{display:block;width:100%;padding:11px 13px;font:inherit;font-size:14px;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:11px}
+.glesson-topic-form .gquiet{margin:8px 0 0}
+.glesson-topic-buttons{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}
+.glesson-topic-buttons button{border:1px solid var(--line);background:var(--paper);padding:10px 14px;border-radius:10px;color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
+.glesson-topic-buttons button:first-child{background:var(--soft);font-weight:610}
+.glesson-topic-buttons button:disabled{opacity:.55;cursor:wait}
+.glesson-topic-link:focus-visible,.glesson-show-more:focus-visible,.glesson-topic-buttons button:focus-visible,.glesson-topic-form input:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
+@media(min-width:900px){.glesson-topic-link,.glesson-show-more,.glesson-topic-form label,.glesson-topic-buttons button{font-size:15px}.glesson-topic-form input{font-size:16px}}
+
 </style>
 </head>
 <body>
@@ -846,14 +865,24 @@ function renderGroup(d){
  }else{out+='<span class="gquiet">Регулярных занятий пока нет</span>';}
  out+='</div></div>';
  out+='<div class="glesson-list-title"><strong>Ближайшие занятия</strong><span>'+Number((d.lesson_occurrences||[]).length)+' в расписании</span></div>';
+ var lessonEvents=d.lesson_occurrences||[],extraLessons=Math.max(0,lessonEvents.length-4);
+ var expandedLessons=expandedGroupLessonsId===gid;
  out+='<div class="glesson-list" role="list">';
- (d.lesson_occurrences||[]).forEach(function(x,index){
-  var actionId=index+1;
-  out+='<div class="glesson-entry" role="listitem"><div class="glesson-row"><span class="glesson-row-date">'+esc(x.date_label)+'</span><strong class="glesson-row-time">'+esc(x.time)+'</strong><span class="statuspill '+(x.moved?'warn':'')+'">'+(x.moved?'Перенесено':'По расписанию')+'</span><button type="button" class="glesson-row-toggle" aria-expanded="false" aria-controls="glesson-actions-'+actionId+'" onclick="toggleGroupLessonActions('+actionId+')">Действия ▾</button></div>';
-  out+='<div id="glesson-actions-'+actionId+'" class="glesson-entry-actions" data-lesson-actions hidden><button type="button" onclick="startGroupLessonForm('+gid+',\'move\','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\',\''+esc(x.date)+'\',\''+esc(x.time)+'\')">↪ Перенести</button><button type="button" onclick="startGroupLessonForm('+gid+',\'cancel\','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\',\''+esc(x.date)+'\',\''+esc(x.time)+'\')">× Отменить</button></div></div>';
+ lessonEvents.forEach(function(x,index){
+  var actionId=index+1,extra=index>=4;
+  out+='<div class="glesson-entry" role="listitem"'+(extra?' data-lesson-extra':'')+(extra&&!expandedLessons?' hidden':'')+'>';
+  out+='<div class="glesson-row"><div class="glesson-primary"><span class="glesson-row-date">'+esc(lessonDayLabel(x.date))+' · '+esc(x.date_label)+'</span>';
+  out+='<button type="button" id="glesson-topic-trigger-'+actionId+'" class="glesson-topic-link" data-topic="'+esc(x.topic||'')+'" onclick="startGroupLessonTopicForm('+gid+','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\','+actionId+')">'+(x.topic?'✎ '+esc(x.topic):'＋ Указать тему')+'</button></div>';
+  out+='<strong class="glesson-row-time">'+esc(x.time)+'</strong><span class="statuspill '+(x.moved?'warn':'')+'">'+(x.moved?'Перенесено':'По расписанию')+'</span>';
+  out+='<button type="button" class="glesson-row-toggle" aria-expanded="false" aria-controls="glesson-actions-'+actionId+'" onclick="toggleGroupLessonActions('+actionId+')">Действия ▾</button></div>';
+  out+='<div id="glesson-actions-'+actionId+'" class="glesson-entry-actions" data-lesson-actions hidden><button type="button" onclick="startGroupLessonForm('+gid+',\'move\','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\',\''+esc(x.date)+'\',\''+esc(x.time)+'\')">↪ Перенести</button><button type="button" onclick="startGroupLessonForm('+gid+',\'cancel\','+Number(x.slot_id)+',\''+esc(x.occurrence_key)+'\',\''+esc(x.date)+'\',\''+esc(x.time)+'\')">× Отменить</button></div>';
+  out+='<div id="glesson-topic-form-'+actionId+'" class="glesson-topic-form" hidden></div></div>';
  });
- if(!(d.lesson_occurrences||[]).length)out+='<div class="empty">Ближайших занятий нет. Добавь регулярное занятие кнопкой выше.</div>';
+ if(!lessonEvents.length)out+='<div class="empty">Ближайших занятий нет. Добавь регулярное занятие кнопкой выше.</div>';
  out+='</div>';
+ if(extraLessons){
+  out+='<button type="button" id="glesson-show-more" class="glesson-show-more" aria-expanded="'+expandedLessons+'" onclick="toggleGroupLessonList('+gid+')">'+(expandedLessons?'Свернуть расписание':'Показать ещё ('+extraLessons+')')+'</button>';
+ }
  var a=d.attendance_session;
  if(a){
   var marked=(d.members||[]).filter(function(m){return m.attendance==='present'||m.attendance==='absent';}).length;
@@ -972,6 +1001,67 @@ async function setGroupAttendance(gid,pid,slot,day,status){
 }
 
 
+
+var expandedGroupLessonsId=0,groupLessonTopicSavePending=false;
+function lessonDayLabel(date){
+ var parsed=new Date(String(date||'')+'T12:00:00Z');
+ var names=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+ return Number.isNaN(parsed.getTime())?'':names[parsed.getUTCDay()];
+}
+function toggleGroupLessonList(gid){
+ var groupId=Number(gid);
+ expandedGroupLessonsId=expandedGroupLessonsId===groupId?0:groupId;
+ var expanded=expandedGroupLessonsId===groupId;
+ document.querySelectorAll('[data-lesson-extra]').forEach(function(item){item.hidden=!expanded;});
+ var button=document.getElementById('glesson-show-more');
+ if(button){
+  var remaining=document.querySelectorAll('[data-lesson-extra]').length;
+  button.textContent=expanded?'Свернуть расписание':'Показать ещё ('+remaining+')';
+  button.setAttribute('aria-expanded',String(expanded));
+ }
+}
+function closeGroupLessonTopicForm(index){
+ var form=document.getElementById('glesson-topic-form-'+Number(index));
+ if(form){form.hidden=true;form.innerHTML='';}
+}
+function startGroupLessonTopicForm(gid,slotId,occurrenceKey,index){
+ var form=document.getElementById('glesson-topic-form-'+Number(index));
+ var trigger=document.getElementById('glesson-topic-trigger-'+Number(index));
+ if(!form||!trigger)return;
+ if(!form.hidden){closeGroupLessonTopicForm(index);return;}
+ document.querySelectorAll('.glesson-topic-form').forEach(function(other){other.hidden=true;other.innerHTML='';});
+ form.innerHTML='<label for="glesson-topic-input">Тема этого занятия</label>'+
+  '<input id="glesson-topic-input" type="text" maxlength="160" autocomplete="off" placeholder="Например, ОВР. Соединения хрома">'+
+  '<p class="gquiet">Тема относится только к этому уроку и сохранится при его переносе. Очисти поле, чтобы удалить тему.</p>'+
+  '<div id="glesson-topic-error" class="gformerror" role="alert"></div>'+
+  '<div class="glesson-topic-buttons"><button type="button" data-save-topic>Сохранить</button><button type="button" data-close-topic>Отмена</button></div>';
+ form.hidden=false;
+ var input=form.querySelector('input');
+ input.value=trigger.getAttribute('data-topic')||'';
+ form.querySelector('[data-save-topic]').addEventListener('click',function(){saveGroupLessonTopic(gid,slotId,occurrenceKey,index);});
+ form.querySelector('[data-close-topic]').addEventListener('click',function(){closeGroupLessonTopicForm(index);});
+ input.focus();
+}
+async function saveGroupLessonTopic(gid,slotId,occurrenceKey,index){
+ if(groupLessonTopicSavePending)return;
+ var form=document.getElementById('glesson-topic-form-'+Number(index));
+ if(!form)return;
+ var input=form.querySelector('input'),error=form.querySelector('[role="alert"]'),button=form.querySelector('[data-save-topic]');
+ if(!input||!error||!button)return;
+ var topic=input.value.trim().replace(/\s+/g,' ');
+ if(topic.length>160){error.textContent='Максимальная длина темы — 160 символов.';return;}
+ groupLessonTopicSavePending=true;button.disabled=true;error.textContent='';
+ try{
+  await teacherAction({action:'group_lesson_topic_update',group_id:Number(gid),slot_id:Number(slotId),occurrence_key:occurrenceKey,topic:topic});
+  groupLessonNotice=topic?'Тема урока сохранена.':'Тема урока удалена.';
+  activeGroupTab='lessons';
+  await openView('group:'+Number(gid),true);
+ }catch(e){
+  var messages={invalid_topic:'Тема должна быть не длиннее 160 символов.',lesson_not_available:'Урок больше не доступен для редактирования. Обнови расписание.',slot_not_found:'Занятие не найдено. Обнови страницу.',group_not_found:'Группа не найдена.',invalid_occurrence:'Дата занятия некорректна.'};
+  error.textContent=messages[e.message]||'Не удалось сохранить тему. Попробуй ещё раз.';
+  await reportClientError('group_lesson_topic_update',e);
+ }finally{groupLessonTopicSavePending=false;button.disabled=false;}
+}
 
 var groupAttendanceOpen=false;
 function toggleGroupLessonActions(actionId){
