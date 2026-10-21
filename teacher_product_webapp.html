@@ -492,6 +492,113 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
 .glesson-recording-actions a:focus-visible,.glesson-recording-actions button:focus-visible,.glesson-recording-form input:focus-visible,.glesson-recording-form-actions button:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
 @media(min-width:900px){.glesson-recording-actions a,.glesson-recording-actions button,.glesson-recording-form label,.glesson-past summary{font-size:15px}}
 
+
+/* PREPODMIN DESKTOP COMPACT DENSITY (2026-10-21)
+   Restore a balanced 100% browser scale on desktop, without CSS zoom,
+   transformed canvases, mobile changes, or updates to the teacher theme.
+   This intentionally overrides the older expanded >=900px typography. */
+@media (min-width:900px){
+ html,body{font-size:14.5px;line-height:1.45}
+ .app{max-width:1020px;padding:19px 24px 98px}
+ .nav{max-width:1020px;gap:8px}
+ .nav button{font-size:13px;padding:9px 7px 7px}
+ .nav i{height:22px;margin-bottom:3px}
+ .nav i svg{width:20px;height:20px}
+ .top{margin-bottom:17px}
+ h1{font-size:30px}
+ .screen-head{gap:10px;margin:2px 0 13px}
+ .screen-head h2{font-size:26px}
+ .screen-head .small{font-size:13px}
+ .back{width:40px;height:40px;border-radius:12px}
+ .back svg{width:19px;height:19px}
+ .sub,.small,.hero-note,.row-sub,.person-meta,.info-meta,.gquiet{font-size:13px;line-height:1.45}
+ .gtoolbar .gtitle{font-size:25px}
+ .gtoolbar .gsubtitle{font-size:13px}
+ .gcompactsummary{gap:7px;margin-bottom:10px}
+ .gcompactsummary .gmetric{padding:9px 13px;font-size:13px;border-radius:11px}
+ .gmetric strong{font-size:19px}
+ .gtabs{gap:6px;margin:10px 0 12px}
+ .gtabs button,.group-action,.group-pill{font-size:13.5px;padding:9px 13px;border-radius:10px}
+ .gsection h3{font-size:17px;margin:14px 0 8px}
+ .gquickbar{margin:12px 0 10px}
+ .gquickbar button{font-size:13px;padding:9px 13px}
+ .glesson-head{margin:1px 0 10px;gap:10px}
+ .glesson-head h3{font-size:17px;margin:0 0 2px}
+ .glesson-add{font-size:13px;padding:9px 13px;border-radius:10px}
+ .glesson-recurring{padding:10px 13px;margin:0 0 14px;border-radius:13px}
+ .glesson-kicker{font-size:12px;margin-bottom:6px}
+ .glesson-slots{gap:6px}
+ .glesson-slot{font-size:12px;padding:6px 9px}
+ .glesson-list-title{margin:0 1px 7px}
+ .glesson-list-title strong{font-size:15px}
+ .glesson-list-title span{font-size:12px}
+ .glesson-list{border-radius:15px}
+ .glesson-row{grid-template-columns:minmax(180px,1fr) auto auto auto;gap:10px;padding:10px 14px}
+ .glesson-primary{display:block;min-width:0}
+ .glesson-row-date{display:block;font-size:14px;margin-bottom:3px}
+ .glesson-topic-link{display:inline-flex;font-size:13px;line-height:1.35;vertical-align:middle;margin-right:14px;padding:2px 0;max-width:100%}
+ .glesson-recording-actions{display:inline-flex;vertical-align:middle;gap:12px}
+ .glesson-recording-actions a,.glesson-recording-actions button{font-size:13px;padding:2px 0;line-height:1.35}
+ .glesson-row-time{font-size:15px}
+ .glesson-row .statuspill{font-size:11px;padding:5px 9px}
+ .glesson-row-toggle{font-size:13px;padding:8px 11px;border-radius:9px}
+ .glesson-entry-actions{padding:9px 14px 11px}
+ .glesson-entry-actions button{font-size:13px;padding:8px 11px}
+ .glesson-show-more{font-size:13px;margin:9px auto 15px;padding:9px 15px}
+ .glesson-attendance{margin-top:13px}
+ .glesson-attendance summary{padding:12px 0}
+ .glesson-attendee{padding:9px 0}
+ .glesson-attendee-name{font-size:14px}
+ .glesson-past{margin:12px 0}
+ .glesson-past summary{font-size:14px;padding:12px 14px}
+ .glesson-past-entry{padding:10px 14px}
+ .glesson-topic-form,.glesson-recording-form{padding:13px 14px}
+ .glesson-topic-form label,.glesson-recording-form label{font-size:13px}
+ .glesson-topic-form input,.glesson-recording-form input{font-size:14px;padding:10px 12px}
+ .glesson-topic-buttons button,.glesson-recording-form-actions button{font-size:13px;padding:9px 12px}
+ .gstudent{padding:12px 16px}
+ .gstudentname{font-size:15px}
+ .gstudenthint,.gstudentright{font-size:13px}
+ .gmemberrow{padding:12px 16px}
+ .gmemberamount{font-size:14px}
+ .gmemberlinks button{font-size:12px;padding:6px 10px}
+ .glist-caption{font-size:16px;margin:14px 1px 8px}
+ .glist-caption span,.gmemberhw{font-size:13px}
+ .gcontrols button,.gsoftbutton{font-size:13px;padding:10px 13px}
+ .gblock{padding:15px}
+ .gform label,.gform .gcheck,.glesson-notify label{font-size:13px}
+ .gform input,.gform select{font-size:14px}
+ .gform .gsubmit{font-size:13px;padding:11px 15px}
+ .gtoast,.gformerror{font-size:13px}
+ .directory-group{padding:16px 19px;border-radius:16px}
+ .directory-groups,.directory-individuals{gap:9px}
+ .directory-group-layout{gap:17px;margin:11px 0}
+ .directory-group-title{font-size:17px}
+ .directory-group-count,.directory-group-lesson,.directory-person-name{font-size:15px}
+ .directory-intro,.directory-group-sub,.directory-group-caption,.directory-person-meta{font-size:13px}
+ .directory-issue,.directory-calm{font-size:12px}
+ .row{padding:12px 15px;gap:11px}
+ .row-title{font-size:15px}
+ .row-sub{margin-top:3px}
+ .time{min-width:55px;font-size:15px}
+ .section-title strong{font-size:18px}
+ .section-title span{font-size:13px}
+ .info-title,.person-name{font-size:15px}
+ .person-card,.info-card{padding:16px}
+ .statbox{padding:15px}
+ .statbox b{font-size:27px}
+ .hero{padding:21px 23px}
+ .hero-main .big{font-size:34px}
+ .schedule-week{gap:8px}
+ .schedule-day,.schedule-day.is-empty{grid-template-columns:160px minmax(0,1fr);min-height:76px}
+ .schedule-day.is-empty{min-height:62px}
+ .schedule-day .day-panel-head,.schedule-day.is-empty .day-panel-head{padding:13px 16px}
+ .schedule-day .day-panel-head strong{font-size:17px}
+ .schedule-day .day-panel-head span{font-size:12px}
+ .schedule-day-content .row{padding:12px 16px}
+ .schedule-day-content .empty,.schedule-day.is-empty .empty{padding:12px 16px;font-size:13px}
+}
+
 </style>
 </head>
 <body>

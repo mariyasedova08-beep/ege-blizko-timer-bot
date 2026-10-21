@@ -62,6 +62,36 @@ class TeacherDashboardTest(unittest.TestCase):
         self.assertIn("--paper",html)
         self.assertNotIn("teacherAction(",desktop)
 
+    def test_desktop_compact_density_at_native_100_percent_zoom(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        marker="/* PREPODMIN DESKTOP COMPACT DENSITY (2026-10-21)"
+        self.assertEqual(html.count(marker),1)
+        style=html.split(marker,1)[1].split("</style>",1)[0]
+        self.assertIn("@media (min-width:900px){",style)
+        for token in (
+            ".app{max-width:1020px;padding:19px 24px 98px}",
+            ".screen-head h2{font-size:26px}",
+            ".gcompactsummary .gmetric{padding:9px 13px;font-size:13px;",
+            ".gtabs button,.group-action,.group-pill{font-size:13.5px;padding:9px 13px;",
+            ".glesson-row{grid-template-columns:minmax(180px,1fr) auto auto auto;gap:10px;padding:10px 14px}",
+            ".glesson-topic-link{display:inline-flex;font-size:13px;",
+            ".glesson-recording-actions{display:inline-flex;",
+            ".glesson-recording-actions a,.glesson-recording-actions button{font-size:13px;",
+            ".glesson-past summary{font-size:14px;padding:12px 14px}",
+            ".glesson-attendee-name{font-size:14px}",
+            ".schedule-day,.schedule-day.is-empty{grid-template-columns:160px minmax(0,1fr);",
+        ):
+            self.assertIn(token,style)
+        # Only desktop CSS may change. Never distort scale or change the mobile layout.
+        for banned in ("zoom:", "transform:scale", "@media(max-width", "@media (max-width",
+                       "display:none", "display: none", "position:fixed", "font-size:10px"):
+            self.assertNotIn(banned,style)
+        self.assertIn(".schedule-week{display:block}",html)
+        self.assertIn("function applyTheme(theme)",html)
+        self.assertIn("function renderGroup(d)",html)
+        self.assertIn("groupLessonRecordingLinks(",html)
+        self.assertIn("groupLessonTopic",html)
+
     def test_single_direct_browser_launch_without_extra_window_prompt(self):
         html = webapp.HTML_PATH.read_text(encoding="utf-8")
         # Personalized URL links must not leak through Referer.
