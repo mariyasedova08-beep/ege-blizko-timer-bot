@@ -1044,6 +1044,78 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(webapp._teacher_action(101,{**data,"status":"pending"})["ok"])
         self.assertEqual(webapp._view(101,f"group:{self.gid}")["homework"][0]["done"],0)
 
+    def test_group_homework_lists_students_and_reacts_to_status_updates(self):
+        from teacher_product_group_workspace import group_view
+        from teacher_product_student_reminders import add_member
+        second=int(add_member(101,self.gid,"Аня")["id"])
+        created=webapp._teacher_action(101,self.payload)
+        self.assertTrue(created["ok"],created)
+        aid=created["assignment_id"]
+        group=group_view(101,self.gid)
+        item=group["homework"][0]
+        self.assertEqual(item["id"],aid)
+        self.assertEqual(item["done"],0)
+        self.assertEqual(item["total"],2)
+        self.assertEqual(
+            [(s["name"],s["status"]) for s in item["members"]],
+            [("Алина","pending"),("Аня","pending")],
+        )
+        marked=webapp._teacher_action(101,{
+            "action":"group_homework_mark","assignment_id":aid,
+            "member_id":second,"status":"done",
+        })
+        self.assertTrue(marked["ok"],marked)
+        after=group_view(101,self.gid)["homework"][0]
+        self.assertEqual((after["done"],after["total"]),(1,2))
+        self.assertEqual(
+            [(s["name"],s["status"]) for s in after["members"]],
+            [("Алина","pending"),("Аня","done")],
+        )
+        self.assertEqual(webapp._teacher_action(202,{
+            "action":"group_homework_mark","assignment_id":aid,
+            "member_id":second,"status":"pending",
+        })["error"],"assignment_not_found")
+        self.assertEqual(webapp._view(101,f"group:{self.other_gid}")["homework"],[])
+        self.assertIsNone(webapp._view(202,f"group:{self.gid}"))
+        self.assertTrue(webapp._teacher_action(101,{
+            "action":"group_homework_mark","assignment_id":aid,
+            "member_id":second,"status":"pending",
+        })["ok"])
+        self.assertEqual(group_view(101,self.gid)["homework"][0]["done"],0)
+        # The read-only UI must not create another assignment or delivery job.
+        with base.db() as conn:
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_homework WHERE teacher_telegram_user_id=?",
+                (101,),
+            ).fetchone()[0],1)
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_webapp_homework_delivery WHERE teacher_telegram_user_id=?",
+                (101,),
+            ).fetchone()[0],1)
+
+    def test_group_homework_inline_controls_and_no_false_submissions(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        group=html.split("function renderGroup(d){",1)[1].split("function renderMember(d){",1)[0]
+        for phrase in (
+            'class="ghw-card"',
+            'class="ghw-details"',
+            "h.members||[]",
+            'class="ghw-member"',
+            "setGroupHomeworkMember(",
+            "Выполнено",
+            "В работе",
+            "Письменные решения и файлы через эту вкладку пока не принимаются",
+            "Уведомления в очереди",
+            "Проверь доставку в Telegram",
+        ):
+            self.assertIn(phrase,group)
+        self.assertIn("async function setGroupHomeworkMember(gid,aid,mid,status)",html)
+        self.assertIn("action:'group_homework_mark'",html)
+        self.assertIn("activeGroupTab='homework'",html)
+        self.assertIn("expandedGroupHomeworkId=Number(aid)",html)
+        self.assertNotIn("input type=\"file\"",group)
+        self.assertNotIn("ДЗ сдано на проверку",group)
+
     async def test_delivery_worker_uses_existing_send_once_not_in_http_thread(self):
         from types import SimpleNamespace
         from unittest.mock import AsyncMock, patch
