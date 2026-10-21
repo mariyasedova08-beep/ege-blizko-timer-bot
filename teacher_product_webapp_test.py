@@ -73,6 +73,21 @@ class TeacherDashboardTest(unittest.TestCase):
         self.assertNotIn("browser-window-hint",html)
         self.assertIn("if(app.platform==='tdesktop'||app.platform==='macos')return;",html)
 
+    def test_group_directory_is_first_and_all_existing_navigation_remains(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        fragment=html.split("function renderStudents(d){",1)[1].split("async function openGroupBotAction(",1)[0]
+        self.assertLess(fragment.index("Мои группы"),fragment.index("Индивидуальные ученики"))
+        self.assertIn('directory-group',fragment)
+        self.assertIn("openView(\\'group:",fragment)
+        self.assertIn("Ближайшее занятие",fragment)
+        self.assertIn("Оплата просрочена:",fragment)
+        self.assertIn("Просрочены ДЗ:",fragment)
+        self.assertIn("esc(g.name)",fragment)
+        self.assertIn("esc(p.name)",fragment)
+        self.assertIn("var(--paper)",html)
+        self.assertIn("function renderGroup(d)",html)
+        self.assertIn("function renderMember(d)",html)
+
     def test_main_navigation_has_five_clear_destinations(self):
         html = webapp.HTML_PATH.read_text(encoding="utf-8")
         menu = html.split('<div class="bottom"><div class="nav">', 1)[1].split('</div></div>', 1)[0]
@@ -390,6 +405,82 @@ class GroupWorkspaceTest(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def test_group_directory_is_group_first_scoped_and_uses_real_counts(self):
+        foreign_gid=groups.add_group(202,"Чужая группа")
+        self.reminders.add_member(202,foreign_gid,"Чужой ученик")
+        page=webapp._view(101,"students")
+        self.assertEqual(page["title"],"Ученики и группы")
+        cards={g["name"]:g for g in page["groups"]}
+        self.assertEqual(set(cards),{"ОГЭ 2027","ЕГЭ 2027"})
+        self.assertEqual(cards["ОГЭ 2027"]["member_count"],1)
+        self.assertEqual(cards["ОГЭ 2027"]["connected_count"],0)
+        self.assertEqual(cards["ОГЭ 2027"]["payment_issues"],0)
+        self.assertEqual(cards["ОГЭ 2027"]["overdue_homework"],0)
+        self.assertIsNotNone(cards["ОГЭ 2027"]["next_lesson"])
+        self.assertIn("date",cards["ОГЭ 2027"]["next_lesson"])
+        self.assertIn("time",cards["ОГЭ 2027"]["next_lesson"])
+        self.assertEqual(cards["ЕГЭ 2027"]["member_count"],1)
+        self.assertEqual(cards["ЕГЭ 2027"]["payment_issues"],0)
+        self.assertIsNone(cards["ЕГЭ 2027"]["next_lesson"])
+        other_page=webapp._view(202,"students")
+        self.assertEqual([g["name"] for g in other_page["groups"]],["Чужая группа"])
+        self.assertEqual(other_page["groups"][0]["member_count"],1)
+
+    def test_directory_only_counts_overdue_payments_and_homework(self):
+        from datetime import timedelta
+        yesterday=(self.day-timedelta(days=1)).isoformat()
+        with base.db() as conn:
+            conn.execute(
+                "UPDATE group_member_payment_plans SET next_due_date=? "
+                "WHERE teacher_telegram_user_id=? AND person_id=?",
+                (yesterday,101,self.pid),
+            )
+            conn.execute(
+                "UPDATE teacher_homework SET due_date=? WHERE id=? "
+                "AND teacher_telegram_user_id=?",
+                (yesterday,self.assignment["id"],101),
+            )
+            conn.commit()
+        first=webapp._view(101,"students")
+        card=next(g for g in first["groups"] if g["id"]==self.gid)
+        self.assertEqual(card["payment_issues"],1)
+        self.assertEqual(card["overdue_homework"],1)
+        other=next(g for g in first["groups"] if g["id"]==self.other_gid)
+        self.assertEqual(other["payment_issues"],0)
+        self.assertEqual(other["overdue_homework"],0)
+        # A completed assignment is no longer an overdue student.
+        with base.db() as conn:
+            conn.execute(
+                "UPDATE teacher_homework_status SET status='done' "
+                "WHERE assignment_id=? AND subject_kind='group_member' AND subject_id=?",
+                (self.assignment["id"],self.pid),
+            )
+            conn.commit()
+        second=webapp._view(101,"students")
+        self.assertEqual(next(g for g in second["groups"] if g["id"]==self.gid)["overdue_homework"],0)
+
+    def test_directory_nearest_lesson_respects_moves_and_cancellations(self):
+        from datetime import timedelta
+        import teacher_product_cancellations as cancellations
+        tomorrow=self.day+timedelta(days=1)
+        groups.add_group_slot(101,self.other_gid,tomorrow.weekday(),"09:30")
+        slot=next(s for s in groups.group_slots(101) if int(s["group_id"])==self.other_gid)
+        moved_date=tomorrow+timedelta(days=2)
+        groups.save_group_move(101,int(slot["id"]),tomorrow.isoformat(),moved_date.isoformat(),"11:30")
+        first=webapp._view(101,"students")
+        card=next(g for g in first["groups"] if g["id"]==self.other_gid)
+        self.assertEqual(card["next_lesson"]["date"],moved_date.strftime("%d.%m"))
+        self.assertEqual(card["next_lesson"]["time"],"11:30")
+        self.assertTrue(card["next_lesson"]["moved"])
+        event=cancellations._event_from_occurrence(
+            101,"group",int(slot["id"]),tomorrow.isoformat(),
+        )
+        cancellations._save_cancel(101,event)
+        second=webapp._view(101,"students")
+        next_lesson=next(g for g in second["groups"] if g["id"]==self.other_gid)["next_lesson"]
+        self.assertEqual(next_lesson["date"],(tomorrow+timedelta(days=7)).strftime("%d.%m"))
+        self.assertFalse(next_lesson["moved"])
 
     def test_group_workspace_contains_real_data_and_member_payments(self):
         page = webapp._view(101, f"group:{self.gid}")

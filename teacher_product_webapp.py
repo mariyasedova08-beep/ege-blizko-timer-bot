@@ -255,19 +255,133 @@ def _dashboard(uid):
 
 
 def _students_view(uid):
+    """Read-only group-first directory, scoped to the authenticated teacher.
+
+    Never infer group size from individual students. Group-specific membership,
+    payment status and outstanding homework live in the existing PREPODMIN tables.
+    """
     students = base.list_students(uid)
     group_rows = groups.groups(uid)
-    return {
+    result = {
         "title": "Ученики и группы",
         "students": [
             {"id": int(s["id"]), "name": s["name"], "contact": s["contact"] or ""}
             for s in students
         ],
         "groups": [
-            {"id": int(g["id"]), "name": g["name"]}
+            {
+                "id": int(g["id"]), "name": g["name"],
+                "member_count": 0, "connected_count": 0,
+                "payment_issues": 0, "overdue_homework": 0,
+                "next_lesson": None,
+            }
             for g in group_rows
         ],
     }
+    if not group_rows:
+        return result
+
+    today = datetime.now(schedule.tz(uid)).date().isoformat()
+    summaries = {g["id"]: g for g in result["groups"]}
+    with base.db() as conn:
+        # Installations with no group members may not have created optional
+        # payment/homework tables yet. Missing features simply count as zero.
+        available = {
+            row["name"] for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name IN ('student_reminder_people',"
+                "'group_member_payment_plans','teacher_homework',"
+                "'teacher_homework_status')"
+            )
+        }
+        if "student_reminder_people" in available:
+            rows = conn.execute(
+                """
+                SELECT m.group_id,COUNT(*) AS members,
+                       COUNT(m.telegram_user_id) AS connected
+                FROM student_reminder_people m
+                JOIN teacher_groups g ON g.id=m.group_id
+                WHERE m.teacher_id=? AND m.kind='group' AND m.active=1
+                  AND g.teacher_telegram_user_id=? AND g.active=1
+                GROUP BY m.group_id
+                """, (int(uid), int(uid)),
+            ).fetchall()
+            for row in rows:
+                info = summaries.get(int(row["group_id"]))
+                if info is not None:
+                    info["member_count"] = int(row["members"])
+                    info["connected_count"] = int(row["connected"])
+
+        if {"student_reminder_people", "group_member_payment_plans"} <= available:
+            rows = conn.execute(
+                """
+                SELECT m.group_id,COUNT(*) AS overdue
+                FROM group_member_payment_plans p
+                JOIN student_reminder_people m ON m.id=p.person_id
+                   AND m.teacher_id=p.teacher_telegram_user_id
+                   AND m.group_id=p.group_id
+                JOIN teacher_groups g ON g.id=m.group_id
+                WHERE p.teacher_telegram_user_id=?
+                  AND g.teacher_telegram_user_id=? AND g.active=1
+                  AND p.active=1 AND m.active=1 AND m.kind='group'
+                  AND COALESCE(p.course_paid,0)=0
+                  AND (
+                    (p.payment_type='package'
+                     AND COALESCE(p.lessons_remaining,0)<=0)
+                    OR
+                    (p.payment_type!='package'
+                     AND p.next_due_date IS NOT NULL
+                     AND p.next_due_date<?)
+                  )
+                GROUP BY m.group_id
+                """, (int(uid), int(uid), today),
+            ).fetchall()
+            for row in rows:
+                info = summaries.get(int(row["group_id"]))
+                if info is not None:
+                    info["payment_issues"] = int(row["overdue"])
+
+        if {"student_reminder_people", "teacher_homework",
+            "teacher_homework_status"} <= available:
+            rows = conn.execute(
+                """
+                SELECT h.target_id AS group_id,
+                       COUNT(DISTINCT m.id) AS affected_students
+                FROM teacher_homework h
+                JOIN teacher_groups g ON g.id=h.target_id
+                JOIN teacher_homework_status hs ON hs.assignment_id=h.id
+                   AND hs.subject_kind='group_member' AND hs.status!='done'
+                JOIN student_reminder_people m ON m.id=hs.subject_id
+                   AND m.teacher_id=h.teacher_telegram_user_id
+                   AND m.group_id=h.target_id AND m.kind='group'
+                   AND m.active=1
+                WHERE h.teacher_telegram_user_id=?
+                  AND h.target_kind='group' AND h.active=1
+                  AND h.due_date<?
+                  AND g.teacher_telegram_user_id=? AND g.active=1
+                GROUP BY h.target_id
+                """, (int(uid), today, int(uid)),
+            ).fetchall()
+            for row in rows:
+                info = summaries.get(int(row["group_id"]))
+                if info is not None:
+                    info["overdue_homework"] = int(row["affected_students"])
+
+    # Existing lesson service accounts for one-off moves and cancellations.
+    # Compute upcoming events once, rather than querying each group separately.
+    if groups.group_slots(uid):
+        for event in cancellations._upcoming_occurrences(
+            uid, kind="group", days=14,
+        ):
+            info = summaries.get(int(event["person_id"]))
+            if info is None or info["next_lesson"] is not None:
+                continue
+            info["next_lesson"] = {
+                "date": event["actual_date"].strftime("%d.%m"),
+                "time": event["actual_time"],
+                "moved": bool(event["moved"]),
+            }
+    return result
 
 
 def _schedule_view(uid):
