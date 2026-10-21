@@ -1,0 +1,40 @@
+name: EGE lab lesson — medium and reagent search (preview only)
+
+on:
+  push:
+    branches:
+      - 'feature/lab-lesson-medium-search-*'
+    paths:
+      - 'preview/ege-blizko-lab-lesson-30-70-offline.html'
+      - 'tests/check_lab_lesson_medium_search.mjs'
+      - '.github/workflows/ege-lab-lesson-search-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate inline JavaScript syntax from offline lesson HTML
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          source = Path("preview/ege-blizko-lab-lesson-30-70-offline.html").read_text()
+          scripts = re.findall(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", source, re.I)
+          assert len(scripts) == 2, len(scripts)
+          Path("/tmp/ege-lesson-script.js").write_text(scripts[-1])
+          PY
+          node --check /tmp/ege-lesson-script.js
+      - name: Install isolated headless browser
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Test lesson search, medium-specific signs, and PDF controls
+        run: node tests/check_lab_lesson_medium_search.mjs
