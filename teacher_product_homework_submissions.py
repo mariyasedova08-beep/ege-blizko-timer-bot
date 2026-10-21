@@ -137,9 +137,8 @@ def upload(link,aid,stream,length,filename,claimed_type):
     name=Path(filename).name.strip().replace("\r","").replace("\n","")
     if not name or len(name)>MAX_FILE_NAME or name in {".",".."}:
         return {"ok":False,"error":"filename_invalid"}
-    if claimed_type.split(";",1)[0].lower().strip() not in (
-        "application/pdf","image/png","image/jpeg","application/octet-stream"
-    ):
+    declared = claimed_type.split(";",1)[0].lower().strip()
+    if declared not in ("application/pdf","image/png","image/jpeg","application/octet-stream"):
         return {"ok":False,"error":"file_type"}
     folder=storage_root()
     if shutil.disk_usage(folder).free < length + 128 * 1024 * 1024:
@@ -158,6 +157,12 @@ def upload(link,aid,stream,length,filename,claimed_type):
             mime,ext=_file_type(prefix)
             if not mime:
                 raise ValueError("bad_signature")
+            # Refuse renamed non-images/PDFs and mismatched declared types.
+            allowed_extensions = {"pdf":(".pdf",),"png":(".png",),"jpg":(".jpg",".jpeg")}
+            if not name.lower().endswith(allowed_extensions[ext]):
+                raise ValueError("wrong_extension")
+            if declared not in (mime,"application/octet-stream"):
+                raise ValueError("wrong_media_type")
             final=folder/(token+"."+ext)
             target.write(prefix)
             left=length-len(prefix)
@@ -176,8 +181,24 @@ def upload(link,aid,stream,length,filename,claimed_type):
             prev=_latest(conn,int(a["id"]),kind,sid)
             if prev and prev["status"] in ("submitted","approved"):
                 return {"ok":False,"error":"attempt_closed"}
+            # Reject before creating a draft row. A rejected upload must not
+            # leave a zero-file attempt behind in the persistent database.
+            used=conn.execute(
+                "SELECT COALESCE(SUM(f.size_bytes),0) "
+                "FROM teacher_webapp_homework_files f "
+                "JOIN teacher_webapp_homework_attempts a ON a.id=f.attempt_id "
+                "WHERE a.teacher_telegram_user_id=?",(int(link["teacher_id"]),),
+            ).fetchone()[0]
+            if int(used)+length>MAX_TEACHER_BYTES:
+                return {"ok":False,"error":"storage_quota"}
             if prev and prev["status"]=="draft":
                 attempt_id=int(prev["id"])
+                num=conn.execute(
+                    "SELECT COUNT(*) FROM teacher_webapp_homework_files WHERE attempt_id=?",
+                    (attempt_id,),
+                ).fetchone()[0]
+                if num>=MAX_FILES:
+                    return {"ok":False,"error":"too_many_files"}
             else:
                 number=int(prev["attempt_number"])+1 if prev else 1
                 if number>MAX_ATTEMPTS:
@@ -188,20 +209,6 @@ def upload(link,aid,stream,length,filename,claimed_type):
                     "attempt_number,status,created_at) VALUES(?,?,?,?,?,'draft',?)",
                     (int(a["id"]),int(link["teacher_id"]),kind,sid,number,now),
                 ).lastrowid)
-            used=conn.execute(
-                "SELECT COALESCE(SUM(f.size_bytes),0) "
-                "FROM teacher_webapp_homework_files f "
-                "JOIN teacher_webapp_homework_attempts a ON a.id=f.attempt_id "
-                "WHERE a.teacher_telegram_user_id=?",(int(link["teacher_id"]),),
-            ).fetchone()[0]
-            if int(used)+length>MAX_TEACHER_BYTES:
-                return {"ok":False,"error":"storage_quota"}
-            num=conn.execute(
-                "SELECT COUNT(*) FROM teacher_webapp_homework_files WHERE attempt_id=?",
-                (attempt_id,),
-            ).fetchone()[0]
-            if num>=MAX_FILES:
-                return {"ok":False,"error":"too_many_files"}
             conn.execute(
                 "INSERT INTO teacher_webapp_homework_files "
                 "(attempt_id,stored_name,display_name,media_type,size_bytes,created_at) "
@@ -338,21 +345,22 @@ def for_student(link,aids):
 def _ticket_key():
     secret=os.getenv("TEACHER_PRODUCT_HOMEWORK_FILE_TICKET_KEY","").strip() or base.BOT_TOKEN
     if len(secret)<16:
-        raise RuntimeError("Recording signing key is not configured")
+        raise RuntimeError("Homework file signing key is not configured")
     return secret.encode()
 
 def file_ticket(uid,file_id):
     ensure_tables()
     with base.db() as conn:
         row=conn.execute(
-            "SELECT a.teacher_telegram_user_id,h.active,h.target_id,f.id "
+            "SELECT a.teacher_telegram_user_id,h.active,h.target_id,h.target_kind,f.id "
             "FROM teacher_webapp_homework_files f "
             "JOIN teacher_webapp_homework_attempts a ON a.id=f.attempt_id "
             "JOIN teacher_homework h ON h.id=a.assignment_id "
             "WHERE f.id=? AND a.teacher_telegram_user_id=?",
             (int(file_id),int(uid)),
         ).fetchone()
-    if not row or not row["active"] or not groups.get_group(uid,int(row["target_id"])):
+    if (not row or not row["active"] or row["target_kind"]!="group"
+            or not groups.get_group(uid,int(row["target_id"]))):
         return {"ok":False,"error":"file_unavailable"}
     exp=int(time.time())+TICKET_SECONDS
     message=f"{int(uid)}.{int(file_id)}.{exp}"
@@ -372,14 +380,15 @@ def serve(handler,file_id,ticket):
         ensure_tables()
         with base.db() as conn:
             row=conn.execute(
-                "SELECT f.stored_name,f.media_type,h.active,h.target_id "
+                "SELECT f.stored_name,f.media_type,h.active,h.target_id,h.target_kind "
                 "FROM teacher_webapp_homework_files f "
                 "JOIN teacher_webapp_homework_attempts a ON a.id=f.attempt_id "
                 "JOIN teacher_homework h ON h.id=a.assignment_id "
                 "WHERE f.id=? AND a.teacher_telegram_user_id=?",
                 (fid,uid),
             ).fetchone()
-        if not row or not row["active"] or not groups.get_group(uid,int(row["target_id"])):
+        if (not row or not row["active"] or row["target_kind"]!="group"
+                or not groups.get_group(uid,int(row["target_id"]))):
             raise ValueError()
         name=row["stored_name"]
         if not _STORAGE_NAME.fullmatch(name):
