@@ -100,7 +100,7 @@ try{
     assert.equal(await page.locator("#lessonMediumField").isVisible(),true);
     await page.locator("#lessonMedium").selectOption("acid");
     await page.locator("#lessonConduct").click();
-    assert.match(await page.locator("#lessonReaction").innerText(),/Cr₂\\(SO₄\\)₃/);
+    assert.match(await page.locator("#lessonReaction").innerText(),/Cr₂\(SO₄\)₃/);
     assert.match(await page.locator("#lessonReaction").innerText(),/O₂/);
 
     // Batch 2: combined hydrolysis must show both precipitate and gas.
@@ -110,7 +110,7 @@ try{
     await page.locator("#lessonSuggestionsB button").first().click();
     assert.equal(await page.locator("#lessonMediumField").isVisible(),false);
     await page.locator("#lessonConduct").click();
-    assert.match(await page.locator("#lessonReaction").innerText(),/Al\\(OH\\)₃/);
+    assert.match(await page.locator("#lessonReaction").innerText(),/Al\(OH\)₃/);
     assert.match(await page.locator("#lessonReaction").innerText(),/CO₂/);
 
     // Existing PDF-stylus functionality remains on the same screen.
