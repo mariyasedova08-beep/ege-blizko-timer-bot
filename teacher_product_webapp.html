@@ -326,6 +326,35 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
   text-align:left;white-space:normal;padding:17px 22px;font-size:15px;color:var(--muted)
  }
 }
+/* Group-first directory. Every color comes from the saved teacher theme. */
+.directory-section{margin-top:19px}
+.directory-intro{margin:0 2px 15px;font-size:13px;color:var(--muted);line-height:1.6}
+.directory-groups,.directory-individuals{display:flex;flex-direction:column;gap:11px}
+.directory-group{display:block;text-align:left;width:100%;padding:19px 21px;border:1px solid var(--line);border-radius:21px;background:var(--paper);color:var(--ink);font:inherit;cursor:pointer;box-shadow:0 6px 20px rgba(45,28,37,.035)}
+.directory-group:hover{border-color:var(--hot)}
+.directory-group:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
+.directory-group-top,.directory-group-title{display:flex;align-items:center;gap:10px;min-width:0}
+.directory-group-top{justify-content:space-between}
+.directory-group-title{font-size:17px;font-weight:650;overflow-wrap:anywhere}
+.directory-group-title svg{width:23px;height:23px;flex-shrink:0;color:var(--hot)}
+.directory-group-chevron{color:var(--hot);font-size:20px}
+.directory-group-layout{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin:16px 0 14px}
+.directory-group-details,.directory-group-next{display:flex;flex-direction:column;gap:4px;min-width:0}
+.directory-group-count{font-size:15px;font-weight:610}
+.directory-group-sub,.directory-group-caption{font-size:12px;color:var(--muted)}
+.directory-group-next{min-width:195px;max-width:50%;text-align:right}
+.directory-group-lesson{font-size:15px;font-weight:580;line-height:1.5}
+.directory-group-status{display:flex;flex-wrap:wrap;gap:7px;padding-top:12px;border-top:1px solid var(--line)}
+.directory-issue,.directory-calm{display:inline-block;border-radius:999px;padding:5px 10px;font-size:12px;line-height:1.4}
+.directory-issue{background:var(--soft);color:var(--ink)}
+.directory-calm{color:var(--muted);background:var(--milk)}
+.directory-individual{display:flex;align-items:center;gap:13px;border:1px solid var(--line);background:var(--paper);padding:15px 18px;border-radius:16px}
+.directory-person-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:11px;background:var(--soft);color:var(--hot)}
+.directory-person-icon svg{width:19px;height:19px}
+.directory-person-name{font-size:15px;font-weight:620;display:block}
+.directory-person-meta{font-size:12px;color:var(--muted);display:block;margin-top:4px}
+@media(max-width:580px){.directory-group{padding:16px}.directory-group-layout{flex-direction:column;gap:12px}.directory-group-next{max-width:100%;min-width:0;text-align:left}.directory-group-title{font-size:16px}.directory-group-lesson{font-size:14px}}
+@media(min-width:900px){.directory-intro,.directory-group-sub,.directory-group-caption,.directory-person-meta{font-size:14px}.directory-group{padding:23px 26px}.directory-group-title{font-size:20px}.directory-group-count,.directory-group-lesson,.directory-person-name{font-size:17px}.directory-issue,.directory-calm{font-size:14px}}
 </style>
 </head>
 <body>
@@ -526,14 +555,49 @@ function renderMore(){
 }
 
 function renderStudents(d){
- var out=screenHeader('Ученики и группы',(d.students||[]).length+' учеников · '+(d.groups||[]).length+' групп');
- out+='<div class="section"><div class="section-title"><strong>Ученики</strong><span>индивидуально</span></div>';
- if(!(d.students||[]).length)out+='<div class="list"><div class="empty">Индивидуальных учеников пока нет</div></div>';
- (d.students||[]).forEach(function(x){out+='<div class="person-card"><div class="person-top"><div style="display:flex;gap:11px;align-items:flex-start"><div class="person-icon">👤</div><div><div class="person-name">'+esc(x.name)+'</div><div class="person-meta">'+esc(x.contact||'индивидуальный ученик')+'</div></div></div><span class="badge ok">активен</span></div></div>';});
- out+='</div><div class="section"><div class="section-title"><strong>Группы</strong><span>обучение</span></div>';
- if(!(d.groups||[]).length)out+='<div class="list"><div class="empty">Групп пока нет</div></div>';
- (d.groups||[]).forEach(function(x){out+='<div class="person-card"><button type="button" class="group-open" onclick="openView(\'group:'+Number(x.id)+'\')"><span style="display:flex;gap:11px;align-items:center"><span class="person-icon">👥</span><span><span class="person-name">'+esc(x.name)+'</span><span class="person-meta" style="display:block">Открыть рабочий кабинет группы</span></span></span>'+uiIcon('back')+'</button></div>';});
- out+='</div>';document.getElementById('app').innerHTML=out;
+ var groupRows=d.groups||[],people=d.students||[];
+ var total=groupRows.reduce(function(sum,g){return sum+Math.max(0,Number(g.member_count)||0);},0)+people.length;
+ var out=screenHeader('Ученики и группы',groupRows.length+' групп · '+total+' учеников');
+ out+='<div class="section directory-section"><div class="section-title"><strong>Мои группы</strong><span>'+groupRows.length+' групп</span></div>';
+ out+='<p class="directory-intro">Всё основное о группе видно сразу. Нажми на группу, чтобы открыть её кабинет.</p>';
+ if(!groupRows.length){
+  out+='<div class="list"><div class="empty">Групп пока нет. Создать первую группу можно через ПРЕПАДМИН в Telegram.</div></div>';
+ }
+ out+='<div class="directory-groups">';
+ groupRows.forEach(function(g){
+  var gid=Number(g.id),members=Math.max(0,Number(g.member_count)||0);
+  if(!Number.isSafeInteger(gid)||gid<=0)return;
+  var linked=Math.max(0,Number(g.connected_count)||0);
+  var latePay=Math.max(0,Number(g.payment_issues)||0);
+  var lateHw=Math.max(0,Number(g.overdue_homework)||0);
+  var lesson=g.next_lesson||null;
+  var nextLesson=lesson
+   ? esc(lesson.date)+' · '+esc(lesson.time)+(lesson.moved?' · перенос':'')
+   : 'На ближайшие 14 дней занятий нет';
+  var memberText=members+' '+(members%10===1&&members%100!==11?'ученик':(members%10>=2&&members%10<=4&&(members%100<12||members%100>14)?'ученика':'учеников'));
+  out+='<button class="directory-group" type="button" onclick="openView(\'group:'+gid+'\')">';
+  out+='<span class="directory-group-top"><span class="directory-group-title">'+uiIcon('users')+'<span>'+esc(g.name)+'</span></span><span class="directory-group-chevron" aria-hidden="true">→</span></span>';
+  out+='<span class="directory-group-layout"><span class="directory-group-details"><span class="directory-group-count">'+memberText+'</span><span class="directory-group-sub">'+linked+' подключено к Telegram</span></span>';
+  out+='<span class="directory-group-next"><span class="directory-group-caption">Ближайшее занятие</span><span class="directory-group-lesson">'+nextLesson+'</span></span></span>';
+  out+='<span class="directory-group-status">';
+  if(latePay)out+='<span class="directory-issue">Оплата просрочена: '+latePay+'</span>';
+  if(lateHw)out+='<span class="directory-issue">Просрочены ДЗ: '+lateHw+' уч.</span>';
+  if(!latePay&&!lateHw)out+='<span class="directory-calm">Нет просрочек по оплатам и ДЗ</span>';
+  out+='</span></button>';
+ });
+ out+='</div></div>';
+ out+='<div class="section directory-section"><div class="section-title"><strong>Индивидуальные ученики</strong><span>'+people.length+'</span></div>';
+ if(!people.length){
+  out+='<div class="list"><div class="empty">Индивидуальных учеников пока нет</div></div>';
+ }else{
+  out+='<div class="directory-individuals">';
+  people.forEach(function(p){
+   out+='<div class="directory-individual"><span class="directory-person-icon">'+uiIcon('user')+'</span><span><span class="directory-person-name">'+esc(p.name)+'</span>'+(p.contact?'<span class="directory-person-meta">'+esc(p.contact)+'</span>':'')+'</span></div>';
+  });
+  out+='</div>';
+ }
+ out+='</div>';
+ document.getElementById('app').innerHTML=out;
 }
 
 async function openGroupBotAction(section,gid){
