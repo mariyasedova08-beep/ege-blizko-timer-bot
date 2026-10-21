@@ -1533,6 +1533,32 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaises(HTTPError) as exc:
                     do_request(url+"-tampered")
                 self.assertEqual(exc.exception.code,404)
+
+                # Local disaster-recovery rehearsal: backup BOTH SQLite and
+                # files, then verify restored metadata points to intact bytes.
+                import hashlib
+                import shutil
+                import sqlite3
+                from pathlib import Path
+                db_copy=Path(self.tmp.name)/"restored.sqlite3"
+                files_copy=Path(self.tmp.name)/"restored-files"
+                with base.db() as live,sqlite3.connect(db_copy) as restored:
+                    live.backup(restored)
+                shutil.copytree(Path(self.tmp.name)/"http_hw_files",files_copy)
+                with sqlite3.connect(db_copy) as recovered:
+                    self.assertEqual(
+                        recovered.execute("PRAGMA integrity_check").fetchone()[0],"ok")
+                    recovered.row_factory=sqlite3.Row
+                    records=recovered.execute(
+                        "SELECT stored_name,size_bytes FROM teacher_webapp_homework_files"
+                    ).fetchall()
+                self.assertEqual(len(records),2)
+                for row in records:
+                    live_file=Path(self.tmp.name)/"http_hw_files"/row["stored_name"]
+                    copy_file=files_copy/row["stored_name"]
+                    self.assertEqual(copy_file.stat().st_size,row["size_bytes"])
+                    self.assertEqual(hashlib.sha256(live_file.read_bytes()).digest(),
+                                     hashlib.sha256(copy_file.read_bytes()).digest())
             finally:
                 http.shutdown()
                 http.server_close()
