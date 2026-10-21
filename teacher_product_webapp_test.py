@@ -1104,7 +1104,7 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
             "setGroupHomeworkMember(",
             "Отмечено учеником",
             "Не отмечено",
-            "Загрузка письменных работ пока не доступна",
+            "Для письменных работ нужен файл и решение преподавателя",
             "Уведомления в очереди",
             "Проверь доставку в Telegram",
         ):
@@ -1206,7 +1206,7 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
             "attachment_submission_not_ready",
             "Отмечено учеником",
             "Отмечено преподавателем",
-            "Загрузка письменных работ пока не доступна",
+            "Для письменных работ нужен файл и решение преподавателя",
         ):
             self.assertIn(token,teacher)
         for token in ("x.submission_mode==='attachment'",
