@@ -732,8 +732,11 @@ class FullyPaidCoursePaymentsTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_future_receipt_date_does_not_save(self):
         from types import SimpleNamespace
+        from datetime import datetime, timedelta
+        # A fixed October 2026 date stopped being future on 21 October.
+        tomorrow=datetime.now(schedule.tz(101)).date()+timedelta(days=1)
         ctx=SimpleNamespace(user_data={"gpay":self._data()})
-        message=SimpleNamespace(text="21.10.2026", reply_text=self.AsyncMock())
+        message=SimpleNamespace(text=tomorrow.strftime("%d.%m.%Y"), reply_text=self.AsyncMock())
         update=SimpleNamespace(effective_user=SimpleNamespace(id=101),message=message)
         state=await self.payments.setup_final(update,ctx)
         self.assertEqual(state,self.payments.GPAY_FINAL)
