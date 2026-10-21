@@ -1018,6 +1018,95 @@ class GroupLessonsMiniAppTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.lessons.upcoming(202,self.gid),[])
         self.assertIn("lesson_occurrences",webapp._view(101,f"group:{self.gid}"))
 
+    def test_lesson_recording_link_save_change_delete_without_upload(self):
+        import teacher_product_lesson_recordings as recordings
+        payload={"action":"group_lesson_recording_url",
+                 "group_id":self.gid,"slot_id":self.slot_id,
+                 "occurrence_key":self.original}
+        original_url="https://drive.google.com/file/d/test/view"
+        self.assertTrue(webapp._teacher_action(101,{**payload,"url":original_url})["ok"])
+        row=next(x for x in webapp._view(101,f"group:{self.gid}")["lesson_occurrences"]
+                 if x["occurrence_key"]==self.original)
+        self.assertEqual(row["recording_url"],original_url)
+        others=[x for x in recordings.decorate(101,self.gid,self.lessons.upcoming(101,self.gid))
+                if x["occurrence_key"]!=self.original]
+        self.assertTrue(all(x["recording_url"]=="" for x in others))
+        self.assertTrue(webapp._teacher_action(101,self.mutation())["ok"])
+        moved=next(x for x in webapp._view(101,f"group:{self.gid}")["lesson_occurrences"]
+                   if x["occurrence_key"]==self.original)
+        self.assertEqual(moved["time"],"19:00")
+        self.assertEqual(moved["recording_url"],original_url)
+        self.assertTrue(webapp._teacher_action(101,{**payload,"url":"https://disk.yandex.ru/i/test"})["ok"])
+        changed=next(x for x in webapp._view(101,f"group:{self.gid}")["lesson_occurrences"]
+                     if x["occurrence_key"]==self.original)
+        self.assertEqual(changed["recording_url"],"https://disk.yandex.ru/i/test")
+        self.assertTrue(webapp._teacher_action(101,{**payload,"url":"  "})["ok"])
+        cleared=next(x for x in webapp._view(101,f"group:{self.gid}")["lesson_occurrences"]
+                     if x["occurrence_key"]==self.original)
+        self.assertEqual(cleared["recording_url"],"")
+        with base.db() as conn:
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_webapp_lesson_recording_links"
+            ).fetchone()[0],0)
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_webapp_lesson_actions "
+                "WHERE kind='add'").fetchone()[0],0)
+
+    def test_lesson_recording_link_is_private_scoped_and_requires_https(self):
+        from datetime import timedelta
+        import teacher_product_lesson_recordings as recordings
+        data={"action":"group_lesson_recording_url",
+              "group_id":self.gid,"slot_id":self.slot_id,
+              "occurrence_key":self.original,"url":"https://example.com/lesson"}
+        self.assertEqual(webapp._teacher_action(202,data)["error"],"group_not_found")
+        self.assertEqual(webapp._teacher_action(101,{**data,"group_id":self.other_gid})["error"],"slot_not_found")
+        self.assertEqual(webapp._teacher_action(101,{**data,"slot_id":999999})["error"],"slot_not_found")
+        self.assertEqual(webapp._teacher_action(101,{**data,"occurrence_key":"bad"})["error"],"invalid_occurrence")
+        self.assertEqual(webapp._teacher_action(101,{**data,"occurrence_key":(self.occurrence+timedelta(days=1)).isoformat()})["error"],"invalid_occurrence")
+        self.assertEqual(webapp._teacher_action(101,{**data,"occurrence_key":(self.occurrence+timedelta(weeks=30)).isoformat()})["error"],"lesson_not_available")
+        for url in ("http://example.com","javascript:alert(1)","https://user:pass@example.com",
+                    "https://example.com/bad url","https://example.com\n/unsafe","https://example.com:"+str(1<<17),
+                    "https://example.com/"+("x"*2050)):
+            with self.subTest(url=url[:60]):
+                self.assertEqual(webapp._teacher_action(101,{**data,"url":url})["error"],"invalid_recording_url")
+        self.assertEqual(webapp._teacher_action(101,{**data,"url":None})["error"],"invalid_recording_url")
+        self.assertEqual(webapp._teacher_action(101,{**data,"slot_id":True})["error"],"invalid_occurrence")
+        self.assertIsNone(webapp._view(202,f"group:{self.gid}"))
+        self.assertEqual(recordings.decorate(202,self.gid,[]),[])
+        with base.db() as conn:
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_webapp_lesson_recording_links").fetchone()[0],0)
+
+    def test_past_lessons_accept_link_after_lesson_has_ended(self):
+        from datetime import timedelta
+        import teacher_product_lesson_recordings as recordings
+        previous=self.occurrence-timedelta(days=7)
+        self.assertTrue(any(x["occurrence_key"]==previous.isoformat()
+                            for x in recordings.past_lessons(101,self.gid)))
+        payload={"action":"group_lesson_recording_url",
+                 "group_id":self.gid,"slot_id":self.slot_id,
+                 "occurrence_key":previous.isoformat(),"url":"https://example.com/past"}
+        self.assertTrue(webapp._teacher_action(101,payload)["ok"])
+        view=webapp._view(101,f"group:{self.gid}")
+        item=next(x for x in view["past_lesson_occurrences"] if x["occurrence_key"]==previous.isoformat())
+        self.assertEqual(item["recording_url"],payload["url"])
+
+    def test_recording_ui_shows_link_no_mp4_and_no_nginx_changes(self):
+        from pathlib import Path
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        self.assertIn("groupLessonRecordingLinks(",html)
+        self.assertIn("groupLessonRecordingForm(",html)
+        self.assertIn("past_lesson_occurrences",html)
+        self.assertIn("async function saveGroupLessonRecordingUrl(",html)
+        self.assertIn("action:'group_lesson_recording_url'",html)
+        self.assertIn('rel="noopener noreferrer"',html)
+        for token in ('type="file"',"recording/upload","recording/file/",
+                      "uploadGroupLessonRecording","data-recording-upload"):
+            self.assertNotIn(token,html)
+        nginx=Path("deployment/prepodmin/nginx-https.conf").read_text(encoding="utf-8")
+        self.assertNotIn("/api/teacher/recording/",nginx)
+        self.assertIn("client_max_body_size 64k",nginx)
+
     def test_lesson_topic_edit_persists_and_survives_single_move(self):
         payload={"action":"group_lesson_topic_update","group_id":self.gid,
                  "slot_id":self.slot_id,"occurrence_key":self.original,

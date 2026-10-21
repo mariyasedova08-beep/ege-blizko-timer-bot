@@ -36,6 +36,7 @@ import teacher_product_help as help_guide
 import teacher_product_group_workspace as group_workspace
 import teacher_product_webapp_homework as webapp_homework
 import teacher_product_webapp_lessons as webapp_lessons
+import teacher_product_lesson_recordings as lesson_recordings
 import teacher_product_student_reminders as student_reminders
 
 PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
@@ -674,6 +675,8 @@ def _teacher_action(uid, payload):
         return webapp_lessons.save(uid, payload)
     if action_name == "group_lesson_topic_update":
         return webapp_lessons.save_topic(uid, payload)
+    if action_name == "group_lesson_recording_url":
+        return lesson_recordings.set_link(uid, payload)
     if action_name == "group_homework_create":
         return webapp_homework.create_group_assignment(uid, payload)
     if action_name == "group_homework_mark":
