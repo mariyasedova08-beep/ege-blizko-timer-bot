@@ -9,6 +9,7 @@ on:
       - 'ege_lab_webapp.py'
       - 'ege_lab_substances.py'
       - 'ege_lab_inorganic_reactions.py'
+      - 'ege_lab_mn_cr_pdf_import.py'
       - 'ege_task6_reactions.py'
       - 'tests/test_lab_release_guard.py'
       - '.github/workflows/ege-lab-ci.yml'
