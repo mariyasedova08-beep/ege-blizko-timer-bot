@@ -24,7 +24,7 @@ RELEASE_ID=EGE-LAB-MNCR-20261021-CHECKED
 LAB_FILES=(ege_lab_webapp.py ege_lab_substances.py ege_lab_inorganic_reactions.py ege_lab_mn_cr_pdf_import.py)
 LIVE_ONLY_FILES=(public_channel_trainers.py run_bot_production.py)
 
-fatal() { echo "RELEASE_ABORTED: $*" >&2; exit 1; }
+fatal() { echo "RELEASE_ABORTED: $*" >&2; return 1; }
 sha_of() { sha256sum "$1" | awk '{print $1}'; }
 
 [[ "${EGE_LAB_APPROVED_RELEASE:-}" == "$RELEASE_ID" ]] || fatal "Missing protected release approval"
