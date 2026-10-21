@@ -64,6 +64,7 @@ def side_atoms(side):
 
 
 def check_balanced(equation):
+    equation = re.sub(r"\((?:конц|нед|изб)\.\)", "", equation)
     lhs, rhs = equation.replace(" —t°→ ", " → ").split(" → ")
     a, b = side_atoms(lhs), side_atoms(rhs)
     if a != b:
