@@ -1,0 +1,3 @@
+EGE-LAB-SSH-CONNECTIVITY-TEST
+NO RELEASE
+This file triggers only ege-lab-ssh-connectivity-test.yml to verify key authentication and deny a prohibited command.
