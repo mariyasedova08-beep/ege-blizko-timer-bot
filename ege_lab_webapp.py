@@ -1129,6 +1129,9 @@ body:has(#lesson.page.on) .app{max-width:none}
 .lesson-pane-head small{color:#82717b;font-size:11px}
 .lesson-lab-body{padding:12px;overflow:auto;flex:1;min-height:0}
 .lesson-lab-body label{font-size:11px;color:#756774;display:block;margin:8px 0 3px}
+.lesson-medium-field[hidden]{display:none!important}
+.lesson-medium-field{display:grid;gap:5px;padding:8px;border:1px solid #ead0dd;border-radius:10px;background:#fffafd}
+.lesson-medium-field small{font-size:11px;line-height:1.35;color:#786674}
 .lesson-lab-body select{width:100%;max-width:100%;border:1px solid #dfd2d9;border-radius:10px;padding:10px 7px;background:#fff;color:#171719;font-size:12px}
 .lesson-lab-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:11px 0}
 .lesson-lab-actions button,.lesson-pane-head button,.lesson-lesson-tools button,.lesson-lesson-tools label{padding:8px 10px;border-radius:11px;font-weight:550}
@@ -1190,6 +1193,17 @@ body:has(#lesson.page.on) .app{max-width:none}
     <div class="lesson-lab-body">
       <label for="lessonReagentA">Первое вещество</label><select id="lessonReagentA"></select>
       <label for="lessonReagentB">Добавить реактив</label><select id="lessonReagentB"></select>
+      <div id="lessonMediumField" class="lesson-medium-field" hidden>
+        <label for="lessonMedium">Среда реакции</label>
+        <select id="lessonMedium">
+          <option value="">Выбери среду...</option>
+          <option value="acid">Кислая</option>
+          <option value="neutral">Нейтральная</option>
+          <option value="weak_alkaline">Слабощелочная</option>
+          <option value="alkaline">Сильнощелочная</option>
+        </select>
+        <small id="lessonMediumHint">Продукты ОВР зависят от среды.</small>
+      </div>
       <div class="lesson-lab-actions">
         <button id="lessonConduct" type="button">▶ Провести</button>
         <button id="lessonHeat" type="button" aria-pressed="false">🔥 Нагрев</button>
@@ -2622,6 +2636,43 @@ async function lessonExportPDF(){
   lessonStatus("Не удалось сохранить PDF. Проверь подключение и попробуй ещё раз.");
  }
 }
+// Medium-specific redox from the authoritative catalogue, never a guessed product.
+// The same source powers the 30/70 offline preview and the live lesson.
+function lessonHasMedium(a,b){
+ if(!a||!b)return a==="kmno4"||b==="kmno4";
+ if(a==="kmno4"||b==="kmno4")return true;
+ return (data.medium_reactions||[]).some(x=>
+   (x.a===a&&x.b===b)||(x.a===b&&x.b===a));
+}
+function lessonUpdateMedium(){
+ const a=document.getElementById("lessonReagentA").value;
+ const b=document.getElementById("lessonReagentB").value;
+ const field=document.getElementById("lessonMediumField");
+ const active=lessonHasMedium(a,b);
+ field.hidden=!active;
+ const select=document.getElementById("lessonMedium");
+ if(!active){select.value="";return;}
+ const title=(a==="kmno4"||b==="kmno4")?"KMnO₄":
+   (a==="k2cr2o7"||b==="k2cr2o7")?"K₂Cr₂O₇":
+   (a==="k2cro4"||b==="k2cro4")?"K₂CrO₄":"выбранного вещества";
+ field.querySelector("label").textContent="Среда реакции с "+title;
+ document.getElementById("lessonMediumHint").textContent=
+   "Укажи среду и дополнительные вещества по уравнению; они не добавляются автоматически.";
+}
+function lessonSelectedReaction(a,b,heated){
+ if(!a||!b)return null;
+ if(lessonHasMedium(a,b)){
+  const medium=document.getElementById("lessonMedium").value;
+  if(!medium)return null;
+  const exact=(data.medium_reactions||[]).find(x=>x.medium===medium &&
+      ((x.a===a&&x.b===b)||(x.a===b&&x.b===a)));
+  if(exact)return exact;
+  if(medium==="alkaline" && ((a==="croh3"&&b==="koh")||(b==="croh3"&&a==="koh")))
+      return findReaction(a,b,heated);
+  return null;
+ }
+ return findReaction(a,b,heated);
+}
 function lessonPopulateReagents(){
  const opts=Object.entries(data.reagents).sort((a,b)=>
   String(a[1][1]||"").localeCompare(String(b[1][1]||""),"ru")||
@@ -2636,28 +2687,35 @@ function lessonPopulateReagents(){
    option.textContent=entry[1][0]+" — "+entry[1][1];
    sel.appendChild(option);
   }
-  sel.onchange=()=>{lessonStarted=false;lessonRenderExperiment();};
+  sel.onchange=()=>{
+   lessonStarted=false;
+   document.getElementById("lessonMedium").value="";
+   lessonUpdateMedium();
+   lessonRenderExperiment();
+  };
  }
  if(data.reagents.kmno4)a.value="kmno4";
  if(data.reagents.na2so3)b.value="na2so3";
+ lessonUpdateMedium();
  lessonRenderExperiment();
 }
 function lessonRenderExperiment(){
  const a=document.getElementById("lessonReagentA").value;
  const b=document.getElementById("lessonReagentB").value;
- const x=lessonStarted&&a&&b?findReaction(a,b,lessonHeated):null;
- const v=lessonStarted&&x?[a,b]:(a?[a]:[]);
- document.getElementById("lessonTube").innerHTML=tubeHTML(v,0,true,lessonHeated,"");
+ const mediumSelect=document.getElementById("lessonMedium");
+ const mediumRequired=lessonHasMedium(a,b);
+ const x=lessonStarted&&a&&b?lessonSelectedReaction(a,b,lessonHeated):null;
+ const visualReaction=x&&x.heat&&!lessonHeated?null:x;
+ const v=lessonStarted&&visualReaction?[a,b]:(a?[a]:[]);
+ document.getElementById("lessonTube").innerHTML=tubeHTML(v,0,true,lessonHeated,"",visualReaction);
  const info=document.getElementById("lessonReaction");
- if(!lessonStarted){
-  info.textContent="Готово к опыту. Веди запись реакции справа и нажми «Провести».";
- }else if(x){
+ if(!a||!b){info.textContent="Выбери оба реактива.";return;}
+ if(mediumRequired&&!mediumSelect.value){info.textContent="Выбери среду реакции, затем нажми «Провести».";return;}
+ if(!lessonStarted){info.textContent="Готово к опыту. Веди запись реакции справа и нажми «Провести».";return;}
+ if(x){
   info.innerHTML=reactionResultHTML(x,lessonHeated);
  }else{
-  const candidate=a&&b?reactionExpected(a,b):null;
-  info.textContent=candidate&&candidate.heat&&!lessonHeated?
-   "Для этой реакции нужно включить нагрев. До этого признаки не показываем.":
-   "Для выбранных веществ в лабораторной базе пока нет подтверждённой реакции. Результат не моделируем.";
+  info.textContent="Для этой пары и выбранной среды нет подтверждённой реакции. Продукт не выдумываем.";
  }
 }
 function lessonSetup(){
@@ -2666,6 +2724,7 @@ function lessonSetup(){
  lessonPopulateReagents();
  lessonRestoreLocal();
  document.getElementById("lessonPDFInput").onchange=event=>lessonOpenPDF(event.target.files[0]);
+ document.getElementById("lessonMedium").onchange=()=>{lessonStarted=false;lessonRenderExperiment();};
  document.getElementById("lessonConduct").onclick=()=>{lessonStarted=true;lessonRenderExperiment();};
  document.getElementById("lessonReset").onclick=()=>{lessonStarted=false;lessonHeated=false;document.getElementById("lessonHeat").setAttribute("aria-pressed","false");lessonRenderExperiment();};
  document.getElementById("lessonHeat").onclick=()=>{lessonHeated=!lessonHeated;document.getElementById("lessonHeat").setAttribute("aria-pressed",String(lessonHeated));lessonRenderExperiment();};
