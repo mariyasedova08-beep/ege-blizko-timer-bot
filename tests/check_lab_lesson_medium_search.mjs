@@ -144,6 +144,34 @@ try{
     await page.locator("#lessonConduct").click();
     assert((await page.locator("#lessonReaction").innerText()).includes("Cr(OH)₃"));
 
+    // Source PDF 32: neutral permanganate plus H2S forms two coloured solids.
+    await page.locator("#lessonReagentA").fill("KMnO4");
+    await page.locator("#lessonSuggestionsA button").first().click();
+    await page.locator("#lessonReagentB").fill("H2S");
+    await page.locator("#lessonSuggestionsB button").first().click();
+    await page.locator("#lessonMedium").selectOption("neutral");
+    await page.locator("#lessonConduct").click();
+    const dualSolid=await page.locator("#lessonReaction").innerText();
+    assert(dualSolid.includes("MnO₂") && dualSolid.includes("S↓"));
+
+    // Source PDF 33: weakly alkaline chromium complex is a separate result.
+    await page.locator("#lessonReagentA").fill("K2Cr2O7");
+    await page.locator("#lessonSuggestionsA button").first().click();
+    await page.locator("#lessonReagentB").fill("K2SO3");
+    await page.locator("#lessonSuggestionsB button").first().click();
+    await page.locator("#lessonMedium").selectOption("weak_alkaline");
+    await page.locator("#lessonConduct").click();
+    assert((await page.locator("#lessonReaction").innerText()).includes("K[Cr(OH)₄]"));
+
+    // Examples held for chemical review must not be shown as verified.
+    await page.locator("#lessonReagentA").fill("KMnO4");
+    await page.locator("#lessonSuggestionsA button").first().click();
+    await page.locator("#lessonReagentB").fill("KBr");
+    await page.locator("#lessonSuggestionsB button").first().click();
+    await page.locator("#lessonMedium").selectOption("alkaline");
+    await page.locator("#lessonConduct").click();
+    assert.match(await page.locator("#lessonReaction").innerText(),/нет проверенной реакции/);
+
     // Existing PDF-stylus functionality remains on the same screen.
     for(const selector of ["#lessonPDFInput","#lessonInkCanvas","#lessonExport","#lessonToolPen"]){
       assert.equal(await page.locator(selector).count(),1,selector+" missing");
