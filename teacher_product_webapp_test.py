@@ -92,6 +92,53 @@ class TeacherDashboardTest(unittest.TestCase):
         self.assertIn("groupLessonRecordingLinks(",html)
         self.assertIn("groupLessonTopic",html)
 
+    def test_desktop_home_overview_and_group_students_use_dense_layout(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        marker="/* PREPODMIN desktop workspace: home overview + group directory density."
+        self.assertEqual(html.count(marker),1)
+        css=html.split(marker,1)[1].split("</style>",1)[0]
+        self.assertIn("@media (min-width:900px){",css)
+        self.assertIn("@media (min-width:900px) and (max-width:1020px){",css)
+        for expected in (
+            ".hero-main,.hero-note{display:none}",
+            ".grid .card{display:grid;grid-template-columns:30px minmax(0,1fr);",
+            ".grid .card .hint{display:none}",
+            ".day-panels{gap:9px;margin:9px 0 12px}",
+            ".gquickbar .gquickbar-secondary-nav{display:none}",
+            ".gmemberrow{display:grid;grid-template-columns:minmax(0,1fr) auto;",
+            ".gmemberbottom{display:flex;flex-direction:column;",
+            ".gmemberlinks{gap:5px;justify-content:flex-end}",
+            ".gmemberrow button:focus-visible",
+            "var(--hot)",
+        ):
+            self.assertIn(expected,css)
+        # Do not modify mobile styling, reduce font below 11px, or use CSS scale.
+        self.assertNotIn("@media(max-width",css)
+        self.assertNotIn("zoom:",css)
+        self.assertNotIn("transform:scale",css)
+        self.assertNotIn("font-size:10px",css)
+        # The full figures remain in their interactive cards; hero duplicates
+        # are only visually hidden on wide screens.
+        home=html.split("function renderHome(d){",1)[1].split("function moreLink(",1)[0]
+        self.assertIn("'<div class=\"hero\">",home)
+        self.assertIn("c.lessons||0",home)
+        for destination in ("'tasks'","'schedule'","'payments'","'attention'"):
+            self.assertIn(destination,home)
+        self.assertIn("class=\"grid\"",home)
+        group=html.split("function renderGroup(d){",1)[1].split("function renderMember(d){",1)[0]
+        self.assertIn("gquickbar-secondary-nav",group)
+        self.assertIn("['members','Ученики']",group)
+        self.assertIn("['lessons','Занятия']",group)
+        for action in (
+            "openMemberQuick('+pid+',\\'payment\\')",
+            "openMemberQuick('+pid+',\\'homework\\')",
+            "openMemberQuick('+pid+',\\'profile\\')",
+        ):
+            self.assertIn(action,group)
+        self.assertIn("Нет ДЗ к выполнению",group)
+        self.assertIn("Telegram подключён",group)
+        self.assertIn("p.amount!=null?money(p.amount)",group)
+
     def test_single_direct_browser_launch_without_extra_window_prompt(self):
         html = webapp.HTML_PATH.read_text(encoding="utf-8")
         # Personalized URL links must not leak through Referer.
