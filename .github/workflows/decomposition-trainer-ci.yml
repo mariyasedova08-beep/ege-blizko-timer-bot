@@ -1,0 +1,35 @@
+name: EGE BLIZKO decomposition trainer checks (no deployment)
+
+on:
+  push:
+    branches:
+      - 'feature/decomposition-telegram-trainer-*'
+    paths:
+      - 'decomposition_trainer*'
+      - 'tests/test_decomposition_bank.py'
+      - '.github/workflows/decomposition-trainer-ci.yml'
+      - 'run_bot_production.py'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'decomposition_trainer*'
+      - 'tests/test_decomposition_bank.py'
+      - '.github/workflows/decomposition-trainer-ci.yml'
+      - 'run_bot_production.py'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax and offline bank tests only
+        run: |
+          python -m py_compile decomposition_trainer.py decomposition_trainer_bank.py run_bot_production.py
+          python -m unittest discover -s tests -p 'test_decomposition_bank.py' -v
