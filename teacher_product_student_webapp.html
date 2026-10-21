@@ -120,7 +120,7 @@ async function uploadHomeworkFiles(aid){
  var input=document.getElementById('hw-upload-'+Number(aid));
  var files=input?Array.from(input.files||[]):[];
  if(!files.length||files.length>5){alert('Выбери от 1 до 5 файлов.');return;}
- if(files.some(function(f){return f.size<12||f.size>8*1024*1024||!/\\.(pdf|png|jpe?g)$/i.test(f.name)})){
+ if(files.some(function(f){return f.size<12||f.size>8*1024*1024||!/\.(pdf|png|jpe?g)$/i.test(f.name)})){
   alert('Нужны фото JPG/PNG или PDF размером до 8 МБ.');return;
  }
  homeworkUploadBusy=true;
