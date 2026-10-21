@@ -119,7 +119,7 @@ try{
     await page.locator("#lessonReagentB").fill("H2O2");
     await page.locator("#lessonSuggestionsB button").first().click();
     assert.equal(await page.locator("#lessonMediumField").isVisible(),true);
-    assert.match(await page.locator("#lessonMediumField label").innerText(),/Cr\\(III\\)/);
+    assert((await page.locator("#lessonMediumField label").innerText()).includes("Cr(III)"));
     await page.locator("#lessonMedium").selectOption("alkaline");
     await page.locator("#lessonConduct").click();
     assert.match(await page.locator("#lessonReaction").innerText(),/Нужен нагрев/);
@@ -142,7 +142,7 @@ try{
     await page.locator("#lessonSuggestionsB button").first().click();
     assert.equal(await page.locator("#lessonMediumField").isVisible(),false);
     await page.locator("#lessonConduct").click();
-    assert.match(await page.locator("#lessonReaction").innerText(),/Cr\\(OH\\)₃/);
+    assert((await page.locator("#lessonReaction").innerText()).includes("Cr(OH)₃"));
 
     // Existing PDF-stylus functionality remains on the same screen.
     for(const selector of ["#lessonPDFInput","#lessonInkCanvas","#lessonExport","#lessonToolPen"]){
