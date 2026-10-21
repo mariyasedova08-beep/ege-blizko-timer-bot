@@ -204,6 +204,9 @@ def _homework(link):
         kind = item["subject_kind"]
         key = (item["assignment_id"],kind,item["subject_id"])
         item["submission"] = attempt_map.get(key)
+        if item["submission_mode"] == "attachment" and item["submission"]:
+            if item["submission"]["status"] in ("submitted", "approved"):
+                item["overdue"] = False
     return items
 
 
