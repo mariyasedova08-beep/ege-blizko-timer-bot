@@ -693,6 +693,36 @@ h1{font-size:clamp(27px,5vw,32px);font-weight:670;line-height:1.13;letter-spacin
  .gmemberbottom{min-width:0;width:100%;align-items:center;gap:8px}
 }
 
+
+/* PREPODMIN: inline group homework progress and teacher marks. */
+.ghw-explain{margin:8px 1px 12px;line-height:1.45}
+.ghw-card{background:var(--paper);border:1px solid var(--line);border-radius:15px;padding:15px 16px;margin:11px 0}
+.ghw-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:7px}
+.ghw-card-head strong{font-weight:640;line-height:1.45;overflow-wrap:anywhere}
+.ghw-count{flex-shrink:0;font-size:13px;font-weight:650;background:var(--soft);border-radius:10px;padding:5px 9px;white-space:nowrap}
+.ghw-progress{height:5px;border-radius:6px;background:var(--milk);margin:11px 0;overflow:hidden}
+.ghw-progress>span{display:block;height:100%;background:var(--hot);border-radius:6px}
+.ghw-delivery{font-size:12px;margin-bottom:6px}
+.ghw-details{border-top:1px solid var(--line);margin-top:11px}
+.ghw-details>summary{display:flex;align-items:center;justify-content:space-between;list-style:none;cursor:pointer;font-size:13px;font-weight:620;padding:11px 0 1px}
+.ghw-details>summary::-webkit-details-marker{display:none}
+.ghw-member{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.ghw-member:last-of-type{border-bottom:0}
+.ghw-member-name{min-width:0;overflow-wrap:anywhere;font-size:13px}
+.ghw-toggle{font:inherit;font-size:12px;color:var(--ink);background:var(--milk);border:1px solid var(--line);border-radius:9px;padding:8px 11px;cursor:pointer}
+.ghw-toggle:hover{border-color:var(--hot)}
+.ghw-toggle:focus-visible,.ghw-details>summary:focus-visible{outline:2px solid var(--hot);outline-offset:2px}
+.ghw-empty{padding:12px 0}
+@media(max-width:620px){
+ .ghw-member{grid-template-columns:minmax(0,1fr) auto;gap:7px}
+ .ghw-toggle{grid-column:1/-1;justify-self:start}
+}
+@media(min-width:900px){
+ .ghw-card{padding:12px 15px;margin:9px 0}
+ .ghw-member-name,.ghw-details>summary{font-size:14px}
+ .ghw-toggle{font-size:13px}
+}
+
 </style>
 </head>
 <body>
@@ -1144,12 +1174,26 @@ function renderGroup(d){
  out+='</div></section>';
  out+='<section data-gpanel="homework" class="gsection" hidden><div class="gcontrols"><button type="button" onclick="toggleGroupHomeworkForm('+gid+')">＋ Выдать ДЗ группе</button></div><div id="group-homework-form" hidden></div>';
  if(groupHomeworkNotice){out+='<div class="gtoast" role="status">'+esc(groupHomeworkNotice)+'</div>';groupHomeworkNotice='';}
+ if((d.homework||[]).length)out+='<p class="gquiet ghw-explain">«Выполнено» означает отметку ученика или преподавателя. Письменные решения и файлы через эту вкладку пока не принимаются.</p>';
  (d.homework||[]).forEach(function(h){
-  var delivery=h.delivery||null,ds=delivery?delivery.state:'';
+  var aid=Number(h.id),delivery=h.delivery||null,ds=delivery?delivery.state:'';
   var dlabel=ds==='pending'?'Уведомления в очереди':ds==='sending'?'Уведомления обрабатываются':ds==='failed'?'Проверь доставку в Telegram':ds==='done'?'Отправка обработана':'';
-  out+='<div class="gblock"><strong>'+esc(h.text)+'</strong><div class="gquiet">До '+shortDate(h.due)+' · выполнено '+Number(h.done)+'/'+Number(h.total)+'</div>'+(dlabel?'<div class="gquiet">'+esc(dlabel)+'</div>':'')+'</div>';
+  var done=Number(h.done)||0,total=Number(h.total)||0,pct=total?Math.max(0,Math.min(100,Math.round(done/total*100))):0;
+  out+='<article class="ghw-card"><div class="ghw-card-head"><strong>'+esc(h.text)+'</strong><span class="ghw-count">'+done+' / '+total+'</span></div>';
+  out+='<div class="gquiet">Срок: '+esc(shortDate(h.due))+'</div><div class="ghw-progress" role="progressbar" aria-label="Отмечено выполненным" aria-valuenow="'+done+'" aria-valuemin="0" aria-valuemax="'+Math.max(total,done)+'"><span style="width:'+pct+'%"></span></div>';
+  if(dlabel)out+='<div class="gquiet ghw-delivery">'+esc(dlabel)+'</div>';
+  var isExpanded=expandedGroupHomeworkId===aid;
+  out+='<details class="ghw-details" '+(isExpanded?'open ':'')+'ontoggle="rememberGroupHomeworkExpanded('+aid+',this.open)"><summary>Статусы учеников <span aria-hidden="true">⌄</span></summary>';
+  (h.members||[]).forEach(function(member){
+   var mid=Number(member.id),finished=member.status==='done';
+   out+='<div class="ghw-member"><span class="ghw-member-name">'+esc(member.name)+'</span>';
+   out+='<span class="statuspill '+(finished?'ok':'')+'">'+(finished?'Выполнено':'В работе')+'</span>';
+   out+='<button type="button" class="ghw-toggle" onclick="setGroupHomeworkMember('+gid+','+aid+','+mid+',\''+(finished?'pending':'done')+'\')">'+(finished?'↶ Вернуть в работу':'✓ Отметить выполненным')+'</button></div>';
+  });
+  if(!(h.members||[]).length)out+='<div class="gquiet ghw-empty">Нет доступных учеников с отметками для этого ДЗ.</div>';
+  out+='</details></article>';
  });
- if(!(d.homework||[]).length)out+='<div class="empty">Домашних заданий пока нет</div>';
+ if(!(d.homework||[]).length)out+='<div class="empty">Домашних заданий пока нет. Нажми «Выдать ДЗ группе», чтобы создать первое.</div>';
  out+='</section>';
  document.getElementById('app').innerHTML=out;
  setGroupTab(activeGroupTab);
@@ -1464,6 +1508,25 @@ async function saveGroupLesson(gid,kind,slot,key,actualDate,actualTime){
   error.textContent=errors[e.message]||'Не удалось сохранить. Попробуй снова — повторного изменения не будет.';
   await reportClientError('group_lesson_mutate',e);
  }finally{groupLessonSavePending=false;button.disabled=false;}
+}
+
+var expandedGroupHomeworkId=0,groupHomeworkActionPending=false;
+function rememberGroupHomeworkExpanded(aid,isOpen){
+ if(isOpen)expandedGroupHomeworkId=Number(aid);
+ else if(expandedGroupHomeworkId===Number(aid))expandedGroupHomeworkId=0;
+}
+async function setGroupHomeworkMember(gid,aid,mid,status){
+ if(groupHomeworkActionPending||(status!=='done'&&status!=='pending'))return;
+ groupHomeworkActionPending=true;
+ try{
+  await teacherAction({action:'group_homework_mark',assignment_id:Number(aid),member_id:Number(mid),status:status});
+  expandedGroupHomeworkId=Number(aid);
+  activeGroupTab='homework';
+  await openView('group:'+Number(gid),true);
+ }catch(e){
+  await reportClientError('group_homework_mark_inline',e);
+  alert('Не удалось обновить статус ДЗ. Попробуй ещё раз.');
+ }finally{groupHomeworkActionPending=false;}
 }
 
 var groupHomeworkNotice='',groupHomeworkSavePending=false,groupHomeworkRequestKey='';
