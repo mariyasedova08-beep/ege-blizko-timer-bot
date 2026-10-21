@@ -15,6 +15,11 @@ def atoms(formula):
     formula = formula.translate(SUBS).replace("↓", "").replace("↑", "").strip()
     if not formula:
         raise ValueError("empty formula")
+    if "·" in formula:
+        total = Counter()
+        for component in formula.split("·"):
+            total.update(atoms(component))
+        return total
     stack = [Counter()]
     i = 0
     while i < len(formula):
@@ -50,7 +55,7 @@ def atoms(formula):
 def side_atoms(side):
     total = Counter()
     for fragment in side.split(" + "):
-        m = re.fullmatch(r"\s*(\d+)?\s*([A-Za-z₀-₉()\[\]↓↑]+)\s*", fragment)
+        m = re.fullmatch(r"\s*(\d+)?\s*([A-Za-z₀-₉()\[\]↓↑·]+)\s*", fragment)
         if not m:
             raise ValueError(f"bad species: {fragment}")
         n = int(m[1]) if m[1] else 1
@@ -59,7 +64,7 @@ def side_atoms(side):
 
 
 def check_balanced(equation):
-    lhs, rhs = equation.split(" → ")
+    lhs, rhs = equation.replace(" —t°→ ", " → ").split(" → ")
     a, b = side_atoms(lhs), side_atoms(rhs)
     if a != b:
         raise AssertionError(f"Not balanced: {equation}\nleft: {a}\nright: {b}")
@@ -68,7 +73,7 @@ def check_balanced(equation):
 class PriorityChemistry(unittest.TestCase):
     def test_curated_count_and_identifiers(self):
         medium = CHEM["MEDIUM_REACTIONS"]
-        self.assertEqual(len(medium), 24)
+        self.assertEqual(len(medium), 26)
         for row in medium:
             self.assertIn(row["a"], REAGENTS)
             self.assertIn(row["b"], REAGENTS)
@@ -94,12 +99,46 @@ class PriorityChemistry(unittest.TestCase):
             frozenset(("alcl3", "na2co3")),
             frozenset(("agno3", "k2co3")),
             frozenset(("mg", "pbno3")),
+            frozenset(("crcl3", "naoh")),
+            frozenset(("crcl3", "koh")),
+            frozenset(("crcl3", "nh3")),
+            frozenset(("crcl3", "na2co3")),
+            frozenset(("crno3_3", "naoh")),
+            frozenset(("cr2so43", "naoh")),
+            frozenset(("croh3", "hno3")),
+            frozenset(("croh3", "h2so4")),
+            frozenset(("croh3", "koh")),
+            frozenset(("cr2o3", "h2so4")),
+            frozenset(("fecl2", "na2co3")),
+            frozenset(("feso4", "na2co3")),
+            frozenset(("cl2", "nabr")),
         }
         added = [row for row in extra if frozenset(row[:2]) in expected_pairs]
         self.assertEqual(len(added), len(expected_pairs))
         for row in added:
             with self.subTest(reaction=row[2]):
                 check_balanced(row[2])
+
+    def test_documented_absent_reactions_are_not_missing_data(self):
+        extra = CHEM["EXTRA_REACTIONS"]
+        for a, b in [
+            ("fe", "mgso4"), ("cu", "pbno3"),
+            ("br2", "kcl"), ("i2", "kbr"),
+        ]:
+            with self.subTest(pair=(a, b)):
+                matching = [x for x in extra if frozenset(x[:2]) == frozenset((a, b))]
+                self.assertEqual(len(matching), 1)
+                self.assertEqual(matching[0][3], "z")
+
+    def test_chromium_three_alkaline_oxidation_requires_heat(self):
+        matching = [m for m in CHEM["MEDIUM_REACTIONS"] if
+                    m["a"] in {"croh3", "crcl3"} and m["b"] == "h2o2"]
+        self.assertEqual(len(matching), 2)
+        for row in matching:
+            self.assertEqual(row["medium"], "alkaline")
+            self.assertTrue(row["heat"])
+            self.assertIn("Na₂CrO₄", row["eq"])
+            self.assertEqual(row["sol"], "#f5d532")
 
     def test_dichromate_and_chromate_remain_separate(self):
         medium = CHEM["MEDIUM_REACTIONS"]
