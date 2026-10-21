@@ -68,7 +68,7 @@ def check_balanced(equation):
 class PriorityChemistry(unittest.TestCase):
     def test_curated_count_and_identifiers(self):
         medium = CHEM["MEDIUM_REACTIONS"]
-        self.assertEqual(len(medium), 14)
+        self.assertEqual(len(medium), 24)
         for row in medium:
             self.assertIn(row["a"], REAGENTS)
             self.assertIn(row["b"], REAGENTS)
@@ -91,6 +91,9 @@ class PriorityChemistry(unittest.TestCase):
             frozenset(("fe", "pbno3")),
             frozenset(("zn", "pbno3")),
             frozenset(("fecl2", "na2s")),
+            frozenset(("alcl3", "na2co3")),
+            frozenset(("agno3", "k2co3")),
+            frozenset(("mg", "pbno3")),
         }
         added = [row for row in extra if frozenset(row[:2]) in expected_pairs]
         self.assertEqual(len(added), len(expected_pairs))
