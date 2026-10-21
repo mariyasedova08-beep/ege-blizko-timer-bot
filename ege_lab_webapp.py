@@ -1284,6 +1284,17 @@ body:has(#lesson.page.on) .app{max-width:none}
   <aside class="lab-controls">
     <h2>Действия</h2>
     <div class="selected-card"><b>Выбрана пробирка <span id="selectedTubeLabel">1</span></b><span>Добавь до двух реактивов; для нужных реакций можно выбрать избыток.</span></div>
+    <div id="tubeMediumField" class="lesson-medium-field" hidden>
+      <label for="tubeMedium">Среда реакции</label>
+      <select id="tubeMedium">
+        <option value="">Выбери среду...</option>
+        <option value="acid">Кислая</option>
+        <option value="neutral">Нейтральная</option>
+        <option value="weak_alkaline">Слабощелочная</option>
+        <option value="alkaline">Сильнощелочная</option>
+      </select>
+      <small>Для некоторых ОВР результат определяется средой и дополнительными реагентами из уравнения.</small>
+    </div>
     <div class="control-stack">
       <button id="excess">➕ Последний реактив в избытке</button>
       <button id="heat">🔥 Нагреть</button>
@@ -1350,7 +1361,7 @@ if(labBackHistory){
   };
 }
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все", selectedReagentSearch="";
-let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
+let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], tubeMedium=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
 let oge23Mode="learn",oge23Index=0,oge23Rows=["",""],oge23Tests=[{},{}],oge23Conclusion=["",""],oge23Identified=false;
 let egeMode="6",egeTask6Index=0,egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;
@@ -1539,20 +1550,56 @@ function tubeHTML(v,i,active,heated,excess=""){
  const shimmer=(heated&&v.length)?'<i class="heatShimmer"></i>':"";
  return '<div class="tube '+(active?'on':'')+'"><i class="liq" style="height:'+liquidHeight+'%;background:'+sol+'"></i>'+solids+reactionVisual+shimmer+'</div>';
 }
+function tubeHasMedium(v){
+ if(v.length!==2)return false;
+ return (v.includes("kmno4")||(data.medium_reactions||[]).some(r=>
+   (r.a===v[0]&&r.b===v[1])||(r.a===v[1]&&r.b===v[0])));
+}
+function tubeReaction(i){
+ const v=tubes[i];if(v.length!==2)return null;
+ if(!tubeHasMedium(v))return reactionExpected(v[0],v[1],tubeExcess[i]);
+ const medium=tubeMedium[i];
+ if(!medium)return null;
+ const exact=(data.medium_reactions||[]).find(r=>r.medium===medium &&
+   ((r.a===v[0]&&r.b===v[1])||(r.a===v[1]&&r.b===v[0])));
+ if(exact)return exact;
+ if(medium==="alkaline"&&v.includes("croh3")&&v.includes("koh"))
+   return reactionExpected(v[0],v[1]);
+ return null;
+}
+function syncTubeMedium(){
+ const field=document.getElementById("tubeMediumField");
+ if(!field)return;
+ const visible=tubeHasMedium(tubes[selectedTube]);
+ field.hidden=!visible;
+ document.getElementById("tubeMedium").value=visible?tubeMedium[selectedTube]:"";
+}
 function renderTubes(){
  const box=document.getElementById("tubes");box.innerHTML="";
  tubes.forEach((v,i)=>{
   const wrap=document.createElement("div");wrap.className="tube-slot"+(i===selectedTube?" active-slot":"");
-  const x=v.length===2?reactionExpected(v[0],v[1],tubeExcess[i]):null;
+  const hasMedium=tubeHasMedium(v);
+  const x=v.length===2?tubeReaction(i):null;
+  const visibleReaction=x&&x.heat&&!tubeHeat[i]?null:x;
   let callout="";
   if(i===selectedTube&&v.length===2){
     const cls=i===0?" edge-left":i===3?" edge-right":"";
-    callout='<div class="tube-callout'+cls+'">'+reactionResultHTML(x,tubeHeat[i])+'</div>';
+    const content=x?reactionResultHTML(x,tubeHeat[i]):
+      hasMedium&&tubeMedium[i]?
+      '<div class="reaction-card no-visible">Для этой среды нет подтверждённой реакции. Результат не моделируем.</div>':
+      hasMedium?'<div class="reaction-card no-visible">Выбери среду реакции справа.</div>':
+      reactionResultHTML(x,tubeHeat[i]);
+    callout='<div class="tube-callout'+cls+'">'+content+'</div>';
   }
   const excessLabel=tubeExcess[i]?'<div class="tubeSmall">избыток: '+reagent(tubeExcess[i])[0]+'</div>':'';
-  wrap.innerHTML=callout+tubeHTML(v,i,i===selectedTube,tubeHeat[i],tubeExcess[i])+'<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+(v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>'+excessLabel;
+  wrap.innerHTML=callout+
+      (hasMedium?tubeHTML(v,i,i===selectedTube,tubeHeat[i],tubeExcess[i],visibleReaction):
+                 tubeHTML(v,i,i===selectedTube,tubeHeat[i],tubeExcess[i]))+
+      '<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+
+      (v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>'+excessLabel;
   wrap.onclick=()=>{selectedTube=i;syncTubePicker();renderTubes()};box.appendChild(wrap);
  });
+ syncTubeMedium();
  positionMobileReactionCallout();
 }
 function positionMobileReactionCallout(){
@@ -1647,18 +1694,32 @@ function setupReagentSearch(){
 }
 function add(id){
  if(tubes[selectedTube].length>=2)return;
- tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";
+ tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeMedium[selectedTube]="";
  tubes[selectedTube].push(id);
  if(tubes[selectedTube].length===2){
-  let x=reactionExpected(tubes[selectedTube][0],tubes[selectedTube][1],"");
-  document.getElementById("result").innerHTML=x?(x.heat?"Нужен нагрев 🔥":"Карточка реакции показана над пробиркой ↑"):"Этот опыт пока не добавлен в базу";
+  const needsMedium=tubeHasMedium(tubes[selectedTube]);
+  const x=needsMedium?null:tubeReaction(selectedTube);
+  document.getElementById("result").textContent=needsMedium?"Выбери среду реакции справа.":
+      x?(x.heat?"Нужен нагрев 🔥":"Карточка реакции показана над пробиркой ↑"):
+      "Этот опыт пока не добавлен в базу";
   if(x&&!x.heat)api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()});
  }
  renderTubes();
 }
+document.getElementById("tubeMedium").onchange=()=>{
+ tubeMedium[selectedTube]=document.getElementById("tubeMedium").value;
+ tubeHeat[selectedTube]=false;
+ const v=tubes[selectedTube],rx=tubeReaction(selectedTube);
+ document.getElementById("result").textContent=!tubeMedium[selectedTube]?"Выбери среду реакции.":
+   rx?(rx.heat?"Нужен нагрев 🔥":"Карточка реакции показана над пробиркой ↑"):
+   "Для выбранной среды нет подтверждённой реакции.";
+ if(rx&&!rx.heat)api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()});
+ renderTubes();
+};
 document.getElementById("excess").onclick=()=>{
  const v=tubes[selectedTube];
  if(v.length!==2){document.getElementById("result").textContent="Сначала добавь два реактива.";return}
+ if(tubeHasMedium(v)){document.getElementById("result").textContent="Выбор среды и избытка для этой ОВР задаётся полем «Среда».";return}
  tubeExcess[selectedTube]=v[v.length-1];
  const x=reactionExpected(v[0],v[1],tubeExcess[selectedTube]);
  document.getElementById("result").innerHTML=x&&x.excess?"Показываю реакцию при избытке "+reagent(tubeExcess[selectedTube])[0]+".":"Для этой пары отдельный результат избытка пока не требуется.";
@@ -1666,12 +1727,13 @@ document.getElementById("excess").onclick=()=>{
 };
 document.getElementById("heat").onclick=()=>{
  let v=tubes[selectedTube];tubeHeat[selectedTube]=true;
- let x=v.length===2?findReaction(v[0],v[1],true,tubeExcess[selectedTube]):null;
+ let x=v.length===2?(tubeHasMedium(v)?tubeReaction(selectedTube):
+     findReaction(v[0],v[1],true,tubeExcess[selectedTube])):null;
  if(x){document.getElementById("result").innerHTML="Карточка реакции показана над пробиркой ↑";api({action:"event",type:"experiment"}).then(j=>{data.stats=j.stats;renderStats()})}
  else if(v.length===2){document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🔥 Нагрев</span></div><div class="reaction-sign">При нагревании видимого изменения нет.</div></div>'}
  renderTubes();
 };
-document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🧽 Готово</span></div><div class="reaction-sign">Пробирка очищена.</div></div>';renderTubes()};
+document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeMedium[selectedTube]="";document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🧽 Готово</span></div><div class="reaction-sign">Пробирка очищена.</div></div>';renderTubes()};
 
 function setupLab(){
  unknownOrder=[...data.lab].sort(()=>Math.random()-.5);
