@@ -1,0 +1,2 @@
+Read-only GitHub/VPS inventory after pinned host key parsing improvement.
+No deployment, no application changes.
