@@ -1,0 +1,77 @@
+name: "ЕГЭ БЛИЗКО — исправление кнопки подписчиков"
+
+on:
+  pull_request:
+    paths:
+      - 'deploy/channel_catalog_bridge_patch.py'
+      - 'deploy/bootstrap_channel_catalog_release.sh'
+      - 'tests/test_channel_catalog_bridge_patch.py'
+      - '.github/workflows/channel-catalog-controlled-release.yml'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Исправление статистики подписчиков'
+        type: choice
+        required: true
+        options: [install, rollback]
+        default: install
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ege-blizko-controlled-application-release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Catalog regression and file rollback tests
+        run: |
+          python -m py_compile deploy/channel_catalog_bridge_patch.py
+          bash -n deploy/bootstrap_channel_catalog_release.sh
+          python -m unittest discover -s tests -p 'test_channel_catalog_bridge_patch.py' -v
+
+  release:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.actor == 'mariyasedova08-beep'
+    needs: check
+    runs-on: ubuntu-latest
+    environment: ege-lab-production
+    timeout-minutes: 12
+    steps:
+      - name: Run only the preinstalled root-owned reviewed helper
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$SSH_HOST" == "77.233.212.200" && "$SSH_USER" == "ege-deploy" ]]
+          [[ -n "$DEPLOY_KEY" && -n "$KNOWN_HOSTS" ]]
+          case "$OPERATION" in
+            install) command='sudo -n /usr/local/sbin/ege-channel-catalog-release EGE-CHANNEL-CATALOG-20261022-REVIEWED' ;;
+            rollback) command='sudo -n /usr/local/sbin/ege-channel-catalog-release EGE-CHANNEL-CATALOG-20261022-REVIEWED-ROLLBACK' ;;
+            *) exit 1 ;;
+          esac
+          umask 077
+          release_key="$RUNNER_TEMP/channel-catalog-release-key"
+          release_hosts="$RUNNER_TEMP/channel-catalog-release-known-hosts"
+          trap 'rm -f "$release_key" "$release_hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$release_key"
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > "$release_hosts"
+          ssh-keygen -y -f "$release_key" >/dev/null
+          ssh-keygen -lf "$release_hosts" >/dev/null
+          ssh-keygen -F "$SSH_HOST" -f "$release_hosts" | awk 'NF >= 3 && $2 == "ssh-ed25519" {n++} END {exit n != 1}'
+          ssh -T -F /dev/null -o BatchMode=yes -o PasswordAuthentication=no \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$release_hosts" -o ConnectTimeout=10 \
+            -i "$release_key" "$SSH_USER@$SSH_HOST" "$command"
