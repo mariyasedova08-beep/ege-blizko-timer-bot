@@ -1,0 +1,86 @@
+name: "ЕГЭ БЛИЗКО — закрытая копия маршрутизаторов (без публикации)"
+
+on:
+  pull_request:
+    paths:
+      - 'deploy/seal_decomposition_routing_copy.py'
+      - 'deploy/capture_decomposition_routing_copy.py'
+      - 'tests/test_decomposition_routing_copy.py'
+      - 'tests/test_decomposition_routing_transport.py'
+      - '.github/workflows/decomposition-routing-copy.yml'
+  workflow_dispatch:
+    inputs:
+      recipient_key_verified:
+        description: 'Получатель проверил расшифровку тестового CMS своим ключом вне публичных логов'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: decomposition-private-routing-copy
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline synthetic tests only
+        run: |
+          python -m py_compile deploy/seal_decomposition_routing_copy.py deploy/capture_decomposition_routing_copy.py
+          python -m unittest discover -s tests -p 'test_decomposition_routing*.py' -v
+
+  capture:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.actor == 'mariyasedova08-beep' && inputs.recipient_key_verified == true
+    needs: check
+    environment: ege-lab-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check existing pinned SSH identity and capture ciphertext only
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$SSH_HOST" == "77.233.212.200" && "$SSH_USER" == "ege-deploy" ]]
+          [[ -n "$DEPLOY_KEY" && -n "$KNOWN_HOSTS" ]]
+          umask 077
+          copy_key="$RUNNER_TEMP/routing-copy-key"
+          copy_hosts="$RUNNER_TEMP/routing-copy-known-hosts"
+          trap 'rm -f "$copy_key" "$copy_hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$copy_key"
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > "$copy_hosts"
+          ssh-keygen -y -f "$copy_key" >/dev/null
+          ssh-keygen -lf "$copy_hosts" >/dev/null
+          ssh-keygen -F "$SSH_HOST" -f "$copy_hosts" | awk 'NF >= 3 && $2 == "ssh-ed25519" {n++} END {exit n != 1}'
+          python deploy/capture_decomposition_routing_copy.py \
+            --certificate deploy/sealed-audit-public-cert.crt \
+            --key "$copy_key" --known-hosts "$copy_hosts" \
+            --host "$SSH_HOST" --user "$SSH_USER" \
+            --output "$RUNNER_TEMP/decomposition-routing.cms"
+      - name: Retain encrypted copy for one day
+        uses: actions/upload-artifact@v4
+        with:
+          name: decomposition-routing-ciphertext
+          path: ${{ runner.temp }}/decomposition-routing.cms
+          retention-days: 1
+          if-no-files-found: error
+      - name: State the boundary
+        run: |
+          echo 'Only two encrypted modules. No application import, database read, code write or restart.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Routing behavior remains unverified. This is not a bot deployment.' >> "$GITHUB_STEP_SUMMARY"
