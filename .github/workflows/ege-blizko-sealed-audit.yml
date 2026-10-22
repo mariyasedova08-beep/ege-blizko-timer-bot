@@ -32,7 +32,7 @@ jobs:
           set -Eeuo pipefail
           python3 -m py_compile deploy/ege-sealed-source-diff.py
           python3 -m unittest discover -s tests -p 'test_ege_sealed_source_diff.py' -v
-          echo "719c09d94adba83fe4d82f2a1507f163443b97e9e2d80cdfc1215f9747448088  deploy/sealed-audit-public-cert.crt" | sha256sum --check --status
+          echo "fe1f46e8f15ae494bef7280ab5491bf3a243a9e5c7c124bbc294bdf462754d6b  deploy/sealed-audit-public-cert.crt" | sha256sum --check --status
           openssl x509 -in deploy/sealed-audit-public-cert.crt -checkend 0 -noout
           echo RECIPIENT_CERTIFICATE_PINNED
 
