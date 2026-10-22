@@ -58,6 +58,9 @@ def main():
     import middle_salts_trainer
     middle_salts_trainer.install()
 
+    import irreversible_hydrolysis_trainer
+    irreversible_hydrolysis_trainer.install()
+
     # Personal launch campaigns at 16:00 Moscow.
     import oxide_properties_campaign  # noqa: F401
     import hydroxides_campaign  # noqa: F401
