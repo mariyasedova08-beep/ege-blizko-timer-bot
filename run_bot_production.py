@@ -58,6 +58,11 @@ def main():
     import middle_salts_trainer
     middle_salts_trainer.install()
 
+    # Existing Telegram bot: optional decomposition practice, NOT auto-assigned.
+    # Keep on feature branch until VPS-only production patches are reconciled.
+    import decomposition_trainer
+    decomposition_trainer.install()
+
     # Personal launch campaigns at 16:00 Moscow.
     import oxide_properties_campaign  # noqa: F401
     import hydroxides_campaign  # noqa: F401
