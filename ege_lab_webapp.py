@@ -1129,6 +1129,15 @@ body:has(#lesson.page.on) .app{max-width:none}
 .lesson-pane-head small{color:#82717b;font-size:11px}
 .lesson-lab-body{padding:12px;overflow:auto;flex:1;min-height:0}
 .lesson-lab-body label{font-size:11px;color:#756774;display:block;margin:8px 0 3px}
+.lesson-search-field{position:relative;margin-bottom:5px}
+.lesson-search-field input{display:block;width:100%;min-width:0;border:1px solid #dfd2d9;border-radius:10px;padding:10px 9px;background:#fff;color:#171719;font-size:13px}
+.lesson-search-field input:focus{outline:2px solid #f5cbdf;border-color:#f00087}
+.lesson-search-suggestions{position:absolute;z-index:200;left:0;right:0;top:100%;max-height:170px;overflow:auto;border:1px solid #ebc9d9;border-radius:10px;background:#fff;box-shadow:0 9px 20px #17171922;padding:4px}
+.lesson-search-suggestions[hidden]{display:none!important}
+.lesson-search-suggestions button{display:block;width:100%;border:0;border-radius:7px;padding:8px 9px;text-align:left;background:#fff;color:#171719;font-size:12px}
+.lesson-search-suggestions button:hover,.lesson-search-suggestions button[aria-selected="true"]{background:#fce7f1}
+.lesson-search-suggestions button small{display:block;color:#756774;font-size:10px;margin-top:2px}
+.lesson-search-empty{font-size:11px;padding:9px;color:#786976}
 .lesson-medium-field[hidden]{display:none!important}
 .lesson-medium-field{display:grid;gap:5px;padding:8px;border:1px solid #ead0dd;border-radius:10px;background:#fffafd}
 .lesson-medium-field small{font-size:11px;line-height:1.35;color:#786674}
@@ -1191,8 +1200,16 @@ body:has(#lesson.page.on) .app{max-width:none}
   <aside class="lesson-lab-pane">
     <div class="lesson-pane-head"><h2>🧪 Опыт</h2><small>30% экрана</small></div>
     <div class="lesson-lab-body">
-      <label for="lessonReagentA">Первое вещество</label><select id="lessonReagentA"></select>
-      <label for="lessonReagentB">Добавить реактив</label><select id="lessonReagentB"></select>
+      <div class="lesson-search-field">
+        <label for="lessonReagentA">Первое вещество</label>
+        <input id="lessonReagentA" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="lessonSuggestionsA" placeholder="KMnO4 или перманганат калия" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div id="lessonSuggestionsA" class="lesson-search-suggestions" role="listbox" hidden></div>
+      </div>
+      <div class="lesson-search-field">
+        <label for="lessonReagentB">Добавить реактив</label>
+        <input id="lessonReagentB" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="lessonSuggestionsB" placeholder="K2Cr2O7, KI или название" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div id="lessonSuggestionsB" class="lesson-search-suggestions" role="listbox" hidden></div>
+      </div>
       <div id="lessonMediumField" class="lesson-medium-field" hidden>
         <label for="lessonMedium">Среда реакции</label>
         <select id="lessonMedium">
@@ -2700,6 +2717,88 @@ async function lessonExportPDF(){
 }
 // Medium-specific redox from the authoritative catalogue, never a guessed product.
 // The same source powers the 30/70 offline preview and the live lesson.
+// Live PDF lesson: same keyboard-first search as the offline prototype.
+// Store catalogue IDs separately: visible input is a formula/name, not an ID.
+let lessonSelectedReagents={a:"",b:""};
+let lessonSuggested={a:[],b:[]};
+let lessonSuggestionIndex={a:-1,b:-1};
+function lessonNormalizeFormula(text){
+ return String(text||"").normalize("NFKC").toLocaleLowerCase("ru")
+  .replace(/[\\s\\u00a0.,·\\-–—()[\\]{}]/g,"");
+}
+function lessonSearchMatches(raw){
+ const q=lessonNormalizeFormula(raw);
+ if(!q)return [];
+ return Object.entries(data.reagents).filter(([id,r])=>
+    lessonNormalizeFormula(id).includes(q)||
+    lessonNormalizeFormula(r[0]).includes(q)||
+    lessonNormalizeFormula(r[1]||"").includes(q)||
+    lessonNormalizeFormula(r[4]||"").includes(q)
+ ).sort((a,b)=>{
+    const exact=x=>lessonNormalizeFormula(x[0])===q||lessonNormalizeFormula(x[1][0])===q?0:1;
+    return exact(a)-exact(b)||
+      String(a[1][0]).localeCompare(String(b[1][0]),"ru");
+ }).slice(0,8);
+}
+function lessonCloseSuggestions(slot){
+ const label=slot==="a"?"A":"B";
+ const box=document.getElementById("lessonSuggestions"+label);
+ const input=document.getElementById("lessonReagent"+label);
+ box.hidden=true;
+ input.setAttribute("aria-expanded","false");
+ input.removeAttribute("aria-activedescendant");
+ lessonSuggestionIndex[slot]=-1;
+}
+function lessonSetReagent(slot,id){
+ if(!data.reagents[id])return;
+ lessonSelectedReagents[slot]=id;
+ document.getElementById(slot==="a"?"lessonReagentA":"lessonReagentB").value=data.reagents[id][0];
+ lessonCloseSuggestions(slot);
+ lessonStarted=false;
+ document.getElementById("lessonMedium").value="";
+ lessonUpdateMedium();
+ lessonRenderExperiment();
+}
+function lessonHighlightSuggestion(slot,index){
+ const label=slot==="a"?"A":"B";
+ const box=document.getElementById("lessonSuggestions"+label);
+ const input=document.getElementById("lessonReagent"+label);
+ const buttons=[...box.querySelectorAll('[role="option"]')];
+ if(!buttons.length)return;
+ const next=(index+buttons.length)%buttons.length;
+ lessonSuggestionIndex[slot]=next;
+ buttons.forEach((b,i)=>b.setAttribute("aria-selected",String(i===next)));
+ input.setAttribute("aria-activedescendant",buttons[next].id);
+ buttons[next].scrollIntoView({block:"nearest"});
+}
+function lessonShowSuggestions(slot,raw){
+ const label=slot==="a"?"A":"B";
+ const box=document.getElementById("lessonSuggestions"+label);
+ const input=document.getElementById("lessonReagent"+label);
+ const found=lessonSearchMatches(raw);
+ lessonSuggested[slot]=found;
+ lessonSuggestionIndex[slot]=-1;
+ box.replaceChildren();
+ if(!raw.trim()){lessonCloseSuggestions(slot);return;}
+ if(!found.length){
+   const empty=document.createElement("div");empty.className="lesson-search-empty";
+   empty.textContent="Вещество не найдено в каталоге";box.appendChild(empty);
+ }else{
+   found.forEach(([id,entry],i)=>{
+     const button=document.createElement("button");
+     button.type="button";button.id="lessonOption"+label+i;
+     button.setAttribute("role","option");button.setAttribute("aria-selected","false");
+     const formula=document.createElement("span");formula.textContent=entry[0];
+     const note=document.createElement("small");note.textContent=entry[4]||entry[1]||"";
+     button.append(formula,note);
+     button.addEventListener("pointerdown",event=>event.preventDefault());
+     button.onclick=()=>lessonSetReagent(slot,id);
+     box.appendChild(button);
+   });
+ }
+ box.hidden=false;input.setAttribute("aria-expanded","true");
+ input.removeAttribute("aria-activedescendant");
+}
 function lessonHasMedium(a,b){
  if(!a||!b)return a==="kmno4"||b==="kmno4";
  if(a==="kmno4"||b==="kmno4")return true;
@@ -2707,8 +2806,8 @@ function lessonHasMedium(a,b){
    (x.a===a&&x.b===b)||(x.a===b&&x.b===a));
 }
 function lessonUpdateMedium(){
- const a=document.getElementById("lessonReagentA").value;
- const b=document.getElementById("lessonReagentB").value;
+ const a=lessonSelectedReagents.a;
+ const b=lessonSelectedReagents.b;
  const field=document.getElementById("lessonMediumField");
  const active=lessonHasMedium(a,b);
  field.hidden=!active;
@@ -2736,34 +2835,48 @@ function lessonSelectedReaction(a,b,heated){
  return findReaction(a,b,heated);
 }
 function lessonPopulateReagents(){
- const opts=Object.entries(data.reagents).sort((a,b)=>
-  String(a[1][1]||"").localeCompare(String(b[1][1]||""),"ru")||
-  String(a[1][0]||"").localeCompare(String(b[1][0]||""),"ru"));
- const a=document.getElementById("lessonReagentA"),b=document.getElementById("lessonReagentB");
- for(const sel of [a,b]){
-  sel.textContent="";
-  const empty=document.createElement("option");empty.value="";empty.textContent="Выбери вещество";sel.appendChild(empty);
-  for(const entry of opts){
-   const option=document.createElement("option");
-   option.value=entry[0];
-   option.textContent=entry[1][0]+" — "+entry[1][1];
-   sel.appendChild(option);
-  }
-  sel.onchange=()=>{
+ for(const [slot,label] of [["a","A"],["b","B"]]){
+  const input=document.getElementById("lessonReagent"+label);
+  input.oninput=()=>{
+   // Never reuse the old selected reagent when a different formula is typed.
+   lessonSelectedReagents[slot]="";
    lessonStarted=false;
    document.getElementById("lessonMedium").value="";
    lessonUpdateMedium();
    lessonRenderExperiment();
+   lessonShowSuggestions(slot,input.value);
+  };
+  input.onfocus=()=>{input.select();if(input.value.trim())lessonShowSuggestions(slot,input.value);};
+  input.onkeydown=event=>{
+   if(event.key==="Escape"){lessonCloseSuggestions(slot);return;}
+   if(event.key==="ArrowDown"||event.key==="ArrowUp"){
+    event.preventDefault();
+    if(document.getElementById("lessonSuggestions"+label).hidden)lessonShowSuggestions(slot,input.value);
+    const num=lessonSuggestionIndex[slot];
+    lessonHighlightSuggestion(slot,event.key==="ArrowDown"?num+1:num-1);
+   }
+   if(event.key==="Enter"){
+    event.preventDefault();
+    const n=lessonSuggestionIndex[slot];
+    const found=lessonSuggested[slot][n>=0?n:0];
+    if(found)lessonSetReagent(slot,found[0]);
+    else lessonCloseSuggestions(slot);
+   }
   };
  }
- if(data.reagents.kmno4)a.value="kmno4";
- if(data.reagents.na2so3)b.value="na2so3";
+ document.addEventListener("pointerdown",event=>{
+  if(!event.target.closest(".lesson-search-field")){
+    lessonCloseSuggestions("a");lessonCloseSuggestions("b");
+  }
+ });
+ if(data.reagents.kmno4)lessonSetReagent("a","kmno4");
+ if(data.reagents.na2so3)lessonSetReagent("b","na2so3");
  lessonUpdateMedium();
  lessonRenderExperiment();
 }
 function lessonRenderExperiment(){
- const a=document.getElementById("lessonReagentA").value;
- const b=document.getElementById("lessonReagentB").value;
+ const a=lessonSelectedReagents.a;
+ const b=lessonSelectedReagents.b;
  const mediumSelect=document.getElementById("lessonMedium");
  const mediumRequired=lessonHasMedium(a,b);
  const x=lessonStarted&&a&&b?lessonSelectedReaction(a,b,lessonHeated):null;
