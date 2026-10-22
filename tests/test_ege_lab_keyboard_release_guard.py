@@ -30,7 +30,13 @@ class KeyboardGuardTests(unittest.TestCase):
 
     def test_lab_only_and_live_customizations(self):
         s=DEPLOY.read_text()
-        self.assertIn("ege_lab_webapp.py public_channel_trainers.py run_bot_live7.py run_bot_production.py",s)
+        self.assertIn("ege_lab_webapp.py ege_lab_substances.py ege_lab_inorganic_reactions.py public_channel_trainers.py run_bot_live7.py run_bot_production.py",s)
+        self.assertIn('EXPECTED_CHANGED=', s)
+        self.assertIn('[[ "$CHANGED" == "$EXPECTED_CHANGED" ]]',s)
+        self.assertIn('[[ "$(git hash-object "$APP/$name")" == "$blob" ]]',s)
+        self.assertIn("ege_lab_substances.py 3581b6d0d9b7cc3500f1075b2a1ea9b88db4f4aa",s)
+        self.assertIn("ege_lab_inorganic_reactions.py 0910dbbeca374485944a2782dc43932cc84053a3",s)
+        self.assertIn("ege_lab_mn_cr_pdf_import.py 02ee81298850aa3bb534ca7f5200d755f4c9ddbf",s)
         self.assertIn("public_channel_trainers.py run_bot_live7.py run_bot_production.py ege_lab_substances.py ege_lab_inorganic_reactions.py ege_lab_mn_cr_pdf_import.py",s)
         self.assertIn('sha256sum -c "$BACKUP/protected-files.sha256"',s)
         self.assertIn('mv -Tf "$INSTALLED" "$APP/ege_lab_webapp.py"',s)
@@ -60,7 +66,8 @@ class KeyboardGuardTests(unittest.TestCase):
     def test_owner_review_gate_and_no_regular_push_deploy(self):
         w=WORKFLOW.read_text()
         self.assertIn("environment: production-lab",w)
-        self.assertIn("deploy/release-intents/ege-lab-keyboard-1.txt",w)
+        self.assertIn("deploy/release-intents/ege-lab-keyboard-2.txt",w)
+        self.assertNotIn("deploy/release-intents/ege-lab-keyboard-1.txt",w)
         self.assertIn("branches: [main]",w)
         self.assertIn("github.actor == 'mariyasedova08-beep'",w)
         self.assertIn('test "$changed" = "$file"',w)
