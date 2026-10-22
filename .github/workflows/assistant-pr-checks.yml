@@ -59,6 +59,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_ege_closed_dependency_inventory.py' -v
           python3 -m unittest discover -s tests -p 'test_ege_bot_offline_sandbox.py' -v
           python3 -m unittest discover -s tests -p 'test_decomposition_trainer.py' -v
+          python3 -m unittest discover -s tests -p 'test_ege_decomposition_release_preflight.py' -v
 
       - name: Refuse committing private keys or local databases
         if: github.event_name == 'pull_request'
