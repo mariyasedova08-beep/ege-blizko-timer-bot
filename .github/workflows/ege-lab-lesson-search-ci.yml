@@ -1,6 +1,9 @@
 name: EGE lab lesson — medium and reagent search (preview only)
 
 on:
+  pull_request:
+    branches:
+      - 'feature/lab-lesson-keyboard-search-20261022'
   push:
     branches:
       - 'feature/lab-lesson-medium-search-*'
