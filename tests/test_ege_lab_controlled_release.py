@@ -14,7 +14,7 @@ RELEASE = ROOT / "deploy/ege-lab-mncr-approved-release.sh"
 WORKFLOW = ROOT / ".github/workflows/ege-lab-controlled-release.yml"
 SSH_PROBE = ROOT / ".github/workflows/ege-lab-ssh-connectivity-test.yml"
 EXPECTED_SHA = "23153dd715d2277d437e35c63b8345c53fb59d46c6b908f02ee0b0094656d58e"
-EXPECTED_COMMIT = "fcfcac8a8177342d764845933ad6c1a1316d525c"
+EXPECTED_COMMIT = "7b31b039c7dcc6d3ae2f31e5f241f747f17f5d17"
 EXPECTED_LIVE = "d95b80eb423a6295eac080f66d1707ac1e92e789"
 
 class ControlledReleaseGuard(unittest.TestCase):
@@ -32,6 +32,7 @@ class ControlledReleaseGuard(unittest.TestCase):
         self.assertIn("trap rollback ERR", s)
         self.assertIn("return 1; }", s)
         self.assertIn("sha256sum -c", s)
+        self.assertIn("STAGING_DIAGNOSTIC:", s)
 
     def test_limited_ssh_has_forced_command_and_exact_sudo_scope(self):
         entry = ENTRY.read_text(encoding="utf-8")
