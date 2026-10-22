@@ -71,7 +71,13 @@ class ControlledReleaseGuard(unittest.TestCase):
         self.assertNotRegex(s, r"\bsystemctl\s+(?:disable|enable|stop)\b")
         self.assertNotRegex(s, r"\b(?:sqlite3|rm)\b[^\n]*coreapp_webhooks")
         self.assertNotIn("deploy/release.ref\n", s)
-        self.assertIn("LIVE_ONLY_FILES=(public_channel_trainers.py run_bot_production.py)", s)
+        self.assertIn("LIVE_ONLY_FILES=(public_channel_trainers.py run_bot_live7.py run_bot_production.py)", s)
+        self.assertIn("EXPECTED_CHANGED=", s)
+        self.assertIn("ege_lab_webapp.py public_channel_trainers.py run_bot_live7.py run_bot_production.py", s)
+        self.assertIn('git -C "$APP" diff HEAD --name-only', s)
+        self.assertIn('"$BACKUP/protected-code"', s)
+        self.assertIn('cp -p -- "$APP/$name" "$BACKUP/protected-code/$name"', s)
+        self.assertIn('sha256sum -c "$BACKUP/protected-files.sha256"', s)
         self.assertIn("LAB_FILES=(ege_lab_webapp.py ege_lab_substances.py ege_lab_inorganic_reactions.py ege_lab_mn_cr_pdf_import.py)", s)
 
     def test_workflow_does_not_deploy_on_pr_or_regular_push(self):
