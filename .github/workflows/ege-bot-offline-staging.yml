@@ -1,0 +1,61 @@
+name: "ЕГЭ БЛИЗКО — изолированная тестовая копия (без бота и данных)"
+
+# Offline-only rehearsal of GitHub checkout with synthetic fixtures.
+# This workflow MUST NOT receive SSH keys, Telegram tokens or VPS access.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "deploy/ege-bot-offline-sandbox.py"
+      - "tests/test_ege_bot_offline_sandbox.py"
+      - ".github/workflows/ege-bot-offline-staging.yml"
+      - "docs/EGE_BOT_STAGING.md"
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-offline-sandbox:
+    name: "Test staging builder and classify missing dependencies"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Test sandbox isolation and no production-data access
+        run: |
+          set -Eeuo pipefail
+          python3 -m unittest discover -s tests -p 'test_ege_bot_offline_sandbox.py' -v
+
+      - name: Build disposable GitHub-only sandbox (no app startup)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 deploy/ege-bot-offline-sandbox.py \
+            --root "$GITHUB_WORKSPACE" \
+            --output "$RUNNER_TEMP/ege-blizko-offline-sandbox"
+          python3 - "$RUNNER_TEMP/ege-blizko-offline-sandbox" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+
+          root = Path(sys.argv[1])
+          report = json.loads((root / "preflight.json").read_text(encoding="utf-8"))
+          assert report["status"] == "PREPARATION_ONLY_NOT_READY_TO_RUN_BOT"
+          assert report["real_student_data_used"] is False
+          assert report["telegram_bot_started"] is False
+          assert report["server_connected"] is False
+          assert report["copied_python_modules"] >= 1
+          forbidden_suffixes = (".db", ".sqlite", ".sqlite3", ".pem", ".key", ".env")
+          for file in (root / "source").iterdir():
+              assert file.is_file() and file.suffix == ".py"
+              assert not file.name.startswith(("teacher_product_", "prepodmin_"))
+              assert not file.name.endswith(forbidden_suffixes)
+          print("SANDBOX_ISOLATION_OK")
+          print("GITHUB_SOURCE_ONLY_WITH_SYNTHETIC_TEST_DB")
+          print("READINESS_BLOCKED_UNTIL_PRODUCTION_DRIFT_RECONCILED")
+          print("NO_VPS_NO_TELEGRAM_NO_PRODUCTION_DEPLOYMENT")
+          PY
