@@ -1,7 +1,7 @@
 """Real PTB 21.10 dispatcher/serialization with an in-memory Bot API transport.
 
 No registered bot, real token, polling, network, production modules or student DB.
-Only run_bot_live90 (the product host) is replaced with a minimal synthetic host;
+run_bot_live90 and the reporting module's run_bot_live40 dependency use synthetic hosts;
 Telegram Update, Application, handlers, contexts, Bot and requests are genuine.
 """
 import copy
@@ -113,20 +113,26 @@ class TelegramProtocolTest(unittest.IsolatedAsyncioTestCase):
         settings = types.SimpleNamespace(COREAPP_DB_PATH=self.db, TIMEZONE=timezone.utc)
         async def fallback(update, context):
             await update.effective_message.reply_text("FALLBACK_OTHER_ROUTE")
-        live7 = types.SimpleNamespace(start_router=fallback, trivial_callback=fallback)
-        def ensure_catalog():
-            with sqlite3.connect(self.db) as conn:
-                conn.execute("""CREATE TABLE IF NOT EXISTS weekly_trainer_catalog(
-                    code TEXT PRIMARY KEY,title TEXT,start_param TEXT,sort_order INTEGER,active INTEGER)""")
-        def register(code, title, start_param, order=100, active=True):
-            with sqlite3.connect(self.db) as conn:
-                conn.execute("INSERT OR REPLACE INTO weekly_trainer_catalog VALUES(?,?,?,?,?)",
-                             (code, title, start_param, order, int(active)))
-        reporting = types.SimpleNamespace(
-            ensure_weekly_report_tables=ensure_catalog, register_weekly_trainer=register,
-            _weekly_trainer_stats=lambda conn, uid, now: (0, 0, 0),
-            _week_start=lambda now: now.date() - timedelta(days=6),
-        )
+        live7 = types.SimpleNamespace(start_router=fallback, trivial_callback=fallback,
+                                     friday_trivial_tick=fallback)
+        # Execute the actual reporting module, isolating only its legacy host.
+        # No reporting SQL, registration, aggregation or link builder is replaced.
+        settings.get_admin_id = lambda: None
+        legacy = types.SimpleNamespace(bot=settings)
+        for name in ("live39", "live37", "live35", "live31", "live24", "live17"):
+            setattr(legacy, name, types.SimpleNamespace())
+        legacy.live34 = types.SimpleNamespace(live7=live7, run_bot=types.SimpleNamespace())
+        spec = importlib.util.spec_from_file_location(
+            "ptb_offline_reporting", ROOT / "run_bot_live41.py")
+        reporting = importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules, {"run_bot_live40": legacy}):
+            spec.loader.exec_module(reporting)
+        self.reporting = reporting
+        # Existing trainers have their own tables before the new trainer installs.
+        with sqlite3.connect(self.db) as conn:
+            for table in ("trivial_sessions", "acid_sessions"):
+                conn.execute(f"""CREATE TABLE IF NOT EXISTS {table}(
+                    telegram_user_id INTEGER,total INTEGER,correct INTEGER,finished_at TEXT)""")
         host = types.SimpleNamespace(bot=settings, live79=types.SimpleNamespace(
             live7=live7, live41=reporting, live23=types.SimpleNamespace(),
         ))
@@ -209,6 +215,9 @@ class TelegramProtocolTest(unittest.IsolatedAsyncioTestCase):
         await self.click(self.button_data("Статистика"))
         self.assertIn("Тренировок: 4", self.api.last_message()["text"])
         self.assertEqual(self.count("decomposition_attempts"), 110)
+        with sqlite3.connect(self.db) as conn:
+            self.assertEqual(self.reporting._weekly_trainer_stats(
+                conn, 101, datetime.now(timezone.utc)), (4, 110, 56))
         methods = {name for name, _params in self.api.calls}
         self.assertEqual(methods, {"getMe", "sendMessage", "editMessageText", "answerCallbackQuery"})
 
@@ -269,6 +278,42 @@ class TelegramProtocolTest(unittest.IsolatedAsyncioTestCase):
         await self.command("unrelated", uid=101)
         self.assertEqual(self.api.last_message(101)["text"], "FALLBACK_OTHER_ROUTE")
         self.assertIn("getChatMember", {method for method, _params in self.api.calls})
+
+    async def test_real_weekly_report_preserves_existing_totals_and_registered_link(self):
+        now = datetime.now(timezone.utc)
+        start = datetime.combine(self.reporting._week_start(now), datetime.min.time(),
+                                 tzinfo=timezone.utc)
+        with sqlite3.connect(self.db) as conn:
+            for table, total, correct in (("trivial_sessions", 10, 8), ("acid_sessions", 25, 20)):
+                conn.execute(f"INSERT INTO {table} VALUES(?,?,?,?)",
+                             (101, total, correct, now.isoformat()))
+                conn.execute(f"INSERT INTO {table} VALUES(?,?,?,?)",
+                             (202, 50, 50, now.isoformat()))
+                conn.execute(f"INSERT INTO {table} VALUES(?,?,?,?)",
+                             (101, 50, 50, (start - timedelta(seconds=1)).isoformat()))
+        await self.command()
+        await self.click(self.button_data("10 случайных"))
+        for i in range(10):
+            await self.click(self.answer_data(good=i < 7))
+            if i < 9:
+                await self.click(self.button_data("Дальше"))
+        with sqlite3.connect(self.db) as conn:
+            self.assertEqual(self.reporting._weekly_trainer_stats(
+                conn, 101, datetime.now(timezone.utc)), (3, 45, 35))
+        # Recreating the application re-registers without duplicate rows/counting.
+        await self.app.shutdown()
+        await self.create_app()
+        self.assertEqual(self.count("weekly_trainer_catalog"), 1)
+        with sqlite3.connect(self.db) as conn:
+            self.assertEqual(self.reporting._weekly_trainer_stats(
+                conn, 101, datetime.now(timezone.utc)), (3, 45, 35))
+        markup = await self.reporting._weekly_report_markup(types.SimpleNamespace(bot=self.app.bot))
+        self.assertEqual([b.url for row in markup.inline_keyboard for b in row],
+                         ["https://t.me/offline_decomposition?start=decomposition"])
+        with sqlite3.connect(self.db) as conn:
+            conn.execute("UPDATE weekly_trainer_catalog SET active=0 WHERE code='decomposition'")
+        self.assertIsNone(await self.reporting._weekly_report_markup(
+            types.SimpleNamespace(bot=self.app.bot)))
 
 
 if __name__ == "__main__":

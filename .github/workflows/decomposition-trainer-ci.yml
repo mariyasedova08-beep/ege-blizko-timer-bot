@@ -14,6 +14,7 @@ on:
       - 'public_channel_trainers.py'
       - '.github/workflows/decomposition-trainer-ci.yml'
       - 'run_bot_production.py'
+      - 'run_bot_live41.py'
   pull_request:
     branches: [main]
     paths:
@@ -26,6 +27,7 @@ on:
       - 'public_channel_trainers.py'
       - '.github/workflows/decomposition-trainer-ci.yml'
       - 'run_bot_production.py'
+      - 'run_bot_live41.py'
 
 permissions:
   contents: read
