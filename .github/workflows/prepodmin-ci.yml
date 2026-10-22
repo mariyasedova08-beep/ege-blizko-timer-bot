@@ -69,6 +69,8 @@ jobs:
             teacher_product_student_reminders_test \
             teacher_product_transfer_button_test \
             teacher_product_webapp_test
+      - name: Test PREPODMIN offsite bundle integrity (synthetic data only)
+        run: python -m unittest discover -s deployment/prepodmin -p 'test_offsite_bundle.py' -q
       - name: Run feature smoke test on temporary SQLite
         run: |
           python - <<'PY'
