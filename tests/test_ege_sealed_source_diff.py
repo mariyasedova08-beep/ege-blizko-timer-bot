@@ -28,7 +28,7 @@ class SealedDiffTests(unittest.TestCase):
                 module.read_limited(directory, module.FILES[0])
 
     def test_encrypted_cms_is_not_plaintext(self):
-        certificate = (REPO / "deploy/sealed-audit-public-cert.pem").read_bytes()
+        certificate = (REPO / "deploy/sealed-audit-public-cert.crt").read_bytes()
         clear = b"not-for-github-logs SECRET_CANARY_VALUE"
         ciphertext = module.encrypt_in_memory(clear, certificate)
         self.assertTrue(ciphertext.startswith(b"\x30"))
