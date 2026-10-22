@@ -1,13 +1,9 @@
 name: "ЕГЭ БЛИЗКО — сверка GitHub и VPS (только чтение)"
 
-# On main only. This NEVER publishes any application code.
+# Manual on main only: merging or pushing MUST NOT contact production.
+# This NEVER publishes application code. No PR has access to SSH secrets.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/ege-blizko-readonly-inventory.yml"
-      - "deploy/ege-blizko-production-inventory.py"
 
 permissions:
   contents: read
@@ -52,14 +48,15 @@ jobs:
           test "$SSH_USER" = "ege-deploy"
           test "$SSH_HOST" = "77.233.212.200"
           test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
-          [[ "$KNOWN_HOSTS" == "$SSH_HOST ssh-ed25519 "* ]]
+          printf '%s\n' "$KNOWN_HOSTS" | awk -v host="$SSH_HOST" 'NF != 3 || $1 != host || $2 != "ssh-ed25519" {bad=1} END {exit bad || NR != 1}'
+          ssh-keygen -lf "$HOME/.ssh/known_hosts" >/dev/null
           install -d -m 0700 "$HOME/.ssh"
           trap 'rm -f "$HOME/.ssh/production-inventory-key" "$HOME/.ssh/known_hosts"' EXIT
           printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/production-inventory-key"
           printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 0600 "$HOME/.ssh/production-inventory-key" "$HOME/.ssh/known_hosts"
           ssh-keygen -y -f "$HOME/.ssh/production-inventory-key" >/dev/null
-          ssh -T -o BatchMode=yes -o PasswordAuthentication=no \
+          ssh -T -F /dev/null -o BatchMode=yes -o PasswordAuthentication=no \
             -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=10 -i "$HOME/.ssh/production-inventory-key" \
@@ -72,8 +69,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          printf 'Проверенный коммит GitHub: \x60%s\x60\n\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
           python3 deploy/ege-blizko-production-inventory.py --mode compare \
             --local "$RUNNER_TEMP/github-inventory.tsv" \
             --remote "$RUNNER_TEMP/server-inventory.tsv" \
-            | tee "$GITHUB_STEP_SUMMARY"
+            | tee -a "$GITHUB_STEP_SUMMARY"
           echo "NO_VPS_WRITE_NO_RESTART_NO_DEPLOYMENT"
