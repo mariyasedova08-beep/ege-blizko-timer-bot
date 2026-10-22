@@ -54,15 +54,18 @@ jobs:
           if [[ "$SSH_HOST" != "77.233.212.200" ]]; then echo "::error title=SSH_HOST_MISMATCH::TIMEWEB_HOST is absent or differs from the approved server"; exit 1; fi
           if [[ -z "$DEPLOY_KEY" ]]; then echo "::error title=DEPLOY_KEY_MISSING::TIMEWEB_DEPLOY_KEY is not configured for the approved environment"; exit 1; fi
           if [[ -z "$KNOWN_HOSTS" ]]; then echo "::error title=KNOWN_HOSTS_MISSING::TIMEWEB_KNOWN_HOSTS is not configured for the approved environment"; exit 1; fi
-          if ! printf '%s\n' "$KNOWN_HOSTS" | awk -v host="$SSH_HOST" 'NF != 3 || $1 != host || $2 != "ssh-ed25519" {bad=1} END {exit bad || NR != 1}'; then
-            echo "::error title=KNOWN_HOSTS_FORMAT_INVALID::Expected exactly one pinned ssh-ed25519 entry for the approved host"
-            exit 1
-          fi
           install -d -m 0700 "$HOME/.ssh"
           trap 'rm -f "$HOME/.ssh/production-inventory-key" "$HOME/.ssh/known_hosts"' EXIT
           printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/production-inventory-key"
-          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
           chmod 0600 "$HOME/.ssh/production-inventory-key" "$HOME/.ssh/known_hosts"
+          # Allow multiple host-key records (as produced by ssh-keyscan) while
+          # still requiring exactly one pinned ed25519 key for this server.
+          # Do not use ssh-keyscan at runtime or trust a new key automatically.
+          if ! ssh-keygen -F "$SSH_HOST" -f "$HOME/.ssh/known_hosts" 2>/dev/null | awk 'NF >= 3 && $2 == "ssh-ed25519" {n++} END {exit n != 1}'; then
+            echo "::error title=KNOWN_HOSTS_FORMAT_INVALID::No unique pinned ssh-ed25519 key for the approved host in TIMEWEB_KNOWN_HOSTS"
+            exit 1
+          fi
           if ! ssh-keygen -lf "$HOME/.ssh/known_hosts" >/dev/null; then echo "::error title=KNOWN_HOST_KEY_INVALID::Pinned host key could not be parsed"; exit 1; fi
           if ! ssh-keygen -y -f "$HOME/.ssh/production-inventory-key" >/dev/null; then echo "::error title=SSH_PRIVATE_KEY_INVALID::The restricted SSH key could not be parsed"; exit 1; fi
           if ! ssh -T -F /dev/null -o BatchMode=yes -o PasswordAuthentication=no \
