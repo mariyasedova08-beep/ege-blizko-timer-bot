@@ -1,0 +1,51 @@
+name: EGE BLIZKO decomposition trainer checks (no deployment)
+
+on:
+  push:
+    branches:
+      - 'feature/decomposition-telegram-trainer-*'
+    paths:
+      - 'decomposition_trainer*'
+      - 'tests/test_decomposition*.py'
+      - 'deploy/prepare_decomposition_release.py'
+      - 'deploy/seal_decomposition_routing_copy.py'
+      - 'deploy/decomposition_release_manifest.json'
+      - 'docs/decomposition-chemistry-review.json'
+      - 'kulek_rewards.py'
+      - 'public_channel_trainers.py'
+      - '.github/workflows/decomposition-trainer-ci.yml'
+      - 'run_bot_production.py'
+      - 'run_bot_live41.py'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'decomposition_trainer*'
+      - 'tests/test_decomposition*.py'
+      - 'deploy/prepare_decomposition_release.py'
+      - 'deploy/seal_decomposition_routing_copy.py'
+      - 'deploy/decomposition_release_manifest.json'
+      - 'docs/decomposition-chemistry-review.json'
+      - 'kulek_rewards.py'
+      - 'public_channel_trainers.py'
+      - '.github/workflows/decomposition-trainer-ci.yml'
+      - 'run_bot_production.py'
+      - 'run_bot_live41.py'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the project Telegram library for offline protocol tests
+        run: python -m pip install 'python-telegram-bot==21.10'
+      - name: Syntax, bank and offline interaction scenarios (no Telegram network)
+        run: |
+          python -m py_compile decomposition_trainer.py decomposition_trainer_bank.py run_bot_production.py kulek_rewards.py deploy/prepare_decomposition_release.py
+          python -m unittest discover -s tests -p 'test_decomposition*.py' -v

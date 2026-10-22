@@ -38,6 +38,10 @@ _INSTALLED = False
 _CACHE = {}
 _RANKING_CACHE = {"at": 0.0, "key": "", "data": None}
 
+# Optional practice must not silently add a monthly reward/discount obligation.
+# Enabling decomposition as a monthly goal requires a separate reviewed change.
+MONTHLY_EXCLUDED_TRAINERS = frozenset({"decomposition"})
+
 TRAINER_TABLES = {
     "trivial": "trivial_sessions",
     "acid": "acid_sessions",
@@ -771,6 +775,8 @@ def _trainer_goals(month_key, students):
         result = []
         for code, title in catalog:
             code = str(code)
+            if code in MONTHLY_EXCLUDED_TRAINERS:
+                continue
             table = TRAINER_TABLES.get(code, f"{code}_sessions")
             if table not in table_names or not re.fullmatch(r"[A-Za-z0-9_]+", table):
                 continue
