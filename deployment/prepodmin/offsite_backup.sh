@@ -33,6 +33,10 @@ source "$ENVFILE"
   echo 'PREPODMIN_OFFSITE_BACKUP_REFUSED=unexpected_repository'; exit 2;
 }
 STAGE="$(mktemp -d "$DESTROOT/.run.XXXXXXXX")"
+# A restricted systemd unit cannot write the default home-based Restic cache.
+# Keep transient cache private and within the permitted staging path.
+export RESTIC_CACHE_DIR="$STAGE/restic-cache"
+install -d -o root -g root -m 0700 "$RESTIC_CACHE_DIR"
 cleanup() {
   unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
   if [[ -n "$STAGE" && "$STAGE" == "$DESTROOT"/.run.???????? && -d "$STAGE" && ! -L "$STAGE" ]]; then
