@@ -81,6 +81,46 @@ try{
   assert.equal(await page.locator("#lessonMediumField").isVisible(),false);
   await page.locator("#lessonConduct").click();
   assert((await page.locator("#lessonReaction").innerText()).includes("Cu(OH)₂"));
+  // Ion exchange: tested against the ACTUAL live HTML and generated backend rows.
+  await pick("A","bacl2");
+  await pick("B","na2so4");
+  await page.locator("#lessonConduct").click();
+  assert.match(await page.locator("#lessonReaction").innerText(),/BaSO₄↓/);
+  await pick("A","nacl");
+  await pick("B","kno3");
+  await page.locator("#lessonConduct").click();
+  assert.match(await page.locator("#lessonReaction").innerText(),/реакция не идёт/i);
+  await pick("A","cuso4");
+  await pick("B","k2co3");
+  await page.locator("#lessonConduct").click();
+  assert.match(await page.locator("#lessonReaction").innerText(),/Cu₂\(OH\)₂CO₃↓/);
+  await pick("A","crcl3");
+  await pick("B","na2so3");
+  await page.locator("#lessonConduct").click();
+  assert.match(await page.locator("#lessonReaction").innerText(),/Cr\(OH\)₃↓/);
+  // Both hydroxide excess variants must show precipitate first, then dissolution.
+  for(const alkali of ["naoh","koh"]){
+    await pick("A","alcl3");
+    await pick("B",alkali);
+    await page.locator("#lessonExcess").click();
+    assert.match(await page.locator("#lessonReaction").innerText(),/Растворение в избытке/);
+    assert.equal(await page.locator("#lessonTube .pptLayer").count(),1);
+    await page.waitForTimeout(1250);
+    assert.equal(await page.locator("#lessonTube .pptLayer").count(),0);
+  }
+  // The transparent highlighter must record pointer input independently of the PDF.
+  await page.locator("#lessonToolMarker").click();
+  const ink=page.locator("#lessonInkCanvas");
+  await ink.scrollIntoViewIfNeeded();
+  const bounds=await ink.boundingBox();
+  assert(bounds);
+  await page.mouse.move(bounds.x+35,bounds.y+35);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x+120,bounds.y+35,{steps:5});
+  await page.mouse.up();
+  assert.equal(await page.evaluate(()=>lessonCurrentStrokes().at(-1)?.tool),"marker");
+  assert.equal(await page.evaluate(()=>lessonCurrentStrokes().at(-1)?.opacity),.32);
+  await page.locator("#lessonToolPen").click();
   // Existing four-tube main laboratory must also use medium-specific registry
   // without exposing unsupported neutral halide oxidation.
   await page.locator('[data-page="free"]').first().click();
