@@ -52,6 +52,18 @@ jobs:
         run: python3 -m unittest discover -s tests -p "test_lab_redox_exchange_expansion.py" -v
       - name: Validate ion-exchange coverage and atom balance
         run: python3 -m unittest discover -s tests -p 'test_lab_exchange_matrix.py' -v
+      - name: Report expanded exchange-matrix coverage
+        run: |
+          python3 - <<'PY'
+          from collections import Counter
+          from ege_lab_substances import REAGENTS
+          from ege_lab_exchange_matrix import generate_exchange_reactions
+          out=generate_exchange_reactions(REAGENTS)
+          by_type=Counter(row['t'] for row in out)
+          print(f"EXCHANGE_MATRIX_TOTAL={len(out)}")
+          for kind,count in sorted(by_type.items()):print(f"EXCHANGE_TYPE_{kind.upper()}={count}")
+          print(f"EXCHANGE_MATRIX_DISTINCT_PAIRS={len({tuple(sorted((row['a'],row['b']))) for row in out})}")
+          PY
       - name: Install isolated headless browser
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
