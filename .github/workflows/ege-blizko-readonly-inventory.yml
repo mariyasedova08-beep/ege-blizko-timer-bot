@@ -1,9 +1,14 @@
 name: "ЕГЭ БЛИЗКО — сверка GitHub и VPS (только чтение)"
 
-# Manual on main only: merging or pushing MUST NOT contact production.
-# This NEVER publishes application code. No PR has access to SSH secrets.
+# Run only by manual dispatch OR a separately approved inventory-intent commit on main.
+# Merging this PR does not create an intent, and regular code pushes cannot trigger it.
+# No application code is published, and no PR has access to SSH secrets.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "deploy/inventory-intents/*.txt"
 
 permissions:
   contents: read
