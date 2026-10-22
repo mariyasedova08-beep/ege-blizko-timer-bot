@@ -33,6 +33,7 @@ ANIONS = {
     "so3": ("SO₃", 2), "s": ("S", 2),
     "sio3": ("SiO₃", 2), "cro4": ("CrO₄", 2),
     "po4": ("PO₄", 3),
+    "hco3": ("HCO₃", 1), "hso3": ("HSO₃", 1), "hs": ("HS", 1),
 }
 # Only salts whose catalogue entries explicitly denote a soluble aqueous form.
 # The keys are exact IDs from ege_lab_substances.REAGENTS.
@@ -40,13 +41,15 @@ AQUEOUS_SALTS = {
     "li": {"br":"libr","no3":"lino3","so4":"li2so4"},
     "na": {"cl":"nacl","br":"nabr","i":"nai","f":"naf","no3":"nano3",
            "so4":"na2so4","co3":"na2co3","so3":"na2so3","s":"na2s",
-           "po4":"na3po4","sio3":"na2sio3","cro4":"na2cro4"},
+           "po4":"na3po4","sio3":"na2sio3","cro4":"na2cro4",
+           "hco3":"nahco3","hso3":"nahso3","hs":"nahs"},
     "k": {"cl":"kcl","br":"kbr","i":"ki","f":"kf","no3":"kno3",
           "so4":"k2so4","co3":"k2co3","so3":"k2so3","s":"k2s",
-          "po4":"k3po4","sio3":"k2sio3","cro4":"k2cro4"},
-    "nh4": {"cl":"nh4cl","no3":"nh4no3","so4":"nh42so4","co3":"nh42co3"},
-    "ca": {"cl":"cacl2","br":"cabr2","i":"cai2","no3":"cano3"},
-    "ba": {"cl":"bacl2","br":"babr2","no3":"bano3"},
+          "po4":"k3po4","sio3":"k2sio3","cro4":"k2cro4",
+          "hco3":"khco3","hso3":"khso3","hs":"khs"},
+    "nh4": {"cl":"nh4cl","no3":"nh4no3","so4":"nh42so4","co3":"nh42co3","hco3":"nh4hco3","hs":"nh4hs"},
+    "ca": {"cl":"cacl2","br":"cabr2","i":"cai2","no3":"cano3","hco3":"cahco3_2"},
+    "ba": {"cl":"bacl2","br":"babr2","no3":"bano3","hco3":"bahco3_2"},
     "sr": {"cl":"srcl2"},
     "mg": {"cl":"mgcl2","no3":"mgno3","so4":"mgso4"},
     "zn": {"cl":"zncl2","br":"znbr2","no3":"znno3","so4":"znso4"},
@@ -93,7 +96,7 @@ INSOLUBLE_HYDROXIDES = {
 # Not chemically honest to approximate these with an ordinary salt-exchange
 # equation: oxidation/reduction, basic salt or joint hydrolysis takes priority.
 EXCEPTIONAL_CATIONS = {"al","fe3","cr3"}
-EXCEPTIONAL_ANIONS = {"co3","so3","s"}
+EXCEPTIONAL_ANIONS = {"co3","so3","s","sio3"}
 PRECIP_COLORS = {
     ("ag","cl"):"#ffffff", ("ag","br"):"#e9d79a",
     ("ag","i"):"#f0d64a", ("ag","co3"):"#e9d78b",
@@ -193,6 +196,7 @@ def generate_exchange_reactions(known_reagents, existing_pairs=()):
     # Salt + salt. Only real precipitation; no "reaction" for all-soluble ions.
     for i,(a,ca,xa) in enumerate(salts):
         for b,cb,xb in salts[i+1:]:
+            if xa in {"hco3","hso3","hs"} or xb in {"hco3","hso3","hs"}:continue
             if ca==cb or xa==xb or _special_pair(ca,xa,cb,xb):continue
             precip=[(ca,xb),(cb,xa)]
             precip=[(c,x) for c,x in precip if c in INSOLUBLE.get(x,set())]
@@ -226,6 +230,7 @@ def generate_exchange_reactions(known_reagents, existing_pairs=()):
     # OR a new insoluble salt (e.g. Ba(OH)₂ + Na₂SO₄ -> BaSO₄).
     # Silver forms oxide rather than an imaginary "AgOH" precipitate.
     for salt,cat,anion in salts:
+        if anion in {"hco3","hso3","hs"}:continue
         for base,bc in AQUEOUS_HYDROXIDES.items():
             if base not in known or cat==bc:continue
             if cat=="ag":
@@ -277,6 +282,9 @@ def generate_exchange_reactions(known_reagents, existing_pairs=()):
         "co3": ("CO₂","H₂O","hcl hbr hno3 h2so4"),
         "so3": ("SO₂","H₂O","hcl h2so4"),
         "s": ("H₂S","","hcl h2so4"),
+        "hco3": ("CO₂","H₂O","hcl hbr hno3 h2so4"),
+        "hso3": ("SO₂","H₂O","hcl h2so4"),
+        "hs": ("H₂S","","hcl h2so4"),
     }
     for salt,cat,anion in salts:
         if anion not in gas_rules:continue
@@ -305,6 +313,56 @@ def generate_exchange_reactions(known_reagents, existing_pairs=()):
             if water:eq+=f" + {_prefix(n_gas,water)}"
             add(_make_record(salt,acid,eq,"g","Выделяется газ "+gas+".",
                 "#f8fbff","",gas,condition="Водные растворы; слабая летучая кислота разлагается"))
+    # Acid-driven precipitation: AgNO₃ + HCl -> AgCl; BaCl₂ + H₂SO₄ -> BaSO₄.
+    # Keep oxidising-acid, oxyanion hydrolysis and redox beyond this matrix.
+    for salt,cat,anion in salts:
+        if anion not in {"cl","br","i","no3","so4","f"}:continue
+        for acid,ax in (("hcl","cl"),("h2so4","so4")):
+            if acid not in known or anion==ax:continue
+            if cat not in INSOLUBLE.get(ax,set()):continue
+            if cat=="ag" and anion=="i":continue
+            # cat/anion salt plus acid forms precipitating cat/ax and old acid.
+            old_cat_n,old_an_n=_numbers(cat,anion)
+            new_cat_n,new_an_n=_numbers(cat,ax)
+            for n_salt in range(1,37):
+                if n_salt*old_cat_n%new_cat_n:continue
+                n_new=n_salt*old_cat_n//new_cat_n
+                n_acid=n_new*new_an_n
+                n_byacid=n_salt*old_an_n
+                if n_acid*ANIONS[ax][1] != n_byacid*ANIONS[anion][1]:continue
+                break
+            else:raise ValueError("Acid precipitation cannot be balanced")
+            original=_formula(cat,anion)
+            target=_formula(cat,ax)
+            eq=(f"{_prefix(n_salt,original)} + {_prefix(n_acid,_acid_formula(ax))}"
+                f" → {_prefix(n_new,target)}↓"
+                f" + {_prefix(n_byacid,_acid_formula(anion))}")
+            add(_make_record(salt,acid,eq,"p",
+                "Образуется осадок "+target+".","#f8fbff",
+                PRECIP_COLORS.get((cat,ax),"#ffffff"),
+                condition="Разбавленные водные растворы"))
+
+    # Acidification of soluble alkali silicates -> gelatinous H₂SiO₃.
+    for salt,cat,anion in salts:
+        if anion!="sio3" or cat not in {"na","k"}:continue
+        for acid in ("hcl","h2so4","hno3"):
+            if acid not in known:continue
+            ax=AQUEOUS_ACIDS[acid]
+            old_cat_n,old_an_n=_numbers(cat,"sio3")
+            new_cat_n,new_an_n=_numbers(cat,ax)
+            for n_salt in range(1,19):
+                if n_salt*old_cat_n%new_cat_n:continue
+                n_prod=n_salt*old_cat_n//new_cat_n
+                n_acid=n_prod*new_an_n
+                if n_acid*ANIONS[ax][1]!=2*n_salt*old_an_n:continue
+                break
+            else:raise ValueError("Silicate cannot be balanced")
+            n_gel=n_salt*old_an_n
+            eq=(f"{_prefix(n_salt,_formula(cat,'sio3'))} + {_prefix(n_acid,_acid_formula(ax))}"
+                f" → {_prefix(n_prod,_formula(cat,ax))} + {_prefix(n_gel,'H₂SiO₃')}↓")
+            add(_make_record(salt,acid,eq,"p",
+                "Образуется студенистый белый осадок H₂SiO₃.",
+                "#f8fbff","#ffffff",condition="Подкисление водного раствора силиката"))
     return rows
 
 def _acid_formula(anion):
