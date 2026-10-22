@@ -1,0 +1,90 @@
+name: EGE lab — keyboard search protected release (owner approved)
+# An infrastructure PR or ordinary commit CANNOT publish the laboratory.
+# Only a standalone, exact owner intent file on main may reach production-lab.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/ege-lab-keyboard-release.yml'
+      - 'deploy/ege-lab-keyboard-guarded-release.sh'
+      - 'deploy/ege-lab-restricted-ssh-entry-v2.sh'
+      - 'deploy/bootstrap-ege-lab-keyboard-release.sh'
+      - 'deploy/ege-lab-mncr-approved-release.sh'
+      - 'tests/test_ege_lab_keyboard_release_guard.py'
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/release-intents/ege-lab-keyboard-1.txt'
+permissions:
+  contents: read
+concurrency:
+  group: ege-lab-manual-production
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check exact pinned sources and safety guarantees
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n deploy/ege-lab-keyboard-guarded-release.sh
+          bash -n deploy/ege-lab-restricted-ssh-entry-v2.sh
+          bash -n deploy/bootstrap-ege-lab-keyboard-release.sh
+          bash -n deploy/ege-lab-mncr-approved-release.sh
+          python3 -m unittest discover -s tests -p 'test_ege_lab_keyboard_release_guard.py' -v
+  deploy-keyboard:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor == 'mariyasedova08-beep' }}
+    needs: [verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-lab
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify owner-only exact release intention as sole changed file
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=deploy/release-intents/ege-lab-keyboard-1.txt
+          test -f "$file"
+          changed="$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA")"
+          test "$changed" = "$file"
+          expected="$(printf 'EGE-LAB-KEYBOARD-20261022-CHECKED\nfabf5fba43806cf8acc19e728f422096d17c1177\ncd4431d87d07edc17a31a1b2ff93752cab813064339654ec9a972738c1941a16')"
+          test "$(cat "$file")" = "$expected"
+          echo "KEYBOARD_OWNER_INTENT_VALID"
+      - name: Install dedicated restricted SSH credentials on runner
+        shell: bash
+        env:
+          KEY: ${{ secrets.EGE_LAB_DEPLOY_SSH_KEY }}
+          HOST_KEYS: ${{ secrets.EGE_LAB_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST_KEYS"
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$KEY" | tr -d '\r' > "$HOME/.ssh/ege_lab_deploy_key"
+          printf '%s\n' "$HOST_KEYS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -P '' -f "$HOME/.ssh/ege_lab_deploy_key" >/dev/null
+          awk 'NF != 3 || $1 != "77.233.212.200" || $2 != "ssh-ed25519" {bad=1} END {exit bad || NR != 1}' "$HOME/.ssh/known_hosts"
+          echo "KEYBOARD_RELEASE_SSH_AUTH_PREPARED"
+      - name: Run ONLY keyboard release via strict forced SSH entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -T -F /dev/null \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=10 \
+            -i "$HOME/.ssh/ege_lab_deploy_key" \
+            ege-lab-deploy@77.233.212.200 \
+            "release-ege-lab-keyboard"
+      - name: Delete temporary SSH material
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$HOME/.ssh/ege_lab_deploy_key" "$HOME/.ssh/known_hosts"
