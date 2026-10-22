@@ -185,6 +185,25 @@ def reaction_payload():
             first, second = AMPHOTERIC_STAGES[row["a"]]
             row["stages"] = {"first":first,"second":second,"total":row["eq"]}
         payload.append(row)
+    # Potassium hydroxide follows the same two-stage chemistry.
+    # Formula substitution is limited to the reviewed sodium/potassium analogues.
+    for variant in REACTION_VARIANTS:
+        salt = variant["a"]
+        if variant.get("excess") != "naoh" or salt not in AMPHOTERIC_STAGES:
+            continue
+        first_na, second_na = AMPHOTERIC_STAGES[salt]
+        first_k = first_na.replace("Na", "K")
+        second_k = second_na.replace("Na", "K")
+        total_k = variant["eq"].replace("Na", "K")
+        if not any({r["a"], r["b"]} == {salt, "koh"} and not r.get("excess") for r in payload):
+            payload.append({"a":salt,"b":"koh","eq":first_k,"t":"p",
+                "sign":"белый студенистый осадок " + ("Al(OH)₃" if salt.startswith("al") else "Zn(OH)₂"),
+                "sol":"#f8fbff","ppt":"#ffffff","gas":"","heat":False,"excess":"","condition":"недостаток щёлочи"})
+        payload.append({"a":salt,"b":"koh","eq":total_k,"t":"c",
+            "sign":"белый осадок сначала выпадает, затем растворяется в избытке KOH",
+            "sol":"#f8fbff","ppt":"","gas":"","heat":False,
+            "excess":"koh","condition":"избыток KOH",
+            "stages":{"first":first_k,"second":second_k,"total":total_k}})
     payload.extend(dict(item) for item in TASK6_VARIANTS)
     return payload
 
