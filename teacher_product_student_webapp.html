@@ -30,6 +30,15 @@ h1{font-size:30px;line-height:1.05;margin:10px 0 7px;letter-spacing:-.03em}.sub{
 .change{border-left:3px solid var(--hot)}
 .bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(248,245,242,.95);backdrop-filter:blur(15px);border-top:1px solid var(--line);padding:8px 10px calc(8px + env(safe-area-inset-bottom));z-index:6}.nav{max-width:680px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:3px}.nav button{border:0;background:transparent;color:#8A8286;font:inherit;font-size:10px;padding:5px 2px}.nav .active{color:var(--hot);font-weight:900}.nav i{font-style:normal;display:block;font-size:19px;margin-bottom:3px}
 .loading{padding:56px 20px;text-align:center;color:var(--muted)}.error{padding:14px;background:#FFF0F4;color:#8F2645;border-radius:17px}.brand{text-align:center;color:#9A9296;font-size:10px;letter-spacing:.16em;margin-top:22px}
+
+/* Student written-work submission, independent of teacher dashboard theme. */
+.hw-upload-section{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}
+.hw-upload-section label{font-size:12px;line-height:1.4}
+.hw-upload-section input[type=file]{font:inherit;font-size:12px;max-width:100%}
+.hw-upload-section .hwbtn{font-size:12px;white-space:normal}
+.hw-feedback{font-size:12px;margin:2px 0;line-height:1.4}
+.hw-subtle{font-size:12px;color:var(--muted);margin:2px 0;overflow-wrap:anywhere}
+
 </style>
 </head>
 <body>
@@ -58,7 +67,41 @@ function renderHome(d){var out='<div class="top"><div><span class="tag">мой �
 var hw='';(d.homework||[]).slice(0,3).forEach(function(x){hw+='<div class="row"><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.text)+'</div><div class="row-sub">до '+esc(x.due)+'</div></div><span class="badge '+(x.status==='done'?'done':x.overdue?'bad':'')+'">'+(x.status==='done'?'готово':'сделать')+'</span></div>';});out+='<div class="section"><div class="section-title"><strong>Домашнее</strong><span onclick="openView(\'homework\')">всё →</span></div><div class="list">'+(hw||'<div class="empty">Активного ДЗ нет 🎉</div>')+'</div></div>';
 var mats='';(d.materials||[]).slice(0,4).forEach(function(x){mats+='<div class="row" onclick="openMaterial('+x.id+')" style="cursor:pointer"><div class="row-main"><div class="row-title">'+esc(x.icon+' '+x.title)+'</div><div class="row-sub">'+esc(x.type_label)+(x.opened?' · 👀 открыто':'')+'</div></div><span class="badge">открыть →</span></div>';});out+='<div class="section"><div class="section-title"><strong>Материалы</strong><span onclick="openView(\'materials\')">всё →</span></div><div class="list">'+(mats||'<div class="empty">Материалов пока нет</div>')+'</div></div>';
 var ch='';(d.changes||[]).slice(0,4).forEach(function(x){ch+='<div class="row change"><div class="row-main"><div class="row-title">'+esc(x.title)+'</div><div class="row-sub">'+esc(x.text)+'</div></div></div>';});if(ch)out+='<div class="section"><div class="section-title"><strong>Изменения</strong></div><div class="list">'+ch+'</div></div>';out+='<div class="brand">ПРЕПАДМИН · всё важное рядом</div>';document.getElementById('app').innerHTML=out;}
-function renderHomework(d){var rows='';(d.items||[]).forEach(function(x){rows+='<div class="row"><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.text)+'</div><div class="row-sub">'+esc(x.target)+' · до '+esc(x.due)+'</div></div>'+(x.status==='done'?'<span class="badge done">✅ готово</span>':'<button class="hwbtn" onclick="doneHw('+x.assignment_id+',\''+x.subject_kind+'\','+x.subject_id+')">✅ Я сделал(а)</button>')+'</div>';});document.getElementById('app').innerHTML=screenHeader('Домашнее','твои текущие задания')+'<div class="list">'+(rows||'<div class="empty">Активного ДЗ нет 🎉</div>')+'</div>';}
+function renderHomework(d){
+ var rows='';
+ (d.items||[]).forEach(function(x){
+  var isFile=x.submission_mode==='attachment',finished=x.status==='done',aid=Number(x.assignment_id);
+  var label=finished?(x.completed_by==='student'?'Отмечено мной':x.completed_by==='teacher'?'Отмечено преподавателем':'Отмечено выполненным'):'Не отмечено';
+  var control='';
+  if(isFile){
+   var sub=x.submission||null,st=sub?sub.status:'none';
+   var statusText=st==='submitted'?'На проверке':st==='approved'?'Проверено':
+    st==='revision'?'На доработке':st==='draft'?'Файлы загружаются':'Не сдано';
+   control+='<div class="hw-upload-section"><span class="badge '+(st==='approved'?'done':'')+'">'+statusText+'</span>';
+   if(sub&&sub.feedback)control+='<p class="hw-feedback">Замечания: '+esc(sub.feedback)+'</p>';
+   if(sub&&sub.previous_feedback)control+='<p class="hw-feedback">Предыдущие замечания: '+esc(sub.previous_feedback)+'</p>';
+   if(sub&&sub.attempt)control+='<p class="hw-subtle">Попытка №'+Number(sub.attempt)+'</p>';
+   (sub&&sub.files||[]).forEach(function(file){
+    control+='<p class="hw-subtle">📎 '+esc(file.name)+'</p>';
+   });
+   if(st==='none'||st==='draft'||st==='revision'){
+    control+='<label for="hw-upload-'+aid+'">Добавь фото (JPG, PNG) или PDF — до 8 МБ каждый, до 5 файлов</label>';
+    control+='<input id="hw-upload-'+aid+'" type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" multiple>';
+    control+='<button type="button" class="hwbtn" onclick="uploadHomeworkFiles('+aid+')">Прикрепить файлы</button>';
+    if(st==='draft')control+='<button type="button" class="hwbtn" onclick="submitHomeworkFiles('+aid+')">Отправить на проверку</button>';
+   }
+   control+='</div>';
+  }else{
+   control=finished?'<span class="badge done">✓ '+esc(label)+'</span>':
+    '<button class="hwbtn" onclick="doneHw('+aid+',\''+x.subject_kind+'\','+x.subject_id+')">✓ Я выполнил(а)</button>';
+  }
+  rows+='<div class="row"><div class="row-main"><div class="row-title '+(x.overdue?'alert':'')+'">'+esc(x.text)+'</div>'+
+   '<div class="row-sub">'+esc(x.target)+' · до '+esc(x.due)+' · '+(isFile?'Письменная работа':'Отметка выполнения')+'</div></div>'+control+'</div>';
+ });
+ document.getElementById('app').innerHTML=screenHeader('Домашнее','твои текущие задания')+
+  '<p class="sub">Тест можно отметить как выполненный, но проверенной работой он от этого не станет. Письменные работы проверяет преподаватель.</p>'+
+  '<div class="list">'+(rows||'<div class="empty">Активного ДЗ нет 🎉</div>')+'</div>';
+}
 function renderSchedule(d){var out=screenHeader('Расписание','ближайшие 14 дней');(d.days||[]).forEach(function(day){var rows='';(day.events||[]).forEach(function(e){rows+='<div class="row"><div class="row-main"><div class="row-title">'+esc(e.time)+' · '+esc(e.label)+(e.moved?' ↪️':'')+'</div><div class="row-sub">'+(e.reply==='yes'?'✅ буду':e.reply==='no'?'❌ не смогу':'ответ не выбран')+'</div></div><div class="reply" style="width:150px;margin:0;grid-template-columns:1fr 1fr"><button class="yes" onclick="replyLesson(\'yes\',\''+e.kind+'\','+e.slot_id+',\''+e.occurrence_key+'\')">✅</button><button class="no" onclick="replyLesson(\'no\',\''+e.kind+'\','+e.slot_id+',\''+e.occurrence_key+'\')">❌</button></div></div>';});out+='<div class="section"><div class="section-title"><strong>'+esc(day.label)+'</strong></div><div class="list">'+(rows||'<div class="empty">Нет занятий</div>')+'</div></div>';});document.getElementById('app').innerHTML=out;}
 function renderMaterials(d){var rows='';(d.items||[]).forEach(function(x){rows+='<div class="row" onclick="openMaterial('+x.id+')" style="cursor:pointer"><div class="row-main"><div class="row-title">'+esc(x.icon+' '+x.title)+'</div><div class="row-sub">'+esc(x.type_label)+(x.opened?' · 👀 открыто':'')+'</div></div><span class="badge">открыть →</span></div>';});document.getElementById('app').innerHTML=screenHeader('Материалы','видео, конспекты, тренажёры и ссылки от преподавателя')+'<div class="list">'+(rows||'<div class="empty">Материалов пока нет</div>')+'</div>';}
 function renderProfile(d){var p=d.profile,pay=d.payment;document.getElementById('app').innerHTML=screenHeader('Профиль','твои данные в ПРЕПАДМИН')+'<div class="list"><div class="row"><div class="row-main"><div class="row-title">'+esc(p.name)+'</div><div class="row-sub">'+esc(p.scope)+'</div></div></div><div class="row"><div class="row-main"><div class="row-title">Преподаватель</div><div class="row-sub">'+esc(p.teacher)+(p.subject?' · '+esc(p.subject):'')+'</div></div></div><div class="row"><div class="row-main"><div class="row-title">Оплата</div><div class="row-sub">'+esc(pay.full)+'</div></div></div></div>';}
@@ -72,6 +115,52 @@ async function refreshView(silent){
  }catch(e){if(!silent){await reportClientError('refresh:'+current,e);document.getElementById('app').innerHTML='<div class="error">Не удалось обновить кабинет. Попробуй открыть его ещё раз.</div>';}}
 }
 async function openView(v){current=v;setNav(['home','homework','schedule','profile'].indexOf(v)>=0?v:'');document.getElementById('app').innerHTML='<div class="loading">Загружаю…</div>';try{var p=await api(v);render(p.view,p.data);try{window.scrollTo(0,0);}catch(_){}}catch(e){await reportClientError('open:'+v,e);document.getElementById('app').innerHTML='<div class="error">Не удалось открыть раздел. Нажми «Главная» или открой кабинет снова.</div>';}}
+var homeworkUploadBusy=false;
+async function uploadHomeworkFiles(aid){
+ if(homeworkUploadBusy)return;
+ var input=document.getElementById('hw-upload-'+Number(aid));
+ var files=input?Array.from(input.files||[]):[];
+ if(!files.length||files.length>5){alert('Выбери от 1 до 5 файлов.');return;}
+ if(files.some(function(f){return f.size<12||f.size>8*1024*1024||!/\.(pdf|png|jpe?g)$/i.test(f.name)})){
+  alert('Нужны фото JPG/PNG или PDF размером до 8 МБ.');return;
+ }
+ homeworkUploadBusy=true;
+ try{
+  for(var file of files){
+   var response=await fetch('/api/student/homework/upload',{
+    method:'POST',credentials:'same-origin',cache:'no-store',
+    headers:{
+     'Content-Type':file.type||'application/octet-stream',
+     'X-Prepodmin-Init-Data':(tg&&tg.initData)||'',
+     'X-Prepodmin-Launch':launch,
+     'X-Prepodmin-Assignment-Id':String(aid),
+     'X-Prepodmin-Link-Id':linkId==null?'':String(linkId),
+     'X-Prepodmin-File-Name':encodeURIComponent(file.name)
+    },
+    body:file
+   });
+   var result={};
+   try{result=await response.json();}catch(_){}
+   if(!response.ok||!result.ok)throw new Error(result.error||('HTTP '+response.status));
+  }
+  await refreshView(false);
+ }catch(e){
+  await reportClientError('homework_upload',e);
+  alert('Файл не загружен. Проверь формат, размер или соединение и попробуй ещё раз.');
+ }finally{homeworkUploadBusy=false;}
+}
+async function submitHomeworkFiles(aid){
+ if(homeworkUploadBusy)return;
+ homeworkUploadBusy=true;
+ try{
+  var result=await action({action:'homework_submit',assignment_id:Number(aid)});
+  if(!result.ok)throw new Error(result.error||'not_saved');
+  await refreshView(false);
+ }catch(e){
+  await reportClientError('homework_submit',e);
+  alert('Не получилось отправить работу на проверку. Попробуй ещё раз.');
+ }finally{homeworkUploadBusy=false;}
+}
 async function doneHw(a,k,s){try{var x=await action({action:'homework_done',assignment_id:a,subject_kind:k,subject_id:s});if(!x.ok)throw new Error(x.error||'not saved');await refreshView(false);}catch(e){await reportClientError('homework_done',e);}}
 async function replyLesson(r,k,s,o){try{var x=await action({action:'lesson_reply',response:r,kind:k,slot_id:s,occurrence_key:o});if(!x.ok)throw new Error(x.error||'not saved');await refreshView(false);}catch(e){await reportClientError('lesson_reply',e);}}
 async function openMaterial(id){try{var x=await action({action:'material_open',material_id:id});if(!x.ok)throw new Error(x.error||'not available');if(tg&&tg.openLink)tg.openLink(x.url);else window.open(x.url,'_blank');await refreshView(true);}catch(e){await reportClientError('material_open',e);}}

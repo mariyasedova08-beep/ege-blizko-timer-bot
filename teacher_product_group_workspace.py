@@ -48,6 +48,12 @@ def _sessions(uid, gid, now, offset_start, offset_end):
 
 
 def _homework(uid, gid):
+    """Read the existing group homework and its per-student completion flags.
+
+    The statuses describe self-/teacher-marked completion, NOT uploaded work.
+    A single additional query reads student statuses for displayed assignments.
+    This read path does not create, send, or mutate any homework records.
+    """
     import teacher_product_webapp_homework as webapp_homework
     webapp_homework.ensure_tables()
     with base.db() as conn:
@@ -69,12 +75,52 @@ def _homework(uid, gid):
             """,
             (int(uid), int(gid)),
         ).fetchall()
+        members = {
+            int(m["id"]): m["name"] for m in learning._members(uid, gid)
+        }
+        ids = [int(r["id"]) for r in rows]
+        statuses = {}
+        if ids:
+            placeholders = ",".join("?" for _ in ids)
+            student_rows = conn.execute(
+                "SELECT hs.assignment_id, hs.subject_id, hs.status "
+                "FROM teacher_homework_status hs "
+                "JOIN teacher_homework h ON h.id=hs.assignment_id "
+                "WHERE h.teacher_telegram_user_id=? AND h.target_kind='group' "
+                "AND h.target_id=? AND h.active=1 "
+                "AND hs.subject_kind='group_member' "
+                f"AND hs.assignment_id IN ({placeholders})",
+                (int(uid), int(gid), *ids),
+            ).fetchall()
+            for st in student_rows:
+                member_id = int(st["subject_id"])
+                if member_id not in members:
+                    continue
+                statuses.setdefault(int(st["assignment_id"]), []).append({
+                    "id": member_id,
+                    "name": members[member_id],
+                    "status": "done" if st["status"] == "done" else "pending",
+                })
+    import teacher_product_homework_submissions as submissions
+    modes = webapp_homework.mode_map(ids)
+    origins = webapp_homework.status_origins(ids)
+    attempts = submissions.for_teacher(uid,ids)
+    for aid, people in statuses.items():
+        for member in people:
+            member["completed_by"] = origins.get((aid,"group_member",member["id"])) if member["status"] == "done" else None
+            member["submission"] = attempts.get((aid,"group_member",member["id"]))
     return [{
         "id": int(r["id"]),
+        "submission_mode": modes.get(int(r["id"]),"self"),
         "text": r["homework_text"],
         "due": r["due_date"],
         "done": int(r["done"] or 0),
         "total": int(r["total"] or 0),
+        "submitted": sum(1 for m in statuses.get(int(r["id"]),[]) if
+                         m.get("submission") and m["submission"]["status"]=="submitted"),
+        "approved": sum(1 for m in statuses.get(int(r["id"]),[]) if
+                        m.get("submission") and m["submission"]["status"]=="approved"),
+        "members": sorted(statuses.get(int(r["id"]), []), key=lambda m: m["name"].casefold()),
         "delivery": ({
             "state": r["delivery_state"],
             "linked": r["linked_count"],

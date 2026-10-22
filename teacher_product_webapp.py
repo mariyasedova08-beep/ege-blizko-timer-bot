@@ -4,6 +4,7 @@ import html
 import hmac
 import json
 import os
+import re
 import time
 import traceback
 from datetime import datetime, timedelta
@@ -11,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import RLock
 from types import SimpleNamespace
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qs, parse_qsl, unquote, urlsplit
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import ApplicationHandlerStop, CallbackQueryHandler, MessageHandler, filters
@@ -35,6 +36,7 @@ import teacher_product_onboarding as onboarding
 import teacher_product_help as help_guide
 import teacher_product_group_workspace as group_workspace
 import teacher_product_webapp_homework as webapp_homework
+import teacher_product_homework_submissions as hwsub
 import teacher_product_webapp_lessons as webapp_lessons
 import teacher_product_lesson_recordings as lesson_recordings
 import teacher_product_student_reminders as student_reminders
@@ -681,6 +683,19 @@ def _teacher_action(uid, payload):
         return webapp_homework.create_group_assignment(uid, payload)
     if action_name == "group_homework_mark":
         return webapp_homework.mark_group_homework(uid, payload)
+    if action_name == "group_homework_review":
+        try:
+            aid = int(payload.get("assignment_id"))
+            mid = int(payload.get("member_id"))
+        except (TypeError, ValueError, OverflowError):
+            return {"ok":False,"error":"invalid_subject"}
+        return hwsub.review(uid,aid,mid,payload.get("decision"),payload.get("feedback",""))
+    if action_name == "group_homework_file_ticket":
+        try:
+            file_id = int(payload.get("file_id"))
+        except (TypeError, ValueError, OverflowError):
+            return {"ok":False,"error":"invalid_file"}
+        return hwsub.file_ticket(uid,file_id)
     if action_name == "member_payment_update":
         return group_workspace.update_member_payment(uid, payload)
     if action_name == "group_attendance":
@@ -893,6 +908,14 @@ class WebAppHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        if path.startswith("/api/teacher/homework/file/"):
+            match = re.fullmatch(r"/api/teacher/homework/file/([1-9][0-9]{0,15})",path)
+            if not match:
+                self._send(404,b"Not found","text/plain; charset=utf-8")
+                return
+            ticket = parse_qs(urlsplit(self.path).query).get("ticket",[""])[0]
+            hwsub.serve(self,int(match.group(1)),ticket)
+            return
         if path == "/health":
             self._send(200, _json_bytes({
                 "ok": True,
@@ -920,6 +943,33 @@ class WebAppHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?", 1)[0]
+        if path == "/api/student/homework/upload":
+            uid=_validate_init_data(self.headers.get("X-Prepodmin-Init-Data",""))
+            if not uid:
+                uid=student_webapp.validate_launch_token(self.headers.get("X-Prepodmin-Launch",""))
+            if not uid:
+                self._send(401,_json_bytes({"ok":False,"error":"unauthorized"}))
+                return
+            try:
+                aid=int(self.headers.get("X-Prepodmin-Assignment-Id",""))
+                selected=self.headers.get("X-Prepodmin-Link-Id","")
+                link_id=int(selected) if selected else None
+                length=int(self.headers.get("Content-Length","0"))
+                if not (12<=length<=hwsub.MAX_BYTES):
+                    self._send(413,_json_bytes({"ok":False,"error":"file_size"}))
+                    return
+                link=student_webapp._link(uid,link_id)
+                if not link or (link_id is not None and int(link["id"])!=link_id):
+                    self._send(403,_json_bytes({"ok":False,"error":"forbidden"}))
+                    return
+                filename=unquote(self.headers.get("X-Prepodmin-File-Name",""))
+                self.connection.settimeout(90)
+                result=hwsub.upload(link,aid,self.rfile,length,filename,self.headers.get("Content-Type",""))
+                self._send(200 if result.get("ok") else 400,_json_bytes(result))
+            except (TypeError,ValueError,RuntimeError,OSError,TimeoutError) as exc:
+                print("PREPODMIN homework upload failed: "+type(exc).__name__,flush=True)
+                self._send(400,_json_bytes({"ok":False,"error":"upload_failed"}))
+            return
         if path not in {"/api/dashboard", "/api/teacher/action", "/api/student", "/api/student/action", "/api/client-error"}:
             self._send(404, _json_bytes({"ok": False, "error": "not_found"}))
             return

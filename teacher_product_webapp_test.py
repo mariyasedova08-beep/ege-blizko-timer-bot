@@ -96,7 +96,7 @@ class TeacherDashboardTest(unittest.TestCase):
         html=webapp.HTML_PATH.read_text(encoding="utf-8")
         marker="/* PREPODMIN desktop workspace: home overview + group directory density."
         self.assertEqual(html.count(marker),1)
-        css=html.split(marker,1)[1].split("</style>",1)[0]
+        css=html.split(marker,1)[1].split("/* PREPODMIN: inline group homework progress and teacher marks. */",1)[0]
         self.assertIn("@media (min-width:900px){",css)
         self.assertIn("@media (min-width:900px) and (max-width:1020px){",css)
         for expected in (
@@ -1043,6 +1043,560 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(webapp._view(101,f"group:{self.gid}")["members"][0]["pending_homework"],0)
         self.assertTrue(webapp._teacher_action(101,{**data,"status":"pending"})["ok"])
         self.assertEqual(webapp._view(101,f"group:{self.gid}")["homework"][0]["done"],0)
+
+    def test_group_homework_lists_students_and_reacts_to_status_updates(self):
+        from teacher_product_group_workspace import group_view
+        from teacher_product_student_reminders import add_member
+        second=int(add_member(101,self.gid,"Аня")["id"])
+        created=webapp._teacher_action(101,self.payload)
+        self.assertTrue(created["ok"],created)
+        aid=created["assignment_id"]
+        group=group_view(101,self.gid)
+        item=group["homework"][0]
+        self.assertEqual(item["id"],aid)
+        self.assertEqual(item["done"],0)
+        self.assertEqual(item["total"],2)
+        self.assertEqual(
+            [(s["name"],s["status"]) for s in item["members"]],
+            [("Алина","pending"),("Аня","pending")],
+        )
+        marked=webapp._teacher_action(101,{
+            "action":"group_homework_mark","assignment_id":aid,
+            "member_id":second,"status":"done",
+        })
+        self.assertTrue(marked["ok"],marked)
+        after=group_view(101,self.gid)["homework"][0]
+        self.assertEqual((after["done"],after["total"]),(1,2))
+        self.assertEqual(
+            [(s["name"],s["status"]) for s in after["members"]],
+            [("Алина","pending"),("Аня","done")],
+        )
+        self.assertEqual(webapp._teacher_action(202,{
+            "action":"group_homework_mark","assignment_id":aid,
+            "member_id":second,"status":"pending",
+        })["error"],"assignment_not_found")
+        self.assertEqual(webapp._view(101,f"group:{self.other_gid}")["homework"],[])
+        self.assertIsNone(webapp._view(202,f"group:{self.gid}"))
+        self.assertTrue(webapp._teacher_action(101,{
+            "action":"group_homework_mark","assignment_id":aid,
+            "member_id":second,"status":"pending",
+        })["ok"])
+        self.assertEqual(group_view(101,self.gid)["homework"][0]["done"],0)
+        # The read-only UI must not create another assignment or delivery job.
+        with base.db() as conn:
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_homework WHERE teacher_telegram_user_id=?",
+                (101,),
+            ).fetchone()[0],1)
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_webapp_homework_delivery WHERE teacher_telegram_user_id=?",
+                (101,),
+            ).fetchone()[0],1)
+
+    def test_group_homework_inline_controls_and_no_false_submissions(self):
+        html=webapp.HTML_PATH.read_text(encoding="utf-8")
+        group=html.split("function renderGroup(d){",1)[1].split("function renderMember(d){",1)[0]
+        for phrase in (
+            'class="ghw-card"',
+            'class="ghw-details"',
+            "h.members||[]",
+            'class="ghw-member"',
+            "setGroupHomeworkMember(",
+            "Отмечено учеником",
+            "Не отмечено",
+            "Для письменных работ нужен файл и решение преподавателя",
+            "Уведомления в очереди",
+            "Проверь доставку в Telegram",
+        ):
+            self.assertIn(phrase,group)
+        self.assertIn("async function setGroupHomeworkMember(gid,aid,mid,status)",html)
+        self.assertIn("action:'group_homework_mark'",html)
+        self.assertIn("activeGroupTab='homework'",html)
+        self.assertIn("expandedGroupHomeworkId=Number(aid)",html)
+        self.assertNotIn("input type=\"file\"",group)
+        self.assertNotIn("ДЗ сдано на проверку",group)
+
+    def test_modes_do_not_break_legacy_and_file_issuance_is_guarded(self):
+        import teacher_product_webapp_homework as hw
+        default=webapp._teacher_action(101,self.payload)
+        self.assertTrue(default["ok"],default)
+        self.assertEqual(hw.mode_for_assignment(default["assignment_id"]),"self")
+        self.assertEqual(webapp._view(101,f"group:{self.gid}")["homework"][0]["submission_mode"],"self")
+        self.assertEqual(webapp._teacher_action(101,{**self.payload,"submission_mode":"unknown"})["error"],"invalid_submission_mode")
+        forbidden=webapp._teacher_action(101,{
+            **self.payload,
+            "request_key":"prepodmin-file-001",
+            "submission_mode":"attachment",
+        })
+        self.assertEqual(forbidden["error"],"attachment_submission_not_ready")
+        with base.db() as conn:
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_homework WHERE teacher_telegram_user_id=101"
+            ).fetchone()[0],1)
+            self.assertEqual(conn.execute(
+                "SELECT COUNT(*) FROM teacher_webapp_homework_delivery"
+            ).fetchone()[0],1)
+            # Simulate a homework issued by legacy Telegram: it has no mode record.
+            cur=conn.execute(
+                "INSERT INTO teacher_homework "
+                "(teacher_telegram_user_id,target_kind,target_id,homework_text,due_date,active,created_at) "
+                "VALUES(101,'group',?,?,?,1,'2026-10-21')",
+                (self.gid,"Старое задание",self.due),
+            )
+            conn.commit()
+            old=cur.lastrowid
+        self.assertEqual(hw.mode_for_assignment(old),"self")
+
+    def test_student_and_teacher_completion_have_distinct_unverified_origin(self):
+        from unittest.mock import patch
+        import teacher_product_student_webapp as student
+        first=webapp._teacher_action(101,self.payload)
+        aid=first["assignment_id"]
+        # Mock only authentication's student lookup, never backend authorization.
+        link={"id":self.mid,"kind":"group","teacher_id":101,
+              "group_id":self.gid,"group_name":"ОГЭ 2027","name":"Алина"}
+        request={"action":"homework_done","assignment_id":aid,
+                 "subject_kind":"group_member","subject_id":self.mid}
+        with patch.object(student,"_link",return_value=link):
+            done=student.action(123,request)
+            again=student.action(123,request)
+            self.assertTrue(done["ok"],done)
+            self.assertTrue(again["unchanged"])
+            item=student._homework(link)[0]
+            self.assertEqual(item["submission_mode"],"self")
+            self.assertEqual(item["completed_by"],"student")
+        group=webapp._view(101,f"group:{self.gid}")["homework"][0]
+        self.assertEqual(group["members"][0]["completed_by"],"student")
+        teacher=webapp._teacher_action(101,{"action":"group_homework_mark",
+            "assignment_id":aid,"member_id":self.mid,"status":"pending"})
+        self.assertTrue(teacher["ok"],teacher)
+        teacher=webapp._teacher_action(101,{"action":"group_homework_mark",
+            "assignment_id":aid,"member_id":self.mid,"status":"done"})
+        self.assertTrue(teacher["ok"],teacher)
+        group=webapp._view(101,f"group:{self.gid}")["homework"][0]
+        self.assertEqual(group["members"][0]["completed_by"],"teacher")
+        with patch.object(student,"_link",return_value=link):
+            self.assertTrue(student.action(123,request)["unchanged"])
+        group=webapp._view(101,f"group:{self.gid}")["homework"][0]
+        self.assertEqual(group["members"][0]["completed_by"],"teacher")
+
+    def test_student_self_mark_denies_other_group_assignment(self):
+        from unittest.mock import patch
+        import teacher_product_student_webapp as student
+        created=webapp._teacher_action(101,self.payload)
+        aid=created["assignment_id"]
+        wrong={"id":self.other_mid,"kind":"group","teacher_id":101,
+               "group_id":self.other_gid,"group_name":"ЕГЭ 2027","name":"Ева"}
+        request={"action":"homework_done","assignment_id":aid,
+                 "subject_kind":"group_member","subject_id":self.other_mid}
+        with patch.object(student,"_link",return_value=wrong):
+            result=student.action(888,request)
+        self.assertEqual(result["error"],"forbidden")
+        self.assertEqual(webapp._view(101,f"group:{self.gid}")["homework"][0]["done"],0)
+
+    def test_homework_ui_mode_selector_and_no_false_verified_label(self):
+        teacher=webapp.HTML_PATH.read_text(encoding="utf-8")
+        from pathlib import Path
+        student=Path("teacher_product_student_webapp.html").read_text(encoding="utf-8")
+        for token in (
+            'name="g-hw-mode" value="self"',
+            'name="g-hw-mode" value="attachment"',
+            "submission_mode:submissionMode",
+            "submissionMode==='attachment'",
+            "attachment_submission_not_ready",
+            "Отмечено учеником",
+            "Отмечено преподавателем",
+            "Для письменных работ нужен файл и решение преподавателя",
+        ):
+            self.assertIn(token,teacher)
+        for token in ("x.submission_mode==='attachment'",
+                      "Отмечено мной","Отмечено преподавателем",
+                      "проверенной работой он от этого не станет"):
+            self.assertIn(token,student)
+        self.assertNotIn("Проверено преподавателем",teacher)
+
+    def test_file_homework_upload_submit_approve_and_new_revision_attempt(self):
+        from unittest.mock import patch
+        from io import BytesIO
+        import teacher_product_homework_submissions as sub
+        import teacher_product_student_webapp as student
+        import teacher_product_webapp_homework as hw
+        import os
+        location=os.path.join(self.tmp.name,"private_hw")
+        with patch.dict(os.environ,{
+            "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":location,
+            "TEACHER_PRODUCT_HOMEWORK_FILE_TICKET_KEY":"strong-sample-secret-only-for-tests-123456",
+        }):
+            payload={**self.payload,"submission_mode":"attachment"}
+            created=webapp._teacher_action(101,payload)
+            self.assertTrue(created["ok"],created)
+            aid=created["assignment_id"]
+            self.assertEqual(hw.mode_for_assignment(aid),"attachment")
+            link={"id":self.mid,"teacher_id":101,"kind":"group","group_id":self.gid,
+                  "group_name":"ОГЭ 2027","name":"Алина"}
+            img=b"\x89PNG\r\n\x1a\n"+b"x"*512
+            uploaded=sub.upload(link,aid,BytesIO(img),len(img),"photo.png","image/png")
+            self.assertTrue(uploaded["ok"],uploaded)
+            info=sub.for_student(link,[aid])[(aid,"group_member",self.mid)]
+            self.assertEqual(info["status"],"draft")
+            self.assertEqual(len(info["files"]),1)
+            self.assertEqual(info["files"][0]["name"],"photo.png")
+            with patch.object(student,"_link",return_value=link):
+                bad_mark=student.action(999,{"action":"homework_done","assignment_id":aid,
+                    "subject_kind":"group_member","subject_id":self.mid})
+                self.assertEqual(bad_mark["error"],"attachment_required")
+                finished=student.action(999,{"action":"homework_submit","assignment_id":aid})
+                self.assertTrue(finished["ok"],finished)
+            group=webapp._view(101,f"group:{self.gid}")["homework"][0]
+            self.assertEqual(group["submitted"],1)
+            self.assertEqual(group["approved"],0)
+            self.assertEqual(group["done"],0)
+            self.assertEqual(group["members"][0]["submission"]["status"],"submitted")
+            self.assertEqual(sub.upload(link,aid,BytesIO(img),len(img),"extra.png","image/png")["error"],"attempt_closed")
+            review=webapp._teacher_action(101,{"action":"group_homework_review",
+                "assignment_id":aid,"member_id":self.mid,"decision":"revision",
+                "feedback":"Перепроверь коэффициенты"})
+            self.assertTrue(review["ok"],review)
+            group=webapp._view(101,f"group:{self.gid}")["homework"][0]
+            self.assertEqual(group["members"][0]["submission"]["feedback"],"Перепроверь коэффициенты")
+            self.assertEqual(group["members"][0]["submission"]["status"],"revision")
+            self.assertEqual(group["done"],0)
+            pdf=b"%PDF-1.4\n"+b"z"*100
+            uploaded=sub.upload(link,aid,BytesIO(pdf),len(pdf),"redo.pdf","application/pdf")
+            self.assertTrue(uploaded["ok"],uploaded)
+            with patch.object(student,"_link",return_value=link):
+                self.assertTrue(student.action(999,{"action":"homework_submit","assignment_id":aid})["ok"])
+            self.assertTrue(webapp._teacher_action(101,{"action":"group_homework_review",
+                "assignment_id":aid,"member_id":self.mid,"decision":"approved",
+                "feedback":"Принято"} )["ok"])
+            group=webapp._view(101,f"group:{self.gid}")["homework"][0]
+            self.assertEqual(group["done"],1)
+            self.assertEqual(group["approved"],1)
+            self.assertEqual(group["members"][0]["submission"]["status"],"approved")
+            self.assertEqual(group["members"][0]["submission"]["attempt"],2)
+            self.assertEqual(group["members"][0]["submission"]["files"][0]["name"],"redo.pdf")
+            with base.db() as conn:
+                versions=conn.execute(
+                    "SELECT attempt_number,status FROM teacher_webapp_homework_attempts "
+                    "WHERE assignment_id=? ORDER BY attempt_number",(aid,),
+                ).fetchall()
+                self.assertEqual([(v["attempt_number"],v["status"]) for v in versions],
+                                 [(1,"revision"),(2,"approved")])
+                count=conn.execute(
+                    "SELECT COUNT(*) FROM teacher_webapp_homework_files"
+                ).fetchone()[0]
+                self.assertEqual(count,2)
+
+    def test_file_homework_rejects_wrong_owner_and_bad_format(self):
+        from io import BytesIO
+        from unittest.mock import patch
+        import teacher_product_homework_submissions as sub
+        import os
+        with patch.dict(os.environ,{
+            "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"files"),
+        }):
+            a=webapp._teacher_action(101,{**self.payload,
+                "submission_mode":"attachment"})
+            self.assertTrue(a["ok"],a)
+            aid=a["assignment_id"]
+            link={"id":self.mid,"teacher_id":101,"kind":"group",
+                  "group_id":self.gid,"name":"Алина"}
+            other={"id":self.other_mid,"teacher_id":101,"kind":"group",
+                   "group_id":self.other_gid,"name":"Ева"}
+            png=b"\x89PNG\r\n\x1a\n"+b"x"*100
+            self.assertEqual(sub.upload(other,aid,BytesIO(png),len(png),"other.png","image/png")["error"],"assignment_unavailable")
+            self.assertEqual(sub.submit(other,aid)["error"],"assignment_unavailable")
+            self.assertEqual(sub.upload(link,aid,BytesIO(b"not an image"+b"x"*30),42,"bad.png","image/png")["error"],"upload_failed")
+            self.assertEqual(sub.upload(link,aid,BytesIO(png),len(png),"big.png","image/png")["ok"],True)
+            self.assertEqual(sub.review(202,aid,self.mid,"approved","")["error"],"assignment_unavailable")
+            self.assertEqual(sub.review(101,aid,self.other_mid,"approved","")["error"],"assignment_unavailable")
+            self.assertEqual(sub.review(101,aid,self.mid,"revision","")["error"],"invalid_feedback")
+            self.assertEqual(sub.file_ticket(202,1)["error"],"file_unavailable")
+        with patch.dict(os.environ,{"TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"0"}):
+            self.assertEqual(sub.submit(link,aid)["error"],"uploads_disabled")
+
+    def test_file_tickets_authorize_range_stream_and_reject_tampering(self):
+        from io import BytesIO
+        from unittest.mock import patch
+        from urllib.parse import parse_qs,urlsplit
+        import os
+        import teacher_product_homework_submissions as sub
+        with patch.dict(os.environ,{
+            "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"files"),
+            "TEACHER_PRODUCT_HOMEWORK_FILE_TICKET_KEY":"strong-sample-secret-only-for-tests-123456",
+        }):
+            a=webapp._teacher_action(101,{**self.payload,"submission_mode":"attachment"})
+            aid=a["assignment_id"]
+            link={"id":self.mid,"teacher_id":101,"kind":"group","group_id":self.gid}
+            pdf=b"%PDF-1.4\n"+b"X"*50
+            self.assertTrue(sub.upload(link,aid,BytesIO(pdf),len(pdf),"calc.pdf","application/pdf")["ok"])
+            file_id=sub.for_student(link,[aid])[(aid,"group_member",self.mid)]["files"][0]["id"]
+            ticket=webapp._teacher_action(101,{"action":"group_homework_file_ticket","file_id":file_id})
+            self.assertTrue(ticket["ok"],ticket)
+            self.assertEqual(webapp._teacher_action(202,{"action":"group_homework_file_ticket",
+                "file_id":file_id})["error"],"file_unavailable")
+            class Handler:
+                def __init__(self):
+                    self.headers={"Range":"bytes=0-12"}
+                    self.wfile=BytesIO()
+                    self.status=None
+                    self.headers_out={}
+                def _send(self,status,body,ctype):self.status=status
+                def send_response(self,status):self.status=status
+                def send_header(self,k,v):self.headers_out[k]=v
+                def end_headers(self):pass
+            path=urlsplit(ticket["url"])
+            token=parse_qs(path.query)["ticket"][0]
+            h=Handler()
+            sub.serve(h,file_id,token)
+            self.assertEqual(h.status,206)
+            self.assertEqual(h.wfile.getvalue(),pdf[:13])
+            self.assertEqual(h.headers_out["Cache-Control"],"private, no-store")
+            self.assertEqual(h.headers_out["Content-Type"],"application/pdf")
+            bad=Handler()
+            sub.serve(bad,file_id,token+"bad")
+            self.assertEqual(bad.status,404)
+            expired=Handler()
+            with patch.object(sub.time,"time",return_value=10**11):
+                sub.serve(expired,file_id,token)
+            self.assertEqual(expired.status,404)
+
+    def test_file_homework_interface_and_nginx_template_require_manual_setup(self):
+        from pathlib import Path
+        teacher=webapp.HTML_PATH.read_text(encoding="utf-8")
+        student=Path("teacher_product_student_webapp.html").read_text(encoding="utf-8")
+        nginx=Path("deployment/prepodmin/nginx-https.conf").read_text(encoding="utf-8")
+        for snippet in (
+            "group_homework_review","group_homework_file_ticket",
+            "reviewGroupHomework(","openHomeworkFile(",
+            "На проверке","На доработке","Проверено",
+            "Отмечено учеником",
+            'name="g-hw-mode" value="self"',
+            'name="g-hw-mode" value="attachment"',
+        ):
+            self.assertIn(snippet,teacher)
+        for snippet in (
+            "uploadHomeworkFiles(","submitHomeworkFiles(",
+            "homework_submit","type=\"file\"",
+            "На проверке","На доработке","Проверено",
+            "/api/student/homework/upload",
+        ):
+            self.assertIn(snippet,student)
+        self.assertIn("location = /api/student/homework/upload",nginx)
+        self.assertIn("location ^~ /api/teacher/homework/file/",nginx)
+        self.assertIn("client_max_body_size 9m",nginx)
+        self.assertIn("access_log off;",nginx)
+        self.assertIn("TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED",
+                      __import__("teacher_product_homework_submissions").enabled.__code__.co_consts.__repr__())
+
+    def test_real_http_png_pdf_submission_and_teacher_preview_only(self):
+        """Real loopback HTTP: authentic files, student link, teacher Range GET.
+
+        Uses temporary SQLite, a private temporary file directory and local
+        HTTP port; no cloud, Telegram, Timeweb or production credentials.
+        """
+        from io import BytesIO
+        import json
+        import struct
+        import threading
+        import zlib
+        from http.server import ThreadingHTTPServer
+        from urllib.request import Request, urlopen
+        from urllib.error import HTTPError
+        from unittest.mock import patch
+        import teacher_product_student_webapp as student
+        import teacher_product_homework_submissions as submissions
+
+        # Create a complete 1x1 valid PNG (IHDR/IDAT/IEND + CRC), not
+        # the short signature fixtures used by smaller unit tests.
+        def chunk(kind, body):
+            return (struct.pack(">I",len(body))+kind+body+
+                    struct.pack(">I",zlib.crc32(kind+body)&0xffffffff))
+        png=(b"\x89PNG\r\n\x1a\n"+
+             chunk(b"IHDR",struct.pack(">IIBBBBB",1,1,8,6,0,0,0))+
+             chunk(b"IDAT",zlib.compress(b"\x00\xff\x00\x00\xff"))+
+             chunk(b"IEND",b""))
+
+        # Structurally valid PDF with catalog, page tree, page and trailer.
+        objects=(
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] >>",
+        )
+        buf=BytesIO()
+        buf.write(b"%PDF-1.4\n")
+        locations=[0]
+        for i,body in enumerate(objects,1):
+            locations.append(buf.tell())
+            buf.write(f"{i} 0 obj\n".encode()+body+b"\nendobj\n")
+        at_xref=buf.tell()
+        buf.write(f"xref\n0 {len(locations)}\n".encode())
+        buf.write(b"0000000000 65535 f \n")
+        for offset in locations[1:]:
+            buf.write(f"{offset:010d} 00000 n \n".encode())
+        buf.write(b"trailer\n<< /Root 1 0 R /Size 4 >>\n")
+        buf.write(f"startxref\n{at_xref}\n%%EOF\n".encode())
+        pdf=buf.getvalue()
+        with patch.dict(os.environ,{
+            "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"http_hw_files"),
+            "TEACHER_PRODUCT_HOMEWORK_FILE_TICKET_KEY":"temporary-test-only-secret-for-signed-download",
+        }),patch.object(base,"BOT_TOKEN","temporary-prepodmin-bot-token-for-http-tests"):
+            with base.db() as conn:
+                conn.execute(
+                    "UPDATE student_reminder_people SET telegram_user_id=? WHERE id=?",
+                    (887654,self.mid),
+                )
+                conn.commit()
+            task=webapp._teacher_action(101,{**self.payload,
+                "submission_mode":"attachment"})
+            self.assertTrue(task["ok"],task)
+            aid=task["assignment_id"]
+            self.assertEqual(submissions._file_type(png[:32]),("image/png","png"))
+            self.assertTrue(pdf.startswith(b"%PDF-"))
+
+            http=ThreadingHTTPServer(("127.0.0.1",0),webapp.WebAppHandler)
+            thread=threading.Thread(target=http.serve_forever,daemon=True)
+            thread.start()
+            root=f"http://127.0.0.1:{http.server_port}"
+            def do_request(path,data=None,headers=None):
+                request=Request(root+path,data=data,headers=headers or {},
+                                method="POST" if data is not None else "GET")
+                with urlopen(request,timeout=8) as response:
+                    return response.status,response.read(),dict(response.headers)
+            try:
+                student_token=student.launch_token(887654)
+                # Missing or invalid auth must not read or save student bytes.
+                bad_headers={"X-Prepodmin-Launch":"invalid",
+                             "X-Prepodmin-Link-Id":str(self.mid),
+                             "X-Prepodmin-Assignment-Id":str(aid),
+                             "X-Prepodmin-File-Name":"sample.png",
+                             "Content-Type":"image/png"}
+                with self.assertRaises(HTTPError) as exc:
+                    do_request("/api/student/homework/upload",png,bad_headers)
+                self.assertEqual(exc.exception.code,401)
+                for filename,typ,content in (
+                    ("sample.png","image/png",png),
+                    ("sample.pdf","application/pdf",pdf),
+                ):
+                    headers=dict(bad_headers)
+                    headers.update({
+                        "X-Prepodmin-Launch":student_token,
+                        "X-Prepodmin-File-Name":filename,
+                        "Content-Type":typ,
+                    })
+                    status,body,_=do_request("/api/student/homework/upload",
+                                             content,headers)
+                    self.assertEqual(status,200)
+                    self.assertTrue(json.loads(body)["ok"])
+
+                # Before explicit submit: a private draft, not a checked work.
+                item=student._homework(student._link(887654,self.mid))[0]
+                self.assertEqual(item["submission"]["status"],"draft")
+                self.assertEqual(len(item["submission"]["files"]),2)
+                student_headers={"Content-Type":"application/json"}
+                action=json.dumps({"action":"homework_submit","assignment_id":aid,
+                                   "link_id":self.mid,"launch":student_token}).encode()
+                code,result,_=do_request("/api/student/action",action,student_headers)
+                self.assertEqual(code,200)
+                self.assertTrue(json.loads(result)["ok"])
+                self.assertEqual(
+                    webapp._view(101,f"group:{self.gid}")["homework"][0]["submitted"],1)
+
+                # Teacher cannot open a file under another teacher identity.
+                file_id=item["submission"]["files"][1]["id"]
+                wrong=json.dumps({
+                    "action":"group_homework_file_ticket","file_id":file_id,
+                    "launch":webapp._launch_token(202),
+                }).encode()
+                with self.assertRaises(HTTPError) as exc:
+                    do_request("/api/teacher/action",wrong,student_headers)
+                self.assertEqual(exc.exception.code,400)
+                self.assertEqual(json.loads(exc.exception.read())["error"],"file_unavailable")
+
+                own=json.dumps({
+                    "action":"group_homework_file_ticket","file_id":file_id,
+                    "launch":webapp._launch_token(101),
+                }).encode()
+                code,result,_=do_request("/api/teacher/action",own,student_headers)
+                self.assertEqual(code,200)
+                url=json.loads(result)["url"]
+                status,body,headers=do_request(url,headers={"Range":"bytes=0-14"})
+                self.assertEqual(status,206)
+                self.assertEqual(body,pdf[:15])
+                self.assertEqual(headers["Cache-Control"],"private, no-store")
+                self.assertEqual(headers["Content-Type"],"application/pdf")
+                self.assertEqual(headers["X-Content-Type-Options"],"nosniff")
+                with self.assertRaises(HTTPError) as exc:
+                    do_request(url+"-tampered")
+                self.assertEqual(exc.exception.code,404)
+
+                # Local disaster-recovery rehearsal: backup BOTH SQLite and
+                # files, then verify restored metadata points to intact bytes.
+                import hashlib
+                import shutil
+                import sqlite3
+                from pathlib import Path
+                db_copy=Path(self.tmp.name)/"restored.sqlite3"
+                files_copy=Path(self.tmp.name)/"restored-files"
+                with base.db() as live,sqlite3.connect(db_copy) as restored:
+                    live.backup(restored)
+                shutil.copytree(Path(self.tmp.name)/"http_hw_files",files_copy)
+                with sqlite3.connect(db_copy) as recovered:
+                    self.assertEqual(
+                        recovered.execute("PRAGMA integrity_check").fetchone()[0],"ok")
+                    recovered.row_factory=sqlite3.Row
+                    records=recovered.execute(
+                        "SELECT stored_name,size_bytes FROM teacher_webapp_homework_files"
+                    ).fetchall()
+                self.assertEqual(len(records),2)
+                for row in records:
+                    live_file=Path(self.tmp.name)/"http_hw_files"/row["stored_name"]
+                    copy_file=files_copy/row["stored_name"]
+                    self.assertEqual(copy_file.stat().st_size,row["size_bytes"])
+                    self.assertEqual(hashlib.sha256(live_file.read_bytes()).digest(),
+                                     hashlib.sha256(copy_file.read_bytes()).digest())
+            finally:
+                http.shutdown()
+                http.server_close()
+                thread.join(timeout=3)
+
+    def test_rejected_file_upload_does_not_leave_ghost_attempt(self):
+        from io import BytesIO
+        from unittest.mock import patch
+        import teacher_product_homework_submissions as sub
+        with patch.dict(os.environ,{
+            "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"quota_hw_files"),
+        }):
+            created=webapp._teacher_action(101,{**self.payload,
+                "submission_mode":"attachment"})
+            aid=created["assignment_id"]
+            link={"id":self.mid,"teacher_id":101,"kind":"group",
+                  "group_id":self.gid,"name":"Алина"}
+            content=b"%PDF-1.4\n"+b"x"*75
+            # Rejected size/quota and disguised extensions must not enter SQLite.
+            with patch.object(sub,"MAX_TEACHER_BYTES",50):
+                result=sub.upload(link,aid,BytesIO(content),len(content),
+                                  "solution.pdf","application/pdf")
+                self.assertEqual(result["error"],"storage_quota")
+            result=sub.upload(link,aid,BytesIO(content),len(content),
+                              "solution.html","application/pdf")
+            self.assertEqual(result["error"],"upload_failed")
+            result=sub.upload(link,aid,BytesIO(content),len(content),
+                              "solution.pdf","image/png")
+            self.assertEqual(result["error"],"upload_failed")
+            with base.db() as conn:
+                self.assertEqual(conn.execute(
+                    "SELECT COUNT(*) FROM teacher_webapp_homework_attempts"
+                ).fetchone()[0],0)
+                self.assertEqual(conn.execute(
+                    "SELECT COUNT(*) FROM teacher_webapp_homework_files"
+                ).fetchone()[0],0)
+
 
     async def test_delivery_worker_uses_existing_send_once_not_in_http_thread(self):
         from types import SimpleNamespace
