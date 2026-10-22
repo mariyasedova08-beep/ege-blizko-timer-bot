@@ -1,0 +1,84 @@
+name: "ЕГЭ БЛИЗКО — закрытая инвентаризация зависимостей (только чтение)"
+# Source and asset contents stay on VPS; only encrypted import/asset metadata leaves VPS.
+# Merging this file cannot trigger VPS access. GitHub environment approval required.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "deploy/dependency-inventory-intents/*.txt"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ege-blizko-private-dependency-inventory
+  cancel-in-progress: false
+
+jobs:
+  dependency-inventory:
+    if: github.ref == 'refs/heads/main' && github.actor == 'mariyasedova08-beep'
+    runs-on: ubuntu-latest
+    environment: ege-lab-production
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify pinned recipient and self-contained script
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile deploy/ege-closed-dependency-inventory.py
+          python3 -m unittest discover -s tests -p 'test_ege_closed_dependency_inventory.py' -v
+          echo "fe1f46e8f15ae494bef7280ab5491bf3a243a9e5c7c124bbc294bdf462754d6b  deploy/sealed-audit-public-cert.crt" | sha256sum --check --status
+          openssl x509 -in deploy/sealed-audit-public-cert.crt -checkend 0 -noout
+          echo RECIPIENT_CERTIFICATE_PINNED
+
+      - name: Inventory reachable module imports and static assets ON VPS; ciphertext only
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "$SSH_USER" != "ege-deploy" || "$SSH_HOST" != "77.233.212.200" ]]; then
+            echo "::error title=INVALID_SSH_IDENTITY::Expected limited bot SSH account"; exit 1
+          fi
+          if [[ -z "$DEPLOY_KEY" || -z "$KNOWN_HOSTS" ]]; then
+            echo "::error title=SSH_SETTINGS_MISSING::Environment key or pinned host missing"; exit 1
+          fi
+          umask 077
+          install -d -m 0700 "$HOME/.ssh"
+          trap 'rm -f "$HOME/.ssh/sealed-audit-key" "$HOME/.ssh/known_hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/sealed-audit-key"
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/sealed-audit-key" "$HOME/.ssh/known_hosts"
+          if ! ssh-keygen -F "$SSH_HOST" -f "$HOME/.ssh/known_hosts" 2>/dev/null | awk 'NF >= 3 && $2 == "ssh-ed25519" {n++} END {exit n != 1}'; then
+            echo "::error title=HOST_KEY_NOT_PINNED::Expected one existing ed25519 key"; exit 1
+          fi
+          ssh-keygen -y -f "$HOME/.ssh/sealed-audit-key" >/dev/null
+          python3 deploy/ege-closed-dependency-inventory.py \
+            --mode runner \
+            --cert deploy/sealed-audit-public-cert.crt \
+            --host "$SSH_HOST" --user "$SSH_USER" \
+            --known-hosts "$HOME/.ssh/known_hosts" \
+            --ssh-key "$HOME/.ssh/sealed-audit-key" \
+            --output "$RUNNER_TEMP/private-dependencies.cms"
+
+      - name: Upload encrypted CMS only
+        uses: actions/upload-artifact@v4
+        with:
+          name: ege-closed-dependencies-ciphertext
+          path: ${{ runner.temp }}/private-dependencies.cms
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+      - name: Confirm no deployment
+        run: |
+          echo CIPHERTEXT_ONLY_NO_SOURCE_OR_ASSET_CONTENT_IN_LOGS
+          echo NO_VPS_WRITES_NO_DEPLOYMENT
