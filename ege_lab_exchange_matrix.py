@@ -247,8 +247,8 @@ def generate_exchange_reactions(known_reagents, existing_pairs=()):
                 for m in range(1,19):
                     if m*num_c%prod_cat==0:break
                 n_prod=m*num_c//prod_cat
-                n_base=n_prod*prod_an
-                if n_base!=m*num_c:raise ValueError("NH4 hydroxide balance")
+                n_base=m*num_c
+                if n_base!=n_prod*prod_cat:raise ValueError("NH4 hydroxide balance")
                 eq=(f"{_prefix(m,_formula(cat,anion))} + {_prefix(n_base,_formula(bc,'oh'))}"
                     f" → {_prefix(n_prod,_formula(bc,anion))} + {_prefix(n_base,'NH₃')}↑"
                     f" + {_prefix(n_base,'H₂O')}")
