@@ -81,6 +81,23 @@ try{
   assert.equal(await page.locator("#lessonMediumField").isVisible(),false);
   await page.locator("#lessonConduct").click();
   assert((await page.locator("#lessonReaction").innerText()).includes("Cu(OH)₂"));
+  // Ion exchange: tested against the ACTUAL live HTML and generated backend rows.
+  await pick("A","bacl2");
+  await pick("B","na2so4");
+  await page.locator("#lessonConduct").click();
+  assert.match(await page.locator("#lessonReaction").innerText(),/BaSO₄↓/);
+  await pick("A","nacl");
+  await pick("B","kno3");
+  await page.locator("#lessonConduct").click();
+  assert.match(await page.locator("#lessonReaction").innerText(),/реакция не идёт/i);
+  await pick("A","cuso4");
+  await pick("B","k2co3");
+  await page.locator("#lessonConduct").click();
+  assert.match(await page.locator("#lessonReaction").innerText(),/Cu₂\(OH\)₂CO₃↓/);
+  await pick("A","crcl3");
+  await pick("B","na2so3");
+  await page.locator("#lessonConduct").click();
+  assert.match(await page.locator("#lessonReaction").innerText(),/Cr\(OH\)₃↓/);
   // Existing four-tube main laboratory must also use medium-specific registry
   // without exposing unsupported neutral halide oxidation.
   await page.locator('[data-page="free"]').first().click();
