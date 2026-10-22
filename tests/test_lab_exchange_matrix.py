@@ -112,6 +112,13 @@ class ExchangeMatrix(unittest.TestCase):
         self.assertIn("SO₂↑",self.get_pair("na2so3","hcl")["eq"])
         self.assertIn("H₂S↑",self.get_pair("na2s","hcl")["eq"])
         self.assertIn("NH₃↑",self.get_pair("nh4cl","naoh")["eq"])
+        self.assertIn("CO₂↑",self.get_pair("nahco3","hcl")["eq"])
+        self.assertIn("SO₂↑",self.get_pair("nahso3","hcl")["eq"])
+        self.assertIn("H₂S↑",self.get_pair("khs","hcl")["eq"])
+        self.assertIn("H₂SiO₃↓",self.get_pair("na2sio3","hcl")["eq"])
+        self.assertIn("AgCl↓",self.get_pair("agno3","hcl")["eq"])
+        self.assertIn("BaSO₄↓",self.get_pair("bacl2","h2so4")["eq"])
+        self.assertIn("PbCl₂↓",self.get_pair("pbno3","hcl")["eq"])
 
     def test_do_not_forge_chemically_false_pairs(self):
         for a,b in (
@@ -123,6 +130,9 @@ class ExchangeMatrix(unittest.TestCase):
             ("alcl3","na2co3"), # joint hydrolysis, explicit reaction
             ("cuso4","k2co3"),  # basic copper carbonate, not CuCO3
             ("fecl3","na2s"),   # Fe(III) reduction + sulfur
+            ("fecl3","na2sio3"), # joint hydrolysis of Fe(III) and silicate
+            ("alcl3","na2sio3"), # joint hydrolysis of Al(III) and silicate
+            ("crcl3","na2sio3"), # joint hydrolysis of Cr(III) and silicate
         ):
             with self.subTest(pair=a+"+"+b):
                 self.assertNotIn(frozenset((a,b)),self.by_pair)
