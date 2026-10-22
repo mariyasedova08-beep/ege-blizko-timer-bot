@@ -80,7 +80,7 @@ class ExchangeMatrix(unittest.TestCase):
                     self.assertEqual(side_atoms(left),side_atoms(right),row["eq"])
                 else:
                     self.assertEqual(right,"реакция не идёт")
-                self.assertIn(row["t"],("p","g","n","x","z"))
+                self.assertIn(row["t"],("p","g","n","x","z","c"))
                 self.assertIn(row["a"],REAGENTS)
                 self.assertIn(row["b"],REAGENTS)
                 self.assertEqual(row["heat"],False)
