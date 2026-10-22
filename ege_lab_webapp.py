@@ -1599,8 +1599,10 @@ function metalDepositHTML(v,x){
  }
  return '<div class="metalReactionBed"><i class="metalPiece" style="--metalColor:'+m[2]+'"></i>'+crystals.join("")+'</div>';
 }
-function tubeHTML(v,i,active,heated,excess=""){
- const x=v.length===2?(tubeDissolving[i]?reactionExpected(v[0],v[1]):findReaction(v[0],v[1],heated,excess)):null;
+function tubeHTML(v,i,active,heated,excess="",overrideReaction=undefined){
+ // Lesson studio supplies its own medium/stage result; never read the main lab tube state.
+ const x=overrideReaction===undefined ?
+   (v.length===2?(tubeDissolving[i]?reactionExpected(v[0],v[1]):findReaction(v[0],v[1],heated,excess)):null) : overrideReaction;
  const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
  const sol=x?x.sol:base;
  const hasLiquid=v.some(id=>{
@@ -2939,7 +2941,8 @@ function lessonRenderExperiment(){
  const x=lessonStarted&&a&&b?lessonSelectedReaction(a,b,lessonHeated):null;
  const visualReaction=x&&x.heat&&!lessonHeated?null:x;
  const v=lessonStarted&&visualReaction?[a,b]:(a?[a]:[]);
- document.getElementById("lessonTube").innerHTML=tubeHTML(v,0,true,lessonHeated,lessonDissolving?"":lessonExcess);
+ const lessonVisual=lessonDissolving?findReaction(a,b,lessonHeated):visualReaction;
+ document.getElementById("lessonTube").innerHTML=tubeHTML(v,0,true,lessonHeated,lessonExcess,lessonVisual);
  const info=document.getElementById("lessonReaction");
  if(!a||!b){info.textContent="Выбери оба реактива.";return;}
  if(mediumRequired&&!mediumSelect.value){info.textContent="Выбери среду реакции, затем нажми «Провести».";return;}
