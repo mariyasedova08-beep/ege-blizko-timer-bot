@@ -1,0 +1,5 @@
+EGE_BLIZKO_STRUCTURAL_AUDIT_ONLY
+PURPOSE=Compare seven allowlisted Python module structures without exporting production source.
+NO_DEPLOYMENT=true
+NO_SOURCE_EXPORT=true
+NO_SERVER_WRITES=true
