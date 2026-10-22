@@ -364,11 +364,15 @@ def generate_exchange_reactions(known_reagents, existing_pairs=()):
             n_salt//=common;n_acid//=common;n_product//=common
             n_gas=(n_salt*anion_n)
             prod=_formula(cat,ax)
+            precip=cat in INSOLUBLE.get(ax,set())
             eq=(f"{_prefix(n_salt,_formula(cat,anion))} + {_prefix(n_acid,_acid_formula(ax))}"
-                f" → {_prefix(n_product,prod)} + {_prefix(n_gas,gas)}↑")
+                f" → {_prefix(n_product,prod)}{'↓' if precip else ''} + {_prefix(n_gas,gas)}↑")
             if water:eq+=f" + {_prefix(n_gas,water)}"
-            add(_make_record(salt,acid,eq,"g","Выделяется газ "+gas+".",
-                "#f8fbff","",gas,condition="Водные растворы; слабая летучая кислота разлагается"))
+            sign="Выделяется газ "+gas+"."
+            if precip:sign+=" Выпадает осадок "+prod+"."
+            add(_make_record(salt,acid,eq,"x" if precip else "g",sign,
+                "#f8fbff",PRECIP_COLORS.get((cat,ax),"#ffffff") if precip else "",gas,
+                condition="Водные растворы; слабая летучая кислота разлагается"))
     # Joint hydrolysis is not ordinary double displacement. Encode the EGE
     # exceptions explicitly, using balanced ion-unit counts. Fe(III) with
     # sulfide/sulfite is redox and is intentionally NOT generated here.
