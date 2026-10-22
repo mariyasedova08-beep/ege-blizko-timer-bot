@@ -313,6 +313,66 @@ def generate_exchange_reactions(known_reagents, existing_pairs=()):
             if water:eq+=f" + {_prefix(n_gas,water)}"
             add(_make_record(salt,acid,eq,"g","Выделяется газ "+gas+".",
                 "#f8fbff","",gas,condition="Водные растворы; слабая летучая кислота разлагается"))
+    # Joint hydrolysis is not ordinary double displacement. Encode the EGE
+    # exceptions explicitly, using balanced ion-unit counts. Fe(III) with
+    # sulfide/sulfite is redox and is intentionally NOT generated here.
+    hydrolysis={"co3":("CO₂",1),"so3":("SO₂",1),
+                "s":("H₂S",2),"hco3":("CO₂",0),
+                "hso3":("SO₂",0),"hs":("H₂S",1)}
+    for salt,cat,anion in salts:
+        if cat not in {"al","cr3","fe3"} or anion not in {"cl","br","no3","so4"}:
+            continue
+        for reagent,bc,bx in salts:
+            if bc not in {"na","k"} or bx not in hydrolysis:continue
+            if cat=="fe3" and bx in {"so3","s","hso3","hs"}:continue
+            gas,water_factor=hydrolysis[bx]
+            old_cat_n,old_an_n=_numbers(cat,anion)
+            new_cat_n,new_an_n=_numbers(bc,anion)
+            alkali_n,weak_n=_numbers(bc,bx)
+            for n_salt in range(1,37):
+                n_cation=n_salt*old_cat_n
+                n_alkali_salt=n_salt*old_an_n
+                if n_alkali_salt*new_cat_n%alkali_n:continue
+                n_weak_salt=n_alkali_salt*new_cat_n//alkali_n
+                if n_weak_salt*weak_n != n_cation*3//ANIONS[bx][1] and bx in {"co3","so3","s"}:
+                    # The alkali salt's weak anion must supply 3 OH⁻ per M³⁺.
+                    continue
+                if n_weak_salt*alkali_n != n_alkali_salt*new_cat_n:continue
+                # Charge conservation: weak-anion equivalents = 3 per M(III).
+                if n_weak_salt*weak_n*ANIONS[bx][1] != 3*n_cation:continue
+                break
+            else:raise ValueError("Joint hydrolysis balancing failed")
+            gas_count=n_weak_salt*weak_n
+            water_count=gas_count*water_factor
+            salt_formula=_formula(cat,anion)
+            weak_formula=_formula(bc,bx)
+            byproduct=_formula(bc,anion)
+            hydroxide=_formula(cat,"oh")
+            eq=f"{_prefix(n_salt,salt_formula)} + {_prefix(n_weak_salt,weak_formula)}"
+            if water_count:eq+=f" + {_prefix(water_count,'H₂O')}"
+            eq+=(f" → {_prefix(n_cation,hydroxide)}↓ + {_prefix(gas_count,gas)}↑"
+                 f" + {_prefix(n_alkali_salt,byproduct)}")
+            add(_make_record(salt,reagent,eq,"x",
+                "Совместный гидролиз: осадок "+hydroxide+" и выделение "+gas+".",
+                "#f8fbff",PRECIP_COLORS.get((cat,"oh"),"#ffffff"),gas,
+                condition="Водные растворы; не ОВР"))
+
+    # Copper(II) carbonate gives a GREEN BASIC CARBONATE, never CuCO₃ or
+    # Cu(OH)₂ as the sole product. This is verified in the teacher's PDF.
+    for salt,cat,anion in salts:
+        if cat!="cu2" or anion not in {"cl","br","no3","so4"}:continue
+        for reagent,bc,bx in salts:
+            if bc not in {"na","k"} or bx!="co3":continue
+            anion_charge=ANIONS[anion][1]
+            byproduct=_formula(bc,anion)
+            n_salt_product=4//anion_charge
+            eq=(f"2{_formula(cat,anion)} + 2{_formula(bc,'co3')} + H₂O"
+                f" → Cu₂(OH)₂CO₃↓ + {_prefix(n_salt_product,byproduct)} + CO₂↑")
+            add(_make_record(salt,reagent,eq,"x",
+                "Образуется зелёный осадок основного карбоната Cu₂(OH)₂CO₃ и CO₂.",
+                "#f8fbff","#62a477","CO₂",
+                condition="Водные растворы; основной карбонат, не средний CuCO₃"))
+
     # Acid-driven precipitation: AgNO₃ + HCl -> AgCl; BaCl₂ + H₂SO₄ -> BaSO₄.
     # Keep oxidising-acid, oxyanion hydrolysis and redox beyond this matrix.
     for salt,cat,anion in salts:
