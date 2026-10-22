@@ -363,6 +363,23 @@ def generate_exchange_reactions(known_reagents, existing_pairs=()):
             add(_make_record(salt,acid,eq,"p",
                 "Образуется студенистый белый осадок H₂SiO₃.",
                 "#f8fbff","#ffffff",condition="Подкисление водного раствора силиката"))
+    # Explicitly model *absence* of a reaction for unambiguously soluble,
+    # non-redox spectator ions. Do not confuse this with a missing catalogue pair.
+    # Exclude ionic species whose hydrolysis, acid/base equilibria, complexation
+    # or metal redox chemistry could change the outcome.
+    spectator_cations={"li","na","k","nh4"}
+    spectator_anions={"cl","br","i","no3","so4","f"}
+    spectator=[(rid,c,an) for rid,c,an in salts
+               if c in spectator_cations and an in spectator_anions]
+    for i,(a,ca,xa) in enumerate(spectator):
+        for b,cb,xb in spectator[i+1:]:
+            pair=tuple(sorted((a,b)))
+            if pair in existing:continue
+            if ca in INSOLUBLE.get(xb,set()) or cb in INSOLUBLE.get(xa,set()):continue
+            add(_make_record(a,b,
+                f"{_formula(ca,xa)} + {_formula(cb,xb)} → реакция не идёт",
+                "z","Ионы остаются в растворе: осадок, газ или вода не образуются.",
+                "#f8fbff",condition="Смешивание разбавленных водных растворов"))
     return rows
 
 def _acid_formula(anion):
