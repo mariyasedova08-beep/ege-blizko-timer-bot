@@ -14,6 +14,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 import run_bot_live90 as live90
 from ege_lab_substances import REAGENTS as LAB_REAGENTS, category_counts
 from ege_lab_inorganic_reactions import EXTRA_REACTIONS, REACTION_VARIANTS, MEDIUM_REACTIONS, validate_reactions
+from ege_lab_exchange_matrix import generate_exchange_reactions
 from ege_task6_bank import TASK6_BANK, validate_task6_bank
 from ege_task6_reactions import TASK6_REACTIONS, TASK6_VARIANTS, validate_task6_reactions
 import ege_task6_progress
@@ -148,6 +149,13 @@ REACTIONS = [
 
 REACTIONS.extend(EXTRA_REACTIONS)
 REACTIONS.extend(TASK6_REACTIONS)
+# Explicit EGE chemistry always has precedence over generated ion-exchange pairs.
+# It includes hydrolysis, Fe/Cu redox, Cu basic salts, reagent excess and pH.
+_EXPLICIT_PAIRS = [(a, b) for a, b, *_ in REACTIONS]
+_EXPLICIT_PAIRS.extend((x["a"], x["b"]) for x in REACTION_VARIANTS)
+_EXPLICIT_PAIRS.extend((x["a"], x["b"]) for x in TASK6_VARIANTS)
+_EXPLICIT_PAIRS.extend((x["a"], x["b"]) for x in MEDIUM_REACTIONS)
+EXCHANGE_REACTIONS = generate_exchange_reactions(REAGENTS, _EXPLICIT_PAIRS)
 validate_reactions(set(REAGENTS))
 validate_task6_reactions(set(REAGENTS))
 validate_task6_bank(set(REAGENTS))
@@ -163,6 +171,7 @@ def reaction_payload():
         }
         for a,b,eq,kind,sign,sol,ppt,gas,heat in REACTIONS
     ]
+    payload.extend(dict(item) for item in EXCHANGE_REACTIONS)
     payload.extend(dict(item) for item in REACTION_VARIANTS)
     payload.extend(dict(item) for item in TASK6_VARIANTS)
     return payload
