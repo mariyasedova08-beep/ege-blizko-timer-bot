@@ -30,7 +30,25 @@ try{
     return route.abort();
   });
   await page.goto("http://lab-local.test/lab-app?page=lesson");
-  await page.waitForFunction(()=>document.querySelector("#lessonReagentA")?.value==="kmno4");
+  await page.waitForFunction(()=>document.querySelector("#lessonReagentA")?.value==="KMnO₄");
+  // Keyboard input in the real PDF lesson must resolve a catalogue item.
+  async function pick(slot,id,query){
+    const field=page.locator("#lessonReagent"+slot);
+    const original=response.data.reagents[id];
+    assert(original,"Missing fixture reagent "+id);
+    await field.fill(query??original[0]);
+    await page.locator("#lessonSuggestions"+slot+" [role=option]").first().waitFor();
+    await field.press("Enter");
+    assert.equal(await field.inputValue(),original[0]);
+    assert.equal(await page.locator("#lessonSuggestions"+slot).isVisible(),false);
+  }
+  await pick("A","kmno4","KMnO4");
+  await pick("B","na2so3","сульфит натрия");
+  await page.locator("#lessonReagentB").fill("ABSENT_DOES_NOT_EXIST");
+  assert.match(await page.locator("#lessonSuggestionsB").innerText(),/не найдено/);
+  await page.locator("#lessonConduct").click();
+  assert.match(await page.locator("#lessonReaction").innerText(),/Выбери оба реактива/);
+  await pick("B","na2so3","Na2SO3");
   assert.equal(await page.locator("#lessonMediumField").isVisible(),true);
   assert.equal(await page.locator("#lessonMedium").inputValue(),"");
   await page.locator("#lessonConduct").click();
@@ -41,25 +59,25 @@ try{
     assert((await page.locator("#lessonReaction").innerText()).includes(product),medium+": "+product);
   }
   for(const reductant of ["ki","nabr"]){
-    await page.locator("#lessonReagentB").selectOption(reductant);
+    await pick("B",reductant);
     await page.locator("#lessonMedium").selectOption("neutral");
     await page.locator("#lessonConduct").click();
     assert.match(await page.locator("#lessonReaction").innerText(),/нет подтверждённой реакции/);
   }
-  await page.locator("#lessonReagentA").selectOption("k2cr2o7");
-  await page.locator("#lessonReagentB").selectOption("k2so3");
+  await pick("A","k2cr2o7");
+  await pick("B","k2so3");
   await page.locator("#lessonMedium").selectOption("weak_alkaline");
   await page.locator("#lessonConduct").click();
   assert((await page.locator("#lessonReaction").innerText()).includes("K[Cr(OH)₄]"));
-  await page.locator("#lessonReagentA").selectOption("croh3");
-  await page.locator("#lessonReagentB").selectOption("h2o2");
+  await pick("A","croh3");
+  await pick("B","h2o2");
   await page.locator("#lessonMedium").selectOption("alkaline");
   await page.locator("#lessonConduct").click();
   assert.match(await page.locator("#lessonReaction").innerText(),/Нужен нагрев/);
   await page.locator("#lessonHeat").click();
   assert((await page.locator("#lessonReaction").innerText()).includes("Na₂CrO₄"));
-  await page.locator("#lessonReagentA").selectOption("cuso4");
-  await page.locator("#lessonReagentB").selectOption("naoh");
+  await pick("A","cuso4");
+  await pick("B","naoh");
   assert.equal(await page.locator("#lessonMediumField").isVisible(),false);
   await page.locator("#lessonConduct").click();
   assert((await page.locator("#lessonReaction").innerText()).includes("Cu(OH)₂"));
