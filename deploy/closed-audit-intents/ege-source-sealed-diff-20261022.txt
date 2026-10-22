@@ -1,0 +1,4 @@
+EGE BLIZKO closed-source comparison approval request.
+Scope: seven allowlisted Python files.
+Output: ciphertext only. No source disclosed on GitHub.
+No VPS writes, no application deployment.
