@@ -32,6 +32,9 @@ MISSING = "MISSING"
 
 def file_digest(directory, name):
     path = directory / name
+    # Fail closed: never follow a production symlink while hashing source.
+    if path.is_symlink():
+        raise ValueError(f"SYMLINK_FILE_FORBIDDEN: {name}")
     if not path.is_file():
         return MISSING
     digest = hashlib.sha256()
@@ -139,6 +142,9 @@ def main():
     print("NO_DEPLOYMENT_PERFORMED")
     if state != "active":
         raise SystemExit("PRODUCTION_SERVICE_NOT_ACTIVE")
+    if outcome["different"] or outcome["only_server"] or outcome["only_github"]:
+        raise SystemExit("DRIFT_DETECTED_REVIEW_REQUIRED")
+    print("NO_SOURCE_DRIFT_IN_ALLOWLIST")
 
 
 if __name__ == "__main__":
