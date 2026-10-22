@@ -6,9 +6,11 @@ import ast
 import json
 import re
 from pathlib import Path
-from ege_lab_exchange_matrix import generate_exchange_reactions
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
+from ege_lab_exchange_matrix import generate_exchange_reactions
 def literal(name, path):
     tree = ast.parse(path.read_text(encoding="utf-8"))
     for node in tree.body:
