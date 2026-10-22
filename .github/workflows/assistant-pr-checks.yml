@@ -52,7 +52,9 @@ jobs:
           PY
 
       - name: Test safe inventory behavior without contacting the server
-        run: python3 -m unittest discover -s tests -p 'test_ege_production_inventory.py' -v
+        run: |
+          python3 -m unittest discover -s tests -p 'test_ege_production_inventory.py' -v
+          python3 -m unittest discover -s tests -p 'test_ege_structure_audit.py' -v
 
       - name: Refuse committing private keys or local databases
         if: github.event_name == 'pull_request'

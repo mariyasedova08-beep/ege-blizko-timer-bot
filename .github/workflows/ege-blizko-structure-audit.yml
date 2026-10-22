@@ -1,0 +1,92 @@
+name: "ЕГЭ БЛИЗКО — анализ различий структуры с VPS (только чтение)"
+
+# Run only by manual dispatch or a distinct structure-intent commit on main. No production file content leaves VPS.
+# Merging this PR does not create an intent, and regular code pushes cannot trigger it.
+# No application code is published, and no PR has access to SSH secrets.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "deploy/structure-intents/*.txt"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ege-blizko-structure-audit
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    name: Compare structure without transferring VPS code
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: ege-lab-production
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check structural scanner and tests locally
+        run: |
+          set -euo pipefail
+          python3 -m py_compile deploy/ege-blizko-structure-audit.py
+          python3 -m unittest discover -s tests -p 'test_ege_structure_audit.py' -v
+
+      - name: Create GitHub structural fingerprints
+        shell: bash
+        run: python3 deploy/ege-blizko-structure-audit.py --mode local > "$RUNNER_TEMP/github-structure.tsv"
+
+      - name: Read VPS structural fingerprints without source transfer
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then echo "::error title=INVALID_BRANCH::Inventory must run on main"; exit 1; fi
+          if [[ "$SSH_USER" != "ege-deploy" ]]; then echo "::error title=SSH_USER_MISMATCH::Expected dedicated ege-deploy user in TIMEWEB_USER. Do not use laboratory SSH credentials."; exit 1; fi
+          if [[ "$SSH_HOST" != "77.233.212.200" ]]; then echo "::error title=SSH_HOST_MISMATCH::TIMEWEB_HOST is absent or differs from the approved server"; exit 1; fi
+          if [[ -z "$DEPLOY_KEY" ]]; then echo "::error title=DEPLOY_KEY_MISSING::TIMEWEB_DEPLOY_KEY is not configured for the approved environment"; exit 1; fi
+          if [[ -z "$KNOWN_HOSTS" ]]; then echo "::error title=KNOWN_HOSTS_MISSING::TIMEWEB_KNOWN_HOSTS is not configured for the approved environment"; exit 1; fi
+          install -d -m 0700 "$HOME/.ssh"
+          trap 'rm -f "$HOME/.ssh/production-inventory-key" "$HOME/.ssh/known_hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/production-inventory-key"
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/production-inventory-key" "$HOME/.ssh/known_hosts"
+          # Allow multiple host-key records (as produced by ssh-keyscan) while
+          # still requiring exactly one pinned ed25519 key for this server.
+          # Do not use ssh-keyscan at runtime or trust a new key automatically.
+          if ! ssh-keygen -F "$SSH_HOST" -f "$HOME/.ssh/known_hosts" 2>/dev/null | awk 'NF >= 3 && $2 == "ssh-ed25519" {n++} END {exit n != 1}'; then
+            echo "::error title=KNOWN_HOSTS_FORMAT_INVALID::No unique pinned ssh-ed25519 key for the approved host in TIMEWEB_KNOWN_HOSTS"
+            exit 1
+          fi
+          if ! ssh-keygen -lf "$HOME/.ssh/known_hosts" >/dev/null; then echo "::error title=KNOWN_HOST_KEY_INVALID::Pinned host key could not be parsed"; exit 1; fi
+          if ! ssh-keygen -y -f "$HOME/.ssh/production-inventory-key" >/dev/null; then echo "::error title=SSH_PRIVATE_KEY_INVALID::The restricted SSH key could not be parsed"; exit 1; fi
+          if ! ssh -T -F /dev/null -o BatchMode=yes -o PasswordAuthentication=no \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=10 -i "$HOME/.ssh/production-inventory-key" \
+            "$SSH_USER@$SSH_HOST" 'python3 - --mode remote' \
+            < deploy/ege-blizko-structure-audit.py \
+            > "$RUNNER_TEMP/server-structure.tsv"; then
+            echo "::error title=SSH_READ_COMMAND_DENIED::Remote read command was rejected or SSH access failed; restricted server command must be reviewed without granting arbitrary shell access"
+            exit 1
+          fi
+          echo "VPS_STRUCTURE_ONLY_READ"
+
+      - name: Compare structure without exposing production source
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'Проверенный коммит GitHub: \x60%s\x60\n\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          python3 deploy/ege-blizko-structure-audit.py --mode compare \
+            --local "$RUNNER_TEMP/github-structure.tsv" \
+            --remote "$RUNNER_TEMP/server-structure.tsv" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "NO_VPS_SOURCE_TRANSFER_NO_WRITE_NO_DEPLOYMENT"
