@@ -40,6 +40,8 @@ exec 9>"$LOCK"
 flock -w 30 9 || fatal "Autodeploy lock is busy"
 [[ "$(git -C "$APP" rev-parse HEAD)" == "$EXPECTED_LIVE" ]] || fatal "Git head changed during lock"
 
+# Never allow replay of the old Mn/Cr release after keyboard UI has been deployed.
+[[ "$(sha_of "$APP/ege_lab_webapp.py")" == "$EXPECTED_FILE" ]] || fatal "Old Mn/Cr release is obsolete after a later lab update"
 [[ -f "$CHECKED" && ! -L "$CHECKED" ]] || fatal "Checked file missing"
 [[ "$(sha_of "$CHECKED")" == "$EXPECTED_FILE" ]] || fatal "Unexpected checked file SHA256"
 
