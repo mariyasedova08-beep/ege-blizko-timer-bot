@@ -6,6 +6,7 @@ import unittest
 ROOT=Path(__file__).resolve().parents[1]
 DEPLOY=ROOT/"deploy/ege-lab-keyboard-guarded-release.sh"
 BOOTSTRAP=ROOT/"deploy/bootstrap-ege-lab-keyboard-release.sh"
+UPDATER=ROOT/"deploy/refresh-ege-lab-keyboard-mncr-guard.sh"
 ENTRY=ROOT/"deploy/ege-lab-restricted-ssh-entry-v2.sh"
 OLD=ROOT/"deploy/ege-lab-mncr-approved-release.sh"
 WORKFLOW=ROOT/".github/workflows/ege-lab-keyboard-release.yml"
@@ -16,7 +17,7 @@ PIN="fabf5fba43806cf8acc19e728f422096d17c1177"
 
 class KeyboardGuardTests(unittest.TestCase):
     def test_bash_syntax_and_immutable_pins(self):
-        for script in (DEPLOY,BOOTSTRAP,ENTRY,OLD):
+        for script in (DEPLOY,BOOTSTRAP,UPDATER,ENTRY,OLD):
             proc=subprocess.run(["bash","-n",str(script)],capture_output=True,text=True)
             self.assertEqual(proc.returncode,0,proc.stderr)
         s=DEPLOY.read_text()
@@ -48,6 +49,17 @@ class KeyboardGuardTests(unittest.TestCase):
         self.assertIn('src.backup(output)' if 'src.backup(output)' in s else 'con.backup(output)',s)
         self.assertIn("trap rollback ERR",s)
         self.assertIn("LAB_KEYBOARD_RELEASE_SUCCESS",s)
+
+    def test_root_guard_updater_cannot_install_unreviewed_code(self):
+        updater=UPDATER.read_text()
+        self.assertIn('NEW_BLOB=509613762419239eb592b764a602942bb97e8870',updater)
+        self.assertIn('OLD_BLOB=ddc8dfe94426708563bf752e34de6beb041b56f8',updater)
+        self.assertIn('git hash-object "$TEMP"',updater)
+        self.assertIn('bash -n "$TEMP"',updater)
+        self.assertIn('cp -p -- "$FILE" "$BACKUP"',updater)
+        self.assertIn('WORKING_BOT_UNTOUCHED',updater)
+        self.assertNotIn('systemctl restart',updater)
+        self.assertNotIn('git reset',updater)
 
     def test_forced_command_sudo_scopes_and_replay_protection(self):
         e=ENTRY.read_text()
