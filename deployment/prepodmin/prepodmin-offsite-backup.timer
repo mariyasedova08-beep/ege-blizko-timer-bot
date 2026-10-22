@@ -1,0 +1,11 @@
+[Unit]
+Description=PREPODMIN daily encrypted offsite backup (independent from local SQLite timer)
+
+[Timer]
+OnCalendar=*-*-* 02:45:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+Unit=prepodmin-offsite-backup.service
+
+[Install]
+WantedBy=timers.target
