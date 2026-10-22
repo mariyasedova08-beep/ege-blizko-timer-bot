@@ -1,0 +1,4 @@
+EGE BLIZKO: closed seven-file diff after verified recipient key rotation.
+Scope: encrypted source differences only.
+Public certificate fingerprint pinned. Recipient private key offline, never uploaded.
+No VPS writes, no application deployment.
