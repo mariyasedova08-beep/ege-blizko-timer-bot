@@ -121,6 +121,9 @@ class ReleasePreparationTest(unittest.TestCase):
                 INSERT INTO payments VALUES(1,13200);
                 CREATE TABLE weekly_trainer_catalog(code TEXT PRIMARY KEY,active INTEGER);
                 INSERT INTO weekly_trainer_catalog VALUES('trivial',1);
+                CREATE TABLE channel_trainer_catalog_settings(
+                    code TEXT PRIMARY KEY,public_active INTEGER,updated_at TEXT);
+                INSERT INTO channel_trainer_catalog_settings VALUES('trivial',1,'unchanged');
             """)
         # Rehearse file replacement in this disposable directory only.
         for p in (self.output / "runtime").iterdir():
@@ -138,10 +141,18 @@ class ReleasePreparationTest(unittest.TestCase):
             (rehearsal / name).unlink()
         with sqlite3.connect(db) as conn:
             conn.execute("UPDATE weekly_trainer_catalog SET active=0 WHERE code='decomposition'")
+            conn.execute("""
+                INSERT INTO channel_trainer_catalog_settings(code,public_active,updated_at)
+                VALUES('decomposition',0,?)
+                ON CONFLICT(code) DO UPDATE SET public_active=0,updated_at=excluded.updated_at
+            """, ("synthetic-rollback",))
             self.assertEqual(conn.execute("SELECT amount FROM payments").fetchall(), [(13200,)])
             self.assertEqual(conn.execute("SELECT correct FROM decomposition_attempts").fetchall(), [(1,)])
             self.assertEqual(conn.execute("SELECT code,active FROM weekly_trainer_catalog ORDER BY code").fetchall(),
                              [("decomposition", 0), ("trivial", 1)])
+            self.assertEqual(conn.execute(
+                "SELECT code,public_active,updated_at FROM channel_trainer_catalog_settings ORDER BY code"
+            ).fetchall(), [("decomposition", 0, "synthetic-rollback"), ("trivial", 1, "unchanged")])
         for name in prepare.BASELINE_FILES:
             self.assertEqual((rehearsal / name).read_bytes(), (self.baseline / name).read_bytes())
 
