@@ -70,6 +70,7 @@ class ExchangeMatrix(unittest.TestCase):
 
     def test_all_generated_equations_are_atom_balanced(self):
         self.assertGreater(len(self.reactions),150)
+        print("EXCHANGE_MATRIX_COVERAGE:",len(self.reactions),"verified generated outcomes")
         self.assertEqual(len(self.by_pair),len(self.reactions))
         for row in self.reactions:
             with self.subTest(pair=(row["a"],row["b"])):
@@ -89,6 +90,9 @@ class ExchangeMatrix(unittest.TestCase):
         samples={
             ("bacl2","na2so4"):"BaSO₄↓",
             ("agno3","nacl"):"AgCl↓",
+            ("bacl2","h2so4"):"BaSO₄↓",
+            ("agno3","hcl"):"AgCl↓",
+            ("pbno3","hi"):"PbI₂↓",
             ("agno3","ki"):"AgI↓",
             ("pbno3","ki"):"PbI₂↓",
             ("cacl2","na2co3"):"CaCO₃↓",
