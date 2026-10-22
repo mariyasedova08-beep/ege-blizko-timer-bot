@@ -8,12 +8,13 @@ on:
       - 'deploy/ege-lab-keyboard-guarded-release.sh'
       - 'deploy/ege-lab-restricted-ssh-entry-v2.sh'
       - 'deploy/bootstrap-ege-lab-keyboard-release.sh'
+      - 'deploy/refresh-ege-lab-keyboard-mncr-guard.sh'
       - 'deploy/ege-lab-mncr-approved-release.sh'
       - 'tests/test_ege_lab_keyboard_release_guard.py'
   push:
     branches: [main]
     paths:
-      - 'deploy/release-intents/ege-lab-keyboard-1.txt'
+      - 'deploy/release-intents/ege-lab-keyboard-2.txt'
 permissions:
   contents: read
 concurrency:
@@ -32,6 +33,7 @@ jobs:
           bash -n deploy/ege-lab-keyboard-guarded-release.sh
           bash -n deploy/ege-lab-restricted-ssh-entry-v2.sh
           bash -n deploy/bootstrap-ege-lab-keyboard-release.sh
+          bash -n deploy/refresh-ege-lab-keyboard-mncr-guard.sh
           bash -n deploy/ege-lab-mncr-approved-release.sh
           python3 -m unittest discover -s tests -p 'test_ege_lab_keyboard_release_guard.py' -v
   deploy-keyboard:
@@ -48,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          file=deploy/release-intents/ege-lab-keyboard-1.txt
+          file=deploy/release-intents/ege-lab-keyboard-2.txt
           test -f "$file"
           changed="$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA")"
           test "$changed" = "$file"

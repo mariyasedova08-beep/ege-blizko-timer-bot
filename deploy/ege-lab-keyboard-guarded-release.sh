@@ -30,8 +30,20 @@ exec 9>"$LOCK"
 flock -w 30 9 || fail "Autodeploy lock busy"
 [[ $(git -C "$APP" rev-parse HEAD) == "$LIVE_HEAD" ]] || fail "Live git changed during lock"
 CHANGED="$(git -C "$APP" diff HEAD --name-only | LC_ALL=C sort)"
-EXPECTED_CHANGED="$(printf '%s\n' ege_lab_webapp.py public_channel_trainers.py run_bot_live7.py run_bot_production.py | LC_ALL=C sort)"
+EXPECTED_CHANGED="$(printf '%s\n' ege_lab_webapp.py ege_lab_substances.py ege_lab_inorganic_reactions.py public_channel_trainers.py run_bot_live7.py run_bot_production.py | LC_ALL=C sort)"
 [[ "$CHANGED" == "$EXPECTED_CHANGED" ]] || fail "Unrecognized live modifications"
+# These exact approved Mn/Cr modules were installed by the successful
+# 2026-10-22 release. They are tracked by the older live Git revision,
+# therefore they MUST appear in git diff HEAD after that release.
+# Their bytes must match the immutable, chemically reviewed staging tree.
+while IFS=' ' read -r name blob;do
+ [[ -f "$APP/$name" && ! -L "$APP/$name" ]] || fail "Approved MnCr module missing: $name"
+ [[ "$(git hash-object "$APP/$name")" == "$blob" ]] || fail "Previously published MnCr module changed: $name"
+done <<'APPROVED_MNCR_MODULES'
+ege_lab_substances.py 3581b6d0d9b7cc3500f1075b2a1ea9b88db4f4aa
+ege_lab_inorganic_reactions.py 0910dbbeca374485944a2782dc43932cc84053a3
+ege_lab_mn_cr_pdf_import.py 02ee81298850aa3bb534ca7f5200d755f4c9ddbf
+APPROVED_MNCR_MODULES
 MARKER=$(cat /var/lib/ege-blizko-autodeploy/release.ref 2>/dev/null || true)
 [[ "$MARKER" == release-20261009-task6-full-trainer-v3-fix1 ]] || fail "Legacy release marker changed"
 [[ -f "$APP/ege_lab_webapp.py" && ! -L "$APP/ege_lab_webapp.py" ]] || fail "Lab UI missing or symlink"
