@@ -33,7 +33,7 @@ class SealedDiffTests(unittest.TestCase):
         certificate = REPO / "deploy/sealed-audit-public-cert.crt"
         self.assertEqual(
             hashlib.sha256(certificate.read_bytes()).hexdigest(),
-            "719c09d94adba83fe4d82f2a1507f163443b97e9e2d80cdfc1215f9747448088",
+            "fe1f46e8f15ae494bef7280ab5491bf3a243a9e5c7c124bbc294bdf462754d6b",
         )
         self.assertEqual(
             subprocess.run(
