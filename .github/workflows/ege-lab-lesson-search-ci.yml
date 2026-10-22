@@ -16,6 +16,7 @@ on:
       - 'ege_lab_inorganic_reactions.py'
       - 'ege_lab_exchange_matrix.py'
       - 'tests/test_lab_exchange_matrix.py'
+      - 'tests/test_lab_amphoteric_stages.py'
       - 'ege_lab_substances.py'
       - 'ege_lab_mn_cr_pdf_import.py'
       - 'ege_lab_webapp.py'
@@ -52,6 +53,8 @@ jobs:
         run: python3 -m unittest discover -s tests -p "test_lab_redox_exchange_expansion.py" -v
       - name: Validate ion-exchange coverage and atom balance
         run: python3 -m unittest discover -s tests -p 'test_lab_exchange_matrix.py' -v
+      - name: Validate amphoteric precipitate and dissolution stages
+        run: python3 -m unittest discover -s tests -p 'test_lab_amphoteric_stages.py' -v
       - name: Report expanded exchange-matrix coverage
         run: |
           python3 - <<'PY'
