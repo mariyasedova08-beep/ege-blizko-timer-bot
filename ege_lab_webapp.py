@@ -1267,6 +1267,7 @@ body:has(#lesson.page.on) .app{max-width:none}
       </div>
       <div class="lesson-lab-actions">
         <button id="lessonConduct" type="button">▶ Провести</button>
+         <button id="lessonExcess" type="button" aria-pressed="false">＋ Избыток щёлочи</button>
         <button id="lessonHeat" type="button" aria-pressed="false">🔥 Нагрев</button>
         <button id="lessonReset" type="button">↺ Сброс</button>
       </div>
@@ -2567,7 +2568,7 @@ function renderStats(){
 
 // Teacher's live lesson studio. Both panels stay interactive at the same time.
 // PDF input, ink notes and downloads remain entirely local to the browser.
-let lessonReady=false,lessonStarted=false,lessonHeated=false;
+let lessonReady=false,lessonStarted=false,lessonHeated=false,lessonExcess="",lessonDissolving=false;
 let lessonPdfDocument=null,lessonPdfOriginalBytes=null,lessonPdfName="",lessonPdfKey="ege-lesson-blank";
 let lessonPage=1,lessonPageCount=1,lessonTool="pen",lessonDrawing=null;
 let lessonNotes={},lessonPageSize={},lessonRendering=0;
@@ -2808,7 +2809,8 @@ function lessonSetReagent(slot,id){
  lessonSelectedReagents[slot]=id;
  document.getElementById(slot==="a"?"lessonReagentA":"lessonReagentB").value=data.reagents[id][0];
  lessonCloseSuggestions(slot);
- lessonStarted=false;
+ lessonStarted=false;lessonExcess="";lessonDissolving=false;
+ document.getElementById("lessonExcess").setAttribute("aria-pressed","false");
  document.getElementById("lessonMedium").value="";
  lessonUpdateMedium();
  lessonRenderExperiment();
@@ -2886,7 +2888,7 @@ function lessonSelectedReaction(a,b,heated){
       return findReaction(a,b,heated);
   return null;
  }
- return findReaction(a,b,heated);
+ return findReaction(a,b,heated,lessonExcess);
 }
 function lessonPopulateReagents(){
  for(const [slot,label] of [["a","A"],["b","B"]]){
@@ -2894,7 +2896,8 @@ function lessonPopulateReagents(){
   input.oninput=()=>{
    // Never reuse the old selected reagent when a different formula is typed.
    lessonSelectedReagents[slot]="";
-   lessonStarted=false;
+   lessonStarted=false;lessonExcess="";lessonDissolving=false;
+   document.getElementById("lessonExcess").setAttribute("aria-pressed","false");
    document.getElementById("lessonMedium").value="";
    lessonUpdateMedium();
    lessonRenderExperiment();
@@ -2936,7 +2939,7 @@ function lessonRenderExperiment(){
  const x=lessonStarted&&a&&b?lessonSelectedReaction(a,b,lessonHeated):null;
  const visualReaction=x&&x.heat&&!lessonHeated?null:x;
  const v=lessonStarted&&visualReaction?[a,b]:(a?[a]:[]);
- document.getElementById("lessonTube").innerHTML=tubeHTML(v,0,true,lessonHeated,"",visualReaction);
+ document.getElementById("lessonTube").innerHTML=tubeHTML(v,0,true,lessonHeated,lessonDissolving?"":lessonExcess);
  const info=document.getElementById("lessonReaction");
  if(!a||!b){info.textContent="Выбери оба реактива.";return;}
  if(mediumRequired&&!mediumSelect.value){info.textContent="Выбери среду реакции, затем нажми «Провести».";return;}
@@ -2955,7 +2958,17 @@ function lessonSetup(){
  document.getElementById("lessonPDFInput").onchange=event=>lessonOpenPDF(event.target.files[0]);
  document.getElementById("lessonMedium").onchange=()=>{lessonStarted=false;lessonRenderExperiment();};
  document.getElementById("lessonConduct").onclick=()=>{lessonStarted=true;lessonRenderExperiment();};
- document.getElementById("lessonReset").onclick=()=>{lessonStarted=false;lessonHeated=false;document.getElementById("lessonHeat").setAttribute("aria-pressed","false");lessonRenderExperiment();};
+ document.getElementById("lessonExcess").onclick=()=>{
+  const {a,b}=lessonSelectedReagents;
+  const alkali=[a,b].find(id=>id==="naoh"||id==="koh");
+  const variant=alkali&&reactionVariants(a,b).find(x=>x.excess===alkali);
+  if(!variant){lessonStatus("Для этой пары нет проверенного варианта с избытком щёлочи.");return;}
+  lessonExcess=alkali;lessonStarted=true;lessonDissolving=!!variant.stages;
+  document.getElementById("lessonExcess").setAttribute("aria-pressed","true");
+  lessonRenderExperiment();
+  if(variant.stages)setTimeout(()=>{if(lessonExcess===alkali){lessonDissolving=false;lessonRenderExperiment();}},1100);
+ };
+ document.getElementById("lessonReset").onclick=()=>{lessonStarted=false;lessonHeated=false;lessonExcess="";lessonDissolving=false;document.getElementById("lessonExcess").setAttribute("aria-pressed","false");document.getElementById("lessonHeat").setAttribute("aria-pressed","false");lessonRenderExperiment();};
  document.getElementById("lessonHeat").onclick=()=>{lessonHeated=!lessonHeated;document.getElementById("lessonHeat").setAttribute("aria-pressed",String(lessonHeated));lessonRenderExperiment();};
  document.getElementById("lessonPrevious").onclick=()=>{if(lessonPage>1){lessonPage--;lessonRenderPage();}};
  document.getElementById("lessonNext").onclick=()=>{if(lessonPage<lessonPageCount){lessonPage++;lessonRenderPage();}};
