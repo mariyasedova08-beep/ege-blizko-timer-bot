@@ -32,8 +32,8 @@ jobs:
           set -Eeuo pipefail
           python3 -m py_compile deploy/ege-sealed-source-diff.py
           python3 -m unittest discover -s tests -p 'test_ege_sealed_source_diff.py' -v
-          echo "719c09d94adba83fe4d82f2a1507f163443b97e9e2d80cdfc1215f9747448088  deploy/sealed-audit-public-cert.pem" | sha256sum --check --status
-          openssl x509 -in deploy/sealed-audit-public-cert.pem -checkend 0 -noout
+          echo "719c09d94adba83fe4d82f2a1507f163443b97e9e2d80cdfc1215f9747448088  deploy/sealed-audit-public-cert.crt" | sha256sum --check --status
+          openssl x509 -in deploy/sealed-audit-public-cert.crt -checkend 0 -noout
           echo RECIPIENT_CERTIFICATE_PINNED
 
       - name: Read and compare files ON VPS, transfer ciphertext only
@@ -63,7 +63,7 @@ jobs:
           ssh-keygen -y -f "$HOME/.ssh/sealed-audit-key" >/dev/null
           python3 deploy/ege-sealed-source-diff.py \
             --mode runner \
-            --cert deploy/sealed-audit-public-cert.pem \
+            --cert deploy/sealed-audit-public-cert.crt \
             --host "$SSH_HOST" --user "$SSH_USER" \
             --known-hosts "$HOME/.ssh/known_hosts" \
             --ssh-key "$HOME/.ssh/sealed-audit-key" \
