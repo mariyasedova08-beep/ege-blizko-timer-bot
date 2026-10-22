@@ -16,7 +16,7 @@ TIMER=ege-blizko-autodeploy.timer
 LOCK=/run/lock/ege-blizko-autodeploy.lock
 HEALTH=https://77-233-212-200.sslip.io/health
 EXPECTED_LIVE=d95b80eb423a6295eac080f66d1707ac1e92e789
-EXPECTED_STAGE=fcfcac8a8177342d764845933ad6c1a1316d525c
+EXPECTED_STAGE=7b31b039c7dcc6d3ae2f31e5f241f747f17f5d17
 EXPECTED_FILE=23153dd715d2277d437e35c63b8345c53fb59d46c6b908f02ee0b0094656d58e
 RELEASE_ID=EGE-LAB-MNCR-20261021-CHECKED
 
@@ -43,17 +43,32 @@ flock -w 30 9 || fatal "Autodeploy lock is busy"
 [[ -f "$CHECKED" && ! -L "$CHECKED" ]] || fatal "Checked file missing"
 [[ "$(sha_of "$CHECKED")" == "$EXPECTED_FILE" ]] || fatal "Unexpected checked file SHA256"
 
-# The candidate must come from exactly one known staging repository.
+# The *actual checkout* in merge-check-* was created at 7b31b039.
+# A later FETCH_HEAD update to fcfcac8 did NOT move its working tree/HEAD.
+# GitHub compare confirmed fcfcac8 only adds test/CI scripts; no chemistry/UI
+# sources differ between these two commits. Keep the exact checkout pin.
 CANDIDATE=""
+STAGING_FOUND=0
+STAGING_HEAD_MISMATCH=0
+STAGING_HASH_MISMATCH=0
 while IFS= read -r -d '' file; do
+  STAGING_FOUND=$((STAGING_FOUND + 1))
   dir="$(dirname "$file")"
-  [[ -d "$dir/.git" ]] || continue
-  [[ "$(git -C "$dir" rev-parse HEAD)" == "$EXPECTED_STAGE" ]] || continue
-  cmp -s "$CHECKED" "$file" || continue
+  if [[ ! -d "$dir/.git" ]] || [[ "$(git -C "$dir" rev-parse HEAD)" != "$EXPECTED_STAGE" ]]; then
+    STAGING_HEAD_MISMATCH=$((STAGING_HEAD_MISMATCH + 1))
+    continue
+  fi
+  if ! cmp -s "$CHECKED" "$file"; then
+    STAGING_HASH_MISMATCH=$((STAGING_HASH_MISMATCH + 1))
+    continue
+  fi
   [[ -z "$CANDIDATE" ]] || fatal "Multiple matching staging repos"
   CANDIDATE="$dir"
 done < <(find "$STAGING_ROOT" -type f -path '*/merge-check-*/repo/ege_lab_webapp.py' -print0)
-[[ -n "$CANDIDATE" ]] || fatal "Verified candidate not found"
+if [[ -z "$CANDIDATE" ]]; then
+  echo "STAGING_DIAGNOSTIC: found=$STAGING_FOUND head_mismatch=$STAGING_HEAD_MISMATCH checked_ui_mismatch=$STAGING_HASH_MISMATCH" >&2
+  fatal "Verified candidate not found"
+fi
 for name in "${LAB_FILES[@]}"; do
   [[ -f "$CANDIDATE/$name" && ! -L "$CANDIDATE/$name" ]] || fatal "Missing candidate $name"
 done
