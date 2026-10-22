@@ -2724,7 +2724,7 @@ let lessonSuggested={a:[],b:[]};
 let lessonSuggestionIndex={a:-1,b:-1};
 function lessonNormalizeFormula(text){
  return String(text||"").normalize("NFKC").toLocaleLowerCase("ru")
-  .replace(/[\\s\\u00a0.,·\\-–—()[\\]{}]/g,"");
+   .replace(/[\s\u00a0.,·\-–—()[\]{}]/g,"");
 }
 function lessonSearchMatches(raw){
  const q=lessonNormalizeFormula(raw);
