@@ -34,6 +34,7 @@ ANIONS = {
     "so3": ("SO₃", 2), "s": ("S", 2),
     "sio3": ("SiO₃", 2), "cro4": ("CrO₄", 2),
     "po4": ("PO₄", 3),
+    "o": ("O", 2),
     "hco3": ("HCO₃", 1), "hso3": ("HSO₃", 1), "hs": ("HS", 1),
 }
 # Only salts whose catalogue entries explicitly denote a soluble aqueous form.
@@ -111,6 +112,18 @@ PRECIP_COLORS = {
     ("ag","s"):"#171717",
     ("fe2","oh"):"#89b98e", ("fe3","oh"):"#9a4a2b",
     ("cu2","oh"):"#42baf5", ("cr3","oh"):"#6e966f",
+}
+
+# Solid amphoteric hydroxides remain INSOLUBLE in plain water, even though
+# these dissolve when aqueous acid is added. Distinct from soluble bases.
+SOLID_HYDROXIDE_IDS={
+    "mgoh2":"mg","znoh2":"zn","feoh2":"fe2","feoh3":"fe3",
+    "cuoh2":"cu2","aloh3":"al","croh3":"cr3",
+}
+BASIC_OXIDE_IDS={
+    "na2o":"na","k2o":"k","cao":"ca","mgo":"mg",
+    "zno":"zn","al2o3":"al","cr2o3":"cr3",
+    "feo":"fe2","fe2o3":"fe3","cuo":"cu2",
 }
 
 def _numbers(cat, anion):
@@ -216,6 +229,7 @@ def generate_exchange_reactions(known_reagents, existing_pairs=()):
     # Examples: BaCl₂ + H₂SO₄ -> BaSO₄↓ + HCl,
     #           AgNO₃ + HCl -> AgCl↓ + HNO₃.
     for salt,cat,anion in salts:
+        if anion in {"hco3","hso3","hs"}:continue # gas + potentially solid, handled later
         for acid,ax in AQUEOUS_ACIDS.items():
             if acid not in known or ax==anion:continue
             if cat not in INSOLUBLE.get(ax,set()):continue
@@ -244,6 +258,29 @@ def generate_exchange_reactions(known_reagents, existing_pairs=()):
                 "Образуется осадок "+salt+"." if precip else "Нейтрализация: образуется вода.",
                 "#f8fbff",PRECIP_COLORS.get((cat,anion),"#ffffff") if precip else "",
                 condition="Водные растворы, полная нейтрализация"))
+
+    # Acids dissolve metal basic oxides and solid hydroxides.
+    # Ambiguous oxidising acid + Fe(II), HI + Fe(III)/Cu(II) are deferred to OVR.
+    for ids in (SOLID_HYDROXIDE_IDS, BASIC_OXIDE_IDS):
+        for solid_id,cat in ids.items():
+            if solid_id not in known:continue
+            anion="oh" if ids is SOLID_HYDROXIDE_IDS else "o"
+            for acid,ax in AQUEOUS_ACIDS.items():
+                if acid not in known:continue
+                if cat=="fe2" and acid=="hno3":continue
+                if cat=="fe3" and acid=="hi":continue
+                if cat=="cu2" and acid=="hi":continue
+                if cat=="cr3" and acid in {"hbr","hi"}:continue
+                if _special_pair(cat,anion,"h",ax):continue
+                m,n,k,l=_balance_exchange(cat,anion,"h",ax)
+                old=_formula(cat,anion)
+                salt=_formula(cat,ax)
+                eq=(f"{_prefix(m,old)} + {_prefix(n,_acid_formula(ax))}"
+                    f" → {_prefix(k,salt)} + {_prefix(l,'H₂O')}")
+                add(_make_record(solid_id,acid,eq,"c",
+                    "Твёрдое вещество растворяется с образованием соли "+salt+".",
+                    CATIONS[cat][2],"",
+                    condition="Нейтрализация; устойчивые оксиды требуют нагревания"))
 
     # Salt + soluble hydroxide. The driving force may be a metal hydroxide
     # OR a new insoluble salt (e.g. Ba(OH)₂ + Na₂SO₄ -> BaSO₄).
