@@ -46,14 +46,35 @@ jobs:
           test "$TIP" = "$TARGET" || {
             echo "PREPODMIN branch changed. Review the new SHA and rerun CI."; exit 1;
           }
-          RUNS=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET&per_page=50")
-          printf '%s' "$RUNS" | jq -e --arg sha "$TARGET" '
-            [.workflow_runs[]
-             | select(.head_sha == $sha
-               and .path == ".github/workflows/prepodmin-ci.yml"
-               and .head_branch == "feature/prepodmin-timeweb-migration-20261013"
-               and .event == "push" and .conclusion == "success")
-            ] | length > 0' >/dev/null
+          # Keep the complete protection checks; failure should be explanatory.
+          # GitHub's head_sha-filtered listing can intermittently be empty
+          # immediately after an otherwise successful branch CI run.
+          # A second unfiltered API lookup still requires EVERY original
+          # SHA, workflow path, branch, event and success condition.
+          verified_ci() {
+            jq -e --arg sha "$TARGET" '
+              [.workflow_runs[]?
+               | select(.head_sha == $sha
+                 and .path == ".github/workflows/prepodmin-ci.yml"
+                 and .head_branch == "feature/prepodmin-timeweb-migration-20261013"
+                 and .event == "push"
+                 and .conclusion == "success")
+              ] | length > 0' >/dev/null
+          }
+          RUNS=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET&per_page=100") || {
+            echo "::error::Cannot read GitHub CI runs; refusing release."; exit 1;
+          }
+          echo "PREPODMIN_CI_SHA_FILTERED_RESULTS=$(printf '%s' "$RUNS" | jq -r '.workflow_runs | length')"
+          if ! printf '%s' "$RUNS" | verified_ci; then
+            echo "PREPODMIN_CI_SHA_LOOKUP_EMPTY_OR_MISMATCH; checking latest runs with the SAME strict conditions."
+            RUNS=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100") || {
+              echo "::error::Cannot read fallback GitHub CI runs; refusing release."; exit 1;
+            }
+            if ! printf '%s' "$RUNS" | verified_ci; then
+              echo "::error::No successful isolated push CI for the exact PREPODMIN release SHA and branch. Refusing release."
+              exit 1
+            fi
+          fi
           echo "PREPODMIN_REVIEWED_CI_GREEN"
 
   deploy:
