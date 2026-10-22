@@ -1,0 +1,82 @@
+name: "ЕГЭ БЛИЗКО — сверка GitHub и VPS (только чтение)"
+
+# Run only by manual dispatch OR a separately approved inventory-intent commit on main.
+# Merging this PR does not create an intent, and regular code pushes cannot trigger it.
+# No application code is published, and no PR has access to SSH secrets.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "deploy/inventory-intents/*.txt"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ege-blizko-readonly-inventory
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    name: Inventory allowed Python files without changing VPS
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: ege-lab-production
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check inventory script and tests locally
+        run: |
+          set -euo pipefail
+          python3 -m py_compile deploy/ege-blizko-production-inventory.py
+          python3 -m unittest discover -s tests -p 'test_ege_production_inventory.py' -v
+
+      - name: Create GitHub inventory (no secrets or data)
+        shell: bash
+        run: python3 deploy/ege-blizko-production-inventory.py --mode local > "$RUNNER_TEMP/github-inventory.tsv"
+
+      - name: Establish restricted pinned SSH and read source checksums
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$SSH_USER" = "ege-deploy"
+          test "$SSH_HOST" = "77.233.212.200"
+          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
+          printf '%s\n' "$KNOWN_HOSTS" | awk -v host="$SSH_HOST" 'NF != 3 || $1 != host || $2 != "ssh-ed25519" {bad=1} END {exit bad || NR != 1}'
+          ssh-keygen -lf "$HOME/.ssh/known_hosts" >/dev/null
+          install -d -m 0700 "$HOME/.ssh"
+          trap 'rm -f "$HOME/.ssh/production-inventory-key" "$HOME/.ssh/known_hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/production-inventory-key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/production-inventory-key" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/production-inventory-key" >/dev/null
+          ssh -T -F /dev/null -o BatchMode=yes -o PasswordAuthentication=no \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=10 -i "$HOME/.ssh/production-inventory-key" \
+            "$SSH_USER@$SSH_HOST" 'python3 - --mode remote' \
+            < deploy/ege-blizko-production-inventory.py \
+            > "$RUNNER_TEMP/server-inventory.tsv"
+          echo "VPS_SOURCE_HASHES_READ_ONLY"
+
+      - name: Publish difference report without exposing production files
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'Проверенный коммит GitHub: \x60%s\x60\n\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          python3 deploy/ege-blizko-production-inventory.py --mode compare \
+            --local "$RUNNER_TEMP/github-inventory.tsv" \
+            --remote "$RUNNER_TEMP/server-inventory.tsv" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "NO_VPS_WRITE_NO_RESTART_NO_DEPLOYMENT"
