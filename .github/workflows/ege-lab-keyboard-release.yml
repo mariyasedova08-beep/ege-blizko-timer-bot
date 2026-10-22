@@ -8,6 +8,7 @@ on:
       - 'deploy/ege-lab-keyboard-guarded-release.sh'
       - 'deploy/ege-lab-restricted-ssh-entry-v2.sh'
       - 'deploy/bootstrap-ege-lab-keyboard-release.sh'
+      - 'deploy/refresh-ege-lab-keyboard-mncr-guard.sh'
       - 'deploy/ege-lab-mncr-approved-release.sh'
       - 'tests/test_ege_lab_keyboard_release_guard.py'
   push:
@@ -32,6 +33,7 @@ jobs:
           bash -n deploy/ege-lab-keyboard-guarded-release.sh
           bash -n deploy/ege-lab-restricted-ssh-entry-v2.sh
           bash -n deploy/bootstrap-ege-lab-keyboard-release.sh
+          bash -n deploy/refresh-ege-lab-keyboard-mncr-guard.sh
           bash -n deploy/ege-lab-mncr-approved-release.sh
           python3 -m unittest discover -s tests -p 'test_ege_lab_keyboard_release_guard.py' -v
   deploy-keyboard:
