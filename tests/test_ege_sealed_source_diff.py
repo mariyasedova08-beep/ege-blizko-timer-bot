@@ -27,6 +27,22 @@ class SealedDiffTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "SYMLINK_DENIED"):
                 module.read_limited(directory, module.FILES[0])
 
+    def test_public_certificate_is_exact_expected_recipient(self):
+        import hashlib
+        import subprocess
+        certificate = REPO / "deploy/sealed-audit-public-cert.crt"
+        self.assertEqual(
+            hashlib.sha256(certificate.read_bytes()).hexdigest(),
+            "719c09d94adba83fe4d82f2a1507f163443b97e9e2d80cdfc1215f9747448088",
+        )
+        self.assertEqual(
+            subprocess.run(
+                ["openssl", "x509", "-in", str(certificate), "-noout", "-checkend", "0"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                check=False,
+            ).returncode, 0,
+        )
+
     def test_encrypted_cms_is_not_plaintext(self):
         certificate = (REPO / "deploy/sealed-audit-public-cert.crt").read_bytes()
         clear = b"not-for-github-logs SECRET_CANARY_VALUE"
