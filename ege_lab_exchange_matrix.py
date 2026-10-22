@@ -16,6 +16,7 @@ SUB = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
 
 # (display formula, electric charge, chromatic aqueous cation)
 CATIONS = {
+    "h": ("H", 1, "#f8fbff"),
     "li": ("Li", 1, "#f8fbff"), "na": ("Na", 1, "#f8fbff"),
     "k": ("K", 1, "#f8fbff"), "nh4": ("NH₄", 1, "#f8fbff"),
     "ag": ("Ag", 1, "#f8fbff"), "ca": ("Ca", 2, "#f8fbff"),
@@ -209,6 +210,24 @@ def generate_exchange_reactions(known_reagents, existing_pairs=()):
             ppt=PRECIP_COLORS.get(precip[0],"#ffffff")
             sol=_solution_color([cat for cat in (ca,cb) if all(cat!=c for c,x in precip)])
             add(_make_record(a,b,eq,"p",sign,sol,ppt,condition="Смешивание водных растворов"))
+
+    # Acid + aqueous salt can also be driven by a stable precipitate.
+    # Hydrolysis and redox overrides are checked before generating products.
+    # Examples: BaCl₂ + H₂SO₄ -> BaSO₄↓ + HCl,
+    #           AgNO₃ + HCl -> AgCl↓ + HNO₃.
+    for salt,cat,anion in salts:
+        for acid,ax in AQUEOUS_ACIDS.items():
+            if acid not in known or ax==anion:continue
+            if cat not in INSOLUBLE.get(ax,set()):continue
+            if _special_pair(cat,anion,"h",ax):continue
+            m,n,k,l=_balance_exchange(cat,anion,"h",ax)
+            ppt_formula=_formula(cat,ax)
+            eq=(f"{_prefix(m,_formula(cat,anion))} + {_prefix(n,_acid_formula(ax))}"
+                f" → {_prefix(k,ppt_formula)}↓ + {_prefix(l,_acid_formula(anion))}")
+            add(_make_record(salt,acid,eq,"p",
+                "Выпадает осадок "+ppt_formula+".", "#f8fbff",
+                PRECIP_COLORS.get((cat,ax),"#ffffff"),
+                condition="Водные растворы; образование малорастворимого вещества"))
 
     # Strong aqueous acid + soluble hydroxide => salt + water.
     for acid,anion in AQUEOUS_ACIDS.items():
