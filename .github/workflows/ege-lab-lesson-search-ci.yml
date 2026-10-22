@@ -73,7 +73,7 @@ jobs:
       - name: Install isolated headless browser
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
       - name: Test lesson search, medium-specific signs, and PDF controls
         run: node tests/check_lab_lesson_medium_search.mjs
       - name: Prepare read-only live lesson test data
