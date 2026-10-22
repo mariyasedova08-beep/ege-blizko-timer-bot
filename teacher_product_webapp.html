@@ -1104,6 +1104,7 @@ function groupPaymentType(p){
  return ({once:'За одно занятие',monthly:'Ежемесячно',package:'Абонемент на занятия',course:'Весь курс оплачен'})[p.type]||'Не настроено';
 }
 function renderGroup(d){
+ groupHomeworkPilotAllowed=Boolean(d.homework_file_canary);
  var gid=Number(d.group_id);
  var out=groupHeader(d.title,(d.member_count||0)+' учеников · '+(d.connected_count||0)+' подключено к Telegram','students');
  out+='<div class="gcompactsummary"><div class="gmetric"><strong>'+Number(d.member_count||0)+'</strong> учеников</div><div class="gmetric"><strong>'+Number((d.upcoming||[]).length)+'</strong> занятий за 14 дней</div><div class="gmetric"><strong>'+Number(d.payment_issues||0)+'</strong> просроченных оплат</div></div>';
@@ -1612,6 +1613,7 @@ async function setGroupHomeworkMember(gid,aid,mid,status){
 }
 
 var groupHomeworkNotice='',groupHomeworkSavePending=false,groupHomeworkRequestKey='';
+var groupHomeworkPilotAllowed=false;
 function toggleGroupHomeworkForm(gid){
  var panel=document.getElementById('group-homework-form');
  if(!panel)return;
@@ -1630,8 +1632,8 @@ function toggleGroupHomeworkForm(gid){
  '<label for="g-hw-due">Срок сдачи</label><input id="g-hw-due" type="date" value="'+tomorrow+'">'+
  '<fieldset class="ghw-mode"><legend>Как ученик сдаёт ДЗ?</legend>'+
  '<label><input type="radio" name="g-hw-mode" value="self" checked> Тест, тренажёр или устное задание — отметка «Я выполнил»</label>'+
- '<label><input type="radio" name="g-hw-mode" value="attachment"> Письменная работа — фотографии или PDF</label>'+
- '<p class="gquiet">Письменные ДЗ доступны только после настройки защищённого хранилища файлов. Ученик сможет отправить фото или PDF, а ты — проверить и вернуть на доработку.</p></fieldset>'+
+ '<label><input type="radio" name="g-hw-mode" value="attachment" '+(groupHomeworkPilotAllowed?'':'disabled')+'> Письменная работа — фотографии или PDF</label>'+
+ '<p class="gquiet">'+(groupHomeworkPilotAllowed?'Тестовый доступ: ученик отправляет фото или PDF, преподаватель проверяет и возвращает на доработку.':'Письменные ДЗ пока закрыты. Они доступны только в отдельно выбранной тестовой группе.')+'</p></fieldset>'+
  '<div id="g-hw-error" class="gformerror" role="alert"></div>'+
  '<div class="gcontrols"><button class="gsubmit" id="g-hw-submit" type="button" onclick="saveGroupHomework('+Number(gid)+')">Сохранить и выдать группе</button><button type="button" onclick="toggleGroupHomeworkForm('+Number(gid)+')">Отмена</button></div></div></div>';
  panel.hidden=false;
@@ -1643,6 +1645,7 @@ async function saveGroupHomework(gid){
  var value=field.value.trim();
  var selectedMode=document.querySelector('input[name="g-hw-mode"]:checked');
  var submissionMode=selectedMode?selectedMode.value:'self';
+ if(submissionMode==='attachment'&&!groupHomeworkPilotAllowed){error.textContent='Письменные ДЗ доступны только для тестовой группы.';return;}
  if(submissionMode==='attachment' && !window.confirm('Для письменного ДЗ необходима защищённая загрузка файлов на сервере ПРЕПАДМИНА. Продолжить выдачу?'))return;
  if(value.length<2||value.length>3500){error.textContent='Напиши текст задания (от 2 до 3500 символов).';return;}
  if(!due.value){error.textContent='Выбери срок сдачи.';return;}
