@@ -163,6 +163,8 @@ validate_task6_bank(set(REAGENTS))
 def pair_key(a, b):
     return "|".join(sorted((a, b)))
 
+AMPHOTERIC_STAGES = {"alcl3":("AlCl₃ + 3NaOH → Al(OH)₃↓ + 3NaCl","Al(OH)₃ + NaOH → Na(Al(OH)₄)"),"alno3":("Al(NO₃)₃ + 3NaOH → Al(OH)₃↓ + 3NaNO₃","Al(OH)₃ + NaOH → Na(Al(OH)₄)"),"al2so43":("Al₂(SO₄)₃ + 6NaOH → 2Al(OH)₃↓ + 3Na₂SO₄","Al(OH)₃ + NaOH → Na(Al(OH)₄)"),"znso4":("ZnSO₄ + 2NaOH → Zn(OH)₂↓ + Na₂SO₄","Zn(OH)₂ + 2NaOH → Na₂(Zn(OH)₄)"),"zncl2":("ZnCl₂ + 2NaOH → Zn(OH)₂↓ + 2NaCl","Zn(OH)₂ + 2NaOH → Na₂(Zn(OH)₄)"),"znno3":("Zn(NO₃)₂ + 2NaOH → Zn(OH)₂↓ + 2NaNO₃","Zn(OH)₂ + 2NaOH → Na₂(Zn(OH)₄)")}
+
 def reaction_payload():
     payload = [
         {
@@ -172,7 +174,17 @@ def reaction_payload():
         for a,b,eq,kind,sign,sol,ppt,gas,heat in REACTIONS
     ]
     payload.extend(dict(item) for item in EXCHANGE_REACTIONS)
-    payload.extend(dict(item) for item in REACTION_VARIANTS)
+    for salt, (first, second) in AMPHOTERIC_STAGES.items():
+        if not any({r["a"], r["b"]} == {salt, "naoh"} and not r.get("excess") for r in payload):
+            payload.append({"a":salt,"b":"naoh","eq":first,"t":"p",
+                "sign":"белый студенистый осадок " + ("Al(OH)₃" if salt.startswith("al") else "Zn(OH)₂"),
+                "sol":"#f8fbff","ppt":"#ffffff","gas":"","heat":False,"excess":"","condition":"недостаток щёлочи"})
+    for item in REACTION_VARIANTS:
+        row = dict(item)
+        if row.get("excess") == "naoh" and row["a"] in AMPHOTERIC_STAGES:
+            first, second = AMPHOTERIC_STAGES[row["a"]]
+            row["stages"] = {"first":first,"second":second,"total":row["eq"]}
+        payload.append(row)
     payload.extend(dict(item) for item in TASK6_VARIANTS)
     return payload
 
@@ -1441,8 +1453,9 @@ function reactionResultHTML(x,heated=false){
  const title=noReaction?"Реакция не идёт":"Реакция протекает";
  const sign=noReaction?x.sign:(noVisible?"Без видимого признака":x.sign);
  const condition=x.condition?'<div class="reaction-note">Условие: '+x.condition+'</div>':'';
+ const stages=x.stages?'<div class="reaction-note"><b>1. Осадок</b><div class="reaction-equation">'+x.stages.first+'</div><b>2. Растворение в избытке</b><div class="reaction-equation">'+x.stages.second+'</div><b>Суммарно</b></div>':'';
  const note=noReaction?'<div class="reaction-note">Смесь остаётся без химического превращения в указанных условиях.</div>':(noVisible?'<div class="reaction-note">Реакция есть, но визуального эффекта в пробирке нет.</div>':'');
- return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+condition+gasObservationHTML(x)+note+'</div>';
+ return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div>'+stages+'<div class="reaction-equation">'+x.eq+'</div>'+condition+gasObservationHTML(x)+note+'</div>';
 }
 // Products of reactions determine precipitate texture; never infer it solely
 // from colour (white solids may be gelatinous, fine or crystalline).
@@ -1746,7 +1759,8 @@ document.getElementById("excess").onclick=()=>{
  const v=tubes[selectedTube];
  if(v.length!==2){document.getElementById("result").textContent="Сначала добавь два реактива.";return}
  if(tubeHasMedium(v)){document.getElementById("result").textContent="Выбор среды и избытка для этой ОВР задаётся полем «Среда».";return}
- tubeExcess[selectedTube]=v[v.length-1];
+ const alkali=v.find(id=>id==="naoh"||id==="koh");
+ tubeExcess[selectedTube]=alkali&&reactionVariants(v[0],v[1]).some(x=>x.excess===alkali)?alkali:v[v.length-1];
  const x=reactionExpected(v[0],v[1],tubeExcess[selectedTube]);
  document.getElementById("result").innerHTML=x&&x.excess?"Показываю реакцию при избытке "+reagent(tubeExcess[selectedTube])[0]+".":"Для этой пары отдельный результат избытка пока не требуется.";
  renderTubes();
