@@ -118,7 +118,7 @@ def _numbers(cat, anion):
 def _unit(text, count):
     if count == 1:
         return text
-    if len(text) > 2 or any(d in text for d in "₀₁₂₃₄₅₆₇₈₉"):
+    if text == "OH" or len(text) > 2 or any(d in text for d in "₀₁₂₃₄₅₆₇₈₉"):
         return "(" + text + ")" + str(count).translate(SUB)
     return text + str(count).translate(SUB)
 
@@ -160,8 +160,7 @@ def _special_pair(cat1,an1,cat2,an2):
     for cat,anion in ((cat1,an2),(cat2,an1)):
         if cat in EXCEPTIONAL_CATIONS and anion in EXCEPTIONAL_ANIONS:return True
         if cat == "cu2" and anion in {"i","co3","so3"}:return True
-        if cat == "fe3" and anion in {"i","br"}:return True
-        if cat == "ag" and anion == "s":return False
+        if cat == "fe3" and anion == "i":return True
     return False
 
 def _make_record(a,b,eq,kind,sign,sol="#f8fbff",ppt="",gas="",condition=""):
