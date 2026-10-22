@@ -1,5 +1,6 @@
 """Offline checks for Telegram chemistry decomposition trainer bank."""
 import ast
+import json
 import re
 from collections import Counter
 import unittest
@@ -29,7 +30,8 @@ class DecompositionBankTest(unittest.TestCase):
                 self.assertEqual(len(wrong), 3)
                 self.assertEqual(len({correct, *wrong}), 4)
                 self.assertIn("→", DECOMPOSITION_EXPLANATIONS[qid])
-                self.assertIn("ОВР", DECOMPOSITION_EXPLANATIONS[qid])
+                expected_label = "ОВР:" if DECOMPOSITION_GROUPS[qid] == "ovr" else "НЕ ОВР:"
+                self.assertEqual(DECOMPOSITION_EXPLANATIONS[qid].splitlines()[1].split(":")[0] + ":", expected_label)
 
     def test_chemical_edge_cases(self):
         self.assertIn("2CuO", DECOMPOSITION_EXPLANATIONS["decomp016"])  # malachite
@@ -90,6 +92,26 @@ class DecompositionBankTest(unittest.TestCase):
         self.assertIn("до образования Na₂SO₃", prompts["decomp025"])
         self.assertIn("до оксида свинца(II)", prompts["decomp044"])
         self.assertIn("до оксида хрома(III)", prompts["decomp045"])
+
+    def test_independent_oxidation_ledger_conserves_electrons(self):
+        path = Path(__file__).resolve().parents[1] / "docs/decomposition-chemistry-review.json"
+        review = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual({row["id"] for row in review}, {q[0] for q in DECOMPOSITION_BANK})
+        self.assertEqual(len(review), 50)
+        for row in review:
+            with self.subTest(qid=row["id"]):
+                changes = row["oxidation_changes"]
+                self.assertEqual(row["group"], DECOMPOSITION_GROUPS[row["id"]])
+                self.assertEqual(bool(changes), row["group"] == "ovr")
+                lost = gained = 0
+                for element, before, after, count in changes:
+                    self.assertRegex(element, r"^[A-Z][a-z]?$")
+                    self.assertGreater(count, 0)
+                    self.assertNotEqual(before, after)
+                    lost += max(0, after - before) * count
+                    gained += max(0, before - after) * count
+                self.assertEqual(lost, gained)
+                self.assertEqual(lost, row["electrons_each_direction"])
 
     def test_handler_has_no_webapp_and_compiles(self):
         source = Path(__file__).resolve().parents[1].joinpath("decomposition_trainer.py")

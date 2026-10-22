@@ -7,6 +7,9 @@ on:
     paths:
       - 'decomposition_trainer*'
       - 'tests/test_decomposition*.py'
+      - 'deploy/prepare_decomposition_release.py'
+      - 'deploy/decomposition_release_manifest.json'
+      - 'docs/decomposition-chemistry-review.json'
       - 'kulek_rewards.py'
       - 'public_channel_trainers.py'
       - '.github/workflows/decomposition-trainer-ci.yml'
@@ -16,6 +19,9 @@ on:
     paths:
       - 'decomposition_trainer*'
       - 'tests/test_decomposition*.py'
+      - 'deploy/prepare_decomposition_release.py'
+      - 'deploy/decomposition_release_manifest.json'
+      - 'docs/decomposition-chemistry-review.json'
       - 'kulek_rewards.py'
       - 'public_channel_trainers.py'
       - '.github/workflows/decomposition-trainer-ci.yml'
@@ -35,5 +41,5 @@ jobs:
           python-version: '3.12'
       - name: Syntax, bank and offline interaction scenarios (no Telegram network)
         run: |
-          python -m py_compile decomposition_trainer.py decomposition_trainer_bank.py run_bot_production.py kulek_rewards.py
+          python -m py_compile decomposition_trainer.py decomposition_trainer_bank.py run_bot_production.py kulek_rewards.py deploy/prepare_decomposition_release.py
           python -m unittest discover -s tests -p 'test_decomposition*.py' -v

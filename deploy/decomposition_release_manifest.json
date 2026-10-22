@@ -1,0 +1,14 @@
+{
+  "baseline_source": "GitHub main 1d89f6b75d155652bb10a5f1f1e662a69d9107b0; NOT a verified VPS backup",
+  "runtime_sha256": {
+    "decomposition_trainer.py": "364afa623956d154fa9d0ad01780aac3fd15f0b9871b7fd88bd5e0b97fa494be",
+    "decomposition_trainer_bank.py": "b371826f16509227120c87574eda58e25876c6d4969f17a9fb66e08bdd812656",
+    "decomposition_trainer_questions.tsv": "7576f6de5969434c602fb6f4cb970b50a770cbf55be13c8803c8ec161666eded",
+    "run_bot_production.py": "6dcd5690558f18f888af8ecc05da0d9cdb04b030ac5a8860e78d07c124ef221f",
+    "kulek_rewards.py": "25e388eb0812518d49008919aa87e28fb6b4baeb620ba04cb428d8681f1d6e5c"
+  },
+  "baseline_sha256": {
+    "run_bot_production.py": "c2da8ba8f4124df364bceffac694c16f4e31e3f6cf9b4bae59c4165ba2f96b70",
+    "kulek_rewards.py": "57e80fc0520f20c6c846a88f7a944165702c22cacdb321a88b7f102178a778cb"
+  }
+}
