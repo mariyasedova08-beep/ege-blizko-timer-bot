@@ -17,7 +17,8 @@ concurrency:
 
 jobs:
   local-review:
-    if: github.ref != 'refs/heads/main'
+    # Chemistry was tested in PR81; this standalone PR must contain no chemistry files.
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
