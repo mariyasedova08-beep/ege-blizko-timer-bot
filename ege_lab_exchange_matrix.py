@@ -222,20 +222,55 @@ def generate_exchange_reactions(known_reagents, existing_pairs=()):
                 "#f8fbff",PRECIP_COLORS.get((cat,anion),"#ffffff") if precip else "",
                 condition="Водные растворы, полная нейтрализация"))
 
-    # Soluble salt + hydroxide => insoluble metal hydroxide (exclude Ag oxide).
-    # Amphoteric excess is intentionally not inferred; explicit variants win.
+    # Salt + soluble hydroxide. The driving force may be a metal hydroxide
+    # OR a new insoluble salt (e.g. Ba(OH)₂ + Na₂SO₄ -> BaSO₄).
+    # Silver forms oxide rather than an imaginary "AgOH" precipitate.
     for salt,cat,anion in salts:
-        if cat not in INSOLUBLE_HYDROXIDES:continue
         for base,bc in AQUEOUS_HYDROXIDES.items():
             if base not in known or cat==bc:continue
+            if cat=="ag":
+                if base not in {"naoh","koh"}:continue
+                # 2AgNO₃ + 2NaOH -> Ag₂O + 2NaNO₃ + H₂O.
+                if anion not in {"no3","f"}:continue
+                source=_formula(cat,anion)
+                product=_formula(bc,anion)
+                eq=f"2{source} + 2{_formula(bc,'oh')} → Ag₂O↓ + 2{product} + H₂O"
+                add(_make_record(salt,base,eq,"p",
+                    "Образуется бурый осадок Ag₂O (AgOH неустойчив).",
+                    "#f8fbff","#7c5536",condition="Водные растворы"))
+                continue
+            if cat=="nh4":
+                if bc not in {"na","k","li"}:continue
+                # One NH₄⁺ consumes one OH⁻ to produce NH₃ and H₂O.
+                num_c,num_a=_numbers(cat,anion)
+                prod_cat,prod_an=_numbers(bc,anion)
+                for m in range(1,19):
+                    if m*num_c%prod_cat==0:break
+                n_prod=m*num_c//prod_cat
+                n_base=n_prod*prod_an
+                if n_base!=m*num_c:raise ValueError("NH4 hydroxide balance")
+                eq=(f"{_prefix(m,_formula(cat,anion))} + {_prefix(n_base,_formula(bc,'oh'))}"
+                    f" → {_prefix(n_prod,_formula(bc,anion))} + {_prefix(n_base,'NH₃')}↑"
+                    f" + {_prefix(n_base,'H₂O')}")
+                add(_make_record(salt,base,eq,"g",
+                    "Выделяется аммиак NH₃ с характерным резким запахом.",
+                    "#f8fbff","","NH₃",condition="Нагревание ускоряет выделение NH₃"))
+                continue
+            ppts=[]
+            if cat in INSOLUBLE_HYDROXIDES:ppts.append((cat,"oh"))
+            if bc in INSOLUBLE.get(anion,set()):ppts.append((bc,anion))
+            if not ppts:continue
             if _special_pair(cat,anion,bc,"oh"):continue
             m,n,k,l=_balance_exchange(cat,anion,bc,"oh")
-            target=_formula(cat,"oh")
+            c_prod=_formula(cat,"oh")
+            s_prod=_formula(bc,anion)
             eq=(f"{_prefix(m,_formula(cat,anion))} + {_prefix(n,_formula(bc,'oh'))} → "
-                f"{_prefix(k,target)}↓ + {_prefix(l,_formula(bc,anion))}")
-            add(_make_record(salt,base,eq,"p","Выпадает осадок "+target+".",
-                "#f8fbff",PRECIP_COLORS.get((cat,"oh"),"#ffffff"),
-                condition="Без большого избытка щёлочи; для амфотерных осадков избыток меняет продукты"))
+                f"{_prefix(k,c_prod)}{'↓' if (cat,'oh') in ppts else ''}"
+                f" + {_prefix(l,s_prod)}{'↓' if (bc,anion) in ppts else ''}")
+            add(_make_record(salt,base,eq,"p",
+                "Образуется осадок "+", ".join(_formula(c,x) for c,x in ppts)+".",
+                "#f8fbff",PRECIP_COLORS.get(ppts[0],"#ffffff"),
+                condition="Без избытка щёлочи; амфотерные гидроксиды могут растворяться при избытке"))
 
     # Acid + soluble carbonate/sulfite/sulfide; weak volatile acid collapses.
     gas_rules={
