@@ -22,7 +22,7 @@ RELEASE_ID=EGE-LAB-MNCR-20261021-CHECKED
 
 # Only these four lab files can be installed. Live teacher/admin code stays intact.
 LAB_FILES=(ege_lab_webapp.py ege_lab_substances.py ege_lab_inorganic_reactions.py ege_lab_mn_cr_pdf_import.py)
-LIVE_ONLY_FILES=(public_channel_trainers.py run_bot_production.py)
+LIVE_ONLY_FILES=(public_channel_trainers.py run_bot_live7.py run_bot_production.py)
 
 fatal() { echo "RELEASE_ABORTED: $*" >&2; return 1; }
 sha_of() { sha256sum "$1" | awk '{print $1}'; }
@@ -74,8 +74,8 @@ for name in "${LAB_FILES[@]}"; do
 done
 
 # Check exactly the 3 tracked local customizations that were backed up and merged.
-CHANGED="$(git -C "$APP" diff --name-only | LC_ALL=C sort)"
-EXPECTED_CHANGED="$(printf '%s\n' ege_lab_webapp.py public_channel_trainers.py run_bot_production.py | LC_ALL=C sort)"
+CHANGED="$(git -C "$APP" diff HEAD --name-only | LC_ALL=C sort)"
+EXPECTED_CHANGED="$(printf '%s\n' ege_lab_webapp.py public_channel_trainers.py run_bot_live7.py run_bot_production.py | LC_ALL=C sort)"
 [[ "$CHANGED" == "$EXPECTED_CHANGED" ]] || fatal "Production has unexpected local modifications"
 
 # Must not modify the legacy automatic release marker or its tracked branch.
@@ -95,7 +95,7 @@ echo "CHEMISTRY_AND_GUARDS_OK"
 # while the bot is running; a raw copy of a changing .db would be unsafe.
 mkdir -p -m 0700 "$BACKUP_ROOT"
 BACKUP="$(mktemp -d "$BACKUP_ROOT/lab-release-XXXXXXXX")"
-mkdir -m 0700 "$BACKUP/code" "$BACKUP/data" "$BACKUP/service"
+mkdir -m 0700 "$BACKUP/code" "$BACKUP/data" "$BACKUP/service" "$BACKUP/protected-code"
 for name in "${LAB_FILES[@]}"; do
   if [[ -f "$APP/$name" ]]; then
     cp -p -- "$APP/$name" "$BACKUP/code/$name"
@@ -105,6 +105,8 @@ for name in "${LAB_FILES[@]}"; do
 done
 for name in "${LIVE_ONLY_FILES[@]}"; do
   [[ -f "$APP/$name" ]] || fatal "Protected application file missing: $name"
+  cp -p -- "$APP/$name" "$BACKUP/protected-code/$name"
+  cmp -s -- "$APP/$name" "$BACKUP/protected-code/$name" || fatal "Protected code backup differs: $name"
   sha256sum "$APP/$name" >> "$BACKUP/protected-files.sha256"
 done
 cp -p /etc/systemd/system/ege-blizko.service "$BACKUP/service/ege-blizko.service"
@@ -128,7 +130,7 @@ PY
 sha256sum "$BACKUP/code/"* > "$BACKUP/lab-code.sha256"
 echo "PRE_DEPLOY_BACKUP_OK: $BACKUP"
 
-# Keep rollback inside the same lock. DB and two live-only files remain untouched.
+# Keep rollback inside the same lock. DB and ALL THREE protected live-only files remain untouched.
 DEPLOY_STARTED=0
 rollback() {
   local status=$?

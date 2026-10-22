@@ -13,7 +13,7 @@ on:
   push:
     branches: [main]
     paths:
-      - deploy/release-intents/ege-lab-mncr-retry-1.txt
+      - deploy/release-intents/ege-lab-mncr-retry-2.txt
 
 permissions:
   contents: read
@@ -51,11 +51,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f deploy/release-intents/ege-lab-mncr-retry-1.txt
+          test -f deploy/release-intents/ege-lab-mncr-retry-2.txt
           changed="$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA")"
-          test "$changed" = "deploy/release-intents/ege-lab-mncr-retry-1.txt"
+          test "$changed" = "deploy/release-intents/ege-lab-mncr-retry-2.txt"
           expected="$(printf 'EGE-LAB-MNCR-20261021-CHECKED\n7b31b039c7dcc6d3ae2f31e5f241f747f17f5d17\n23153dd715d2277d437e35c63b8345c53fb59d46c6b908f02ee0b0094656d58e')"
-          test "$(cat deploy/release-intents/ege-lab-mncr-retry-1.txt)" = "$expected"
+          test "$(cat deploy/release-intents/ege-lab-mncr-retry-2.txt)" = "$expected"
           echo "EXPLICIT_RELEASE_INTENT_VERIFIED"
       - name: Prepare pinned SSH credentials from protected environment
         shell: bash
