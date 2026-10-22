@@ -79,7 +79,7 @@ class ExchangeMatrix(unittest.TestCase):
                     self.assertEqual(side_atoms(left),side_atoms(right),row["eq"])
                 else:
                     self.assertEqual(right,"реакция не идёт")
-                self.assertIn(row["t"],("p","g","n","z"))
+                self.assertIn(row["t"],("p","g","n","x","z"))
                 self.assertIn(row["a"],REAGENTS)
                 self.assertIn(row["b"],REAGENTS)
                 self.assertEqual(row["heat"],False)
@@ -129,15 +129,28 @@ class ExchangeMatrix(unittest.TestCase):
             ("cuso4","ki"),     # Cu(I) precip + I₂, NOT ion exchange
             ("fecl3","k2s"),    # Fe(III) reduction + sulfur, NOT hydrolysis
             ("fecl3","k2so3"),  # Fe(III) reduction + sulfate, NOT hydrolysis
-            ("alcl3","na2co3"), # joint hydrolysis, explicit reaction
-            ("cuso4","k2co3"),  # basic copper carbonate, not CuCO3
             ("fecl3","na2s"),   # Fe(III) reduction + sulfur
-            ("fecl3","na2sio3"), # joint hydrolysis of Fe(III) and silicate
-            ("alcl3","na2sio3"), # joint hydrolysis of Al(III) and silicate
-            ("crcl3","na2sio3"), # joint hydrolysis of Cr(III) and silicate
         ):
             with self.subTest(pair=a+"+"+b):
                 self.assertNotIn(frozenset((a,b)),self.by_pair)
+
+    def test_hydrolysis_and_copper_basic_salt_exceptions(self):
+        for pair,part in {
+            ("alcl3","na2co3"):"Al(OH)₃↓",
+            ("fecl3","k2co3"):"Fe(OH)₃↓",
+            ("crcl3","na2so3"):"Cr(OH)₃↓",
+            ("alno3","na2so3"):"Al(OH)₃↓",
+            ("cr2so43","na2s"):"Cr(OH)₃↓",
+            ("fecl3","khco3"):"Fe(OH)₃↓",
+            ("cuso4","k2co3"):"Cu₂(OH)₂CO₃↓",
+            ("cucl2","na2co3"):"Cu₂(OH)₂CO₃↓",
+        }.items():
+            with self.subTest(pair=pair):
+                r=self.get_pair(*pair)
+                self.assertEqual(r["t"],"x")
+                self.assertIn(part,r["eq"])
+                self.assertIn("↑",r["eq"])
+                self.assertIn("↓",r["eq"])
 
     def test_inert_ions_are_explicitly_no_reaction(self):
         for a,b in (("nacl","kno3"),("kcl","nano3"),("nabr","kno3")):
