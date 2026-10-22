@@ -1,0 +1,7 @@
+EGE_BLIZKO_PRIVATE_DEPENDENCY_INVENTORY
+ROOTS=7 Python modules
+CONTENT=static dependency references and resource presence only
+DATABASE_CONTENT_READ=false
+OUTPUT=encrypted CMS artifact only
+NO_DEPLOYMENT=true
+NO_SERVER_WRITES=true
