@@ -1204,6 +1204,10 @@ body:has(#lesson.page.on) .app{max-width:none}
 #lessonPdfCanvas,#lessonInkCanvas{display:block}
 #lessonInkCanvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
 #lessonInkCanvas.eraser{cursor:cell}
+ .lesson-color-inline{display:inline-flex;align-items:center;gap:5px;font-size:12px}
+ .lesson-color-inline input{width:28px;height:26px;padding:0;border:0;background:transparent}
+ .lesson-color-presets{display:flex;flex-wrap:wrap;gap:7px;padding:6px 0}
+ .lesson-color-presets button{width:25px;height:25px;border-radius:50%;border:1px solid #b5aeb3;background:var(--swatch);cursor:pointer}
 .lesson-pdf-foot{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid #f2e6ec;gap:8px;color:#786e77;font-size:11px}
 .lesson-extra-menu{margin-left:auto;position:relative}
 .lesson-extra-menu summary{cursor:pointer;background:#fff;border:1px solid #edd2e0;border-radius:10px;padding:8px 11px;list-style:none}
@@ -1282,13 +1286,15 @@ body:has(#lesson.page.on) .app{max-width:none}
         <span id="lessonPageCounter">1 / 1</span>
         <button id="lessonNext" type="button" title="Следующая страница">→</button>
         <button id="lessonToolPen" type="button" aria-pressed="true">✎ Ручка</button>
+         <button id="lessonToolMarker" type="button" aria-pressed="false">▰ Выделитель</button>
+         <label class="lesson-color-inline">Цвет <input id="lessonPenColor" type="color" value="#f00087"></label>
         <button id="lessonToolEraser" type="button" aria-pressed="false">⌫ Ластик</button>
         <button id="lessonExport" type="button">↓ Сохранить PDF</button>
       </div>
       <details class="lesson-extra-menu">
         <summary aria-label="Настройки письма">⋯</summary>
         <div class="lesson-extra-items">
-          <label>Цвет ручки <input id="lessonPenColor" type="color" value="#f00087"></label>
+          <div class="lesson-color-presets" id="lessonColorPresets"><button type="button" data-ink="#f00087" aria-label="Цвет #f00087" style="--swatch:#f00087"></button><button type="button" data-ink="#ffd84d" aria-label="Цвет #ffd84d" style="--swatch:#ffd84d"></button><button type="button" data-ink="#8fd7ab" aria-label="Цвет #8fd7ab" style="--swatch:#8fd7ab"></button><button type="button" data-ink="#8ac9fa" aria-label="Цвет #8ac9fa" style="--swatch:#8ac9fa"></button><button type="button" data-ink="#b8a0ec" aria-label="Цвет #b8a0ec" style="--swatch:#b8a0ec"></button><button type="button" data-ink="#171719" aria-label="Цвет #171719" style="--swatch:#171719"></button></div>
           <label>Толщина <input id="lessonPenWidth" type="range" min="1" max="10" value="3"></label>
           <button type="button" id="lessonUndo">↶ Отменить последний штрих</button>
           <button type="button" id="lessonExportNotes">↓ Резервная копия записей</button>
@@ -2614,7 +2620,8 @@ function lessonRedrawInk(){
  for(const stroke of lessonCurrentStrokes()){
   if(!stroke||!Array.isArray(stroke.points)||!stroke.points.length)continue;
   ctx.lineCap="round";ctx.lineJoin="round";
-  ctx.strokeStyle=stroke.color||"#f00087";
+  ctx.globalAlpha=Math.max(.1,Math.min(1,Number(stroke.opacity??1)));
+   ctx.strokeStyle=stroke.color||"#f00087";
   ctx.fillStyle=stroke.color||"#f00087";
   ctx.lineWidth=Math.max(1,Number(stroke.width)||3)*ratio;
   ctx.beginPath();
@@ -2627,6 +2634,7 @@ function lessonRedrawInk(){
    ctx.arc(p.x*canvas.width,p.y*canvas.height,ctx.lineWidth/2,0,Math.PI*2);ctx.fill();
   }else ctx.stroke();
  }
+ ctx.globalAlpha=1;
 }
 function lessonEraseAt(point){
  const arr=lessonCurrentStrokes();
@@ -2639,6 +2647,7 @@ function lessonEraseAt(point){
 function lessonSetTool(which){
  lessonTool=which;
  document.getElementById("lessonToolPen").setAttribute("aria-pressed",String(which==="pen"));
+  document.getElementById("lessonToolMarker").setAttribute("aria-pressed",String(which==="marker"));
  document.getElementById("lessonToolEraser").setAttribute("aria-pressed",String(which==="erase"));
  document.getElementById("lessonInkCanvas").classList.toggle("eraser",which==="erase");
 }
@@ -2744,11 +2753,11 @@ async function lessonExportPDF(){
      sheet.drawLine({
       start:{x:pts[k-1].x*w,y:(1-pts[k-1].y)*h},
       end:{x:pts[k].x*w,y:(1-pts[k].y)*h},
-      thickness:thickness,color:color,opacity:1
+      thickness:thickness,color:color,opacity:Math.max(.1,Math.min(1,Number(stroke.opacity??1)))
      });
     }
     if(pts.length===1)sheet.drawCircle({
-     x:pts[0].x*w,y:(1-pts[0].y)*h,size:thickness/2,color:color
+     x:pts[0].x*w,y:(1-pts[0].y)*h,size:thickness/2,color:color,opacity:Math.max(.1,Math.min(1,Number(stroke.opacity??1)))
     });
    }
   }
@@ -2951,6 +2960,8 @@ function lessonSetup(){
  document.getElementById("lessonPrevious").onclick=()=>{if(lessonPage>1){lessonPage--;lessonRenderPage();}};
  document.getElementById("lessonNext").onclick=()=>{if(lessonPage<lessonPageCount){lessonPage++;lessonRenderPage();}};
  document.getElementById("lessonToolPen").onclick=()=>lessonSetTool("pen");
+  document.getElementById("lessonToolMarker").onclick=()=>lessonSetTool("marker");
+  document.querySelectorAll("#lessonColorPresets [data-ink]").forEach(btn=>{btn.onclick=()=>{document.getElementById("lessonPenColor").value=btn.dataset.ink;};});
  document.getElementById("lessonToolEraser").onclick=()=>lessonSetTool("erase");
  document.getElementById("lessonUndo").onclick=()=>{lessonCurrentStrokes().pop();lessonRedrawInk();lessonSaveLocal();};
  document.getElementById("lessonExport").onclick=lessonExportPDF;
@@ -2974,7 +2985,8 @@ function lessonSetup(){
   const point=lessonGetPoint(event);
   if(lessonTool==="erase"){lessonEraseAt(point);return;}
   lessonDrawing={color:document.getElementById("lessonPenColor").value,
-                 width:Number(document.getElementById("lessonPenWidth").value),
+                 tool:lessonTool,opacity:lessonTool==="marker"?.32:1,
+                 width:lessonTool==="marker"?Math.max(12,Number(document.getElementById("lessonPenWidth").value)*4):Number(document.getElementById("lessonPenWidth").value),
                  points:[point]};
   lessonCurrentStrokes().push(lessonDrawing);lessonRedrawInk();
  };
