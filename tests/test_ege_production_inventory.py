@@ -53,6 +53,32 @@ class ProductionInventoryTests(unittest.TestCase):
         self.assertIn("oge9_trainer_notifications.py", result["only_server"])
         self.assertIn("ege11_lesson_transfer.py", result["only_github"])
 
+    def test_cli_fails_closed_on_server_drift(self):
+        import contextlib
+        import io
+        import sys
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as root:
+            directory = pathlib.Path(root)
+            github = {name: module.MISSING for name in module.FILES}
+            server = dict(github)
+            github["run_bot_live7.py"] = "a" * 64
+            server["run_bot_live7.py"] = "b" * 64
+            local_file = directory / "github.tsv"
+            remote_file = directory / "server.tsv"
+            local_file.write_text("\n".join(module.lines_for_inventory(github)) + "\n")
+            remote_file.write_text("\n".join(module.lines_for_inventory(server)) + "\nSERVICE\tactive\n")
+            output = io.StringIO()
+            with mock.patch.object(sys, "argv", [
+                "inventory", "--mode", "compare", "--local", str(local_file),
+                "--remote", str(remote_file)
+            ]), contextlib.redirect_stdout(output):
+                with self.assertRaisesRegex(SystemExit, "DRIFT_DETECTED_REVIEW_REQUIRED"):
+                    module.main()
+            self.assertIn("run_bot_live7.py", output.getvalue())
+            self.assertIn("NO_SERVER_FILES_CHANGED", output.getvalue())
+
     def test_parser_rejects_incomplete_and_extra_output(self):
         with self.assertRaises(ValueError):
             module.read_inventory("FILE\tunexpected_secret\tdeadbeef")
