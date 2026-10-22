@@ -57,3 +57,5 @@ jobs:
         run: python3 tests/prepare_lab_medium_live_fixture.py
       - name: Test medium selection in actual lab-app lesson
         run: node tests/check_lab_medium_live.mjs
+      - name: Print immutable keyboard lab source hash for protected deploy pin
+        run: sha256sum ege_lab_webapp.py
