@@ -163,7 +163,7 @@ validate_task6_bank(set(REAGENTS))
 def pair_key(a, b):
     return "|".join(sorted((a, b)))
 
-AMPHOTERIC_STAGES = {"alcl3":("AlCl₃ + 3NaOH → Al(OH)₃↓ + 3NaCl","Al(OH)₃ + NaOH → Na(Al(OH)₄)"),"alno3":("Al(NO₃)₃ + 3NaOH → Al(OH)₃↓ + 3NaNO₃","Al(OH)₃ + NaOH → Na(Al(OH)₄)"),"al2so43":("Al₂(SO₄)₃ + 6NaOH → 2Al(OH)₃↓ + 3Na₂SO₄","Al(OH)₃ + NaOH → Na(Al(OH)₄)"),"znso4":("ZnSO₄ + 2NaOH → Zn(OH)₂↓ + Na₂SO₄","Zn(OH)₂ + 2NaOH → Na₂(Zn(OH)₄)"),"zncl2":("ZnCl₂ + 2NaOH → Zn(OH)₂↓ + 2NaCl","Zn(OH)₂ + 2NaOH → Na₂(Zn(OH)₄)"),"znno3":("Zn(NO₃)₂ + 2NaOH → Zn(OH)₂↓ + 2NaNO₃","Zn(OH)₂ + 2NaOH → Na₂(Zn(OH)₄)")}
+AMPHOTERIC_STAGES = {"alcl3":("AlCl₃ + 3NaOH → Al(OH)₃↓ + 3NaCl","Al(OH)₃ + NaOH → Na[Al(OH)₄]"),"alno3":("Al(NO₃)₃ + 3NaOH → Al(OH)₃↓ + 3NaNO₃","Al(OH)₃ + NaOH → Na[Al(OH)₄]"),"al2so43":("Al₂(SO₄)₃ + 6NaOH → 2Al(OH)₃↓ + 3Na₂SO₄","Al(OH)₃ + NaOH → Na[Al(OH)₄]"),"znso4":("ZnSO₄ + 2NaOH → Zn(OH)₂↓ + Na₂SO₄","Zn(OH)₂ + 2NaOH → Na₂[Zn(OH)₄]"),"zncl2":("ZnCl₂ + 2NaOH → Zn(OH)₂↓ + 2NaCl","Zn(OH)₂ + 2NaOH → Na₂[Zn(OH)₄]"),"znno3":("Zn(NO₃)₂ + 2NaOH → Zn(OH)₂↓ + 2NaNO₃","Zn(OH)₂ + 2NaOH → Na₂[Zn(OH)₄]")}
 
 def reaction_payload():
     payload = [
