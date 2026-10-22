@@ -1225,6 +1225,8 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
         location=os.path.join(self.tmp.name,"private_hw")
         with patch.dict(os.environ,{
             "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_TEACHER_ID":"101",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_GROUP_ID":str(self.gid),
             "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":location,
             "TEACHER_PRODUCT_HOMEWORK_FILE_TICKET_KEY":"strong-sample-secret-only-for-tests-123456",
         }):
@@ -1295,6 +1297,8 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
         import os
         with patch.dict(os.environ,{
             "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_TEACHER_ID":"101",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_GROUP_ID":str(self.gid),
             "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"files"),
         }):
             a=webapp._teacher_action(101,{**self.payload,
@@ -1325,6 +1329,8 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
         import teacher_product_homework_submissions as sub
         with patch.dict(os.environ,{
             "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_TEACHER_ID":"101",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_GROUP_ID":str(self.gid),
             "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"files"),
             "TEACHER_PRODUCT_HOMEWORK_FILE_TICKET_KEY":"strong-sample-secret-only-for-tests-123456",
         }):
@@ -1442,6 +1448,8 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
         pdf=buf.getvalue()
         with patch.dict(os.environ,{
             "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_TEACHER_ID":"101",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_GROUP_ID":str(self.gid),
             "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"http_hw_files"),
             "TEACHER_PRODUCT_HOMEWORK_FILE_TICKET_KEY":"temporary-test-only-secret-for-signed-download",
         }),patch.object(base,"BOT_TOKEN","temporary-prepodmin-bot-token-for-http-tests"):
@@ -1570,6 +1578,8 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
         import teacher_product_homework_submissions as sub
         with patch.dict(os.environ,{
             "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_TEACHER_ID":"101",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_GROUP_ID":str(self.gid),
             "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"quota_hw_files"),
         }):
             created=webapp._teacher_action(101,{**self.payload,
@@ -1597,6 +1607,57 @@ class GroupHomeworkMiniAppTest(unittest.IsolatedAsyncioTestCase):
                     "SELECT COUNT(*) FROM teacher_webapp_homework_files"
                 ).fetchone()[0],0)
 
+
+    def test_written_homework_pilot_fails_closed_and_excludes_other_groups(self):
+        from io import BytesIO
+        from unittest.mock import patch
+        import teacher_product_homework_submissions as submissions
+        with patch.dict(os.environ, {
+            "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_TEACHER_ID":"",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_GROUP_ID":"",
+        }):
+            self.assertFalse(submissions.canary_allowed(101,self.gid))
+            self.assertFalse(webapp._view(101,f"group:{self.gid}")["homework_file_canary"])
+            denied=webapp._teacher_action(101,{**self.payload,
+                "submission_mode":"attachment"})
+            self.assertEqual(denied["error"],"attachment_submission_not_ready")
+
+        with patch.dict(os.environ, {
+            "TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED":"1",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_TEACHER_ID":"101",
+            "TEACHER_PRODUCT_HOMEWORK_CANARY_GROUP_ID":str(self.gid),
+            "TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR":os.path.join(self.tmp.name,"pilot_files"),
+        }):
+            self.assertTrue(submissions.canary_allowed(101,self.gid))
+            self.assertFalse(submissions.canary_allowed(101,self.other_gid))
+            self.assertFalse(submissions.canary_allowed(202,self.gid))
+            self.assertTrue(webapp._view(101,f"group:{self.gid}")["homework_file_canary"])
+            self.assertFalse(webapp._view(101,f"group:{self.other_gid}")["homework_file_canary"])
+            not_pilot=webapp._teacher_action(101,{
+                **self.payload,"group_id":self.other_gid,
+                "request_key":"separate-pilot-group-00001",
+                "submission_mode":"attachment"})
+            self.assertEqual(not_pilot["error"],"attachment_submission_not_ready")
+            trial=webapp._teacher_action(101,{
+                **self.payload,"submission_mode":"attachment"})
+            self.assertTrue(trial["ok"],trial)
+            aid=trial["assignment_id"]
+            own_link={"id":self.mid,"teacher_id":101,"kind":"group",
+                      "group_id":self.gid,"name":"Тестовый ученик"}
+            with patch.dict(os.environ,{"TEACHER_PRODUCT_HOMEWORK_CANARY_GROUP_ID":str(self.other_gid)}):
+                # Even an existing assignment is blocked if the canary is revoked.
+                sample=b"%PDF-1.4\n"+b"x"*20
+                denied=submissions.upload(own_link,aid,BytesIO(sample),
+                                         len(sample),"solution.pdf","application/pdf")
+                self.assertEqual(denied["error"],"uploads_disabled")
+                self.assertEqual(submissions.submit(own_link,aid)["error"],"uploads_disabled")
+
+    def test_written_homework_canary_ui_is_disabled_outside_pilot(self):
+        teacher=webapp.HTML_PATH.read_text(encoding="utf-8")
+        self.assertIn("groupHomeworkPilotAllowed=Boolean(d.homework_file_canary)", teacher)
+        self.assertIn("groupHomeworkPilotAllowed?'':'disabled'", teacher)
+        self.assertIn("Письменные ДЗ пока закрыты.", teacher)
 
     async def test_delivery_worker_uses_existing_send_once_not_in_http_thread(self):
         from types import SimpleNamespace

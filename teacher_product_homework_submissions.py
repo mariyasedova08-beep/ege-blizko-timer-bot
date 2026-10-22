@@ -31,6 +31,27 @@ _RANGE = re.compile(r"bytes=(\d+)-(\d*)\Z")
 def enabled():
     return os.getenv("TEACHER_PRODUCT_HOMEWORK_UPLOADS_ENABLED", "").strip() == "1"
 
+
+def canary_allowed(teacher_uid, group_id):
+    """Fail-closed pilot scope. One teacher + one test group only.
+
+    Global upload switch is insufficient: real groups stay blocked even when
+    operators enable the trial. IDs are read only from root-owned server env.
+    """
+    if not enabled():
+        return False
+    uid = os.getenv("TEACHER_PRODUCT_HOMEWORK_CANARY_TEACHER_ID", "").strip()
+    gid = os.getenv("TEACHER_PRODUCT_HOMEWORK_CANARY_GROUP_ID", "").strip()
+    if not (uid.isascii() and uid.isdecimal()
+            and gid.isascii() and gid.isdecimal()):
+        return False
+    try:
+        return (int(uid) > 0 and int(gid) > 0
+                and int(teacher_uid) == int(uid) and int(group_id) == int(gid))
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
 def storage_root():
     location=os.getenv("TEACHER_PRODUCT_HOMEWORK_UPLOAD_DIR","").strip()
     if not location or not os.path.isabs(location):
@@ -130,6 +151,9 @@ def upload(link,aid,stream,length,filename,claimed_type):
     identity=_assignment_for_student(link,aid)
     if not identity:
         return {"ok":False,"error":"assignment_unavailable"}
+    assignment,kind,sid=identity
+    if not canary_allowed(link["teacher_id"],assignment["target_id"]):
+        return {"ok":False,"error":"uploads_disabled"}
     if type(length) is not int or not (12 <= length <= MAX_BYTES):
         return {"ok":False,"error":"file_size"}
     if len(filename)>MAX_FILE_NAME or not filename.strip():
@@ -238,6 +262,8 @@ def submit(link,aid):
     if not identity:
         return {"ok":False,"error":"assignment_unavailable"}
     a,kind,sid=identity
+    if not canary_allowed(link["teacher_id"],a["target_id"]):
+        return {"ok":False,"error":"uploads_disabled"}
     ensure_tables()
     with base.db() as conn:
         conn.execute("BEGIN IMMEDIATE")

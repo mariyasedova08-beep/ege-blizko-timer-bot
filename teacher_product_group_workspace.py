@@ -313,7 +313,9 @@ def group_view(uid, gid):
             "pending_homework": pending_homework.get(pid, 0),
         })
     homework = _homework(uid, gid)
+    import teacher_product_homework_submissions as submissions
     return {
+        "homework_file_canary": submissions.canary_allowed(uid, gid),
         "title": group["name"],
         "group_id": int(gid),
         "members": student_rows,

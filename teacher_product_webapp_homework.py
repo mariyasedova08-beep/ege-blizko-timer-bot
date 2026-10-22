@@ -133,7 +133,7 @@ def create_group_assignment(uid, payload):
     # It must remain off until private storage, Nginx and backups are verified.
     if mode == "attachment":
         import teacher_product_homework_submissions as submissions
-        if not submissions.enabled():
+        if not submissions.canary_allowed(uid, gid):
             return {"ok": False, "error": "attachment_submission_not_ready"}
         try:
             submissions.storage_root()
