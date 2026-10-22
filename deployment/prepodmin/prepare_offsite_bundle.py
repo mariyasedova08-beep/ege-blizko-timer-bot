@@ -22,7 +22,10 @@ NAME = re.compile(r"[0-9a-f]{32}\.(?:pdf|png|jpg)\Z")
 def safe_source(p: Path, label: str, *, directory: bool) -> Path:
     if not p.is_absolute() or p.is_symlink():
         raise RuntimeError(f"{label}: unsafe path")
-    state = p.lstat()
+    try:
+        state = p.lstat()
+    except OSError:
+        raise RuntimeError(f"{label}: unavailable") from None
     if directory and not stat.S_ISDIR(state.st_mode):
         raise RuntimeError(f"{label}: not a directory")
     if not directory and not stat.S_ISREG(state.st_mode):
