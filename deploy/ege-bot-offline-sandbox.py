@@ -8,10 +8,8 @@ import argparse
 import ast
 from collections import deque
 import json
-import os
 from pathlib import Path
 import re
-import shutil
 import sqlite3
 import sys
 
@@ -29,6 +27,14 @@ def blocked_other_product(name):
 
 def static_imports(tree):
     result, dynamic = set(), 0
+    # Both "importlib.import_module(...)" and
+    # "from importlib import import_module as load; load(...)" are common.
+    import_module_aliases = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "importlib":
+            for alias in node.names:
+                if alias.name == "import_module":
+                    import_module_aliases.add(alias.asname or alias.name)
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             result.update(alias.name.split(".")[0] for alias in node.names)
@@ -38,7 +44,9 @@ def static_imports(tree):
         elif isinstance(node, ast.Call):
             fn = node.func
             is_dynamic = (
-                isinstance(fn, ast.Name) and fn.id == "__import__"
+                isinstance(fn, ast.Name) and (
+                    fn.id == "__import__" or fn.id in import_module_aliases
+                )
             ) or (
                 isinstance(fn, ast.Attribute) and fn.attr == "import_module"
                 and isinstance(fn.value, ast.Name) and fn.value.id == "importlib"
