@@ -1399,7 +1399,7 @@ if(labBackHistory){
   };
 }
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все", selectedReagentSearch="";
-let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], tubeMedium=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
+let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], tubeDissolving=[false,false,false,false], tubeMedium=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
 let oge23Mode="learn",oge23Index=0,oge23Rows=["",""],oge23Tests=[{},{}],oge23Conclusion=["",""],oge23Identified=false;
 let egeMode="6",egeTask6Index=0,egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;
@@ -1574,7 +1574,7 @@ function metalDepositHTML(v,x){
  return '<div class="metalReactionBed"><i class="metalPiece" style="--metalColor:'+m[2]+'"></i>'+crystals.join("")+'</div>';
 }
 function tubeHTML(v,i,active,heated,excess=""){
- const x=v.length===2?findReaction(v[0],v[1],heated,excess):null;
+ const x=v.length===2?(tubeDissolving[i]?reactionExpected(v[0],v[1]):findReaction(v[0],v[1],heated,excess)):null;
  const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
  const sol=x?x.sol:base;
  const hasLiquid=v.some(id=>{
@@ -1733,7 +1733,7 @@ function setupReagentSearch(){
 }
 function add(id){
  if(tubes[selectedTube].length>=2)return;
- tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeMedium[selectedTube]="";
+ tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeDissolving[selectedTube]=false;tubeMedium[selectedTube]="";
  tubes[selectedTube].push(id);
  if(tubes[selectedTube].length===2){
   const needsMedium=tubeHasMedium(tubes[selectedTube]);
@@ -1761,9 +1761,12 @@ document.getElementById("excess").onclick=()=>{
  if(tubeHasMedium(v)){document.getElementById("result").textContent="Выбор среды и избытка для этой ОВР задаётся полем «Среда».";return}
  const alkali=v.find(id=>id==="naoh"||id==="koh");
  tubeExcess[selectedTube]=alkali&&reactionVariants(v[0],v[1]).some(x=>x.excess===alkali)?alkali:v[v.length-1];
- const x=reactionExpected(v[0],v[1],tubeExcess[selectedTube]);
+ const index=selectedTube;
+ const x=reactionExpected(v[0],v[1],tubeExcess[index]);
+ tubeDissolving[index]=!!(x&&x.stages);
  document.getElementById("result").innerHTML=x&&x.excess?"Показываю реакцию при избытке "+reagent(tubeExcess[selectedTube])[0]+".":"Для этой пары отдельный результат избытка пока не требуется.";
  renderTubes();
+ if(x&&x.stages)setTimeout(()=>{if(tubeExcess[index]===x.excess){tubeDissolving[index]=false;renderTubes()}},1100);
 };
 document.getElementById("heat").onclick=()=>{
  let v=tubes[selectedTube];tubeHeat[selectedTube]=true;
@@ -1773,7 +1776,7 @@ document.getElementById("heat").onclick=()=>{
  else if(v.length===2){document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🔥 Нагрев</span></div><div class="reaction-sign">При нагревании видимого изменения нет.</div></div>'}
  renderTubes();
 };
-document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeMedium[selectedTube]="";document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🧽 Готово</span></div><div class="reaction-sign">Пробирка очищена.</div></div>';renderTubes()};
+document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeDissolving[selectedTube]=false;tubeMedium[selectedTube]="";document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🧽 Готово</span></div><div class="reaction-sign">Пробирка очищена.</div></div>';renderTubes()};
 
 function setupLab(){
  unknownOrder=[...data.lab].sort(()=>Math.random()-.5);
