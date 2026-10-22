@@ -42,6 +42,9 @@ jobs:
 
   timeweb-readonly:
     needs: local-review
+    # Protected production environment must never run from feature branches.
+    # Only an explicitly dispatched workflow on main may request server access.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: ege-lab-production
     timeout-minutes: 5
