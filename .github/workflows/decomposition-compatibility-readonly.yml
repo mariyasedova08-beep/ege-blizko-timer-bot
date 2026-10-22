@@ -1,0 +1,128 @@
+name: "ЕГЭ БЛИЗКО — совместимость разложения (только чтение)"
+
+# No bot publication. SSH is inaccessible to PR/feature-branch runs.
+# A separately reviewed intent on main and protected-environment approval are required.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'deploy/decomposition_compatibility_audit.py'
+      - 'tests/test_decomposition_compatibility_audit.py'
+      - '.github/workflows/decomposition-compatibility-readonly.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/decomposition-audit-intents/pr64-readonly-compatibility.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: decomposition-readonly-compatibility
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test source preservation, privacy and fail-closed behavior
+        run: |
+          python -m py_compile deploy/decomposition_compatibility_audit.py
+          python -m unittest discover -s tests -p 'test_decomposition_compatibility_audit.py' -v
+
+  audit:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: check
+    runs-on: ubuntu-latest
+    environment: ege-lab-production
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read seven allowed source files and test two insertions in memory
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then echo "::error title=INVALID_BRANCH::Inventory must run on main"; exit 1; fi
+          if [[ "$SSH_USER" != "ege-deploy" ]]; then echo "::error title=SSH_USER_MISMATCH::Expected dedicated ege-deploy user in TIMEWEB_USER. Do not use laboratory SSH credentials."; exit 1; fi
+          if [[ "$SSH_HOST" != "77.233.212.200" ]]; then echo "::error title=SSH_HOST_MISMATCH::TIMEWEB_HOST is absent or differs from the approved server"; exit 1; fi
+          if [[ -z "$DEPLOY_KEY" ]]; then echo "::error title=DEPLOY_KEY_MISSING::TIMEWEB_DEPLOY_KEY is not configured for the approved environment"; exit 1; fi
+          if [[ -z "$KNOWN_HOSTS" ]]; then echo "::error title=KNOWN_HOSTS_MISSING::TIMEWEB_KNOWN_HOSTS is not configured for the approved environment"; exit 1; fi
+          install -d -m 0700 "$HOME/.ssh"
+          trap 'rm -f "$HOME/.ssh/production-inventory-key" "$HOME/.ssh/known_hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/production-inventory-key"
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/production-inventory-key" "$HOME/.ssh/known_hosts"
+          # Allow multiple host-key records (as produced by ssh-keyscan) while
+          # still requiring exactly one pinned ed25519 key for this server.
+          # Do not use ssh-keyscan at runtime or trust a new key automatically.
+          if ! ssh-keygen -F "$SSH_HOST" -f "$HOME/.ssh/known_hosts" 2>/dev/null | awk 'NF >= 3 && $2 == "ssh-ed25519" {n++} END {exit n != 1}'; then
+            echo "::error title=KNOWN_HOSTS_FORMAT_INVALID::No unique pinned ssh-ed25519 key for the approved host in TIMEWEB_KNOWN_HOSTS"
+            exit 1
+          fi
+          if ! ssh-keygen -lf "$HOME/.ssh/known_hosts" >/dev/null; then echo "::error title=KNOWN_HOST_KEY_INVALID::Pinned host key could not be parsed"; exit 1; fi
+          if ! ssh-keygen -y -f "$HOME/.ssh/production-inventory-key" >/dev/null; then echo "::error title=SSH_PRIVATE_KEY_INVALID::The restricted SSH key could not be parsed"; exit 1; fi
+          if ! ssh -T -F /dev/null -o BatchMode=yes -o PasswordAuthentication=no \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=10 -i "$HOME/.ssh/production-inventory-key" \
+            "$SSH_USER@$SSH_HOST" 'python3 - --mode remote' \
+            < deploy/decomposition_compatibility_audit.py \
+            > "$RUNNER_TEMP/decomposition-compatibility.json"; then
+            echo "::error title=SSH_READ_COMMAND_DENIED::Remote read command was rejected or SSH access failed; restricted server command must be reviewed without granting arbitrary shell access"
+            exit 1
+          fi
+          echo "COMPATIBILITY_READ_ONLY_NO_SOURCE_EXPORTED"
+
+      - name: Report metadata only; never approve a release
+        shell: bash
+        run: |
+          python - "$RUNNER_TEMP/decomposition-compatibility.json" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json
+          from pathlib import Path
+          import re
+          import sys
+          data = json.loads(Path(sys.argv[1]).read_text())
+          expected = {'run_bot_production.py','kulek_rewards.py','decomposition_trainer.py',
+                      'decomposition_trainer_bank.py','decomposition_trainer_questions.tsv',
+                      'run_bot_live7.py','public_channel_trainers.py'}
+          assert set(data['files']) == expected
+          assert data['schema'] == 1
+          for key in ('production_modified','application_imported','database_read',
+                      'approved_for_release','routing_behavior_verified'):
+              assert data[key] is False
+          assert data['status'] in {'BLOCKED_REVIEW_REQUIRED',
+                                  'INSERTIONS_POSSIBLE_ROUTING_BEHAVIOR_STILL_UNVERIFIED'}
+          lines = ['# Совместимость PR #64 — только чтение', '', data['status'], '',
+                   'Исходники, секреты и данные учеников не выгружались.',
+                   'Файлы и сервис не изменялись. Это не разрешение выпуска.', '']
+          for name in sorted(expected):
+              record = data['files'][name]
+              assert record['status'] in {'missing','present'}
+              assert record['sha256'] is None or re.fullmatch('[0-9a-f]{64}', record['sha256'])
+              lines.append(name + ': ' + record['status'] + ' ' + (record['sha256'] or ''))
+          for name in ('run_bot_production.py','kulek_rewards.py'):
+              plan = data['plans'][name]
+              assert plan['status'] in {'BLOCKED','INSERTION_POSSIBLE_IN_MEMORY'}
+              proposed = plan.get('proposed_sha256')
+              assert proposed is None or re.fullmatch('[0-9a-f]{64}', proposed)
+              lines.append(name + ': ' + plan['status'] + ' ' + (proposed or ''))
+          output = '\n'.join(lines) + '\n'
+          print(output)
+          with Path(sys.argv[2]).open('a') as stream:
+              stream.write(output)
+          if data['status'] == 'BLOCKED_REVIEW_REQUIRED':
+              raise SystemExit('READONLY_AUDIT_FOUND_COMPATIBILITY_BLOCKER')
+          PY

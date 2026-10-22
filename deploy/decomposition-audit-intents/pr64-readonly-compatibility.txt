@@ -1,0 +1,4 @@
+READONLY_COMPATIBILITY_PR64_20261022
+Read fixed source allowlist; plan insertions in memory only.
+No source export, application import, database read, file writes, restart or deployment.
+Merging this audit-only intent requires owner approval; environment approval is also required.
