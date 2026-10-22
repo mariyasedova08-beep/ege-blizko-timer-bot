@@ -1,0 +1,75 @@
+name: EGE lab PR81 — read-only compatibility inventory
+
+on:
+  push:
+    branches:
+      - 'feature/lab-pr81-main-readonly-gate-20261022'
+    paths:
+      - '.github/workflows/ege-lab-pr81-readonly-compat.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ege-lab-pr81-readonly-inventory
+  cancel-in-progress: false
+
+jobs:
+  local-review:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Pin reviewed chemistry commit
+        run: |
+          set -Eeuo pipefail
+          git merge-base --is-ancestor 4bda57f02e654515c8eab05150a0532b1b6d6596 HEAD
+          test -f ege_lab_exchange_matrix.py
+          test -f ege_lab_inorganic_reactions.py
+          test -f ege_lab_webapp.py
+          test -f tests/test_lab_exchange_matrix.py
+      - name: Validate chemistry without runtime imports
+        run: |
+          python3 -m unittest discover -s tests -p 'test_lab_exchange_matrix.py' -v
+          python3 -m unittest discover -s tests -p 'test_lab_redox_exchange_expansion.py' -v
+      - name: Candidate file fingerprints (non-secret)
+        run: |
+          sha256sum ege_lab_webapp.py ege_lab_substances.py ege_lab_inorganic_reactions.py ege_lab_exchange_matrix.py
+          echo LOCAL_CANDIDATE_CHECKS_OK
+
+  timeweb-readonly:
+    # Protected production environment must never run from feature branches.
+    # Only an explicitly dispatched workflow on main may request server access.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: ege-lab-production
+    timeout-minutes: 5
+    steps:
+      - name: Read-only Timeweb inventory; fail closed if SSH restrictions disallow
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -Eeuo pipefail
+          test "$SSH_USER" = "ege-deploy"
+          test "$SSH_HOST" = "77.233.212.200"
+          test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
+          install -d -m 0700 "$HOME/.ssh"
+          trap 'rm -f "$HOME/.ssh/pr81_key" "$HOME/.ssh/known_hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/pr81_key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/pr81_key" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/pr81_key" >/dev/null
+          ssh -T -o BatchMode=yes -o PasswordAuthentication=no -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=10 -i "$HOME/.ssh/pr81_key" \
+            "$SSH_USER@$SSH_HOST" \
+            'set -eu; test -r /opt/bots/ege-blizko/ege_lab_webapp.py; systemctl is-active --quiet ege-blizko; for f in ege_lab_webapp.py ege_lab_substances.py ege_lab_inorganic_reactions.py ege_lab_exchange_matrix.py; do if test -r "/opt/bots/ege-blizko/$f"; then sha256sum "/opt/bots/ege-blizko/$f"; else printf "MISSING %s\n" "$f"; fi; done; echo LAB_PR81_SERVER_INVENTORY_OK'
+          echo NO_FILES_CHANGED_NO_RESTART_NO_DEPLOYMENT
