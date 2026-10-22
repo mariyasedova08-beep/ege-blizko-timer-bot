@@ -326,6 +326,16 @@ EXTRA_REACTIONS = [
     # Sulfides and qualitative reactions
     ("fes","hcl","FeS + 2HCl → FeCl₂ + H₂S↑","g","выделяется H₂S, твёрдый FeS растворяется","#c8e5c8","","H₂S",0),
     ("fecl3","ki","2FeCl₃ + 2KI → 2FeCl₂ + I₂ + 2KCl","c","появляется бурая окраска I₂","#a96d38","","",0),
+    # EGE BLIZKO handbook: Fe(III)/Cu(II) oxidants, not ion exchange or hydrolysis.
+    ("fecl3","k2s","2FeCl₃ + 3K₂S → 2FeS↓ + S↓ + 6KCl","p","чёрный осадок FeS и жёлтая сера; Fe(III) восстанавливается до Fe(II)","#f8fbff","#222222","",0),
+    ("fecl3","na2s","2FeCl₃ + 3Na₂S → 2FeS↓ + S↓ + 6NaCl","p","чёрный осадок FeS и жёлтая сера; Fe(III) восстанавливается до Fe(II)","#f8fbff","#222222","",0),
+    ("fe2so43","k2so3","Fe₂(SO₄)₃ + K₂SO₃ + H₂O → 2FeSO₄ + K₂SO₄ + H₂SO₄","c","жёлтый Fe(III) переходит в бледно-зелёный раствор Fe(II); сульфит окисляется до сульфата","#c8e5c8","","",0),
+    ("fe2so43","na2so3","Fe₂(SO₄)₃ + Na₂SO₃ + H₂O → 2FeSO₄ + Na₂SO₄ + H₂SO₄","c","жёлтый Fe(III) переходит в бледно-зелёный раствор Fe(II); сульфит окисляется до сульфата","#c8e5c8","","",0),
+    ("fe2o3","hi","Fe₂O₃ + 6HI → 2FeI₂ + I₂ + 3H₂O","c","бурый Fe₂O₃ растворяется; выделяющийся I₂ окрашивает смесь в бурый цвет","#a96d38","","",0),
+    ("fe3o4","hi","Fe₃O₄ + 8HI → 3FeI₂ + I₂ + 4H₂O","c","чёрный Fe₃O₄ растворяется, появляется бурая окраска I₂","#a96d38","","",0),
+    ("cuso4","ki","2CuSO₄ + 4KI → 2CuI↓ + I₂ + 2K₂SO₄","p","белый осадок CuI и бурый I₂; Cu(II) восстанавливается до Cu(I)","#8e6f4f","#ffffff","",0),
+    ("cuo","hi","2CuO + 4HI → 2CuI↓ + I₂ + 2H₂O","p","чёрный CuO растворяется, образуются белый CuI и бурый I₂","#8e6f4f","#ffffff","",0),
+
     ("fecl3","kscn","FeCl₃ + 3KSCN ⇄ Fe(SCN)₃ + 3KCl","c","кроваво-красное окрашивание комплекса Fe(III)","#b31936","","",0),
     ("feno3_3","kscn","Fe(NO₃)₃ + 3KSCN ⇄ Fe(SCN)₃ + 3KNO₃","c","кроваво-красное окрашивание комплекса Fe(III)","#b31936","","",0),
     ("cuso4","nh3","CuSO₄ + 2NH₃·H₂O → Cu(OH)₂↓ + (NH₄)₂SO₄","p","голубой Cu(OH)₂","#d9f4ff","#39bced","",0),

@@ -120,6 +120,31 @@ class PriorityChemistry(unittest.TestCase):
             with self.subTest(reaction=row[2]):
                 check_balanced(row[2])
 
+    def test_fe3_cu2_redox_exceptions_from_hydrolysis_handbook(self):
+        expected = {
+            ("fecl3","k2s"): ("FeS↓", "S↓"),
+            ("fecl3","na2s"): ("FeS↓", "S↓"),
+            ("fe2so43","k2so3"): ("FeSO₄", "H₂SO₄"),
+            ("fe2so43","na2so3"): ("FeSO₄", "H₂SO₄"),
+            ("fe2o3","hi"): ("FeI₂", "I₂"),
+            ("fe3o4","hi"): ("FeI₂", "I₂"),
+            ("cuso4","ki"): ("CuI↓", "I₂"),
+            ("cuo","hi"): ("CuI↓", "I₂"),
+        }
+        rows = CHEM["EXTRA_REACTIONS"]
+        for pair, products in expected.items():
+            with self.subTest(pair=pair):
+                found = [r for r in rows if frozenset(r[:2]) == frozenset(pair)]
+                self.assertEqual(len(found), 1)
+                equation = found[0][2]
+                check_balanced(equation)
+                self.assertNotIn("CuI₂", equation)
+                for product in products:
+                    self.assertIn(product, equation)
+                self.assertIn(found[0][3], {"p", "c"})
+                self.assertIn(pair[0], REAGENTS)
+                self.assertIn(pair[1], REAGENTS)
+
     def test_documented_absent_reactions_are_not_missing_data(self):
         extra = CHEM["EXTRA_REACTIONS"]
         for a, b in [

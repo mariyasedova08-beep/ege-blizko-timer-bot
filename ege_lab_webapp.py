@@ -14,6 +14,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 import run_bot_live90 as live90
 from ege_lab_substances import REAGENTS as LAB_REAGENTS, category_counts
 from ege_lab_inorganic_reactions import EXTRA_REACTIONS, REACTION_VARIANTS, MEDIUM_REACTIONS, validate_reactions
+from ege_lab_exchange_matrix import generate_exchange_reactions
 from ege_task6_bank import TASK6_BANK, validate_task6_bank
 from ege_task6_reactions import TASK6_REACTIONS, TASK6_VARIANTS, validate_task6_reactions
 import ege_task6_progress
@@ -148,12 +149,21 @@ REACTIONS = [
 
 REACTIONS.extend(EXTRA_REACTIONS)
 REACTIONS.extend(TASK6_REACTIONS)
+# Explicit EGE chemistry always has precedence over generated ion-exchange pairs.
+# It includes hydrolysis, Fe/Cu redox, Cu basic salts, reagent excess and pH.
+_EXPLICIT_PAIRS = [(a, b) for a, b, *_ in REACTIONS]
+_EXPLICIT_PAIRS.extend((x["a"], x["b"]) for x in REACTION_VARIANTS)
+_EXPLICIT_PAIRS.extend((x["a"], x["b"]) for x in TASK6_VARIANTS)
+_EXPLICIT_PAIRS.extend((x["a"], x["b"]) for x in MEDIUM_REACTIONS)
+EXCHANGE_REACTIONS = generate_exchange_reactions(REAGENTS, _EXPLICIT_PAIRS)
 validate_reactions(set(REAGENTS))
 validate_task6_reactions(set(REAGENTS))
 validate_task6_bank(set(REAGENTS))
 
 def pair_key(a, b):
     return "|".join(sorted((a, b)))
+
+AMPHOTERIC_STAGES = {"alcl3":("AlCl₃ + 3NaOH → Al(OH)₃↓ + 3NaCl","Al(OH)₃ + NaOH → Na[Al(OH)₄]"),"alno3":("Al(NO₃)₃ + 3NaOH → Al(OH)₃↓ + 3NaNO₃","Al(OH)₃ + NaOH → Na[Al(OH)₄]"),"al2so43":("Al₂(SO₄)₃ + 6NaOH → 2Al(OH)₃↓ + 3Na₂SO₄","Al(OH)₃ + NaOH → Na[Al(OH)₄]"),"znso4":("ZnSO₄ + 2NaOH → Zn(OH)₂↓ + Na₂SO₄","Zn(OH)₂ + 2NaOH → Na₂[Zn(OH)₄]"),"zncl2":("ZnCl₂ + 2NaOH → Zn(OH)₂↓ + 2NaCl","Zn(OH)₂ + 2NaOH → Na₂[Zn(OH)₄]"),"znno3":("Zn(NO₃)₂ + 2NaOH → Zn(OH)₂↓ + 2NaNO₃","Zn(OH)₂ + 2NaOH → Na₂[Zn(OH)₄]")}
 
 def reaction_payload():
     payload = [
@@ -163,7 +173,37 @@ def reaction_payload():
         }
         for a,b,eq,kind,sign,sol,ppt,gas,heat in REACTIONS
     ]
-    payload.extend(dict(item) for item in REACTION_VARIANTS)
+    payload.extend(dict(item) for item in EXCHANGE_REACTIONS)
+    for salt, (first, second) in AMPHOTERIC_STAGES.items():
+        if not any({r["a"], r["b"]} == {salt, "naoh"} and not r.get("excess") for r in payload):
+            payload.append({"a":salt,"b":"naoh","eq":first,"t":"p",
+                "sign":"белый студенистый осадок " + ("Al(OH)₃" if salt.startswith("al") else "Zn(OH)₂"),
+                "sol":"#f8fbff","ppt":"#ffffff","gas":"","heat":False,"excess":"","condition":"недостаток щёлочи"})
+    for item in REACTION_VARIANTS:
+        row = dict(item)
+        if row.get("excess") == "naoh" and row["a"] in AMPHOTERIC_STAGES:
+            first, second = AMPHOTERIC_STAGES[row["a"]]
+            row["stages"] = {"first":first,"second":second,"total":row["eq"]}
+        payload.append(row)
+    # Potassium hydroxide follows the same two-stage chemistry.
+    # Formula substitution is limited to the reviewed sodium/potassium analogues.
+    for variant in REACTION_VARIANTS:
+        salt = variant["a"]
+        if variant.get("excess") != "naoh" or salt not in AMPHOTERIC_STAGES:
+            continue
+        first_na, second_na = AMPHOTERIC_STAGES[salt]
+        first_k = first_na.replace("Na", "K")
+        second_k = second_na.replace("Na", "K")
+        total_k = variant["eq"].replace("Na", "K")
+        if not any({r["a"], r["b"]} == {salt, "koh"} and not r.get("excess") for r in payload):
+            payload.append({"a":salt,"b":"koh","eq":first_k,"t":"p",
+                "sign":"белый студенистый осадок " + ("Al(OH)₃" if salt.startswith("al") else "Zn(OH)₂"),
+                "sol":"#f8fbff","ppt":"#ffffff","gas":"","heat":False,"excess":"","condition":"недостаток щёлочи"})
+        payload.append({"a":salt,"b":"koh","eq":total_k,"t":"c",
+            "sign":"белый осадок сначала выпадает, затем растворяется в избытке KOH",
+            "sol":"#f8fbff","ppt":"","gas":"","heat":False,
+            "excess":"koh","condition":"избыток KOH",
+            "stages":{"first":first_k,"second":second_k,"total":total_k}})
     payload.extend(dict(item) for item in TASK6_VARIANTS)
     return payload
 
@@ -1129,6 +1169,15 @@ body:has(#lesson.page.on) .app{max-width:none}
 .lesson-pane-head small{color:#82717b;font-size:11px}
 .lesson-lab-body{padding:12px;overflow:auto;flex:1;min-height:0}
 .lesson-lab-body label{font-size:11px;color:#756774;display:block;margin:8px 0 3px}
+.lesson-search-field{position:relative;margin-bottom:5px}
+.lesson-search-field input{display:block;width:100%;min-width:0;border:1px solid #dfd2d9;border-radius:10px;padding:10px 9px;background:#fff;color:#171719;font-size:13px}
+.lesson-search-field input:focus{outline:2px solid #f5cbdf;border-color:#f00087}
+.lesson-search-suggestions{position:absolute;z-index:200;left:0;right:0;top:100%;max-height:170px;overflow:auto;border:1px solid #ebc9d9;border-radius:10px;background:#fff;box-shadow:0 9px 20px #17171922;padding:4px}
+.lesson-search-suggestions[hidden]{display:none!important}
+.lesson-search-suggestions button{display:block;width:100%;border:0;border-radius:7px;padding:8px 9px;text-align:left;background:#fff;color:#171719;font-size:12px}
+.lesson-search-suggestions button:hover,.lesson-search-suggestions button[aria-selected="true"]{background:#fce7f1}
+.lesson-search-suggestions button small{display:block;color:#756774;font-size:10px;margin-top:2px}
+.lesson-search-empty{font-size:11px;padding:9px;color:#786976}
 .lesson-medium-field[hidden]{display:none!important}
 .lesson-medium-field{display:grid;gap:5px;padding:8px;border:1px solid #ead0dd;border-radius:10px;background:#fffafd}
 .lesson-medium-field small{font-size:11px;line-height:1.35;color:#786674}
@@ -1155,6 +1204,10 @@ body:has(#lesson.page.on) .app{max-width:none}
 #lessonPdfCanvas,#lessonInkCanvas{display:block}
 #lessonInkCanvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
 #lessonInkCanvas.eraser{cursor:cell}
+ .lesson-color-inline{display:inline-flex;align-items:center;gap:5px;font-size:12px}
+ .lesson-color-inline input{width:28px;height:26px;padding:0;border:0;background:transparent}
+ .lesson-color-presets{display:flex;flex-wrap:wrap;gap:7px;padding:6px 0}
+ .lesson-color-presets button{width:25px;height:25px;border-radius:50%;border:1px solid #b5aeb3;background:var(--swatch);cursor:pointer}
 .lesson-pdf-foot{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid #f2e6ec;gap:8px;color:#786e77;font-size:11px}
 .lesson-extra-menu{margin-left:auto;position:relative}
 .lesson-extra-menu summary{cursor:pointer;background:#fff;border:1px solid #edd2e0;border-radius:10px;padding:8px 11px;list-style:none}
@@ -1191,8 +1244,16 @@ body:has(#lesson.page.on) .app{max-width:none}
   <aside class="lesson-lab-pane">
     <div class="lesson-pane-head"><h2>🧪 Опыт</h2><small>30% экрана</small></div>
     <div class="lesson-lab-body">
-      <label for="lessonReagentA">Первое вещество</label><select id="lessonReagentA"></select>
-      <label for="lessonReagentB">Добавить реактив</label><select id="lessonReagentB"></select>
+      <div class="lesson-search-field">
+        <label for="lessonReagentA">Первое вещество</label>
+        <input id="lessonReagentA" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="lessonSuggestionsA" placeholder="KMnO4 или перманганат калия" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div id="lessonSuggestionsA" class="lesson-search-suggestions" role="listbox" hidden></div>
+      </div>
+      <div class="lesson-search-field">
+        <label for="lessonReagentB">Добавить реактив</label>
+        <input id="lessonReagentB" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="lessonSuggestionsB" placeholder="K2Cr2O7, KI или название" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div id="lessonSuggestionsB" class="lesson-search-suggestions" role="listbox" hidden></div>
+      </div>
       <div id="lessonMediumField" class="lesson-medium-field" hidden>
         <label for="lessonMedium">Среда реакции</label>
         <select id="lessonMedium">
@@ -1206,6 +1267,7 @@ body:has(#lesson.page.on) .app{max-width:none}
       </div>
       <div class="lesson-lab-actions">
         <button id="lessonConduct" type="button">▶ Провести</button>
+         <button id="lessonExcess" type="button" aria-pressed="false">＋ Избыток щёлочи</button>
         <button id="lessonHeat" type="button" aria-pressed="false">🔥 Нагрев</button>
         <button id="lessonReset" type="button">↺ Сброс</button>
       </div>
@@ -1225,13 +1287,15 @@ body:has(#lesson.page.on) .app{max-width:none}
         <span id="lessonPageCounter">1 / 1</span>
         <button id="lessonNext" type="button" title="Следующая страница">→</button>
         <button id="lessonToolPen" type="button" aria-pressed="true">✎ Ручка</button>
+         <button id="lessonToolMarker" type="button" aria-pressed="false">▰ Выделитель</button>
+         <label class="lesson-color-inline">Цвет <input id="lessonPenColor" type="color" value="#f00087"></label>
         <button id="lessonToolEraser" type="button" aria-pressed="false">⌫ Ластик</button>
         <button id="lessonExport" type="button">↓ Сохранить PDF</button>
       </div>
       <details class="lesson-extra-menu">
         <summary aria-label="Настройки письма">⋯</summary>
         <div class="lesson-extra-items">
-          <label>Цвет ручки <input id="lessonPenColor" type="color" value="#f00087"></label>
+          <div class="lesson-color-presets" id="lessonColorPresets"><button type="button" data-ink="#f00087" aria-label="Цвет #f00087" style="--swatch:#f00087"></button><button type="button" data-ink="#ffd84d" aria-label="Цвет #ffd84d" style="--swatch:#ffd84d"></button><button type="button" data-ink="#8fd7ab" aria-label="Цвет #8fd7ab" style="--swatch:#8fd7ab"></button><button type="button" data-ink="#8ac9fa" aria-label="Цвет #8ac9fa" style="--swatch:#8ac9fa"></button><button type="button" data-ink="#b8a0ec" aria-label="Цвет #b8a0ec" style="--swatch:#b8a0ec"></button><button type="button" data-ink="#171719" aria-label="Цвет #171719" style="--swatch:#171719"></button></div>
           <label>Толщина <input id="lessonPenWidth" type="range" min="1" max="10" value="3"></label>
           <button type="button" id="lessonUndo">↶ Отменить последний штрих</button>
           <button type="button" id="lessonExportNotes">↓ Резервная копия записей</button>
@@ -1361,7 +1425,7 @@ if(labBackHistory){
   };
 }
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все", selectedReagentSearch="";
-let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], tubeMedium=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
+let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], tubeDissolving=[false,false,false,false], tubeMedium=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
 let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
 let oge23Mode="learn",oge23Index=0,oge23Rows=["",""],oge23Tests=[{},{}],oge23Conclusion=["",""],oge23Identified=false;
 let egeMode="6",egeTask6Index=0,egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;
@@ -1415,8 +1479,9 @@ function reactionResultHTML(x,heated=false){
  const title=noReaction?"Реакция не идёт":"Реакция протекает";
  const sign=noReaction?x.sign:(noVisible?"Без видимого признака":x.sign);
  const condition=x.condition?'<div class="reaction-note">Условие: '+x.condition+'</div>':'';
+ const stages=x.stages?'<div class="reaction-note"><b>1. Осадок</b><div class="reaction-equation">'+x.stages.first+'</div><b>2. Растворение в избытке</b><div class="reaction-equation">'+x.stages.second+'</div><b>Суммарно</b></div>':'';
  const note=noReaction?'<div class="reaction-note">Смесь остаётся без химического превращения в указанных условиях.</div>':(noVisible?'<div class="reaction-note">Реакция есть, но визуального эффекта в пробирке нет.</div>':'');
- return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div><div class="reaction-equation">'+x.eq+'</div>'+condition+gasObservationHTML(x)+note+'</div>';
+ return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div>'+stages+'<div class="reaction-equation">'+x.eq+'</div>'+condition+gasObservationHTML(x)+note+'</div>';
 }
 // Products of reactions determine precipitate texture; never infer it solely
 // from colour (white solids may be gelatinous, fine or crystalline).
@@ -1534,8 +1599,10 @@ function metalDepositHTML(v,x){
  }
  return '<div class="metalReactionBed"><i class="metalPiece" style="--metalColor:'+m[2]+'"></i>'+crystals.join("")+'</div>';
 }
-function tubeHTML(v,i,active,heated,excess=""){
- const x=v.length===2?findReaction(v[0],v[1],heated,excess):null;
+function tubeHTML(v,i,active,heated,excess="",overrideReaction=undefined){
+ // Lesson studio supplies its own medium/stage result; never read the main lab tube state.
+ const x=overrideReaction===undefined ?
+   (v.length===2?(tubeDissolving[i]?reactionExpected(v[0],v[1]):findReaction(v[0],v[1],heated,excess)):null) : overrideReaction;
  const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
  const sol=x?x.sol:base;
  const hasLiquid=v.some(id=>{
@@ -1694,7 +1761,7 @@ function setupReagentSearch(){
 }
 function add(id){
  if(tubes[selectedTube].length>=2)return;
- tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeMedium[selectedTube]="";
+ tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeDissolving[selectedTube]=false;tubeMedium[selectedTube]="";
  tubes[selectedTube].push(id);
  if(tubes[selectedTube].length===2){
   const needsMedium=tubeHasMedium(tubes[selectedTube]);
@@ -1720,10 +1787,14 @@ document.getElementById("excess").onclick=()=>{
  const v=tubes[selectedTube];
  if(v.length!==2){document.getElementById("result").textContent="Сначала добавь два реактива.";return}
  if(tubeHasMedium(v)){document.getElementById("result").textContent="Выбор среды и избытка для этой ОВР задаётся полем «Среда».";return}
- tubeExcess[selectedTube]=v[v.length-1];
- const x=reactionExpected(v[0],v[1],tubeExcess[selectedTube]);
+ const alkali=v.find(id=>id==="naoh"||id==="koh");
+ tubeExcess[selectedTube]=alkali&&reactionVariants(v[0],v[1]).some(x=>x.excess===alkali)?alkali:v[v.length-1];
+ const index=selectedTube;
+ const x=reactionExpected(v[0],v[1],tubeExcess[index]);
+ tubeDissolving[index]=!!(x&&x.stages);
  document.getElementById("result").innerHTML=x&&x.excess?"Показываю реакцию при избытке "+reagent(tubeExcess[selectedTube])[0]+".":"Для этой пары отдельный результат избытка пока не требуется.";
  renderTubes();
+ if(x&&x.stages)setTimeout(()=>{if(tubeExcess[index]===x.excess){tubeDissolving[index]=false;renderTubes()}},1100);
 };
 document.getElementById("heat").onclick=()=>{
  let v=tubes[selectedTube];tubeHeat[selectedTube]=true;
@@ -1733,7 +1804,7 @@ document.getElementById("heat").onclick=()=>{
  else if(v.length===2){document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🔥 Нагрев</span></div><div class="reaction-sign">При нагревании видимого изменения нет.</div></div>'}
  renderTubes();
 };
-document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeMedium[selectedTube]="";document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🧽 Готово</span></div><div class="reaction-sign">Пробирка очищена.</div></div>';renderTubes()};
+document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeDissolving[selectedTube]=false;tubeMedium[selectedTube]="";document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🧽 Готово</span></div><div class="reaction-sign">Пробирка очищена.</div></div>';renderTubes()};
 
 function setupLab(){
  unknownOrder=[...data.lab].sort(()=>Math.random()-.5);
@@ -2499,7 +2570,7 @@ function renderStats(){
 
 // Teacher's live lesson studio. Both panels stay interactive at the same time.
 // PDF input, ink notes and downloads remain entirely local to the browser.
-let lessonReady=false,lessonStarted=false,lessonHeated=false;
+let lessonReady=false,lessonStarted=false,lessonHeated=false,lessonExcess="",lessonDissolving=false;
 let lessonPdfDocument=null,lessonPdfOriginalBytes=null,lessonPdfName="",lessonPdfKey="ege-lesson-blank";
 let lessonPage=1,lessonPageCount=1,lessonTool="pen",lessonDrawing=null;
 let lessonNotes={},lessonPageSize={},lessonRendering=0;
@@ -2552,7 +2623,8 @@ function lessonRedrawInk(){
  for(const stroke of lessonCurrentStrokes()){
   if(!stroke||!Array.isArray(stroke.points)||!stroke.points.length)continue;
   ctx.lineCap="round";ctx.lineJoin="round";
-  ctx.strokeStyle=stroke.color||"#f00087";
+  ctx.globalAlpha=Math.max(.1,Math.min(1,Number(stroke.opacity??1)));
+   ctx.strokeStyle=stroke.color||"#f00087";
   ctx.fillStyle=stroke.color||"#f00087";
   ctx.lineWidth=Math.max(1,Number(stroke.width)||3)*ratio;
   ctx.beginPath();
@@ -2565,6 +2637,7 @@ function lessonRedrawInk(){
    ctx.arc(p.x*canvas.width,p.y*canvas.height,ctx.lineWidth/2,0,Math.PI*2);ctx.fill();
   }else ctx.stroke();
  }
+ ctx.globalAlpha=1;
 }
 function lessonEraseAt(point){
  const arr=lessonCurrentStrokes();
@@ -2577,6 +2650,7 @@ function lessonEraseAt(point){
 function lessonSetTool(which){
  lessonTool=which;
  document.getElementById("lessonToolPen").setAttribute("aria-pressed",String(which==="pen"));
+  document.getElementById("lessonToolMarker").setAttribute("aria-pressed",String(which==="marker"));
  document.getElementById("lessonToolEraser").setAttribute("aria-pressed",String(which==="erase"));
  document.getElementById("lessonInkCanvas").classList.toggle("eraser",which==="erase");
 }
@@ -2682,11 +2756,11 @@ async function lessonExportPDF(){
      sheet.drawLine({
       start:{x:pts[k-1].x*w,y:(1-pts[k-1].y)*h},
       end:{x:pts[k].x*w,y:(1-pts[k].y)*h},
-      thickness:thickness,color:color,opacity:1
+      thickness:thickness,color:color,opacity:Math.max(.1,Math.min(1,Number(stroke.opacity??1)))
      });
     }
     if(pts.length===1)sheet.drawCircle({
-     x:pts[0].x*w,y:(1-pts[0].y)*h,size:thickness/2,color:color
+     x:pts[0].x*w,y:(1-pts[0].y)*h,size:thickness/2,color:color,opacity:Math.max(.1,Math.min(1,Number(stroke.opacity??1)))
     });
    }
   }
@@ -2700,6 +2774,89 @@ async function lessonExportPDF(){
 }
 // Medium-specific redox from the authoritative catalogue, never a guessed product.
 // The same source powers the 30/70 offline preview and the live lesson.
+// Live PDF lesson: same keyboard-first search as the offline prototype.
+// Store catalogue IDs separately: visible input is a formula/name, not an ID.
+let lessonSelectedReagents={a:"",b:""};
+let lessonSuggested={a:[],b:[]};
+let lessonSuggestionIndex={a:-1,b:-1};
+function lessonNormalizeFormula(text){
+ return String(text||"").normalize("NFKC").toLocaleLowerCase("ru")
+   .replace(/[\s\u00a0.,·\-–—()[\]{}]/g,"");
+}
+function lessonSearchMatches(raw){
+ const q=lessonNormalizeFormula(raw);
+ if(!q)return [];
+ return Object.entries(data.reagents).filter(([id,r])=>
+    lessonNormalizeFormula(id).includes(q)||
+    lessonNormalizeFormula(r[0]).includes(q)||
+    lessonNormalizeFormula(r[1]||"").includes(q)||
+    lessonNormalizeFormula(r[4]||"").includes(q)
+ ).sort((a,b)=>{
+    const exact=x=>lessonNormalizeFormula(x[0])===q||lessonNormalizeFormula(x[1][0])===q?0:1;
+    return exact(a)-exact(b)||
+      String(a[1][0]).localeCompare(String(b[1][0]),"ru");
+ }).slice(0,8);
+}
+function lessonCloseSuggestions(slot){
+ const label=slot==="a"?"A":"B";
+ const box=document.getElementById("lessonSuggestions"+label);
+ const input=document.getElementById("lessonReagent"+label);
+ box.hidden=true;
+ input.setAttribute("aria-expanded","false");
+ input.removeAttribute("aria-activedescendant");
+ lessonSuggestionIndex[slot]=-1;
+}
+function lessonSetReagent(slot,id){
+ if(!data.reagents[id])return;
+ lessonSelectedReagents[slot]=id;
+ document.getElementById(slot==="a"?"lessonReagentA":"lessonReagentB").value=data.reagents[id][0];
+ lessonCloseSuggestions(slot);
+ lessonStarted=false;lessonExcess="";lessonDissolving=false;
+ document.getElementById("lessonExcess").setAttribute("aria-pressed","false");
+ document.getElementById("lessonMedium").value="";
+ lessonUpdateMedium();
+ lessonRenderExperiment();
+}
+function lessonHighlightSuggestion(slot,index){
+ const label=slot==="a"?"A":"B";
+ const box=document.getElementById("lessonSuggestions"+label);
+ const input=document.getElementById("lessonReagent"+label);
+ const buttons=[...box.querySelectorAll('[role="option"]')];
+ if(!buttons.length)return;
+ const next=(index+buttons.length)%buttons.length;
+ lessonSuggestionIndex[slot]=next;
+ buttons.forEach((b,i)=>b.setAttribute("aria-selected",String(i===next)));
+ input.setAttribute("aria-activedescendant",buttons[next].id);
+ buttons[next].scrollIntoView({block:"nearest"});
+}
+function lessonShowSuggestions(slot,raw){
+ const label=slot==="a"?"A":"B";
+ const box=document.getElementById("lessonSuggestions"+label);
+ const input=document.getElementById("lessonReagent"+label);
+ const found=lessonSearchMatches(raw);
+ lessonSuggested[slot]=found;
+ lessonSuggestionIndex[slot]=-1;
+ box.replaceChildren();
+ if(!raw.trim()){lessonCloseSuggestions(slot);return;}
+ if(!found.length){
+   const empty=document.createElement("div");empty.className="lesson-search-empty";
+   empty.textContent="Вещество не найдено в каталоге";box.appendChild(empty);
+ }else{
+   found.forEach(([id,entry],i)=>{
+     const button=document.createElement("button");
+     button.type="button";button.id="lessonOption"+label+i;
+     button.setAttribute("role","option");button.setAttribute("aria-selected","false");
+     const formula=document.createElement("span");formula.textContent=entry[0];
+     const note=document.createElement("small");note.textContent=entry[4]||entry[1]||"";
+     button.append(formula,note);
+     button.addEventListener("pointerdown",event=>event.preventDefault());
+     button.onclick=()=>lessonSetReagent(slot,id);
+     box.appendChild(button);
+   });
+ }
+ box.hidden=false;input.setAttribute("aria-expanded","true");
+ input.removeAttribute("aria-activedescendant");
+}
 function lessonHasMedium(a,b){
  if(!a||!b)return a==="kmno4"||b==="kmno4";
  if(a==="kmno4"||b==="kmno4")return true;
@@ -2707,8 +2864,8 @@ function lessonHasMedium(a,b){
    (x.a===a&&x.b===b)||(x.a===b&&x.b===a));
 }
 function lessonUpdateMedium(){
- const a=document.getElementById("lessonReagentA").value;
- const b=document.getElementById("lessonReagentB").value;
+ const a=lessonSelectedReagents.a;
+ const b=lessonSelectedReagents.b;
  const field=document.getElementById("lessonMediumField");
  const active=lessonHasMedium(a,b);
  field.hidden=!active;
@@ -2733,43 +2890,59 @@ function lessonSelectedReaction(a,b,heated){
       return findReaction(a,b,heated);
   return null;
  }
- return findReaction(a,b,heated);
+ return findReaction(a,b,heated,lessonExcess);
 }
 function lessonPopulateReagents(){
- const opts=Object.entries(data.reagents).sort((a,b)=>
-  String(a[1][1]||"").localeCompare(String(b[1][1]||""),"ru")||
-  String(a[1][0]||"").localeCompare(String(b[1][0]||""),"ru"));
- const a=document.getElementById("lessonReagentA"),b=document.getElementById("lessonReagentB");
- for(const sel of [a,b]){
-  sel.textContent="";
-  const empty=document.createElement("option");empty.value="";empty.textContent="Выбери вещество";sel.appendChild(empty);
-  for(const entry of opts){
-   const option=document.createElement("option");
-   option.value=entry[0];
-   option.textContent=entry[1][0]+" — "+entry[1][1];
-   sel.appendChild(option);
-  }
-  sel.onchange=()=>{
-   lessonStarted=false;
+ for(const [slot,label] of [["a","A"],["b","B"]]){
+  const input=document.getElementById("lessonReagent"+label);
+  input.oninput=()=>{
+   // Never reuse the old selected reagent when a different formula is typed.
+   lessonSelectedReagents[slot]="";
+   lessonStarted=false;lessonExcess="";lessonDissolving=false;
+   document.getElementById("lessonExcess").setAttribute("aria-pressed","false");
    document.getElementById("lessonMedium").value="";
    lessonUpdateMedium();
    lessonRenderExperiment();
+   lessonShowSuggestions(slot,input.value);
+  };
+  input.onfocus=()=>{input.select();if(input.value.trim())lessonShowSuggestions(slot,input.value);};
+  input.onkeydown=event=>{
+   if(event.key==="Escape"){lessonCloseSuggestions(slot);return;}
+   if(event.key==="ArrowDown"||event.key==="ArrowUp"){
+    event.preventDefault();
+    if(document.getElementById("lessonSuggestions"+label).hidden)lessonShowSuggestions(slot,input.value);
+    const num=lessonSuggestionIndex[slot];
+    lessonHighlightSuggestion(slot,event.key==="ArrowDown"?num+1:num-1);
+   }
+   if(event.key==="Enter"){
+    event.preventDefault();
+    const n=lessonSuggestionIndex[slot];
+    const found=lessonSuggested[slot][n>=0?n:0];
+    if(found)lessonSetReagent(slot,found[0]);
+    else lessonCloseSuggestions(slot);
+   }
   };
  }
- if(data.reagents.kmno4)a.value="kmno4";
- if(data.reagents.na2so3)b.value="na2so3";
+ document.addEventListener("pointerdown",event=>{
+  if(!event.target.closest(".lesson-search-field")){
+    lessonCloseSuggestions("a");lessonCloseSuggestions("b");
+  }
+ });
+ if(data.reagents.kmno4)lessonSetReagent("a","kmno4");
+ if(data.reagents.na2so3)lessonSetReagent("b","na2so3");
  lessonUpdateMedium();
  lessonRenderExperiment();
 }
 function lessonRenderExperiment(){
- const a=document.getElementById("lessonReagentA").value;
- const b=document.getElementById("lessonReagentB").value;
+ const a=lessonSelectedReagents.a;
+ const b=lessonSelectedReagents.b;
  const mediumSelect=document.getElementById("lessonMedium");
  const mediumRequired=lessonHasMedium(a,b);
  const x=lessonStarted&&a&&b?lessonSelectedReaction(a,b,lessonHeated):null;
  const visualReaction=x&&x.heat&&!lessonHeated?null:x;
  const v=lessonStarted&&visualReaction?[a,b]:(a?[a]:[]);
- document.getElementById("lessonTube").innerHTML=tubeHTML(v,0,true,lessonHeated,"",visualReaction);
+ const lessonVisual=lessonDissolving?findReaction(a,b,lessonHeated):visualReaction;
+ document.getElementById("lessonTube").innerHTML=tubeHTML(v,0,true,lessonHeated,lessonExcess,lessonVisual);
  const info=document.getElementById("lessonReaction");
  if(!a||!b){info.textContent="Выбери оба реактива.";return;}
  if(mediumRequired&&!mediumSelect.value){info.textContent="Выбери среду реакции, затем нажми «Провести».";return;}
@@ -2788,11 +2961,23 @@ function lessonSetup(){
  document.getElementById("lessonPDFInput").onchange=event=>lessonOpenPDF(event.target.files[0]);
  document.getElementById("lessonMedium").onchange=()=>{lessonStarted=false;lessonRenderExperiment();};
  document.getElementById("lessonConduct").onclick=()=>{lessonStarted=true;lessonRenderExperiment();};
- document.getElementById("lessonReset").onclick=()=>{lessonStarted=false;lessonHeated=false;document.getElementById("lessonHeat").setAttribute("aria-pressed","false");lessonRenderExperiment();};
+ document.getElementById("lessonExcess").onclick=()=>{
+  const {a,b}=lessonSelectedReagents;
+  const alkali=[a,b].find(id=>id==="naoh"||id==="koh");
+  const variant=alkali&&reactionVariants(a,b).find(x=>x.excess===alkali);
+  if(!variant){lessonStatus("Для этой пары нет проверенного варианта с избытком щёлочи.");return;}
+  lessonExcess=alkali;lessonStarted=true;lessonDissolving=!!variant.stages;
+  document.getElementById("lessonExcess").setAttribute("aria-pressed","true");
+  lessonRenderExperiment();
+  if(variant.stages)setTimeout(()=>{if(lessonExcess===alkali){lessonDissolving=false;lessonRenderExperiment();}},1100);
+ };
+ document.getElementById("lessonReset").onclick=()=>{lessonStarted=false;lessonHeated=false;lessonExcess="";lessonDissolving=false;document.getElementById("lessonExcess").setAttribute("aria-pressed","false");document.getElementById("lessonHeat").setAttribute("aria-pressed","false");lessonRenderExperiment();};
  document.getElementById("lessonHeat").onclick=()=>{lessonHeated=!lessonHeated;document.getElementById("lessonHeat").setAttribute("aria-pressed",String(lessonHeated));lessonRenderExperiment();};
  document.getElementById("lessonPrevious").onclick=()=>{if(lessonPage>1){lessonPage--;lessonRenderPage();}};
  document.getElementById("lessonNext").onclick=()=>{if(lessonPage<lessonPageCount){lessonPage++;lessonRenderPage();}};
  document.getElementById("lessonToolPen").onclick=()=>lessonSetTool("pen");
+  document.getElementById("lessonToolMarker").onclick=()=>lessonSetTool("marker");
+  document.querySelectorAll("#lessonColorPresets [data-ink]").forEach(btn=>{btn.onclick=()=>{document.getElementById("lessonPenColor").value=btn.dataset.ink;};});
  document.getElementById("lessonToolEraser").onclick=()=>lessonSetTool("erase");
  document.getElementById("lessonUndo").onclick=()=>{lessonCurrentStrokes().pop();lessonRedrawInk();lessonSaveLocal();};
  document.getElementById("lessonExport").onclick=lessonExportPDF;
@@ -2816,7 +3001,8 @@ function lessonSetup(){
   const point=lessonGetPoint(event);
   if(lessonTool==="erase"){lessonEraseAt(point);return;}
   lessonDrawing={color:document.getElementById("lessonPenColor").value,
-                 width:Number(document.getElementById("lessonPenWidth").value),
+                 tool:lessonTool,opacity:lessonTool==="marker"?.32:1,
+                 width:lessonTool==="marker"?Math.max(12,Number(document.getElementById("lessonPenWidth").value)*4):Number(document.getElementById("lessonPenWidth").value),
                  points:[point]};
   lessonCurrentStrokes().push(lessonDrawing);lessonRedrawInk();
  };
