@@ -31,6 +31,14 @@ class ProductionInventoryTests(unittest.TestCase):
                 "fbdd34054093a87cb14d12ecdcc33de040da487ae4e60f5c397c588b97edae84",
             )
 
+    def test_refuses_symlinked_source(self):
+        with tempfile.TemporaryDirectory() as root:
+            directory = pathlib.Path(root)
+            (directory / "outside.py").write_text("SECRET = 'not read'")
+            (directory / "run_bot_live7.py").symlink_to(directory / "outside.py")
+            with self.assertRaisesRegex(ValueError, "SYMLINK_FILE_FORBIDDEN"):
+                module.file_digest(directory, "run_bot_live7.py")
+
     def test_compare_does_not_merge_drift(self):
         same = "a" * 64
         altered = "b" * 64
