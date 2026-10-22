@@ -114,6 +114,16 @@ class ExchangeMatrix(unittest.TestCase):
 
     def test_acid_base_and_acid_salt_gases(self):
         self.assertIn("H₂O",self.get_pair("hcl","naoh")["eq"])
+        for solid, acid, target_product in [
+            ("cuo","hcl","CuCl₂"),
+            ("fe2o3","h2so4","Fe₂(SO₄)₃"),
+            ("al2o3","hcl","AlCl₃"),
+            ("croh3","hcl","CrCl₃"),
+            ("aloh3","hcl","AlCl₃"),
+            ("feoh3","h2so4","Fe₂(SO₄)₃"),
+        ]:
+            with self.subTest(pair=(solid,acid)):
+                self.assertIn(target_product,self.get_pair(solid,acid)["eq"])
         self.assertIn("CaCl₂",self.get_pair("hcl","caoh2")["eq"])
         self.assertIn("CO₂↑",self.get_pair("na2co3","hcl")["eq"])
         self.assertIn("SO₂↑",self.get_pair("na2so3","hcl")["eq"])
@@ -134,6 +144,8 @@ class ExchangeMatrix(unittest.TestCase):
             ("fecl3","k2s"),    # Fe(III) reduction + sulfur, NOT hydrolysis
             ("fecl3","k2so3"),  # Fe(III) reduction + sulfate, NOT hydrolysis
             ("fecl3","na2s"),   # Fe(III) reduction + sulfur
+            ("fe2o3","hi"),    # HI iodide is an actual reductant here
+            ("cuo","hi"),      # HI with Cu(II) yields CuI and iodine
         ):
             with self.subTest(pair=a+"+"+b):
                 self.assertNotIn(frozenset((a,b)),self.by_pair)
