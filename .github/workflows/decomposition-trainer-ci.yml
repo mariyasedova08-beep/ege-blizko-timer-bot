@@ -6,14 +6,18 @@ on:
       - 'feature/decomposition-telegram-trainer-*'
     paths:
       - 'decomposition_trainer*'
-      - 'tests/test_decomposition_bank.py'
+      - 'tests/test_decomposition*.py'
+      - 'kulek_rewards.py'
+      - 'public_channel_trainers.py'
       - '.github/workflows/decomposition-trainer-ci.yml'
       - 'run_bot_production.py'
   pull_request:
     branches: [main]
     paths:
       - 'decomposition_trainer*'
-      - 'tests/test_decomposition_bank.py'
+      - 'tests/test_decomposition*.py'
+      - 'kulek_rewards.py'
+      - 'public_channel_trainers.py'
       - '.github/workflows/decomposition-trainer-ci.yml'
       - 'run_bot_production.py'
 
@@ -29,7 +33,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Syntax and offline bank tests only
+      - name: Syntax, bank and offline interaction scenarios (no Telegram network)
         run: |
-          python -m py_compile decomposition_trainer.py decomposition_trainer_bank.py run_bot_production.py
-          python -m unittest discover -s tests -p 'test_decomposition_bank.py' -v
+          python -m py_compile decomposition_trainer.py decomposition_trainer_bank.py run_bot_production.py kulek_rewards.py
+          python -m unittest discover -s tests -p 'test_decomposition*.py' -v
