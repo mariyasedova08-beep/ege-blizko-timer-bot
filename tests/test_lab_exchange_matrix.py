@@ -75,8 +75,11 @@ class ExchangeMatrix(unittest.TestCase):
             with self.subTest(pair=(row["a"],row["b"])):
                 self.assertIn("→",row["eq"])
                 left,right=row["eq"].split(" → ")
-                self.assertEqual(side_atoms(left),side_atoms(right),row["eq"])
-                self.assertIn(row["t"],("p","g","n"))
+                if row["t"]!="z":
+                    self.assertEqual(side_atoms(left),side_atoms(right),row["eq"])
+                else:
+                    self.assertEqual(right,"реакция не идёт")
+                self.assertIn(row["t"],("p","g","n","z"))
                 self.assertIn(row["a"],REAGENTS)
                 self.assertIn(row["b"],REAGENTS)
                 self.assertEqual(row["heat"],False)
@@ -122,7 +125,6 @@ class ExchangeMatrix(unittest.TestCase):
 
     def test_do_not_forge_chemically_false_pairs(self):
         for a,b in (
-            ("nacl","kno3"),    # no driving force
             ("fecl3","ki"),     # Fe(III) reduction + I₂, NOT ion exchange
             ("cuso4","ki"),     # Cu(I) precip + I₂, NOT ion exchange
             ("fecl3","k2s"),    # Fe(III) reduction + sulfur, NOT hydrolysis
@@ -136,6 +138,13 @@ class ExchangeMatrix(unittest.TestCase):
         ):
             with self.subTest(pair=a+"+"+b):
                 self.assertNotIn(frozenset((a,b)),self.by_pair)
+
+    def test_inert_ions_are_explicitly_no_reaction(self):
+        for a,b in (("nacl","kno3"),("kcl","nano3"),("nabr","kno3")):
+            with self.subTest(pair=a+"+"+b):
+                reaction=self.get_pair(a,b)
+                self.assertEqual(reaction["t"],"z")
+                self.assertIn("реакция не идёт",reaction["eq"])
 
     def test_reviewed_reaction_has_priority(self):
         saved={("agno3","nacl"),("cuso4","naoh")}
