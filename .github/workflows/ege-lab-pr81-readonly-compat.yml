@@ -53,13 +53,13 @@ jobs:
       - name: Read-only Timeweb inventory; fail closed if SSH restrictions disallow
         shell: bash
         env:
-          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_LAB_INVENTORY_KEY }}
           KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
           SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
-          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+          SSH_USER: ${{ secrets.TIMEWEB_LAB_INVENTORY_USER }}
         run: |
           set -Eeuo pipefail
-          test "$SSH_USER" = "ege-deploy"
+          test "$SSH_USER" = "ege-lab-inventory"
           test "$SSH_HOST" = "77.233.212.200"
           test -n "$DEPLOY_KEY" && test -n "$KNOWN_HOSTS"
           install -d -m 0700 "$HOME/.ssh"
@@ -68,9 +68,9 @@ jobs:
           printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 0600 "$HOME/.ssh/pr81_key" "$HOME/.ssh/known_hosts"
           ssh-keygen -y -f "$HOME/.ssh/pr81_key" >/dev/null
+          # A distinct restricted key and a forced-command account; never reuse deploy credentials.
           ssh -T -o BatchMode=yes -o PasswordAuthentication=no -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=10 -i "$HOME/.ssh/pr81_key" \
-            "$SSH_USER@$SSH_HOST" \
-            'set -eu; test -r /opt/bots/ege-blizko/ege_lab_webapp.py; systemctl is-active --quiet ege-blizko; for f in ege_lab_webapp.py ege_lab_substances.py ege_lab_inorganic_reactions.py ege_lab_exchange_matrix.py; do if test -r "/opt/bots/ege-blizko/$f"; then sha256sum "/opt/bots/ege-blizko/$f"; else printf "MISSING %s\n" "$f"; fi; done; echo LAB_PR81_SERVER_INVENTORY_OK'
+            "$SSH_USER@$SSH_HOST" 'lab-pr81-inventory'
           echo NO_FILES_CHANGED_NO_RESTART_NO_DEPLOYMENT
