@@ -75,6 +75,19 @@ class LaboratoryReleaseChecks(unittest.TestCase):
         self.assertIn("@keyframes gelCloudSettle", self.html)
         self.assertIn("--pc:'+x.ppt", self.html)
 
+    def test_all_white_precipitates_use_visible_shared_styling(self):
+        self.assertIn('light=/^#(?:fff|ffffff|f8fbff)$/i', self.html)
+        self.assertIn('.pptLayer.light-ppt .particle{', self.html)
+        self.assertIn('.pptLayer.light-ppt .gel-bed{', self.html)
+        self.assertIn('.pptLayer.light-ppt .gel-cloud{', self.html)
+        self.assertIn('rgba(120,140,156,.52)', self.html)
+
+    def test_lesson_pdf_export_rebuilds_pages_and_validates_output(self):
+        self.assertIn('await pdf.copyPages(source,source.getPageIndices())', self.html)
+        self.assertIn('copied.forEach(page=>pdf.addPage(page))', self.html)
+        self.assertIn('trailer.includes("%%EOF")', self.html)
+        self.assertIn('setTimeout(()=>URL.revokeObjectURL(url),60000)', self.html)
+
     @unittest.skipUnless(shutil.which("node"), "Node.js required for live visual rules")
     def test_eight_reference_experiments_use_correct_visuals(self):
         """Evaluate actual production JavaScript against 8 reference chemical pairs."""

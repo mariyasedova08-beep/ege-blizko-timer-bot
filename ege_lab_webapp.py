@@ -366,10 +366,11 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .particle.fine{border-radius:48%;opacity:.76;filter:blur(.28px);box-shadow:0 1px 1px rgba(0,0,0,.07)}
 .particle.dense{border-radius:37% 53% 44% 48%;opacity:.94;filter:blur(.3px);box-shadow:0 1px 2px rgba(0,0,0,.17)}
 .pptLayer.dense-sediment{isolation:isolate}
-.pptLayer.light-ppt:before{content:"";position:absolute;left:5%;right:5%;bottom:1%;height:30%;border-radius:50%;background:radial-gradient(ellipse at 50% 72%,rgba(187,203,213,.60),rgba(226,234,238,.42) 53%,transparent 83%);filter:blur(3px);pointer-events:none}
-.pptLayer.light-ppt .particle.fine{background:#f6fafc;box-shadow:0 0 2px 1px rgba(99,117,131,.35);opacity:.94}
-.pptLayer.light-ppt .gel-bed{box-shadow:0 -3px 10px rgba(107,126,140,.35),inset 0 -3px 6px rgba(121,139,151,.20);filter:blur(2.4px)}
-.pptLayer.light-ppt .gel-cloud{box-shadow:0 0 6px rgba(104,123,138,.27);filter:blur(2.5px)}
+.pptLayer.light-ppt:before{content:"";position:absolute;left:4%;right:4%;bottom:0;height:41%;border-radius:50% 50% 38% 38%;background:radial-gradient(ellipse at 50% 80%,rgba(164,179,191,.60),rgba(211,222,231,.53) 52%,rgba(232,239,244,.20) 78%,transparent 92%);filter:blur(1.5px);pointer-events:none}
+.pptLayer.light-ppt .particle{background:#f9fbfd;border:1px solid rgba(120,140,156,.52);box-shadow:0 1px 3px rgba(95,115,133,.34);opacity:1}
+.pptLayer.light-ppt .particle.fine{background:#f8fafc;box-shadow:0 0 3px 1px rgba(103,123,139,.48);opacity:1}
+.pptLayer.light-ppt .gel-bed{background:#f6f9fb;box-shadow:0 -4px 9px rgba(104,125,141,.49),inset 0 -3px 8px rgba(121,139,151,.29);filter:blur(1.1px);opacity:.95}
+.pptLayer.light-ppt .gel-cloud{background:#f8fafc;box-shadow:0 0 7px rgba(104,123,138,.45);filter:blur(1.4px);opacity:.76}
 .dense-bed{position:absolute;left:6%;right:6%;bottom:0;height:22%;border-radius:48% 51% 16% 16% / 42% 49% 12% 12%;background:var(--pc);opacity:.91;filter:blur(.8px);animation:denseBedSettle 1.3s ease-out both}
 @keyframes denseBedSettle{from{opacity:0;transform:translateY(-22px) scaleY(.4)}to{opacity:.91;transform:translateY(0) scaleY(1)}}
 /* Gel-like hydroxides: soft suspension and irregular settling, not gas-like circles. */
@@ -2732,16 +2733,22 @@ function lessonDownload(bytes,name,type){
  const url=URL.createObjectURL(blob);
  const link=document.createElement("a");link.href=url;link.download=name;
  document.body.appendChild(link);link.click();link.remove();
- setTimeout(()=>URL.revokeObjectURL(url),2000);
+ // Edge may still be opening the downloaded PDF when the click returns.
+ setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 async function lessonExportPDF(){
  lessonStatus("Собираю PDF с твоими записями...");
  try{
   const lib=await lessonLibrary("https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js","PDFLib");
-  const pdf=lessonPdfOriginalBytes?
-   await lib.PDFDocument.load(lessonPdfOriginalBytes.slice(0)):
-   await lib.PDFDocument.create();
-  if(!lessonPdfOriginalBytes)pdf.addPage([960,540]);
+  // Build a clean document instead of resaving the imported one: an otherwise
+  // viewable classroom PDF can contain dangling xref objects that Edge rejects
+  // after pdf-lib reserializes the original object graph.
+  const pdf=await lib.PDFDocument.create();
+  if(lessonPdfOriginalBytes){
+   const source=await lib.PDFDocument.load(lessonPdfOriginalBytes.slice(0));
+   const copied=await pdf.copyPages(source,source.getPageIndices());
+   copied.forEach(page=>pdf.addPage(page));
+  }else pdf.addPage([960,540]);
   const pages=pdf.getPages();
   for(let i=0;i<pages.length;i++){
    const sheet=pages[i],w=sheet.getWidth(),h=sheet.getHeight();
@@ -2765,6 +2772,9 @@ async function lessonExportPDF(){
    }
   }
   const bytes=await pdf.save();
+  const header=new TextDecoder("latin1").decode(bytes.slice(0,8));
+  const trailer=new TextDecoder("latin1").decode(bytes.slice(-1024));
+  if(!header.startsWith("%PDF-")||!trailer.includes("%%EOF"))throw new Error("invalid-pdf-output");
   const title=(lessonPdfName||"Урок").replace(/\.pdf$/i,"")+"_с_записями.pdf";
   lessonDownload(bytes,title,"application/pdf");
   lessonStatus("PDF со всеми страницами и твоими записями сохранён.");
