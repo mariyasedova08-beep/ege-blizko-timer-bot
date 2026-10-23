@@ -83,8 +83,10 @@ class LaboratoryReleaseChecks(unittest.TestCase):
         self.assertIn('rgba(120,140,156,.52)', self.html)
 
     def test_lesson_pdf_export_rebuilds_pages_and_validates_output(self):
-        self.assertIn('await pdf.copyPages(source,source.getPageIndices())', self.html)
-        self.assertIn('copied.forEach(page=>pdf.addPage(page))', self.html)
+        self.assertIn('await sourcePage.render({canvasContext:context,viewport}).promise', self.html)
+        self.assertIn('sheet.drawImage(embedded,{x:0,y:0,width:base.width,height:base.height})', self.html)
+        self.assertNotIn('await pdf.copyPages(source,source.getPageIndices())', self.html)
+        self.assertIn('const sheet=pdf.addPage([base.width,base.height])', self.html)
         self.assertIn('trailer.includes("%%EOF")', self.html)
         self.assertIn('setTimeout(()=>URL.revokeObjectURL(url),60000)', self.html)
 

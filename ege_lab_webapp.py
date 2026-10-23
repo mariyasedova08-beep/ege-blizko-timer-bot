@@ -2740,14 +2740,28 @@ async function lessonExportPDF(){
  lessonStatus("Собираю PDF с твоими записями...");
  try{
   const lib=await lessonLibrary("https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js","PDFLib");
-  // Build a clean document instead of resaving the imported one: an otherwise
-  // viewable classroom PDF can contain dangling xref objects that Edge rejects
-  // after pdf-lib reserializes the original object graph.
+  // Render each imported page with the same PDF.js engine used in the lesson.
+  // Copying pdf-lib page objects from imperfect classroom PDFs can silently
+  // discard their content, even if the exported PDF has valid cross-references.
   const pdf=await lib.PDFDocument.create();
   if(lessonPdfOriginalBytes){
-   const source=await lib.PDFDocument.load(lessonPdfOriginalBytes.slice(0));
-   const copied=await pdf.copyPages(source,source.getPageIndices());
-   copied.forEach(page=>pdf.addPage(page));
+   if(!lessonPdfDocument)throw new Error("pdf-not-open");
+   for(let index=1;index<=lessonPdfDocument.numPages;index++){
+    const sourcePage=await lessonPdfDocument.getPage(index);
+    const base=sourcePage.getViewport({scale:1});
+    const viewport=sourcePage.getViewport({scale:2});
+    const canvas=document.createElement("canvas");
+    canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+    const context=canvas.getContext("2d",{alpha:false});
+    context.fillStyle="#ffffff";context.fillRect(0,0,canvas.width,canvas.height);
+    await sourcePage.render({canvasContext:context,viewport}).promise;
+    const jpeg=await new Promise((resolve,reject)=>canvas.toBlob(blob=>
+     blob?resolve(blob):reject(new Error("pdf-page-image-failed")),"image/jpeg",.94));
+    const embedded=await pdf.embedJpg(await jpeg.arrayBuffer());
+    const sheet=pdf.addPage([base.width,base.height]);
+    sheet.drawImage(embedded,{x:0,y:0,width:base.width,height:base.height});
+    canvas.width=canvas.height=0;
+   }
   }else pdf.addPage([960,540]);
   const pages=pdf.getPages();
   for(let i=0;i<pages.length;i++){
