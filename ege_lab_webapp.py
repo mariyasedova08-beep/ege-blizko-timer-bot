@@ -315,6 +315,9 @@ HTML = r'''<!doctype html>
 .rack-board:before{left:5%}.rack-board:after{right:5%}
 .rack{position:relative;z-index:2;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;align-items:end;padding:0 9%}
 .tube-slot{position:relative;min-width:0}
+.tube-slot:has(.pptLayer){isolation:isolate}
+/* The precipitate must be visible inside the glass, without a grey block behind the tube. */
+.tube-slot:has(.pptLayer):before{content:none}
 .mobile-tube-picker{display:none;gap:7px;justify-content:center;margin:12px 0 4px}
 .mobile-tube-picker button{width:42px;height:42px;padding:0;border-radius:13px;font-size:14px}
 .mobile-tube-picker button.on{background:var(--pink);color:#fff;border-color:var(--pink)}
@@ -356,6 +359,9 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .tube:before{content:"";position:absolute;z-index:8;left:-3px;right:-3px;top:-2px;height:12px;border:2px solid rgba(120,130,143,.52);border-radius:50%;background:rgba(255,255,255,.75);box-shadow:inset 0 -2px 2px rgba(113,126,143,.12)}
 .tube:after{content:"";position:absolute;z-index:7;left:13%;top:14px;width:10%;height:72%;border-radius:8px;background:linear-gradient(rgba(255,255,255,.75),rgba(255,255,255,.08));filter:blur(.2px);pointer-events:none}
 .tube.on{border-color:var(--pink);box-shadow:inset 5px 0 8px rgba(255,255,255,.75),inset -5px 0 7px rgba(109,122,140,.12),0 0 0 2px rgba(240,0,135,.11),0 6px 16px rgba(240,0,135,.16)}
+.tube:has(.pptLayer){background:linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.035) 26%,transparent 55%,rgba(255,255,255,.12) 86%,rgba(255,255,255,.16));box-shadow:inset 3px 0 4px rgba(255,255,255,.2),inset -3px 0 5px rgba(30,38,47,.07),0 4px 9px rgba(39,38,43,.1)}
+.tube:has(.pptLayer):before{background:rgba(246,249,251,.18)}
+.tube:has(.pptLayer) .liq{box-shadow:inset 0 7px 10px rgba(255,255,255,.08),inset 0 -7px 9px rgba(0,0,0,.025)}
 .liq{position:absolute;bottom:0;left:2px;right:2px;height:0;z-index:1;transition:height .5s ease,background 1.1s ease;box-shadow:inset 0 8px 11px rgba(255,255,255,.24),inset 0 -8px 10px rgba(0,0,0,.06)}
 .liq:before{content:"";position:absolute;left:0;right:0;top:-5px;height:10px;border-radius:50%;background:inherit;filter:brightness(1.08);box-shadow:inset 0 2px 3px rgba(255,255,255,.58),0 1px 1px rgba(0,0,0,.10)}
 .pptLayer{position:absolute;z-index:3;left:3px;right:3px;bottom:2px;height:54%;pointer-events:none;overflow:hidden;border-radius:0 0 24px 24px}
@@ -366,11 +372,17 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .particle.fine{border-radius:48%;opacity:.76;filter:blur(.28px);box-shadow:0 1px 1px rgba(0,0,0,.07)}
 .particle.dense{border-radius:37% 53% 44% 48%;opacity:.94;filter:blur(.3px);box-shadow:0 1px 2px rgba(0,0,0,.17)}
 .pptLayer.dense-sediment{isolation:isolate}
-.pptLayer.light-ppt:before{content:"";position:absolute;left:4%;right:4%;bottom:0;height:41%;border-radius:50% 50% 38% 38%;background:radial-gradient(ellipse at 50% 80%,rgba(164,179,191,.60),rgba(211,222,231,.53) 52%,rgba(232,239,244,.20) 78%,transparent 92%);filter:blur(1.5px);pointer-events:none}
-.pptLayer.light-ppt .particle{background:#f9fbfd;border:1px solid rgba(120,140,156,.52);box-shadow:0 1px 3px rgba(95,115,133,.34);opacity:1}
-.pptLayer.light-ppt .particle.fine{background:#f8fafc;box-shadow:0 0 3px 1px rgba(103,123,139,.48);opacity:1}
-.pptLayer.light-ppt .gel-bed{background:#f6f9fb;box-shadow:0 -4px 9px rgba(104,125,141,.49),inset 0 -3px 8px rgba(121,139,151,.29);filter:blur(1.1px);opacity:.95}
-.pptLayer.light-ppt .gel-cloud{background:#f8fafc;box-shadow:0 0 7px rgba(104,123,138,.45);filter:blur(1.4px);opacity:.76}
+.pptLayer.light-ppt:before{content:"";position:absolute;left:3%;right:3%;bottom:0;height:32%;background:radial-gradient(ellipse at 50% 90%,rgba(255,255,255,.64),rgba(255,255,255,.17) 75%,transparent 98%);filter:blur(2px);pointer-events:none}
+.pptLayer.light-ppt .particle{background:rgba(255,255,255,.97);border:1px solid rgba(119,129,139,.31);box-shadow:0 1px 2px rgba(68,78,88,.30);animation-name:settleLight}
+.pptLayer.light-ppt .particle.floc{background:radial-gradient(ellipse at 46% 40%,#fff 22%,rgba(255,255,255,.94) 58%,rgba(255,255,255,.35));border-radius:32% 69% 46% 58%;filter:blur(.4px);box-shadow:0 2px 3px rgba(55,65,75,.30)}
+.pptLayer.light-ppt .particle.fine{width:calc(var(--s)*1.25);height:calc(var(--s)*1.25);background:rgba(255,255,255,.98);border:1px solid rgba(86,105,117,.52);border-radius:50%;filter:none;box-shadow:0 1px 2px rgba(55,65,75,.28)}
+.pptLayer.light-ppt .gel-bed{height:43%;background:radial-gradient(ellipse at 45% 80%,rgba(255,255,255,.99) 0 38%,rgba(243,247,249,.90) 62%,rgba(185,198,206,.25) 100%);border:1px solid rgba(116,132,144,.26);box-shadow:0 2px 4px rgba(91,107,118,.20);filter:blur(1px);animation-name:gelBedGrowLight}
+.pptLayer.light-ppt .gel-bed:before{background:rgba(255,255,255,.77);filter:blur(5px);opacity:.87}
+.pptLayer.light-ppt .gel-cloud{background:radial-gradient(ellipse at 50% 50%,rgba(255,255,255,.96) 0 18%,rgba(255,255,255,.82) 42%,rgba(255,255,255,.35) 77%,transparent 100%);border:0;box-shadow:none;filter:blur(1.6px);animation-name:gelCloudSettleLight}
+.pptLayer:not(.light-ppt) .particle.floc{border-radius:36% 62% 48% 60%;filter:blur(.35px) drop-shadow(0 1px 1px rgba(0,0,0,.13))}
+.pptLayer:not(.light-ppt) .particle.fine{width:calc(var(--s)*.7);height:calc(var(--s)*.7);border-radius:48%;filter:blur(.35px)}
+.pptLayer:not(.light-ppt) .particle.crystal{clip-path:polygon(18% 0,80% 8%,100% 51%,69% 100%,4% 78%,0 28%);border-radius:0;filter:drop-shadow(0 1px 1px rgba(0,0,0,.15))}
+.pptLayer:not(.light-ppt) .particle.dense{border-radius:24% 68% 39% 49%;filter:blur(.35px) drop-shadow(0 1px 1px rgba(0,0,0,.16))}
 .dense-bed{position:absolute;left:6%;right:6%;bottom:0;height:22%;border-radius:48% 51% 16% 16% / 42% 49% 12% 12%;background:var(--pc);opacity:.91;filter:blur(.8px);animation:denseBedSettle 1.3s ease-out both}
 @keyframes denseBedSettle{from{opacity:0;transform:translateY(-22px) scaleY(.4)}to{opacity:.91;transform:translateY(0) scaleY(1)}}
 /* Gel-like hydroxides: soft suspension and irregular settling, not gas-like circles. */
@@ -380,6 +392,9 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .gel-cloud{position:absolute;z-index:1;left:var(--l);bottom:var(--b);width:var(--w);height:var(--h);background:var(--pc);border-radius:43% 58% 52% 41% / 61% 38% 62% 47%;filter:blur(4px);opacity:.5;animation:gelCloudSettle 1.8s cubic-bezier(.18,.62,.25,1) both;animation-delay:var(--delay)}
 @keyframes gelBedGrow{from{transform:scaleY(.18);opacity:0}to{transform:scaleY(1);opacity:.84}}
 @keyframes gelCloudSettle{0%{transform:translateY(-57px) scale(1.16);opacity:0}38%{opacity:.55}100%{transform:translateY(0) scale(1);opacity:.50}}
+@keyframes gelBedGrowLight{from{transform:scaleY(.18);opacity:0}to{transform:scaleY(1);opacity:1}}
+@keyframes gelCloudSettleLight{0%{transform:translateY(-57px) scale(1.16);opacity:0}38%{opacity:.75}100%{transform:translateY(0) scale(1);opacity:.94}}
+@keyframes settleLight{from{transform:translateY(-75px) scale(.55);opacity:.1}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){.gel-bed,.gel-cloud{animation:none}}
 @keyframes settle{from{transform:translateY(-75px) scale(.55);opacity:.1}to{opacity:.88}}
 .bubbleLayer{position:absolute;z-index:6;left:3px;right:3px;bottom:2px;height:82%;overflow:visible;border-radius:0 0 24px 24px;pointer-events:none}
@@ -414,7 +429,7 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 @keyframes shimmer{to{transform:translateY(-4px) skewX(-4deg);opacity:.35}}
 .reactionGlow{position:absolute;z-index:4;inset:38% 4px 4px;border-radius:10px 10px 24px 24px;box-shadow:inset 0 0 18px rgba(255,255,255,.6);animation:flash 1s ease-out}
 @keyframes flash{0%{background:rgba(255,255,255,.8)}100%{background:transparent}}
-.tubeLabel{text-align:center;font-weight:800;margin-top:5px}.tubeSmall{text-align:center;font-size:11px;color:#777;min-height:30px}
+.tubeLabel{text-align:center;font-weight:700;margin-top:6px}.tubeSmall{text-align:center;font-size:13px;font-weight:600;line-height:1.35;color:#55464b;min-height:30px}
 .labVisual{display:flex;justify-content:center;margin:12px 0}.labVisual .tube{width:92px;height:190px}
 .grid{grid-template-columns:repeat(3,1fr)}.grid button small{display:block;color:#777;font-weight:600;margin-top:3px}
 .tools,.answers{grid-template-columns:1fr 1fr}.result{padding:10px;background:#fff3f9;border-radius:13px;margin-top:8px;min-height:44px}
@@ -1154,6 +1169,27 @@ button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
 }
 
 /* Lesson pilot: two independent working areas, with the live lab catalogue. */
+/* Compact comparison bench: calm selection and readable tubes on a phone. */
+.tube-slot{background:transparent!important;box-shadow:none!important}
+.tube-slot:before{display:none!important}
+.tube.on{outline:2px solid rgba(240,0,135,.56);outline-offset:3px}
+@media(max-width:820px){
+  .lab-bench,.lab-bench.mobile-result-expanded{min-height:590px!important;background:linear-gradient(180deg,#fffdfb 0%,#f8f5f2 100%)!important}
+  .rack-wrap{left:12px!important;right:12px!important;bottom:22px!important}
+  .rack-board{display:none!important}
+  .rack{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:17px 18px!important;align-items:center!important;padding:0 12px!important}
+  .tube-slot,.tube-slot.active-slot{display:flex!important;flex-direction:column;align-items:center;width:100%!important;min-width:0!important;min-height:244px!important;padding:10px 5px 7px!important;border:1px solid #f1e6e0;border-radius:16px;background:rgba(255,255,255,.68)!important}
+  .tube-slot .tube,.tube-slot.active-slot .tube{width:90px!important;max-width:90%!important;height:172px!important;border-radius:0 0 25px 25px!important}
+  .tube-slot .tubeLabel,.tube-slot.active-slot .tubeLabel{margin-top:8px!important;font-size:12px!important}
+  .tube-slot .tubeSmall,.tube-slot.active-slot .tubeSmall{font-size:12px!important;font-weight:600!important;line-height:1.3!important;color:#55464b!important;min-height:31px!important}
+  .tube-callout .reaction-card{padding:9px 11px!important;box-shadow:0 6px 17px rgba(65,45,37,.13)!important}
+  .tube-callout .reaction-sign{font-size:12px!important;margin-bottom:5px!important}
+  .tube-callout .reaction-equation{padding:7px!important;font-size:11px!important}
+  .tube-callout .reaction-gas{font-size:10px!important}
+  .tube-callout .reaction-status{font-size:10px!important;padding:4px 7px!important}
+}
+
+/* Lesson pilot: two independent working areas, with the live lab catalogue. */
 /* Keep the lesson focused on materials rather than general app navigation. */
 body:has(#lesson.page.on) .lab-title-wrap,body:has(#lesson.page.on) .lab-topbar{display:none}
 body:has(#lesson.page.on) .tabs{display:flex;gap:5px;justify-content:flex-start;margin-bottom:5px}
@@ -1187,36 +1223,83 @@ body:has(#lesson.page.on) .app{max-width:none}
 .lesson-lab-actions button,.lesson-pane-head button,.lesson-lesson-tools button,.lesson-lesson-tools label{padding:8px 10px;border-radius:11px;font-weight:550}
 #lessonConduct{background:#f00087;color:#fff;border:1px solid #f00087}
 #lessonHeat[aria-pressed=true]{background:#fff0f8;color:#bc006a;border-color:#f00087}
-.lesson-visual{background:#f9f6f8;border:1px solid #efdee6;border-radius:15px;min-height:255px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:8px 0;overflow:hidden}
+.lesson-visual{position:relative;background:#f9f6f8;border:1px solid #efdee6;border-radius:15px;min-height:255px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin:8px 0;overflow:hidden}
 .lesson-tube-frame{width:130px;height:238px;padding:10px 20px 0}
 .lesson-tube-frame .tube{height:206px;width:90px;margin:auto}
+.lesson-tube-modes{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;margin:5px 0 0;font-size:11px;color:#796875}
+.lesson-tube-modes button{min-width:33px;padding:6px 9px;border-radius:9px;border:1px solid #ead0dd;background:#fff;color:#6e4b5f}
+.lesson-tube-modes button[aria-pressed="true"]{background:#f00087;color:#fff;border-color:#f00087}
+.lesson-two-tubes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;width:100%;padding:10px}
+.lesson-two-tubes[data-count="1"]{grid-template-columns:minmax(0,1fr);max-width:180px;margin:auto}
+.lesson-two-tubes[data-count="3"],.lesson-two-tubes[data-count="4"]{grid-template-columns:repeat(2,minmax(0,1fr))}
+.lesson-two-tubes[data-count="3"] .lesson-tube-choice,.lesson-two-tubes[data-count="4"] .lesson-tube-choice{gap:2px;padding:5px 2px 3px!important}
+.lesson-two-tubes[data-count="3"] .lesson-tube-frame,.lesson-two-tubes[data-count="4"] .lesson-tube-frame{height:155px}
+.lesson-two-tubes[data-count="3"] .tube,.lesson-two-tubes[data-count="4"] .tube{height:140px!important;width:min(67px,86%)!important}
+.lesson-tube-choice{min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:7px 2px 4px!important;border:1px solid #e9d7df;border-radius:13px;background:#fffdfd;color:#574351;font-size:11px;font-weight:600;cursor:pointer}
+.lesson-tube-choice[hidden]{display:none!important}
+.lesson-tube-choice.on{border-color:#f00087;background:#fff3f9;box-shadow:0 0 0 1px rgba(240,0,135,.15)}
+.lesson-tube-choice.on>span:first-child{color:#574351!important}
+.lesson-tube-choice .lesson-tube-frame{display:block;width:100%;height:191px;padding:5px 0 0}
+.lesson-tube-choice .lesson-tube-frame .tube{width:min(74px,86%);height:175px;margin:auto}
+.lesson-tube-choice .lesson-tube-frame .tube.on{outline:0}
+.lesson-lab-ink{position:absolute;inset:0;width:100%;height:100%;z-index:4;pointer-events:none}
+.lesson-lab-ink.drawing{pointer-events:auto;touch-action:none;cursor:var(--lesson-pencil-cursor)}
+.lesson-lab-ink.erasing{cursor:cell}
+.lesson-ink-tools{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0 8px}
+.lesson-ink-tools button{padding:6px 9px;border:1px solid #e6c5d6;border-radius:10px;font-size:11px;font-weight:550;background:#fffafc}
+.lesson-ink-tools button[aria-pressed=true]{background:#f4d9e6;border-color:#d78cb2}
 .lesson-observation{font-size:12px;line-height:1.45;padding:8px 0}
 .lesson-observation .reaction-card{font-size:12px;padding:10px;border-radius:12px;overflow-wrap:anywhere}
 .lesson-observation .reaction-equation{font-size:12px;white-space:normal}
 .lesson-observation .reaction-gas{font-size:11px}
+.lesson-observation .chain-no-reaction{border:1px solid #e7a7c9;border-left:4px solid #f00087;border-radius:12px;background:#fff5fa;padding:12px;color:#442c3c;font-weight:600}
 .lesson-footnote{color:#766874;font-size:11px;line-height:1.45}
 .lesson-lesson-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .lesson-file-label{display:inline-flex;align-items:center;cursor:pointer;background:#fff}
 #lessonPDFInput{display:none}
 #lessonExport{background:#f00087;color:#fff;border:1px solid #f00087}
-#lessonToolPen[aria-pressed=true],#lessonToolEraser[aria-pressed=true]{border-color:#f00087;background:#fff1f8}
+#lessonToolPen[aria-pressed=true],#lessonToolMarker[aria-pressed=true],#lessonToolEraser[aria-pressed=true],#lessonStraightLine[aria-pressed=true]{border-color:#f00087;background:#fff1f8}
 .lesson-paper-space{flex:1;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:12px;background:#f7f4f6;position:relative}
 #lessonCanvasWrap{position:relative;flex:none;box-shadow:0 4px 23px #21131f26;background:#fff;touch-action:none}
 #lessonPdfCanvas,#lessonInkCanvas{display:block}
-#lessonInkCanvas{position:absolute;inset:0;touch-action:none;cursor:crosshair}
+#lessonInkCanvas{position:absolute;inset:0;touch-action:none;cursor:var(--lesson-pencil-cursor)}
 #lessonInkCanvas.eraser{cursor:cell}
  .lesson-color-inline{display:inline-flex;align-items:center;gap:5px;font-size:12px}
  .lesson-color-inline input{width:28px;height:26px;padding:0;border:0;background:transparent}
- .lesson-color-presets{display:flex;flex-wrap:wrap;gap:7px;padding:6px 0}
- .lesson-color-presets button{width:25px;height:25px;border-radius:50%;border:1px solid #b5aeb3;background:var(--swatch);cursor:pointer}
+.lesson-color-presets{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;padding:8px 2px}
+.lesson-extra-items .lesson-color-presets button{width:28px;height:28px;justify-self:center;padding:0;border-radius:50%;border:1px solid #b5aeb3;background:var(--swatch);cursor:pointer}
+.lesson-extra-items .lesson-color-presets button[aria-pressed=true]{outline:2px solid #C44988;outline-offset:2px}
 .lesson-pdf-foot{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid #f2e6ec;gap:8px;color:#786e77;font-size:11px}
 .lesson-extra-menu{margin-left:auto;position:relative}
 .lesson-extra-menu summary{cursor:pointer;background:#fff;border:1px solid #edd2e0;border-radius:10px;padding:8px 11px;list-style:none}
-.lesson-extra-menu[open] .lesson-extra-items{position:absolute;top:100%;right:0;background:#fff;z-index:90;width:235px;padding:12px;box-shadow:0 8px 32px #21131f36;border:1px solid #ecdbe3;border-radius:12px;display:grid;gap:7px}
+.lesson-extra-menu[open] .lesson-extra-items{position:absolute;top:100%;right:0;background:#fff;z-index:90;width:235px;padding:12px;box-shadow:0 8px 32px #21131f36;border:1px solid #ecdbe3;border-radius:12px;display:grid;gap:9px}
+.lesson-extra-items .lesson-width-label{display:grid;gap:8px;padding:6px 1px 9px}
+.lesson-extra-items #lessonPenWidth{width:100%;accent-color:#C44988;cursor:pointer}
 .lesson-extra-items label{font-size:11px}
 .lesson-extra-items button{width:100%}
 .lesson-message{color:#806575;font-size:11px;max-width:100%;overflow-wrap:anywhere}
 @media(max-width:760px){.lesson-studio{grid-template-columns:minmax(0,1fr);height:auto;min-height:0}.lesson-lab-pane{min-height:465px}.lesson-pdf-pane{min-height:500px}.lesson-pane-head{flex-wrap:wrap}.lesson-paper-space{min-height:350px}}
+/* EGE BLIZKO lesson-specific pink theme; free laboratory retains autumn theme. */
+#lesson{--lesson-pencil-cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M4 20l4.8-1.3L20 7.5 16.5 4 5.3 15.2z' fill='%23F4D9E6' stroke='%23C44988' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M4 20l4.8-1.3-3.5-3.5z' fill='%23C44988'/%3E%3Cpath d='M14.6 5.9l3.5 3.5' stroke='%23C44988' stroke-width='1.3'/%3E%3C/svg%3E") 4 20,auto}
+#lesson .lesson-tube-frame .tube.on{
+ border-color:#D78CB2;
+ box-shadow:inset 5px 0 8px rgba(255,255,255,.75),inset -5px 0 7px rgba(109,122,140,.12),0 0 0 2px rgba(215,140,178,.14),0 5px 12px rgba(117,57,88,.10)
+}
+/* In a classroom's small tubes the gas should rise and escape, not look like
+   a heap of white precipitate sitting in the liquid. */
+#lesson .lesson-tube-frame .bubbleLayer{height:86%;overflow:visible}
+#lesson .lesson-tube-frame .bubble{width:calc(var(--s)*.46);height:calc(var(--s)*.46);border-width:1.1px;background:rgba(255,255,255,.12);box-shadow:0 0 0 .5px rgba(94,130,149,.3);animation-duration:1.6s}
+#lesson .lesson-tube-frame .bubble:nth-child(n+11){display:none}
+#lesson .lesson-tube-frame .boilLayer{display:none}
+#lesson .lesson-tube-frame .bubbleLayer.strong:before{opacity:.15}
+#lesson .lesson-tube-frame .surfaceFizz i:nth-child(n+5){display:none}
+#lesson .lesson-observation .reaction-card{
+ border-color:#E9A9CB;background:linear-gradient(145deg,#FFF9FC,#F4D9E6);
+ box-shadow:0 10px 24px rgba(189,62,126,.12)
+}
+#lesson .lesson-observation .reaction-status{background:#C44988}
+#lesson .lesson-observation .reaction-equation{border-color:rgba(196,73,136,.23)}
+@media(max-width:760px){#lesson .lesson-tube-frame .tube.on{box-shadow:inset 4px 0 7px rgba(255,255,255,.75),inset -4px 0 6px rgba(109,122,140,.12),0 0 0 2px rgba(215,140,178,.15),0 5px 12px rgba(117,57,88,.10)!important}}
 </style></head><body><div class="app">
 <div class="lab-topbar">
   <div class="lab-brand">ЕГЭ БЛИЗКО</div>
@@ -1270,12 +1353,31 @@ body:has(#lesson.page.on) .app{max-width:none}
         <button id="lessonConduct" type="button">▶ Провести</button>
          <button id="lessonExcess" type="button" aria-pressed="false">＋ Избыток щёлочи</button>
         <button id="lessonHeat" type="button" aria-pressed="false">🔥 Нагрев</button>
-        <button id="lessonReset" type="button">↺ Сброс</button>
+        <button id="lessonReset" type="button" title="Очистить только выбранную пробирку">↺ Очистить пробирку</button>
       </div>
-      <div class="lesson-visual" aria-label="Ход химического опыта">
-        <div id="lessonTube" class="lesson-tube-frame"></div>
+      <div class="lesson-tube-modes" aria-label="Количество пробирок">Пробирок:
+        <button type="button" data-lesson-count="1" aria-pressed="false">1</button>
+        <button type="button" data-lesson-count="2" aria-pressed="true">2</button>
+        <button type="button" data-lesson-count="3" aria-pressed="false">3</button>
+        <button type="button" data-lesson-count="4" aria-pressed="false">4</button>
+      </div>
+      <div class="lesson-visual" aria-label="Независимые пробирки для опытов">
+        <div class="lesson-two-tubes" id="lessonTubeGrid" data-count="2">
+          <button type="button" class="lesson-tube-choice on" data-lesson-tube="0" aria-pressed="true"><span>Пробирка 1</span><span id="lessonTube1" class="lesson-tube-frame"></span></button>
+          <button type="button" class="lesson-tube-choice" data-lesson-tube="1" aria-pressed="false"><span>Пробирка 2</span><span id="lessonTube2" class="lesson-tube-frame"></span></button>
+          <button type="button" class="lesson-tube-choice" data-lesson-tube="2" aria-pressed="false" hidden><span>Пробирка 3</span><span id="lessonTube3" class="lesson-tube-frame"></span></button>
+          <button type="button" class="lesson-tube-choice" data-lesson-tube="3" aria-pressed="false" hidden><span>Пробирка 4</span><span id="lessonTube4" class="lesson-tube-frame"></span></button>
+        </div>
+        <canvas id="lessonLabInk" class="lesson-lab-ink" aria-label="Рукописные пометки рядом с пробиркой"></canvas>
+      </div>
+      <div class="lesson-ink-tools" aria-label="Пометки на лабораторном опыте">
+        <button id="lessonLabPen" type="button" aria-pressed="false">✎ Писать у пробирки</button>
+        <button id="lessonLabEraser" type="button" aria-pressed="false">⌫ Ластик</button>
+        <button id="lessonLabView" type="button" aria-pressed="true">✓ Готово</button>
+        <button id="lessonLabClear" type="button">Очистить записи</button>
       </div>
       <div id="lessonReaction" class="lesson-observation" aria-live="polite">Выбери два вещества и нажми «Провести». PDF останется открытым справа.</div>
+      <div id="lessonChainHistory" class="lesson-observation" hidden></div>
       <div class="lesson-footnote">Опыты и признаки берутся из действующей химической базы. Если реакции в ней пока нет, результат не выдумываем.</div>
     </div>
   </aside>
@@ -1289,15 +1391,17 @@ body:has(#lesson.page.on) .app{max-width:none}
         <button id="lessonNext" type="button" title="Следующая страница">→</button>
         <button id="lessonToolPen" type="button" aria-pressed="true">✎ Ручка</button>
          <button id="lessonToolMarker" type="button" aria-pressed="false">▰ Выделитель</button>
-         <label class="lesson-color-inline">Цвет <input id="lessonPenColor" type="color" value="#f00087"></label>
+        <button id="lessonStraightLine" type="button" aria-pressed="false" title="Прямая линия выбранной ручкой или выделителем">╱ Линия</button>
         <button id="lessonToolEraser" type="button" aria-pressed="false">⌫ Ластик</button>
         <button id="lessonExport" type="button">↓ Сохранить PDF</button>
       </div>
       <details class="lesson-extra-menu">
-        <summary aria-label="Настройки письма">⋯</summary>
+        <summary aria-label="Цвет, толщина и настройки письма">🎨 Цвет и толщина</summary>
         <div class="lesson-extra-items">
-          <div class="lesson-color-presets" id="lessonColorPresets"><button type="button" data-ink="#f00087" aria-label="Цвет #f00087" style="--swatch:#f00087"></button><button type="button" data-ink="#ffd84d" aria-label="Цвет #ffd84d" style="--swatch:#ffd84d"></button><button type="button" data-ink="#8fd7ab" aria-label="Цвет #8fd7ab" style="--swatch:#8fd7ab"></button><button type="button" data-ink="#8ac9fa" aria-label="Цвет #8ac9fa" style="--swatch:#8ac9fa"></button><button type="button" data-ink="#b8a0ec" aria-label="Цвет #b8a0ec" style="--swatch:#b8a0ec"></button><button type="button" data-ink="#171719" aria-label="Цвет #171719" style="--swatch:#171719"></button></div>
-          <label>Толщина <input id="lessonPenWidth" type="range" min="1" max="10" value="3"></label>
+          <b style="font-size:12px;font-weight:600">Цвета</b>
+          <input id="lessonPenColor" type="color" value="#f00087" hidden>
+          <div class="lesson-color-presets" id="lessonColorPresets" aria-label="Цвета ручки"></div>
+          <label class="lesson-width-label">Толщина <input id="lessonPenWidth" type="range" min="1" max="10" value="3"></label>
           <button type="button" id="lessonUndo">↶ Отменить последний штрих</button>
           <button type="button" id="lessonExportNotes">↓ Резервная копия записей</button>
           <label for="lessonImportNotes" class="lesson-file-label">↑ Загрузить записи</label>
@@ -1348,7 +1452,7 @@ body:has(#lesson.page.on) .app{max-width:none}
   </main>
   <aside class="lab-controls">
     <h2>Действия</h2>
-    <div class="selected-card"><b>Выбрана пробирка <span id="selectedTubeLabel">1</span></b><span>Добавь до двух реактивов; для нужных реакций можно выбрать избыток.</span></div>
+    <div class="selected-card"><b>Выбрана пробирка <span id="selectedTubeLabel">1</span></b><span>Добавляй реактивы последовательно; при необходимости выбери избыток.</span></div>
     <div id="tubeMediumField" class="lesson-medium-field" hidden>
       <label for="tubeMedium">Среда реакции</label>
       <select id="tubeMedium">
@@ -1427,6 +1531,9 @@ if(labBackHistory){
 }
 let data, reagentMap=new Map(), reactionMap=new Map(), selectedTube=0, selectedReagentCategory="Все", selectedReagentSearch="";
 let tubes=[[],[],[],[]], tubeHeat=[false,false,false,false], tubeExcess=["","","",""], tubeDissolving=[false,false,false,false], tubeMedium=["","","",""], unknownOrder=[], unknownSelected=0, toolSelected="", attempts=0, exam=null, locked=false;
+// Chain mode keeps the products actually available after each transformation.
+// Each tube has independent history and never guesses a reaction not in the catalogue.
+let tubeChain=[null,null,null,null];
 let ogeMode=12,ogeIndex12=0,ogeIndex17=0,ogeLocked=false;
 let oge23Mode="learn",oge23Index=0,oge23Rows=["",""],oge23Tests=[{},{}],oge23Conclusion=["",""],oge23Identified=false;
 let egeMode="6",egeTask6Index=0,egeIndex24=0,egeSignsIndex=0,egeQualityIndex=0,egeLocked=false;
@@ -1452,6 +1559,49 @@ function findReaction(a,b,heated,excess=""){
  if(cold)return cold;
  const fallback=eligible[0]||null;
  return fallback&&(!fallback.heat||heated)?fallback:null;
+}
+function chainProductIds(rx){
+ const equation=String(rx&&rx.eq||"");
+ const rhs=equation.split(/→|⇄|⟶/).pop()||"";
+ if(!rhs||rhs===equation)return [];
+ const compact=s=>normalizeReagentSearch(s).replace(/[↓↑]/g,"");
+ const ids=[];
+ rhs.split(/\s+\+\s+/).forEach(piece=>{
+  // The test tubes are open: released gas is an observation, not a reagent
+  // available for the next step of a sequential experiment.
+  if(/↑|\(g\)/i.test(piece))return;
+  const formula=compact(piece.replace(/^\s*\d+\s*/,"").replace(/\s*\((?:aq|s|l|g)\)\s*$/i,""));
+  const found=[...reagentMap.entries()].find(([,r])=>compact(r[0])===formula);
+  if(found&&!/газ/i.test(String(found[1][3]||""))&&!ids.includes(found[0]))ids.push(found[0]);
+ });
+ return ids;
+}
+function chainStepLabel(count){
+ const lastTwo=count%100,last=count%10;
+ return count+" "+(lastTwo>=11&&lastTwo<=14?"этапов":last===1?"этап":last>=2&&last<=4?"этапа":"этапов");
+}
+function chainAvailable(i){
+ const chain=tubeChain[i];
+ return chain?chain.available.slice():tubes[i].slice();
+}
+function chainCandidates(i,newId){
+ return chainAvailable(i).filter(id=>id!==newId).map(id=>({id,rx:findReaction(id,newId,false)}))
+  .filter(item=>item.rx&&item.rx.t!=="z"&&!item.rx.heat);
+}
+function chainCompleteStep(i,newId,selected){
+ const chain=tubeChain[i];
+ const candidate=chainCandidates(i,newId).find(item=>item.id===selected);
+ if(!candidate)return false;
+ const products=chainProductIds(candidate.rx);
+ // If the catalogue does not identify products, we cannot infer the next state.
+ if(!products.length)return false;
+ const next=chain.available.filter(id=>id!==selected&&id!==newId);
+ chain.available=[...new Set([...next,...products])];
+ chain.steps.push({reagent:newId,reactant:selected,reaction:candidate.rx,available:chain.available.slice()});
+ tubes[i].push(newId);
+ document.getElementById("result").textContent="Этап "+chain.steps.length+" проведён. Можно долить следующий реактив.";
+ renderTubes();
+ return true;
 }
 // Unified source of gas colours and smells. All gases in the laboratory catalogue
 // must have an entry here; tests enforce coverage when reactions are added.
@@ -1518,27 +1668,40 @@ function pptTexture(x){
   const before=products[pos-1]||"",after=products[pos+formula.length]||"";
   if(!/[A-Za-z₀-₉]/.test(before)&&!/[A-Za-z₀-₉]/.test(after))return texture;
  }
- return String(x.sign||"").toLowerCase().includes("студенист")?"gel":"fine";
+ const sign=String(x.sign||"").toLowerCase();
+ if(sign.includes("студенист")||sign.includes("желеобразн"))return "gel";
+ if(sign.includes("творожист")||sign.includes("хлопьевидн"))return "floc";
+ if(sign.includes("кристалл"))return "crystal";
+ if(sign.includes("плотн"))return "dense";
+ return "fine";
+}
+function pptIsBright(color){
+ const s=String(color||"").trim();
+ const m=/^#([0-9a-f]{6})$/i.exec(s);
+ if(!m)return false;
+ const r=parseInt(m[1].slice(0,2),16),g=parseInt(m[1].slice(2,4),16),b=parseInt(m[1].slice(4,6),16);
+ return (.2126*r+.7152*g+.0722*b)>165;
 }
 function precipitateHTML(x){
  if(!x||!x.ppt)return "";
  const cls=pptTexture(x),parts=[],light=/^#(?:fff|ffffff|f8fbff)$/i.test(String(x.ppt));
+ const bgClass=pptIsBright(x.ppt)?' bright-ppt':'';
  if(cls==="gel"){
   // Soft, connected clouds settle into an irregular sediment layer.
   for(let n=0;n<13;n++){
    const l=(5+(n*29)%74), b=(8+(n*13)%34), w=(19+(n%4)*9), h=(9+(n%3)*7);
    parts.push('<i class="gel-cloud" style="--l:'+l+'%;--b:'+b+'%;--w:'+w+'px;--h:'+h+'px;--delay:'+(n%6)*.09+'s;--pc:'+x.ppt+'"></i>');
   }
-  return '<div class="pptLayer gel-sediment'+(light?' light-ppt':'')+'"><i class="gel-bed" style="--pc:'+x.ppt+'"></i>'+parts.join("")+'</div>';
+  return '<div class="pptLayer gel-sediment'+(light?' light-ppt':'')+bgClass+'"><i class="gel-bed" style="--pc:'+x.ppt+'"></i>'+parts.join("")+'</div>';
  }
- const count=cls==="fine"?44:cls==="dense"?38:cls==="crystal"?19:24;
+ const count=light&&cls==="fine"?110:light&&cls==="floc"?42:cls==="fine"?44:cls==="dense"?38:cls==="crystal"?19:24;
  for(let n=0;n<count;n++){
-  const l=(5+(n*37)%88),b=(2+(n*17)%30);
-  const s=cls==="fine"?2+(n%3)*2:cls==="dense"?4+(n%4)*2:cls==="crystal"?7+(n%4)*3:7+(n%5)*3;
+  const l=(5+(n*37)%88),b=(2+(n*17)%(light&&cls==="floc"?50:30));
+  const s=light&&cls==="fine"?2+(n%3):light&&cls==="floc"?5+(n%5)*2:cls==="fine"?2+(n%3)*2:cls==="dense"?4+(n%4)*2:cls==="crystal"?7+(n%4)*3:7+(n%5)*3;
   const r=((n*31)%90-45)+"deg";
   parts.push('<i class="particle '+cls+'" style="--l:'+l+'%;--b:'+b+'%;--s:'+s+'px;--r:'+r+';--pc:'+x.ppt+'"></i>');
  }
- return '<div class="pptLayer'+(cls==="dense"?' dense-sediment':'')+(light?' light-ppt':'')+'">'+(cls==="dense"?'<i class="dense-bed" style="--pc:'+x.ppt+'"></i>':'')+parts.join("")+'</div>';
+ return '<div class="pptLayer'+(cls==="dense"?' dense-sediment':'')+(light?' light-ppt':'')+bgClass+'">'+(cls==="dense"?'<i class="dense-bed" style="--pc:'+x.ppt+'"></i>':'')+parts.join("")+'</div>';
 }
 function bubblesHTML(x,v=[]){
  if(!x||!x.gas)return "";
@@ -1605,12 +1768,17 @@ function tubeHTML(v,i,active,heated,excess="",overrideReaction=undefined){
  const x=overrideReaction===undefined ?
    (v.length===2?(tubeDissolving[i]?reactionExpected(v[0],v[1]):findReaction(v[0],v[1],heated,excess)):null) : overrideReaction;
  const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
- const sol=x?x.sol:base;
+ // Keep a colorless solution optically clear when a white precipitate forms.
+ // The contrast comes from particle edges and the bench backing, not dyed liquid.
+ const rawSol=x&&/→[^\n]*CuCl₂/.test(String(x.eq||""))&&!x.ppt?"#bde6df":x?x.sol:base;
+ const sol=x&&x.ppt&&pptIsBright(x.ppt)&&/^#(?:fff(?:fff)?|f8fbff|f7fafc|f5faff)$/i.test(String(rawSol))
+  ?'rgba(181,198,207,.22)':rawSol;
  const hasLiquid=v.some(id=>{
    const st=String((reagent(id)||[])[3]||"");
    return !st.includes("тв.")&&!st.includes("газ");
  });
- const liquidHeight=x&&x.t!=="z"?58:(hasLiquid?58:0);
+ // Each subsequent pour raises the visual level; the tube has a fixed capacity.
+ const liquidHeight=(x&&x.t!=="z")||hasLiquid?Math.min(84,58+Math.max(0,v.length-2)*6):0;
  const hasMetalDeposit=!!(x&&x.ppt&&v.some(id=>String((reagent(id)||[])[1]||"")==="Металлы"));
  const solids=solidReagentHTML(v,x,hasMetalDeposit);
  const deposit=hasMetalDeposit?metalDepositHTML(v,x):"";
@@ -1646,22 +1814,24 @@ function renderTubes(){
  const box=document.getElementById("tubes");box.innerHTML="";
  tubes.forEach((v,i)=>{
   const wrap=document.createElement("div");wrap.className="tube-slot"+(i===selectedTube?" active-slot":"");
-  const hasMedium=tubeHasMedium(v);
-  const x=v.length===2?tubeReaction(i):null;
+  const chain=tubeChain[i],hasChain=!!(chain&&chain.steps.length>1);
+  const hasMedium=!hasChain&&tubeHasMedium(v);
+  const x=hasChain?chain.steps[chain.steps.length-1].reaction:(v.length===2?tubeReaction(i):null);
   const visibleReaction=x&&x.heat&&!tubeHeat[i]?null:x;
   let callout="";
-  if(i===selectedTube&&v.length===2){
+  if(i===selectedTube&&v.length>=2){
     const cls=i===0?" edge-left":i===3?" edge-right":"";
     const content=x?reactionResultHTML(x,tubeHeat[i]):
       hasMedium&&tubeMedium[i]?
       '<div class="reaction-card no-visible">Для этой среды нет подтверждённой реакции. Результат не моделируем.</div>':
       hasMedium?'<div class="reaction-card no-visible">Выбери среду реакции справа.</div>':
       reactionResultHTML(x,tubeHeat[i]);
-    callout='<div class="tube-callout'+cls+'">'+content+'</div>';
+    const history=hasChain?'<details class="chain-history"><summary>Цепочка: '+chainStepLabel(chain.steps.length)+'</summary>'+chain.steps.map((step,n)=>'<div class="reaction-equation">'+(n+1)+'. '+step.reaction.eq+'</div>').join("")+'</details>':'';
+    callout='<div class="tube-callout'+cls+'">'+content+history+'</div>';
   }
   const excessLabel=tubeExcess[i]?'<div class="tubeSmall">избыток: '+reagent(tubeExcess[i])[0]+'</div>':'';
   wrap.innerHTML=callout+
-      (hasMedium?tubeHTML(v,i,i===selectedTube,tubeHeat[i],tubeExcess[i],visibleReaction):
+      ((hasMedium||hasChain)?tubeHTML(v,i,i===selectedTube,tubeHeat[i],tubeExcess[i],visibleReaction):
                  tubeHTML(v,i,i===selectedTube,tubeHeat[i],tubeExcess[i]))+
       '<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+
       (v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>'+excessLabel;
@@ -1761,7 +1931,36 @@ function setupReagentSearch(){
  clear.onclick=()=>{input.value="";selectedReagentSearch="";renderReagents();input.focus()};
 }
 function add(id){
- if(tubes[selectedTube].length>=2)return;
+ if(tubes[selectedTube].length>=2){
+  const index=selectedTube,v=tubes[index];
+  if(!tubeChain[index]){
+   const first=tubeReaction(index);
+   if(!first||first.t==="z"||(first.heat&&!tubeHeat[index])){
+    document.getElementById("result").textContent="Сначала заверши предыдущую реакцию и выбери необходимые условия.";return;
+   }
+   const products=chainProductIds(first);
+   if(!products.length){
+    document.getElementById("result").textContent="Продукты предыдущей реакции не распознаны. Продолжить цепочку автоматически нельзя.";return;
+   }
+   tubeChain[index]={available:products,steps:[{reagent:v[1],reactant:v[0],reaction:first,available:products.slice()}]};
+  }
+  const matches=chainCandidates(index,id);
+  if(!matches.length){
+   document.getElementById("result").textContent="Для добавленного реактива нет подтверждённой реакции с текущими продуктами. Цепочка не изменена.";return;
+  }
+  if(matches.length===1){
+   if(!chainCompleteStep(index,id,matches[0].id))document.getElementById("result").textContent="Не удалось определить продукты. Этап не добавлен.";
+   return;
+  }
+  const result=document.getElementById("result");result.replaceChildren();
+  const intro=document.createElement("p");intro.textContent="В смеси несколько возможных реагентов. Выбери, с каким продолжить цепочку:";result.appendChild(intro);
+  matches.forEach(({id:reactant,rx})=>{
+   const btn=document.createElement("button");btn.type="button";btn.textContent=reagent(reactant)[0]+" — "+rx.eq;
+   btn.onclick=()=>{if(!chainCompleteStep(index,id,reactant))result.textContent="Не удалось определить продукты. Этап не добавлен."};
+   result.appendChild(btn);
+  });
+  return;
+ }
  tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeDissolving[selectedTube]=false;tubeMedium[selectedTube]="";
  tubes[selectedTube].push(id);
  if(tubes[selectedTube].length===2){
@@ -1805,7 +2004,7 @@ document.getElementById("heat").onclick=()=>{
  else if(v.length===2){document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🔥 Нагрев</span></div><div class="reaction-sign">При нагревании видимого изменения нет.</div></div>'}
  renderTubes();
 };
-document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeDissolving[selectedTube]=false;tubeMedium[selectedTube]="";document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🧽 Готово</span></div><div class="reaction-sign">Пробирка очищена.</div></div>';renderTubes()};
+document.getElementById("clear").onclick=()=>{tubes[selectedTube]=[];tubeChain[selectedTube]=null;tubeHeat[selectedTube]=false;tubeExcess[selectedTube]="";tubeDissolving[selectedTube]=false;tubeMedium[selectedTube]="";document.getElementById("result").innerHTML='<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">🧽 Готово</span></div><div class="reaction-sign">Пробирка очищена.</div></div>';renderTubes()};
 
 function setupLab(){
  unknownOrder=[...data.lab].sort(()=>Math.random()-.5);
@@ -2572,10 +2771,224 @@ function renderStats(){
 // Teacher's live lesson studio. Both panels stay interactive at the same time.
 // PDF input, ink notes and downloads remain entirely local to the browser.
 let lessonReady=false,lessonStarted=false,lessonHeated=false,lessonExcess="",lessonDissolving=false;
+let lessonChain=null;
+let lessonLabInkTool="view",lessonLabInkStrokes=[],lessonLabInkDrawing=null;
+let lessonTubeStates=[null,null,null,null];
+const lessonModeStates={};
+let lessonActiveTube=0,lessonVisibleTubeCount=2;
+function lessonEmptyTube(){
+ return {reagents:{a:"",b:""},chain:null,started:false,heated:false,
+  excess:"",dissolving:false,medium:"",ink:[]};
+}
+function lessonCaptureTube(){
+ return {reagents:{...lessonSelectedReagents},chain:lessonChain,started:lessonStarted,
+  heated:lessonHeated,excess:lessonExcess,dissolving:lessonDissolving,
+  medium:document.getElementById("lessonMedium").value,ink:lessonLabInkStrokes};
+}
+function lessonApplyTube(state){
+ lessonSelectedReagents={...state.reagents};lessonChain=state.chain;
+ lessonStarted=state.started;lessonHeated=state.heated;
+ lessonExcess=state.excess;lessonDissolving=state.dissolving;
+ lessonLabInkStrokes=state.ink;lessonLabInkDrawing=null;
+ for(const slot of ["a","b"]){
+  const el=document.getElementById(slot==="a"?"lessonReagentA":"lessonReagentB");
+  el.value=lessonSelectedReagents[slot]?(reagent(lessonSelectedReagents[slot])||[])[0]||"":"";
+ }
+ lessonCloseSuggestions("a");lessonCloseSuggestions("b");
+ lessonUpdateMedium();document.getElementById("lessonMedium").value=state.medium;
+ document.getElementById("lessonHeat").setAttribute("aria-pressed",String(lessonHeated));
+ document.getElementById("lessonExcess").setAttribute("aria-pressed",String(!!lessonExcess));
+}
+function lessonPreviewTube(state,index){
+ const pair=state.reagents||{a:"",b:""};let ids=pair.a?[pair.a]:[];
+ let result=null;
+ if(state.chain&&state.chain.steps.length){
+  ids=state.chain.ids;
+  result=state.chain.steps[state.chain.steps.length-1].reaction;
+  if(state.chain.noReactionNotice)result={...result,gas:""};
+ }else if(state.started&&pair.a&&pair.b){
+  ids=[pair.a,pair.b];
+  result=state.dissolving?findReaction(pair.a,pair.b,state.heated):
+   (index===lessonActiveTube?lessonSelectedReaction(pair.a,pair.b,state.heated):findReaction(pair.a,pair.b,state.heated,state.excess));
+ }
+ return tubeHTML(ids,0,index===lessonActiveTube,state.heated,state.excess,result);
+}
+function lessonRenderTubePair(){
+ const active=lessonCaptureTube();
+ document.getElementById("lessonTubeGrid").dataset.count=String(lessonVisibleTubeCount);
+ for(let i=0;i<4;i++){
+  const state=i===lessonActiveTube?active:lessonTubeStates[i];
+  document.getElementById("lessonTube"+(i+1)).innerHTML=lessonPreviewTube(state,i);
+ }
+ document.querySelectorAll("[data-lesson-tube]").forEach(btn=>{
+  const on=Number(btn.dataset.lessonTube)===lessonActiveTube;
+  btn.hidden=Number(btn.dataset.lessonTube)>=lessonVisibleTubeCount;
+  btn.classList.toggle("on",on);btn.setAttribute("aria-pressed",String(on));
+ });
+ document.querySelectorAll("[data-lesson-count]").forEach(btn=>{
+  btn.setAttribute("aria-pressed",String(Number(btn.dataset.lessonCount)===lessonVisibleTubeCount));
+ });
+}
+function lessonSelectTube(index){
+ if(index<0||index>=lessonVisibleTubeCount)return;
+ if(index===lessonActiveTube)return;
+ lessonTubeStates[lessonActiveTube]=lessonCaptureTube();
+ lessonActiveTube=index;
+ lessonApplyTube(lessonTubeStates[index]);
+ lessonRenderExperiment();lessonLabInkRender();
+}
+function lessonSetTubeCount(count){
+ if(!Number.isInteger(count)||count<1||count>4)return;
+ if(count===lessonVisibleTubeCount)return;
+ // Each count is a separate workbench. Its experiments remain available when
+ // returning to that count but never leak into any other tube-count mode.
+ lessonTubeStates[lessonActiveTube]=lessonCaptureTube();
+ lessonModeStates[lessonVisibleTubeCount]={tubes:lessonTubeStates,active:lessonActiveTube};
+ const target=lessonModeStates[count]||{
+  tubes:Array.from({length:4},()=>lessonEmptyTube()),active:0
+ };
+ lessonTubeStates=target.tubes;
+ lessonVisibleTubeCount=count;
+ lessonActiveTube=Math.min(target.active,count-1);
+ lessonApplyTube(lessonTubeStates[lessonActiveTube]);
+ lessonRenderExperiment();
+ lessonLabInkRender();
+}
+function lessonClearActiveTube(){
+ // One tube is emptied without resetting the neighbouring experiments or PDF.
+ lessonSelectedReagents={a:"",b:""};lessonChain=null;
+ lessonStarted=false;lessonHeated=false;lessonExcess="";lessonDissolving=false;
+ lessonApplyTube({...lessonCaptureTube(),reagents:{a:"",b:""},chain:null,
+  started:false,heated:false,excess:"",dissolving:false,medium:""});
+ lessonTubeStates[lessonActiveTube]=lessonCaptureTube();
+ lessonRenderExperiment();
+}
 let lessonPdfDocument=null,lessonPdfOriginalBytes=null,lessonPdfName="",lessonPdfKey="ege-lesson-blank";
-let lessonPage=1,lessonPageCount=1,lessonTool="pen",lessonDrawing=null;
+let lessonPage=1,lessonPageCount=1,lessonTool="pen",lessonDrawing=null,lessonLineMode=false;
 let lessonNotes={},lessonPageSize={},lessonRendering=0;
 const lessonLibraries={};
+// Quadratic interpolation removes sharp corners caused by discrete tablet
+// pointer samples. The same geometry is used for canvas and PDF export.
+function lessonSmoothPoints(points){
+ if(!Array.isArray(points)||points.length<3)return points||[];
+ // Light spatial averaging removes remaining fine pen jitter without changing
+ // stroke endpoints, then quadratic interpolation rounds visible corners.
+ const clean=points.map((p,i)=>{
+  if(i===0||i===points.length-1)return p;
+  const a=points[i-1],b=points[i+1];
+  return {x:a.x*.2+p.x*.6+b.x*.2,y:a.y*.2+p.y*.6+b.y*.2};
+ });
+ const out=[clean[0]],mid=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+ for(let i=1;i<points.length-1;i++){
+  const start=i===1?clean[0]:mid(clean[i-1],clean[i]);
+  const control=clean[i],end=mid(clean[i],clean[i+1]);
+  for(let step=1;step<=2;step++){
+   const t=step/2,u=1-t;
+   out.push({x:u*u*start.x+2*u*t*control.x+t*t*end.x,
+             y:u*u*start.y+2*u*t*control.y+t*t*end.y});
+  }
+ }
+ out.push(clean[clean.length-1]);
+ return out;
+}
+function lessonPointerSamples(event,converter){
+ const events=typeof event.getCoalescedEvents==="function"?event.getCoalescedEvents():[];
+ return (events.length?events:[event]).map(converter);
+}
+function lessonAddStrokeSamples(stroke,event,converter,canvas){
+ for(const point of lessonPointerSamples(event,converter)){
+  const last=stroke.points[stroke.points.length-1];
+  if(!last){stroke.points.push(point);continue;}
+  const dx=(point.x-last.x)*canvas.clientWidth;
+  const dy=(point.y-last.y)*canvas.clientHeight;
+  const distance=Math.hypot(dx,dy);
+  // Wacom can report sub-pixel hand tremor even while writing steadily.
+  // Stabilize slow motion more than fast strokes, keeping corners responsive.
+  if(distance<.7)continue;
+  const weight=Math.max(.24,Math.min(.92,distance/10));
+  const filtered={x:last.x+(point.x-last.x)*weight,
+                  y:last.y+(point.y-last.y)*weight};
+  if(Math.hypot((filtered.x-last.x)*canvas.clientWidth,
+                (filtered.y-last.y)*canvas.clientHeight)>.55)
+   stroke.points.push(filtered);
+ }
+}
+// The pen may deliver hundreds of coalesced samples per second. Paint at most
+// once per display frame; never rebuild the whole page for every pointer event.
+let lessonPdfInkFrame=0,lessonLabInkFrame=0;
+function lessonSchedulePdfInk(){
+ if(lessonPdfInkFrame)return;
+ lessonPdfInkFrame=requestAnimationFrame(()=>{lessonPdfInkFrame=0;lessonRedrawInk();});
+}
+function lessonScheduleLabInk(){
+ if(lessonLabInkFrame)return;
+ lessonLabInkFrame=requestAnimationFrame(()=>{lessonLabInkFrame=0;lessonLabInkRender();});
+}
+function lessonLabInkRender(){
+ const canvas=document.getElementById("lessonLabInk");if(!canvas)return;
+ const area=canvas.parentElement,rect=area.getBoundingClientRect();
+ const scale=Math.min(window.devicePixelRatio||1,2);
+ const w=Math.max(1,Math.round(rect.width*scale)),h=Math.max(1,Math.round(rect.height*scale));
+ if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+ const ctx=canvas.getContext("2d");ctx.clearRect(0,0,w,h);
+ for(const stroke of lessonLabInkStrokes){
+  if(!stroke.points.length)continue;
+  ctx.strokeStyle=ctx.fillStyle=stroke.color||"#C44988";
+  ctx.lineWidth=(stroke.width||2.6)*scale;ctx.lineJoin="round";ctx.lineCap="round";
+  ctx.beginPath();lessonSmoothPoints(stroke.points).forEach((p,i)=>{
+   if(i===0)ctx.moveTo(p.x*w,p.y*h);else ctx.lineTo(p.x*w,p.y*h);
+  });
+  if(stroke.points.length===1){const p=stroke.points[0];ctx.arc(p.x*w,p.y*h,1.5*scale,0,2*Math.PI);ctx.fill();}
+  else ctx.stroke();
+ }
+}
+function lessonLabInkPoint(e){
+ const rect=document.getElementById("lessonLabInk").getBoundingClientRect();
+ return {x:Math.max(0,Math.min(1,(e.clientX-rect.left)/Math.max(1,rect.width))),
+         y:Math.max(0,Math.min(1,(e.clientY-rect.top)/Math.max(1,rect.height)))};
+}
+function lessonLabInkMode(mode){
+ lessonLabInkTool=mode;
+ const canvas=document.getElementById("lessonLabInk");
+ canvas.classList.toggle("drawing",mode!=="view");
+ canvas.classList.toggle("erasing",mode==="erase");
+ [["lessonLabPen","pen"],["lessonLabEraser","erase"],["lessonLabView","view"]].forEach(([id,value])=>
+  document.getElementById(id).setAttribute("aria-pressed",String(mode===value)));
+}
+function lessonLabInkSetup(){
+ const canvas=document.getElementById("lessonLabInk");
+ document.getElementById("lessonLabPen").onclick=()=>lessonLabInkMode("pen");
+ document.getElementById("lessonLabEraser").onclick=()=>lessonLabInkMode("erase");
+ document.getElementById("lessonLabView").onclick=()=>lessonLabInkMode("view");
+ document.getElementById("lessonLabClear").onclick=()=>{lessonLabInkStrokes=[];lessonLabInkRender();};
+ const erase=p=>{
+  for(let i=lessonLabInkStrokes.length-1;i>=0;i--){
+   if(lessonLabInkStrokes[i].points.some(q=>Math.hypot((q.x-p.x)*canvas.clientWidth,(q.y-p.y)*canvas.clientHeight)<14)){
+    lessonLabInkStrokes.splice(i,1);lessonLabInkRender();break;
+   }
+  }
+ };
+ canvas.addEventListener("pointerdown",e=>{
+  if(lessonLabInkTool==="view")return;
+  e.preventDefault();canvas.setPointerCapture(e.pointerId);
+  const point=lessonLabInkPoint(e);
+  if(lessonLabInkTool==="erase"){erase(point);return;}
+  lessonLabInkDrawing={color:document.getElementById("lessonPenColor").value,
+   width:Number(document.getElementById("lessonPenWidth").value)||3,points:[point]};
+  lessonLabInkStrokes.push(lessonLabInkDrawing);lessonLabInkRender();
+ });
+ canvas.addEventListener("pointermove",e=>{
+  if(!(e.buttons&1))return;
+  const point=lessonLabInkPoint(e);
+  if(lessonLabInkTool==="erase"){erase(point);return;}
+  if(!lessonLabInkDrawing)return;
+  lessonAddStrokeSamples(lessonLabInkDrawing,e,lessonLabInkPoint,canvas);lessonScheduleLabInk();
+ });
+ for(const name of ["pointerup","pointercancel","lostpointercapture"])
+  canvas.addEventListener(name,()=>{lessonLabInkDrawing=null;});
+ if(typeof ResizeObserver!=="undefined")new ResizeObserver(lessonLabInkRender).observe(canvas.parentElement);
+ lessonLabInkRender();
+}
 function lessonStatus(message){
  const el=document.getElementById("lessonStatus");if(el)el.textContent=message;
 }
@@ -2629,8 +3042,8 @@ function lessonRedrawInk(){
   ctx.fillStyle=stroke.color||"#f00087";
   ctx.lineWidth=Math.max(1,Number(stroke.width)||3)*ratio;
   ctx.beginPath();
-  for(let i=0;i<stroke.points.length;i++){
-   const p=stroke.points[i],px=p.x*canvas.width,py=p.y*canvas.height;
+  for(const [i,p] of lessonSmoothPoints(stroke.points).entries()){
+   const px=p.x*canvas.width,py=p.y*canvas.height;
    if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
   }
   if(stroke.points.length===1){
@@ -2654,6 +3067,10 @@ function lessonSetTool(which){
   document.getElementById("lessonToolMarker").setAttribute("aria-pressed",String(which==="marker"));
  document.getElementById("lessonToolEraser").setAttribute("aria-pressed",String(which==="erase"));
  document.getElementById("lessonInkCanvas").classList.toggle("eraser",which==="erase");
+}
+function lessonSetLineMode(enabled){
+ lessonLineMode=enabled;
+ document.getElementById("lessonStraightLine").setAttribute("aria-pressed",String(enabled));
 }
 function lessonSetCanvasDimensions(width,height){
  const paper=document.getElementById("lessonPdfCanvas"),ink=document.getElementById("lessonInkCanvas");
@@ -2769,7 +3186,7 @@ async function lessonExportPDF(){
    const arr=lessonNotes[String(i+1)]||[];
    const logical=(lessonPageSize[String(i+1)]||{width:w,height:h}).width;
    for(const stroke of arr){
-    const pts=stroke.points||[];
+    const pts=lessonSmoothPoints(stroke.points||[]);
     const rgb=lessonColorToPDF(stroke.color);
     const color=lib.rgb(rgb[0],rgb[1],rgb[2]);
     const thickness=Math.max(.6,Number(stroke.width||3)*w/Math.max(1,logical));
@@ -2832,10 +3249,12 @@ function lessonCloseSuggestions(slot){
 }
 function lessonSetReagent(slot,id){
  if(!data.reagents[id])return;
+ if(slot==="a")lessonChain=null;
  lessonSelectedReagents[slot]=id;
  document.getElementById(slot==="a"?"lessonReagentA":"lessonReagentB").value=data.reagents[id][0];
  lessonCloseSuggestions(slot);
- lessonStarted=false;lessonExcess="";lessonDissolving=false;
+ if(!lessonChain)lessonStarted=false;
+ lessonExcess="";lessonDissolving=false;
  document.getElementById("lessonExcess").setAttribute("aria-pressed","false");
  document.getElementById("lessonMedium").value="";
  lessonUpdateMedium();
@@ -2922,7 +3341,9 @@ function lessonPopulateReagents(){
   input.oninput=()=>{
    // Never reuse the old selected reagent when a different formula is typed.
    lessonSelectedReagents[slot]="";
-   lessonStarted=false;lessonExcess="";lessonDissolving=false;
+   if(slot==="a")lessonChain=null;
+   if(!lessonChain)lessonStarted=false;
+   lessonExcess="";lessonDissolving=false;
    document.getElementById("lessonExcess").setAttribute("aria-pressed","false");
    document.getElementById("lessonMedium").value="";
    lessonUpdateMedium();
@@ -2960,13 +3381,29 @@ function lessonPopulateReagents(){
 function lessonRenderExperiment(){
  const a=lessonSelectedReagents.a;
  const b=lessonSelectedReagents.b;
+ const history=document.getElementById("lessonChainHistory");
+ if(lessonChain){
+  const last=lessonChain.steps[lessonChain.steps.length-1].reaction;
+  // Gas escaped from this open tube; once a new reagent is tested it must
+  // not keep bubbling as if the previous reaction were still underway.
+  const visual=lessonChain.noReactionNotice?{...last,gas:""}:last;
+  lessonRenderTubePair();
+  const info=document.getElementById("lessonReaction");
+  info.innerHTML=lessonChain.noReactionNotice?
+   '<div class="chain-no-reaction">⛔ Нет подтверждённой реакции с оставшимися веществами. Предыдущие продукты сохраняются; выделившийся газ не участвует в следующем этапе.</div>':
+   reactionResultHTML(last,false);
+  history.hidden=false;
+  history.innerHTML='<details class="chain-history" open><summary>Цепочка: '+chainStepLabel(lessonChain.steps.length)+'</summary>'+lessonChain.steps.map((step,n)=>'<div class="reaction-equation">'+(n+1)+'. '+task6Esc(step.reaction.eq)+'</div>').join('')+'</details>';
+  return;
+ }
+ history.hidden=true;
  const mediumSelect=document.getElementById("lessonMedium");
  const mediumRequired=lessonHasMedium(a,b);
  const x=lessonStarted&&a&&b?lessonSelectedReaction(a,b,lessonHeated):null;
  const visualReaction=x&&x.heat&&!lessonHeated?null:x;
  const v=lessonStarted&&visualReaction?[a,b]:(a?[a]:[]);
  const lessonVisual=lessonDissolving?findReaction(a,b,lessonHeated):visualReaction;
- document.getElementById("lessonTube").innerHTML=tubeHTML(v,0,true,lessonHeated,lessonExcess,lessonVisual);
+ lessonRenderTubePair();
  const info=document.getElementById("lessonReaction");
  if(!a||!b){info.textContent="Выбери оба реактива.";return;}
  if(mediumRequired&&!mediumSelect.value){info.textContent="Выбери среду реакции, затем нажми «Провести».";return;}
@@ -2977,14 +3414,62 @@ function lessonRenderExperiment(){
   info.textContent="Для этой пары и выбранной среды нет подтверждённой реакции. Продукт не выдумываем.";
  }
 }
+function lessonConductStep(){
+ const {a,b}=lessonSelectedReagents;
+ const info=document.getElementById("lessonReaction");
+ if(!lessonChain){
+  lessonStarted=true;
+  const rx=lessonSelectedReaction(a,b,lessonHeated);
+  if(rx&&rx.t!=="z"&&(!rx.heat||lessonHeated)){
+   const products=chainProductIds(rx);
+   if(products.length)lessonChain={available:products,ids:[a,b],steps:[{reaction:rx,reactant:a,reagent:b}]};
+  }
+  lessonRenderExperiment();
+  return;
+ }
+ if(!b){info.textContent="Выбери следующий реактив.";return;}
+ const matches=lessonChain.available.filter(id=>id!==b).map(id=>({id,rx:findReaction(id,b,false)}))
+  .filter(x=>x.rx&&x.rx.t!=="z"&&!x.rx.heat);
+ if(!matches.length){lessonChain.noReactionNotice=true;lessonRenderExperiment();return;}
+ const advance=choice=>{
+  const products=chainProductIds(choice.rx);
+  if(!products.length){info.textContent="Продукты этой реакции пока не распознаны.";return;}
+  const rest=lessonChain.available.filter(id=>id!==choice.id&&id!==b);
+  lessonChain.available=[...new Set([...rest,...products])];
+  lessonChain.ids.push(b);
+  lessonChain.steps.push({reaction:choice.rx,reactant:choice.id,reagent:b});
+  lessonChain.noReactionNotice=false;
+  lessonSelectedReagents.b="";
+  document.getElementById("lessonReagentB").value="";
+  lessonRenderExperiment();
+ };
+ if(matches.length===1){advance(matches[0]);return;}
+ info.replaceChildren();
+ const intro=document.createElement("p");intro.textContent="В смеси несколько возможных продуктов. Выбери, какой реагирует дальше:";info.appendChild(intro);
+ matches.forEach(choice=>{
+  const button=document.createElement("button");button.type="button";
+  button.textContent=reagent(choice.id)[0]+" — "+choice.rx.eq;
+  button.onclick=()=>advance(choice);
+  info.appendChild(button);
+ });
+}
 function lessonSetup(){
  if(lessonReady)return;
  lessonReady=true;
+ lessonLabInkSetup();
+ lessonTubeStates[0]=lessonCaptureTube();
+ for(let i=1;i<4;i++)lessonTubeStates[i]=lessonEmptyTube();
+ document.querySelectorAll("[data-lesson-tube]").forEach(btn=>{
+  btn.onclick=()=>lessonSelectTube(Number(btn.dataset.lessonTube));
+ });
+ document.querySelectorAll("[data-lesson-count]").forEach(btn=>{
+  btn.onclick=()=>lessonSetTubeCount(Number(btn.dataset.lessonCount));
+ });
  lessonPopulateReagents();
  lessonRestoreLocal();
  document.getElementById("lessonPDFInput").onchange=event=>lessonOpenPDF(event.target.files[0]);
  document.getElementById("lessonMedium").onchange=()=>{lessonStarted=false;lessonRenderExperiment();};
- document.getElementById("lessonConduct").onclick=()=>{lessonStarted=true;lessonRenderExperiment();};
+ document.getElementById("lessonConduct").onclick=lessonConductStep;
  document.getElementById("lessonExcess").onclick=()=>{
   const {a,b}=lessonSelectedReagents;
   const alkali=[a,b].find(id=>id==="naoh"||id==="koh");
@@ -2995,13 +3480,38 @@ function lessonSetup(){
   lessonRenderExperiment();
   if(variant.stages)setTimeout(()=>{if(lessonExcess===alkali){lessonDissolving=false;lessonRenderExperiment();}},1100);
  };
- document.getElementById("lessonReset").onclick=()=>{lessonStarted=false;lessonHeated=false;lessonExcess="";lessonDissolving=false;document.getElementById("lessonExcess").setAttribute("aria-pressed","false");document.getElementById("lessonHeat").setAttribute("aria-pressed","false");lessonRenderExperiment();};
+ document.getElementById("lessonReset").onclick=lessonClearActiveTube;
  document.getElementById("lessonHeat").onclick=()=>{lessonHeated=!lessonHeated;document.getElementById("lessonHeat").setAttribute("aria-pressed",String(lessonHeated));lessonRenderExperiment();};
  document.getElementById("lessonPrevious").onclick=()=>{if(lessonPage>1){lessonPage--;lessonRenderPage();}};
  document.getElementById("lessonNext").onclick=()=>{if(lessonPage<lessonPageCount){lessonPage++;lessonRenderPage();}};
  document.getElementById("lessonToolPen").onclick=()=>lessonSetTool("pen");
   document.getElementById("lessonToolMarker").onclick=()=>lessonSetTool("marker");
-  document.querySelectorAll("#lessonColorPresets [data-ink]").forEach(btn=>{btn.onclick=()=>{document.getElementById("lessonPenColor").value=btn.dataset.ink;};});
+ document.getElementById("lessonStraightLine").onclick=()=>{
+  if(lessonTool==="erase")lessonSetTool("pen");
+  lessonSetLineMode(!lessonLineMode);
+ };
+ const lessonColors=[
+  "#171719","#5b5b5d","#8b8b8e","#b7b7bc","#dedee0","#ffffff",
+  "#f00087","#c44988","#f02b3b","#ff6a1e","#ffa600","#ffce00","#fff000",
+  "#a4d628","#2bdc30","#00946f","#00b4cc","#2078db","#5024ce",
+  "#722bd7","#8533a6","#f0ceb9","#c59d7d","#996542","#69483f",
+  "#ee72e6","#ffc07c","#fff49d","#8eedaa","#86d9f6","#c1b9ff"
+ ];
+ const palette=document.getElementById("lessonColorPresets");
+ const picker=document.getElementById("lessonPenColor");
+ const menu=document.querySelector("#lesson .lesson-extra-menu");
+ lessonColors.forEach(color=>{
+  const btn=document.createElement("button");btn.type="button";btn.dataset.ink=color;
+  btn.style.setProperty("--swatch",color);btn.setAttribute("aria-label","Цвет "+color);
+  btn.setAttribute("aria-pressed",String(color.toLowerCase()===picker.value.toLowerCase()));
+  btn.onclick=()=>{
+   picker.value=color;
+   palette.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",String(x===btn)));
+   menu.open=false;
+  };
+  palette.appendChild(btn);
+ });
+ document.getElementById("lessonPenWidth").addEventListener("change",()=>{menu.open=false;});
  document.getElementById("lessonToolEraser").onclick=()=>lessonSetTool("erase");
  document.getElementById("lessonUndo").onclick=()=>{lessonCurrentStrokes().pop();lessonRedrawInk();lessonSaveLocal();};
  document.getElementById("lessonExport").onclick=lessonExportPDF;
@@ -3027,7 +3537,7 @@ function lessonSetup(){
   lessonDrawing={color:document.getElementById("lessonPenColor").value,
                  tool:lessonTool,opacity:lessonTool==="marker"?.32:1,
                  width:lessonTool==="marker"?Math.max(12,Number(document.getElementById("lessonPenWidth").value)*4):Number(document.getElementById("lessonPenWidth").value),
-                 points:[point]};
+                 points:lessonLineMode?[point,point]:[point],straight:lessonLineMode};
   lessonCurrentStrokes().push(lessonDrawing);lessonRedrawInk();
  };
  canvas.onpointermove=event=>{
@@ -3035,10 +3545,12 @@ function lessonSetup(){
   event.preventDefault();const point=lessonGetPoint(event);
   if(lessonTool==="erase"){lessonEraseAt(point);return;}
   if(!lessonDrawing)return;
-  lessonDrawing.points.push(point);lessonRedrawInk();
+  if(lessonDrawing.straight)lessonDrawing.points[1]=point;
+  else lessonAddStrokeSamples(lessonDrawing,event,lessonGetPoint,canvas);
+  lessonSchedulePdfInk();
  };
  const endDrawing=()=>{
-  if(lessonDrawing){lessonDrawing=null;lessonSaveLocal();}
+  if(lessonDrawing){lessonDrawing=null;lessonSchedulePdfInk();lessonSaveLocal();}
  };
  canvas.onpointerup=endDrawing;canvas.onpointercancel=endDrawing;canvas.onlostpointercapture=endDrawing;
  if(window.ResizeObserver){

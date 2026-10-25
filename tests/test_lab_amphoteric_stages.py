@@ -44,7 +44,8 @@ class AmphotericStages(unittest.TestCase):
         self.assertIn('lessonDissolving', SOURCE)
         self.assertIn('overrideReaction=undefined', SOURCE)
         self.assertIn('lessonDissolving?findReaction(a,b,lessonHeated):visualReaction', SOURCE)
-        self.assertIn('lessonExcess,lessonVisual', SOURCE)
+        self.assertIn('state.excess,result', SOURCE)
+        self.assertIn('state.dissolving?findReaction(pair.a,pair.b,state.heated)', SOURCE)
         self.assertIn('id="excess"', SOURCE)
 
     def test_pdf_highlighter_preserves_transparency(self):
