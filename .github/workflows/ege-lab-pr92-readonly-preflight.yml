@@ -1,0 +1,66 @@
+name: ЕГЭ БЛИЗКО — совместимость выпуска PR92 (только чтение)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/ege-lab-pr92-readonly-preflight.yml
+permissions:
+  contents: read
+concurrency:
+  group: ege-lab-pr92-readonly
+  cancel-in-progress: false
+env:
+  BASE_SHA: 6baf8522ab5a41faae32d7f2d645a56d6425502b
+  CANDIDATE_SHA: 9e1045ff6867875c7fb80ffc56cb57fd6cb2f4ae
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check the exact proposed code and compile
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --quiet --no-tags origin "refs/heads/release/lab-two-modes-20261025-reviewed:refs/remotes/origin/lab-pr92-reviewed"
+          test "$(git rev-parse refs/remotes/origin/lab-pr92-reviewed)" = "$CANDIDATE_SHA"
+          git cat-file -e "$BASE_SHA^{commit}"
+          git merge-base --is-ancestor "$BASE_SHA" "$CANDIDATE_SHA"
+          actual="$(git diff --name-only "$BASE_SHA" "$CANDIDATE_SHA")"
+          expected="$(printf 'ege_lab_webapp.py\ntests/test_lab_amphoteric_stages.py\ntests/test_lab_release_guard.py')"
+          test "$actual" = "$expected"
+          git diff --check "$BASE_SHA" "$CANDIDATE_SHA"
+          git show "$CANDIDATE_SHA:ege_lab_webapp.py" > "$RUNNER_TEMP/lab_candidate.py"
+          python3 -m py_compile "$RUNNER_TEMP/lab_candidate.py"
+          echo "LAB_PR92_SCOPE_OK"
+          echo "NO_SERVER_CONNECTION_IN_THIS_JOB"
+  timeweb:
+    runs-on: ubuntu-latest
+    needs: scope
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    environment: ege-lab-production
+    timeout-minutes: 7
+    steps:
+      - name: Read-only remote compatibility fingerprint
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+        run: |
+          set -Eeuo pipefail
+          test "$SSH_USER" = "ege-deploy"
+          test "$SSH_HOST" = "77.233.212.200"
+          test -n "$DEPLOY_KEY"
+          test -n "$KNOWN_HOSTS"
+          install -d -m 0700 "$HOME/.ssh"
+          trap 'rm -f "$HOME/.ssh/ege_lab_pr92_key" "$HOME/.ssh/known_hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/ege_lab_pr92_key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/ege_lab_pr92_key" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -P '' -f "$HOME/.ssh/ege_lab_pr92_key" >/dev/null
+          ssh -T -o BatchMode=yes -o PasswordAuthentication=no -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=10 -i "$HOME/.ssh/ege_lab_pr92_key" "$SSH_USER@$SSH_HOST" 'set -eu; test -r /opt/bots/ege-blizko/ege_lab_webapp.py; systemctl is-active --quiet ege-blizko; sha256sum /opt/bots/ege-blizko/ege_lab_webapp.py; echo LAB_LIVE_FILE_READABLE'
+          echo "READ_ONLY_COMPLETE_NO_UPLOAD_NO_RESTART_NO_DEPLOY"
