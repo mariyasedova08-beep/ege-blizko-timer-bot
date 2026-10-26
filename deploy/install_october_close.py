@@ -6,6 +6,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shlex
 import sqlite3
@@ -15,6 +16,7 @@ import sys
 import tempfile
 import time as clock
 import urllib.request
+import urllib.error
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -94,13 +96,16 @@ def atomic(path,data,metadata):
         if os.path.exists(tmp):os.unlink(tmp)
 
 
-def database_backup():
+def database_backup(name='database.sqlite'):
+    destination=STATE/name
+    if os.path.lexists(destination):
+        raise ValueError('BACKUP_ALREADY_EXISTS')
     with sqlite3.connect(DB,timeout=30) as source:
-        with sqlite3.connect(STATE/'database.sqlite') as dest:
+        with sqlite3.connect(destination) as dest:
             source.backup(dest)
             if dest.execute('PRAGMA integrity_check').fetchone()[0]!='ok':
                 raise ValueError('BACKUP_INTEGRITY_FAILED')
-    os.chmod(STATE/'database.sqlite',0o600)
+    os.chmod(destination,0o600)
 
 
 def cohort():
@@ -116,19 +121,61 @@ def cohort():
     return sorted(users)
 
 
-def prepare_queue(namespace,settings,users):
+def expected_config(namespace,settings):
+    return {**settings,'enabled':'0','notice_at':namespace['NOTICE_AT'].isoformat(),
+            'cutoff':namespace['CUTOFF'].isoformat(),'results_at':namespace['CLOSE_AT'].isoformat()}
+
+
+def verify_cancelled_queue(conn,namespace,settings,users):
+    current=dict(conn.execute('SELECT key,value FROM october_2026_config'))
+    if current != expected_config(namespace,settings):
+        raise ValueError('RETRY_CONFIGURATION_CHANGED')
+    rows=conn.execute("SELECT kind,recipient_id,status,message_id FROM october_2026_deliveries WHERE campaign=?",
+                      (namespace['NOTICE_KEY'],)).fetchall()
+    expected={('course',int(settings['chat_id'])),*[('student',uid) for uid in users]}
+    if (len(rows)!=14 or {(row[0],int(row[1])) for row in rows} != expected
+            or any(row[2]!='cancelled' or row[3] is not None for row in rows)):
+        raise ValueError('RETRY_QUEUE_HAS_DELIVERED_OR_AMBIGUOUS_MESSAGES')
+
+
+def verify_retry(data,metadata,namespace,settings,users):
+    info=STATE.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.geteuid()
+            or stat.S_IMODE(info.st_mode)&0o077):
+        raise ValueError('RETRY_STATE_DIRECTORY_UNTRUSTED')
+    for name in ('original.py','metadata.json','database.sqlite'):
+        path=STATE/name
+        regular(path)
+        info=path.stat()
+        if info.st_uid!=os.geteuid() or stat.S_IMODE(info.st_mode)&0o077:
+            raise ValueError('RETRY_BACKUP_PERMISSIONS_CHANGED')
+    if ((STATE/'original.py').read_bytes()!=data
+            or json.loads((STATE/'metadata.json').read_text())!=metadata):
+        raise ValueError('RETRY_BACKUP_DOES_NOT_MATCH_RESTORED_SOURCE')
+    with sqlite3.connect(f"file:{STATE/'database.sqlite'}?mode=ro",uri=True) as conn:
+        if conn.execute('PRAGMA integrity_check').fetchone()[0]!='ok':
+            raise ValueError('RETRY_BACKUP_INTEGRITY_FAILED')
+    with sqlite3.connect(f'file:{DB}?mode=ro',uri=True) as conn:
+        verify_cancelled_queue(conn,namespace,settings,users)
+
+
+def prepare_queue(namespace,settings,users,retry=False):
     with sqlite3.connect(DB,timeout=30) as conn:
         conn.executescript(namespace['SCHEMA'])
         with conn:
+            if retry:
+                verify_cancelled_queue(conn,namespace,settings,users)
+                changed=conn.execute("UPDATE october_2026_deliveries SET status='pending',updated_at=? WHERE campaign=? AND status='cancelled' AND message_id IS NULL",
+                    (datetime.now(ZoneInfo('Europe/Moscow')).isoformat(),namespace['NOTICE_KEY'])).rowcount
+                if changed!=14:
+                    raise ValueError('RETRY_QUEUE_COUNT_CHANGED')
+                return
             existing=dict(conn.execute('SELECT key,value FROM october_2026_config'))
             if existing:
                 raise ValueError('EXISTING_CAMPAIGN_CONFIGURATION')
-            settings={**settings,'enabled':'0','notice_at':namespace['NOTICE_AT'].isoformat(),
-                      'cutoff':namespace['CUTOFF'].isoformat(),'results_at':namespace['CLOSE_AT'].isoformat()}
-            conn.executemany('INSERT INTO october_2026_config VALUES(?,?)',settings.items())
+            conn.executemany('INSERT INTO october_2026_config VALUES(?,?)',expected_config(namespace,settings).items())
             for kind,recipient in [('course',int(settings['chat_id'])),*[( 'student',uid) for uid in users]]:
-                conn.execute('''INSERT INTO october_2026_deliveries
-                    (campaign,kind,recipient_id,status,updated_at) VALUES(?,?,?,'pending',?)''',
+                conn.execute("INSERT INTO october_2026_deliveries (campaign,kind,recipient_id,status,updated_at) VALUES(?,?,?,'pending',?)",
                     (namespace['NOTICE_KEY'],kind,recipient,datetime.now(ZoneInfo('Europe/Moscow')).isoformat()))
 
 
@@ -156,16 +203,40 @@ def restart():
 
 
 def healthy(since,marker=True):
-    for _ in range(20):
+    # Invocation IDs avoid timezone ambiguity and old startup messages.
+    deadline=clock.monotonic()+120
+    stable=0
+    invocation=None
+    state={'active':False,'http':0,'marker':not marker,'journal':not marker}
+    while clock.monotonic()<deadline:
+        state={'active':False,'http':0,'marker':not marker,'journal':not marker}
         try:
-            active=run(['systemctl','is-active',SERVICE])=='active'
-            with urllib.request.urlopen('http://127.0.0.1:8080/health',timeout=3) as response:
-                ok=response.status==200
-            logs=run(['journalctl','-u',SERVICE,'--since',since,'--no-pager','-o','cat']) if marker else ''
-            if active and ok and (not marker or 'October 2026 close ready:' in logs):
-                return True
-        except Exception:pass
+            state['active']=run(['systemctl','is-active',SERVICE])=='active'
+            current=run(['systemctl','show',SERVICE,'-p','InvocationID','--value']) if marker else None
+            if marker and not re.fullmatch(r'[0-9a-f]{32}',current):
+                raise ValueError('INVALID_SERVICE_INVOCATION')
+            if current!=invocation:
+                stable=0
+                invocation=current
+            if marker:
+                logs=run(['journalctl','-u',SERVICE,'_SYSTEMD_INVOCATION_ID='+current,'--no-pager','-o','cat'])
+                state['journal']=True
+                state['marker']=('October 2026 close ready:' in logs and 'Kulek rewards ready:' in logs)
+            try:
+                with urllib.request.urlopen('http://127.0.0.1:8080/health',timeout=3) as response:
+                    state['http']=response.status
+            except urllib.error.HTTPError as error:
+                state['http']=int(error.code)
+            if state['active'] and state['http']==200 and state['marker']:
+                stable+=1
+                if stable>=2:
+                    return True
+            else:
+                stable=0
+        except Exception:
+            stable=0
         clock.sleep(2)
+    print('OCTOBER_CLOSE_READINESS_FAILED '+json.dumps(state,sort_keys=True),flush=True)
     return False
 
 
@@ -220,15 +291,20 @@ def apply(rollback=False):
     if digest(result)!=PINS[current]:
         raise ValueError('PATCH_OUTPUT_UNREVIEWED')
     info=target.stat();metadata={'uid':info.st_uid,'gid':info.st_gid,'mode':stat.S_IMODE(info.st_mode)}
-    STATE.mkdir(mode=0o700,exist_ok=False)
-    atomic(STATE/'original.py',data,{'uid':0,'gid':0,'mode':0o600})
-    atomic(STATE/'metadata.json',json.dumps(metadata).encode(),{'uid':0,'gid':0,'mode':0o600})
-    database_backup()
+    retry=os.path.lexists(STATE)
+    if retry:
+        verify_retry(data,metadata,namespace,settings,users)
+        database_backup('retry-'+str(clock.time_ns())+'-database.sqlite')
+    else:
+        STATE.mkdir(mode=0o700,exist_ok=False)
+        atomic(STATE/'original.py',data,{'uid':0,'gid':0,'mode':0o600})
+        atomic(STATE/'metadata.json',json.dumps(metadata).encode(),{'uid':0,'gid':0,'mode':0o600})
+        database_backup()
     if target.read_bytes()!=data:
         raise ValueError('TARGET_CHANGED_DURING_BACKUP')
     since=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     try:
-        prepare_queue(namespace,settings,users)
+        prepare_queue(namespace,settings,users,retry=retry)
         atomic(module,MODULE,{'uid':info.st_uid,'gid':info.st_gid,'mode':0o644})
         atomic(target,result,metadata)
         enable(True)
@@ -251,6 +327,7 @@ if __name__=='__main__':
         if os.geteuid()!=0 or len(sys.argv)!=2 or sys.argv[1] not in (RELEASE,RELEASE+'-ROLLBACK'):
             raise ValueError('INVALID_ROOT_RELEASE_ACTION')
         os.umask(0o077)
+        print('OCTOBER_CLOSE_HELPER_SHA256='+digest(Path(__file__).read_bytes()),flush=True)
         with open('/run/lock/ege-blizko-autodeploy.lock','a') as lock:
             fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
             apply(sys.argv[1].endswith('-ROLLBACK'))
