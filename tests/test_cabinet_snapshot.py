@@ -107,6 +107,37 @@ class SnapshotTests(unittest.TestCase):
             self.transfer._effective_dates(); self.transfer._effective_dates()
         self.assertEqual(self.calls, 1)
 
+    def test_cabinets_missing_at_early_startup_bind_after_import(self):
+        rewards = types.ModuleType('kulek_rewards')
+        rewards.month_payload = lambda: self.transfer._effective_dates()
+        with patch.dict(sys.modules, {'kulek_rewards':rewards,
+                'ege_admin_webapp':None,'ege_student_webapp':None}):
+            m.install()
+            rewards.month_payload()
+            admin = types.ModuleType('ege_admin_webapp')
+            student = types.ModuleType('ege_student_webapp')
+            admin._view = lambda name: [rewards.month_payload() for _ in range(13)]
+            student._payload = lambda uid: [rewards.month_payload() for _ in range(13)]
+            sys.modules['ege_admin_webapp'] = admin
+            sys.modules['ege_student_webapp'] = student
+            rewards.month_payload()  # first report after late imports binds views
+            before = self.calls
+            admin._view('home'); student._payload(1)
+            self.assertEqual(self.calls-before,2)
+
+    def test_partially_initialized_cabinet_does_not_block_startup(self):
+        rewards = types.ModuleType('kulek_rewards')
+        rewards.month_payload = lambda: self.transfer._effective_dates()
+        admin = types.ModuleType('ege_admin_webapp')
+        with patch.dict(sys.modules, {'kulek_rewards':rewards,
+                'ege_admin_webapp':admin,'ege_student_webapp':None}):
+            m.install()
+            admin._view = lambda name: [rewards.month_payload() for _ in range(13)]
+            rewards.month_payload()
+            before = self.calls
+            admin._view('home')
+            self.assertEqual(self.calls-before,1)
+
     def test_patch_scoped_and_idempotent(self):
         original = b'_INSTALLED = False\ndef install():\n    global _INSTALLED\n    _INSTALLED = True\n    print("ready")\n'
         updated = p.transform(original)

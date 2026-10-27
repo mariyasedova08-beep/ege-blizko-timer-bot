@@ -8,7 +8,7 @@ systemctl is-active --quiet ege-blizko
 setup_dir=$(mktemp -d /root/ege-cabinet-snapshot-setup.XXXXXX)
 trap 'rm -rf "$setup_dir"' EXIT
 curl -fsSL --max-time 30 "https://raw.githubusercontent.com/mariyasedova08-beep/ege-blizko-timer-bot/$1/deploy/install_cabinet_snapshot.py" -o "$setup_dir/helper"
-printf '%s  %s\n' 'f7235be4e17fb7d81dbe074db0c345e390a4cf8ce64848ba6006d6012985f824' "$setup_dir/helper" | sha256sum -c -
+printf '%s  %s\n' 'e5f9b7ad3c1ad8c5e96ca63e3601d74b4035818deb4941b8e2b8b4e58e8355bb' "$setup_dir/helper" | sha256sum -c -
 helper=/usr/local/sbin/ege-cabinet-snapshot-release
 rule=/etc/sudoers.d/ege-cabinet-snapshot-release
 cat > "$setup_dir/rule" <<'RULE'
@@ -21,7 +21,7 @@ if [[ -e "$helper" || -L "$helper" ]]; then
   current_helper_sha=$(sha256sum "$helper")
   current_helper_sha=${current_helper_sha%% *}
   case "$current_helper_sha" in
-    f7235be4e17fb7d81dbe074db0c345e390a4cf8ce64848ba6006d6012985f824) ;;
+    f7235be4e17fb7d81dbe074db0c345e390a4cf8ce64848ba6006d6012985f824|e5f9b7ad3c1ad8c5e96ca63e3601d74b4035818deb4941b8e2b8b4e58e8355bb) ;;
     *) printf '%s\n' 'UNREVIEWED_CABINET_HELPER'; exit 1 ;;
   esac
 fi
