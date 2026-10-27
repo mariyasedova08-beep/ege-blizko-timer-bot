@@ -5,7 +5,7 @@ on:
       - 'ege_november_theme.css'
       - 'ege_november_theme.js'
       - 'deploy/november_theme_patch.py'
-      - 'tests/test_november_theme_patch.py'
+      - 'tests/*november*'
       - '.github/workflows/november-theme-check.yml'
 permissions:
   contents: read
@@ -22,4 +22,5 @@ jobs:
         with:
           node-version: '22'
       - run: node --check ege_november_theme.js
-      - run: python -m unittest discover -s tests -p 'test_november_theme_patch.py' -v
+      - run: python -m unittest discover -s tests -p 'test_november*.py' -v
+      - run: node tests/november_theme_clock.test.js

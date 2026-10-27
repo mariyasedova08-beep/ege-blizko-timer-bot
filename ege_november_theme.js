@@ -4,6 +4,12 @@
  var source = document.currentScript;
  var role = source && source.getAttribute('data-cabinet-role');
  if (role !== 'teacher' && role !== 'student') return;
+ // 1 November 2026, 00:00 Europe/Moscow (UTC+03:00), independent of
+ // the browser's selected time zone. Until then the current skin is untouched.
+ var startsAt = Date.parse('2026-10-31T21:00:00Z');
+ var activated = false;
+ var clockTimer;
+ function activate() {
  if (document.body.getAttribute('data-ege-season') === 'november-2026') return;
  document.body.setAttribute('data-ege-season', 'november-2026');
  document.body.classList.add('ege-november');
@@ -54,4 +60,22 @@
  window.addEventListener('pagehide', function (event) {
   if (!event.persisted) observer.disconnect();
  });
+ }
+ function checkClock() {
+  if (activated) return;
+  if (clockTimer) window.clearTimeout(clockTimer);
+  var remaining = startsAt - Date.now();
+  if (remaining <= 0) {
+   activated = true;
+   document.removeEventListener('visibilitychange', checkClock);
+   window.removeEventListener('pageshow', checkClock);
+   activate();
+   return;
+  }
+  // Recheck clock adjustments and wake-ups; no network or server jobs.
+  clockTimer = window.setTimeout(checkClock, Math.min(remaining, 60000));
+ }
+ document.addEventListener('visibilitychange', checkClock);
+ window.addEventListener('pageshow', checkClock);
+ checkClock();
 }());
