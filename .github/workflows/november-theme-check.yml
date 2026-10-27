@@ -1,0 +1,25 @@
+name: ЕГЭ БЛИЗКО — проверка ноябрьской темы
+on:
+  pull_request:
+    paths:
+      - 'ege_november_theme.css'
+      - 'ege_november_theme.js'
+      - 'deploy/november_theme_patch.py'
+      - 'tests/test_november_theme_patch.py'
+      - '.github/workflows/november-theme-check.yml'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check ege_november_theme.js
+      - run: python -m unittest discover -s tests -p 'test_november_theme_patch.py' -v
