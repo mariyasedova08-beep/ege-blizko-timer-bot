@@ -8,7 +8,7 @@ systemctl is-active --quiet ege-blizko
 setup_dir=$(mktemp -d /root/ege-november-theme-setup.XXXXXX)
 trap 'rm -rf "$setup_dir"' EXIT
 curl -fsSL --max-time 30 "https://raw.githubusercontent.com/mariyasedova08-beep/ege-blizko-timer-bot/$1/deploy/install_november_theme.py" -o "$setup_dir/helper"
-printf '%s  %s\n' '93c617a0d40ff98c2c8d5d6887b4b8ccb8988db7ecc82bb40c4441fea1f92edb' "$setup_dir/helper" | sha256sum -c -
+printf '%s  %s\n' '48937dd5aa7db5974f1464e069941cb727dc95a81f8f742aaaeaba74917d2cda' "$setup_dir/helper" | sha256sum -c -
 helper=/usr/local/sbin/ege-november-theme-release
 rule=/etc/sudoers.d/ege-november-theme-release
 cat > "$setup_dir/rule" <<'RULE'
@@ -21,7 +21,7 @@ if [[ -e "$helper" || -L "$helper" ]]; then
   current_helper_sha=$(sha256sum "$helper")
   current_helper_sha=${current_helper_sha%% *}
   case "$current_helper_sha" in
-    93c617a0d40ff98c2c8d5d6887b4b8ccb8988db7ecc82bb40c4441fea1f92edb) ;;
+    48937dd5aa7db5974f1464e069941cb727dc95a81f8f742aaaeaba74917d2cda) ;;
     *) printf '%s\n' 'UNREVIEWED_NOVEMBER_HELPER'; exit 1 ;;
   esac
 fi

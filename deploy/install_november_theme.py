@@ -103,7 +103,7 @@ def credentials():
 
 
 def read_backups():
-    if not STATE.is_dir() or STATE.is_symlink() or STATE.stat().st_uid!=0 or stat.S_IMODE(STATE.stat().st_mode)&0o077:
+    if not STATE.is_dir() or STATE.is_symlink() or STATE.stat().st_uid!=os.geteuid() or stat.S_IMODE(STATE.stat().st_mode)&0o077:
         raise RuntimeError('BACKUP_DIRECTORY_UNVERIFIED')
     path = STATE/'metadata.json'; regular(path)
     records = json.loads(path.read_text())

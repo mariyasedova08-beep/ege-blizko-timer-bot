@@ -84,5 +84,10 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(i.JS,(ROOT/'ege_november_theme.js').read_text())
         self.assertEqual(i.PATCHER,(ROOT/'deploy/november_theme_patch.py').read_bytes())
 
+    def test_backup_owner_mismatch_is_rejected(self):
+        i.apply()
+        with patch.object(i.os,'geteuid',return_value=self.state.stat().st_uid+1):
+            with self.assertRaisesRegex(RuntimeError,'BACKUP_DIRECTORY'):i.read_backups()
+
 
 if __name__=='__main__':unittest.main()
