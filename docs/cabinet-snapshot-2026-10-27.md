@@ -25,7 +25,7 @@ queue are unchanged.
 
 ## Validation
 
-14 unit tests: nested and concurrent requests, immediate freshness, cleanup on
+16 unit tests: nested and concurrent requests, immediate freshness, cleanup on
 failure, lazy installation, idempotence, exact hook, authenticated release checks,
 source conflict refusal, permissions and rollback preserving new payments.
 Existing October tests must also pass. A local replay using the actual private
@@ -69,3 +69,18 @@ Production response time and student UI remain unverified until release. The
 snapshot removes the measured schedule-query amplification; unrelated expensive
 homework matching may require further profiling if authenticated checks fail.
 The helper automatically rolls back instead of relaxing API checks.
+
+## Recovery after the first protected release
+
+Run 40492951863 failed at startup: the initial module incorrectly required both
+cabinet modules to be imported during the October rewards hook. Journal showed
+CABINET_SNAPSHOT_REQUIRED_MODULE_MISSING; the release automatically restored the
+October exception without restoring the database. The corrected installer requires
+only the rewards module at that stage and binds optional cabinet read functions
+lazily when they are present. Two regressions cover absent and partially initialized
+cabinet modules. The v2 helper uses a new root-only backup directory
+`/var/lib/ege-cabinet-snapshot-20261027-v2`, preserving the first attempt's backup.
+It still requires the pinned restored October source and absence of the new module,
+and creates a fresh database backup. No retry reuses a stale database backup.
+Failure logs now include only stage and exception type before automatic rollback.
+The bootstrap accepts only the originally reviewed or corrected helper hash.

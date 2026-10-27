@@ -40,6 +40,16 @@ def _prepare():
         deadlines = sys.modules.get('homework_deadline_logic')
         if deadlines is not None:
             _memoize(deadlines, 'due_lesson_for_source')
+        # Cabinets may be imported after the October rewards hook. Bind their
+        # read entry points whenever they become available, without importing
+        # partially initialized application modules or blocking bot startup.
+        for module_name, function in (
+            ('ege_admin_webapp', '_view'),
+            ('ege_student_webapp', '_payload'),
+        ):
+            module = sys.modules.get(module_name)
+            if module is not None:
+                _scope(module, function)
 
 
 @contextmanager
@@ -69,13 +79,9 @@ def _scope(module, name):
 
 def install():
     with _lock:
-        for module_name, function in (
-            ('kulek_rewards', 'month_payload'),
-            ('ege_admin_webapp', '_view'),
-            ('ege_student_webapp', '_payload'),
-        ):
-            module = sys.modules.get(module_name)
-            if module is None or not callable(getattr(module, function, None)):
-                raise RuntimeError('CABINET_SNAPSHOT_REQUIRED_MODULE_MISSING')
-            _scope(module, function)
+        rewards = sys.modules.get('kulek_rewards')
+        if rewards is None or not callable(getattr(rewards, 'month_payload', None)):
+            raise RuntimeError('CABINET_SNAPSHOT_REWARDS_MODULE_MISSING')
+        _scope(rewards, 'month_payload')
+        _prepare()
     print('Cabinet schedule snapshot ready: request scoped; no persistent cache', flush=True)
