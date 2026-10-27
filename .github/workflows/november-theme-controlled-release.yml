@@ -1,0 +1,82 @@
+name: "ЕГЭ БЛИЗКО — включить ноябрьскую тему по дате"
+
+on:
+  pull_request:
+    paths:
+      - 'ege_november_theme.*'
+      - 'deploy/*november*'
+      - 'tests/*november*'
+      - '.github/workflows/november-theme-controlled-release.yml'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Установить автоматическое включение 1 ноября или откатить'
+        type: choice
+        required: true
+        options: [install, rollback]
+        default: install
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ege-blizko-controlled-application-release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: November date gate, HTML preservation and rollback tests
+        run: |
+          python -m py_compile deploy/november_theme_patch.py deploy/install_november_theme.py
+          bash -n deploy/bootstrap_november_theme.sh
+          python -m unittest discover -s tests -p 'test_november*.py' -v
+          node --check ege_november_theme.js
+          node tests/november_theme_clock.test.js
+
+  release:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.actor == 'mariyasedova08-beep'
+    needs: check
+    runs-on: ubuntu-latest
+    environment: ege-lab-production
+    timeout-minutes: 12
+    steps:
+      - name: Run only the preinstalled root-owned reviewed helper
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.TIMEWEB_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TIMEWEB_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.TIMEWEB_HOST }}
+          SSH_USER: ${{ secrets.TIMEWEB_USER }}
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$SSH_HOST" == "77.233.212.200" && "$SSH_USER" == "ege-deploy" ]]
+          [[ -n "$DEPLOY_KEY" && -n "$KNOWN_HOSTS" ]]
+          case "$OPERATION" in
+            install) command='sudo -n /usr/local/sbin/ege-november-theme-release EGE-NOVEMBER-THEME-20261101-REVIEWED' ;;
+            rollback) command='sudo -n /usr/local/sbin/ege-november-theme-release EGE-NOVEMBER-THEME-20261101-REVIEWED-ROLLBACK' ;;
+            *) exit 1 ;;
+          esac
+          umask 077
+          release_key="$RUNNER_TEMP/november-theme-release-key"
+          release_hosts="$RUNNER_TEMP/november-theme-release-known-hosts"
+          trap 'rm -f "$release_key" "$release_hosts"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$release_key"
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > "$release_hosts"
+          ssh-keygen -y -f "$release_key" >/dev/null
+          ssh-keygen -lf "$release_hosts" >/dev/null
+          ssh-keygen -F "$SSH_HOST" -f "$release_hosts" | awk 'NF >= 3 && $2 == "ssh-ed25519" {n++} END {exit n != 1}'
+          ssh -T -F /dev/null -o BatchMode=yes -o PasswordAuthentication=no \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$release_hosts" -o ConnectTimeout=10 \
+            -i "$release_key" "$SSH_USER@$SSH_HOST" "$command"

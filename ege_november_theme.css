@@ -1,0 +1,60 @@
+/* ЕГЭ БЛИЗКО · Ноябрь. Additive cabinet skin; no course logic. */
+body.ege-november{
+ --milk:#F8F5F2;--ink:#242025;--soft:#EEDFE6;--hot:#B63870;--pink:#B63870;
+ --paper:#FFFDFA;--line:#E5DADE;--muted:#71636C;--red:#B63758;
+ --shadow:0 8px 28px rgba(64,40,53,.045);
+ background:radial-gradient(ellipse at 8% 3%,#EDE2E8 0,transparent 38%),
+ linear-gradient(160deg,#F8F5F2,#F2EEED 85%);color:var(--ink);
+ background-attachment:fixed;
+}
+.ege-november .app{padding-top:24px}
+.ege-november .top{align-items:center;margin-bottom:19px}
+.ege-november h1,.ege-november .brand{font-weight:650;letter-spacing:-.04em}
+.ege-november .brand-pill{background:#E9DCE3;color:#715163;font-weight:650;letter-spacing:.1em;font-size:10px;border:1px solid #E0CDD7}
+.ege-november .logo,.ege-november .avatar{background:#F3EAF0;border:1px solid #E3D4DC;box-shadow:none}
+.ege-november .hero{background:linear-gradient(120deg,#FFFDFB,#F2E6ED);border-color:#DFCED7;box-shadow:none}
+.ege-november .hero-title,.ege-november .hero .hello{font-weight:650}
+.ege-november .hero .big{font-weight:650}
+.ege-november .progress{background:#E6D9E0;height:6px}
+.ege-november .progress i,.ege-november .progress>div{background:linear-gradient(90deg,#D9A6BF,#AE376A)}
+.ege-november .card,.ege-november .list,.ege-november .day-panel,.ege-november .action,
+.ege-november .statbox,.ege-november .student-card,.ege-november .analytics-card{
+ border-color:var(--line);box-shadow:0 4px 18px rgba(64,40,53,.025);
+}
+.ege-november .card.pink,.ege-november .day-panel.tomorrow{background:linear-gradient(125deg,#FFFDFA,#F3E9EE)}
+.ege-november .card .num,.ege-november .card b,.ege-november .statbox b{font-weight:650}
+.ege-november .card .label,.ege-november .section-title strong,.ege-november .row-title{font-weight:650}
+.ege-november .kulek,.ege-november .kulek-hero{background:linear-gradient(125deg,#F4EBEF,#E9D9E3);border-color:#DCC7D3;box-shadow:none}
+.ege-november .discount,.ege-november .probnik-summary{background:linear-gradient(125deg,#FFFDFB,#F4EBF0);border-color:var(--line);box-shadow:none}
+.ege-november .rank-hero{background:linear-gradient(120deg,#342C35,#55404D)}
+.ege-november .tabs{background:rgba(248,245,242,.97);border-top-color:#DFD1D8}
+.ege-november .tab.active{background:#EEDFE7;color:#8D2855}
+.ege-november button:focus-visible,.ege-november a:focus-visible{outline:2px solid #A33164;outline-offset:4px}
+.ege-november .november-banner{
+ position:relative;isolation:isolate;overflow:hidden;min-height:182px;
+ padding:24px 170px 24px 24px;margin:0 0 16px;border-radius:24px;
+ color:#332A32;background:linear-gradient(112deg,#F1E6EC 0%,#E8D8E2 62%,#DED0DB 100%);
+ border:1px solid #D8C3D0;box-shadow:inset 0 1px rgba(255,255,255,.8);
+}
+.ege-november .november-banner::after{
+ content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+ background:linear-gradient(170deg,rgba(255,255,255,.48),transparent 38%),
+ radial-gradient(ellipse at 100% 100%,rgba(255,255,255,.55),transparent 55%);
+}
+.ege-november .november-eyebrow{font-size:9px;font-weight:650;letter-spacing:.22em;text-transform:uppercase;color:#735668;margin-bottom:13px}
+.ege-november .november-title{font-size:31px;font-weight:550;line-height:1.08;letter-spacing:-.045em;margin:0;max-width:330px}
+.ege-november .november-title em{font-style:normal;color:#98436D}
+.ege-november .november-copy{font-size:12px;line-height:1.5;color:#6C5464;margin:12px 0 0;max-width:290px}
+.ege-november .november-art{position:absolute;right:0;bottom:0;height:100%;width:180px;pointer-events:none}
+.ege-november .november-label{position:absolute;right:17px;bottom:12px;font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#775D70}
+@media(max-width:480px){
+ .ege-november .app{padding-top:18px}
+ .ege-november .november-banner{min-height:190px;padding:22px 112px 22px 19px;border-radius:23px}
+ .ege-november .november-title{font-size:28px}
+ .ege-november .november-art{width:129px;right:-5px;height:92%}
+ .ege-november .november-copy{font-size:11px;max-width:215px}
+ .ege-november .november-eyebrow{font-size:8px;letter-spacing:.17em}
+ .ege-november .november-label{right:10px;font-size:7px}
+}
+@media(prefers-reduced-motion:reduce){.ege-november *{scroll-behavior:auto!important}}
+@media print{.ege-november .november-banner{display:none}}
