@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 FLAG = 'PROBNIK_PARENT_NOTIFY_ENABLED'
 SINCE = 'PROBNIK_PARENT_NOTIFY_SINCE'
+BACKFILL = 'PROBNIK_PARENT_OCTOBER_2026_BACKFILL'
 _running = False
 
 
@@ -95,13 +96,15 @@ async def _dispatch(context, since):
     import run_bot_live56 as live56
     db = live56.bot.COREAPP_DB_PATH
     students = live56._all_active_students()
+    backfill = int(os.getenv(BACKFILL, '').strip() == '1')
     with sqlite3.connect(db) as conn:
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if not {'probnik_result_notice_queue', 'probnik_results', 'parent_links'} <= tables:
             return
         ensure_tables(conn)
         sources = conn.execute('''SELECT fingerprint,student_name FROM probnik_result_notice_queue
-            WHERE created_at>=? AND status IN ('pending','sent','blocked')''', (since,)).fetchall()
+            WHERE (created_at>=? OR (?=1 AND event_name='ПРОБНИК №1' AND event_date='31.10.2026'))
+              AND status IN ('pending','sent','blocked')''', (since,backfill)).fetchall()
         for fingerprint, name in sources:
             student = live56.unique_probnik_student_match(name, students)
             if student is None:
@@ -113,8 +116,9 @@ async def _dispatch(context, since):
         pending = conn.execute('''SELECT q.id,q.student_id,q.parent_id,n.student_name,n.event_name,n.event_date
             FROM probnik_parent_notice_queue q JOIN probnik_result_notice_queue n
             ON n.fingerprint=q.source_fingerprint
-            WHERE q.status='pending' AND n.created_at>=?
-              AND n.status IN ('pending','sent','blocked') ORDER BY q.id LIMIT 30''', (since,)).fetchall()
+            WHERE q.status='pending'
+              AND (n.created_at>=? OR (?=1 AND n.event_name='ПРОБНИК №1' AND n.event_date='31.10.2026'))
+              AND n.status IN ('pending','sent','blocked') ORDER BY q.id LIMIT 30''', (since,backfill)).fetchall()
 
     for notice_id, sid, parent, name, event, day in pending:
         # Recheck identities and the current parent link just before sending.
