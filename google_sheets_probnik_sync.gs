@@ -2,6 +2,9 @@ const EGE_BOT_SYNC_URL = 'https://ege-blizko-timer-bot-production.up.railway.app
 const EGE_BOT_SYNC_SECRET = 'PASTE_SECRET_HERE';
 
 function syncProbnikResultsToBot() {
+  if (EGE_BOT_SYNC_SECRET === 'PASTE_SECRET_HERE' || !/^https:\/\//.test(EGE_BOT_SYNC_URL)) {
+    throw new Error('Синхронизация выключена: сначала проверь адрес сервера и секрет.');
+  }
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheets = ss.getSheets();
   const payload = {
@@ -98,9 +101,45 @@ function syncProbnikResultsToBot() {
   );
 }
 
+// Safe inspection: reads this spreadsheet only; no request and no Telegram messages.
+function previewProbnikPublication() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const isEge = /ЕГЭ/i.test(ss.getName());
+  let ready = 0, drafts = 0, withoutStatus = 0, missingScore = 0;
+  ss.getSheets().forEach(sheet => {
+    if (String(sheet.getName()).trim().toUpperCase() === 'СТАТИСТИКА') return;
+    const rows = sheet.getDataRange().getDisplayValues();
+    if (rows.length < 2) return;
+    const headers = rows[0].map(v => String(v || '').trim());
+    const statusCol = findHeader(headers, ['СТАТУС']);
+    const primaryCol = findHeader(headers, ['ПЕРВИЧНЫЙ БАЛЛ']);
+    const secondaryCol = findHeader(headers, ['ВТОРИЧНЫЙ БАЛЛ']);
+    if (isEge && statusCol < 0) { withoutStatus++; return; }
+    for (let i = 1; i < rows.length; i++) {
+      const status = statusCol >= 0 ? String(rows[i][statusCol] || '').trim().toLowerCase() : 'legacy';
+      if (status !== 'опубликовано') { drafts++; continue; }
+      if ((primaryCol < 0 || !String(rows[i][primaryCol] || '').trim()) &&
+          (secondaryCol < 0 || !String(rows[i][secondaryCol] || '').trim())) {
+        missingScore++; continue;
+      }
+      ready++;
+    }
+  });
+  SpreadsheetApp.getUi().alert(
+    'ЕГЭ БЛИЗКО — предпросмотр (без отправки)',
+    'Готовы к публикации: ' + ready +
+    '\\nЧерновики/не проверено: ' + drafts +
+    '\\nЛистов без статуса: ' + withoutStatus +
+    '\\nОпубликовано без баллов: ' + missingScore +
+    '\\n\\nНичего не отправлено.',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+}
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('ЕГЭ БЛИЗКО')
+    .addItem('Проверить публикацию (без отправки)', 'previewProbnikPublication')
     .addItem('Синхронизировать результаты', 'syncProbnikResultsToBot')
     .addToUi();
 }
