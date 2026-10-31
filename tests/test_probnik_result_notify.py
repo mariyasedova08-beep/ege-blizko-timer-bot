@@ -13,12 +13,10 @@ class ProbnikResultNotificationQueueTests(unittest.TestCase):
     def tearDown(self):
         self.conn.close()
 
-    def push(self, old_primary=None, old_secondary=None,
-             new_primary=25, new_secondary=72):
-        return notice.queue_score_change(
+    def push(self, new_primary=25, new_secondary=72):
+        return notice.queue_publication(
             self.conn, student_name="Тестовый ученик",
             event_name="Пробник", event_date="31.10.2026",
-            old_primary=old_primary, old_secondary=old_secondary,
             new_primary=new_primary, new_secondary=new_secondary,
         )
 
@@ -42,15 +40,10 @@ class ProbnikResultNotificationQueueTests(unittest.TestCase):
             self.assertFalse(self.push())
         self.assertEqual(self.count(), 1)
 
-    def test_unchanged_score_not_queued(self):
+    def test_repeat_and_score_correction_never_duplicate(self):
         with patch.dict(os.environ, {notice.ENV_FLAG: "1"}):
-            self.assertFalse(self.push(old_primary=25, old_secondary=72))
-        self.assertEqual(self.count(), 0)
-
-    def test_score_change_queued(self):
-        with patch.dict(os.environ, {notice.ENV_FLAG: "1"}):
-            self.assertTrue(self.push(old_primary=25, old_secondary=72,
-                                      new_primary=26, new_secondary=74))
+            self.assertTrue(self.push())
+            self.assertFalse(self.push(new_primary=27, new_secondary=77))
         self.assertEqual(self.count(), 1)
 
     def test_tasks_only_without_score_not_queued(self):
