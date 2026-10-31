@@ -73,6 +73,25 @@ def install_file(path, content, metadata):
         if os.path.exists(name):
             os.unlink(name)
 
+def wait_for_health(timeout=600):
+    deadline = time.monotonic() + timeout
+    next_report = 0
+    while time.monotonic() < deadline:
+        require(subprocess.run(['systemctl', 'is-active', '--quiet', 'ege-blizko.service']).returncode == 0, 'Service failed during startup')
+        try:
+            with urlopen('http://127.0.0.1:8080/health', timeout=3) as response:
+                if response.status == 200 and json.load(response).get('ok') is True:
+                    return
+        except (OSError, ValueError):
+            pass
+        now = time.monotonic()
+        if now >= next_report:
+            print('WAITING_FOR_HTTP: service active; startup in progress', flush=True)
+            next_report = now + 15
+        time.sleep(2)
+    raise RuntimeError('HTTP startup deadline exceeded; restore original files')
+
+
 def main():
     require(os.geteuid() == 0, 'Run as root')
     require(BACKUP.is_dir(), 'Verified backup not found')
@@ -82,7 +101,10 @@ def main():
     require('PROBNIK_RESULT_NOTIFY_ENABLED=1' not in shlex.split(service_env), 'Service enables notifications; stop')
     require(subprocess.run(['systemctl', 'is-active', '--quiet', 'ege-blizko.service']).returncode == 0, 'Bot is not active')
     old = {name: (ROOT / name).read_bytes() if (ROOT / name).exists() else None for name in NAMES}
-    require(old['probnik_result_notify.py'] is None, 'Existing notification module needs separate review')
+    if old['probnik_result_notify.py'] is not None:
+        existing = old['probnik_result_notify.py']
+        blob = b'blob ' + str(len(existing)).encode() + b'\0' + existing
+        require(hashlib.sha1(blob).hexdigest() == 'aeea548ef21b6c22b2f8aaacd7d34d5f50b8bee6', 'Existing notification module differs; inspect first')
     for name in NAMES[:2]:
         require((BACKUP / name).is_file() and old[name] == (BACKUP / name).read_bytes(), 'Live source differs from verified backup; stop')
     with sqlite3.connect((BACKUP / 'database.sqlite3').as_uri() + '?mode=ro', uri=True) as c:
@@ -129,15 +151,7 @@ print("ROLLBACK_FILES_RESTORED; database not changed")
             touched.append(name)
             install_file(ROOT / name, staged[name], metadata[name])
         subprocess.run(['systemctl', 'restart', 'ege-blizko.service'], check=True, timeout=60)
-        for _ in range(5):
-            time.sleep(2)
-            require(subprocess.run(['systemctl', 'is-active', '--quiet', 'ege-blizko.service']).returncode == 0, 'Service failed after restart')
-        from urllib.error import HTTPError
-        try:
-            with urlopen('http://127.0.0.1:8080/health', timeout=10) as response:
-                require(json.load(response).get('ok') is True, 'Health response failed')
-        except HTTPError:
-            raise RuntimeError('Health endpoint failed')
+        wait_for_health()
         # Configuration on disk remains unchanged; no queue is activated.
         require(json.loads((ROOT / 'runtime-vars.json').read_text()) == cfg, 'Configuration changed unexpectedly')
     except BaseException:
@@ -145,7 +159,13 @@ print("ROLLBACK_FILES_RESTORED; database not changed")
             if old[name] is not None:
                 install_file(ROOT / name, old[name], metadata[name])
         subprocess.run(['systemctl', 'restart', 'ege-blizko.service'], timeout=60, check=False)
-        print('ROLLBACK_APPLIED: original integration files restored; database untouched')
+        print('ROLLBACK_FILES_RESTORED: checking HTTP recovery', flush=True)
+        try:
+            wait_for_health()
+        except Exception:
+            print('ROLLBACK_HTTP_NOT_READY: original files restored; service needs investigation', flush=True)
+            raise
+        print('ROLLBACK_VERIFIED: original integration files restored; health OK; database untouched')
         raise
     print('INSTALLED_DISABLED: 3 files only; service active; health OK; no student messages enabled')
     print('Rollback:', rollback)
