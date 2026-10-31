@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from telegram.ext import PollAnswerHandler
 
 import run_bot_live23
+import probnik_result_notify as probnik_notice
 
 live23 = run_bot_live23
 live22 = live23.live22
@@ -443,6 +444,7 @@ def main():
         time=datetime.strptime("09:30", "%H:%M").time().replace(tzinfo=bot.TIMEZONE),
         days=(6,),
     )
+    application.job_queue.run_repeating(probnik_notice.dispatch_pending, interval=60, first=25)
     application.job_queue.run_repeating(live6.tutor_reminder_tick, interval=30, first=10)
     application.job_queue.run_repeating(live7.friday_trivial_tick, interval=30, first=15)
 
