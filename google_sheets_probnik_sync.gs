@@ -40,8 +40,11 @@ function syncProbnikResultsToBot() {
       if (!eventName || !eventDate) continue;
       const publicationStatus = statusCol >= 0 ? String(row[statusCol] || '').trim().toLowerCase() : '';
       // Status-aware EGE sheets publish only explicitly approved rows.
-      // Legacy sheets without a status column retain their existing behavior.
-      if (statusCol >= 0 && publicationStatus !== 'опубликовано') continue;
+      // ЕГЭ must fail closed: missing status is NOT permission to publish.
+      // Legacy OГЭ spreadsheets without status retain historical behavior.
+      const isEge = /ЕГЭ/i.test(ss.getName());
+      if (isEge && (statusCol < 0 || publicationStatus !== 'опубликовано')) continue;
+      if (!isEge && statusCol >= 0 && publicationStatus !== 'опубликовано') continue;
 
       const tasks = {};
       Object.keys(taskCols).forEach(task => {
