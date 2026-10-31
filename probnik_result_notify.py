@@ -32,22 +32,18 @@ def ensure_tables(conn):
     """)
 
 
-def queue_score_change(conn, *, student_name, event_name, event_date,
-                       old_primary, old_secondary, new_primary, new_secondary):
-    """Queue only new/changed scored results, never an identical re-sync.
+def queue_publication(conn, *, student_name, event_name, event_date,
+                      new_primary, new_secondary):
+    """Send at most one notice per published student/event, irrespective of edits.
 
-    Called inside the same transaction as the probnik result UPSERT.
+    Only the publication transition coming from status-aware sheets may queue.
     """
-    if not enabled():
-        return False
-    if new_primary is None and new_secondary is None:
-        return False
-    if old_primary == new_primary and old_secondary == new_secondary:
+    if not enabled() or (new_primary is None and new_secondary is None):
         return False
     ensure_tables(conn)
-    data = [student_name, event_name, event_date, new_primary, new_secondary]
     fingerprint = hashlib.sha256(
-        json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        json.dumps([student_name, event_name, event_date],
+                   ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     cur = conn.execute("""
         INSERT OR IGNORE INTO probnik_result_notice_queue
