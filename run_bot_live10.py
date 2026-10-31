@@ -88,14 +88,11 @@ def save_probnik_sync(payload):
                 secondary = _num(result.get("secondary_score"))
                 if primary is None and secondary is None and not any(v not in (None, "") for v in tasks.values()):
                     continue
-                previous = conn.execute(
-                    """
-                    SELECT primary_score, secondary_score
-                    FROM probnik_results
-                    WHERE student_name = ? AND event_name = ? AND event_date = ?
-                    """,
-                    (student_name, event_name, event_date),
-                ).fetchone()
+                # Only status-approved rows can enter a status-aware publication.
+                # Legacy sheets remain readable but never trigger new notifications.
+                publication_status = str(result.get("publication_status") or "legacy").strip().lower()
+                if publication_status not in {"опубликовано", "legacy"}:
+                    continue
                 conn.execute(
                     """
                     INSERT INTO probnik_results (
@@ -120,13 +117,12 @@ def save_probnik_sync(payload):
                         now,
                     ),
                 )
-                probnik_notice.queue_score_change(
-                    conn, student_name=student_name, event_name=event_name,
-                    event_date=event_date,
-                    old_primary=previous[0] if previous else None,
-                    old_secondary=previous[1] if previous else None,
-                    new_primary=primary, new_secondary=secondary,
-                )
+                if publication_status == "опубликовано":
+                    probnik_notice.queue_publication(
+                        conn, student_name=student_name, event_name=event_name,
+                        event_date=event_date,
+                        new_primary=primary, new_secondary=secondary,
+                    )
                 rows_saved += 1
                 students.add(student_name)
 
