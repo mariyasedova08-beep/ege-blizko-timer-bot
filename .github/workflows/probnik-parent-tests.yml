@@ -1,0 +1,19 @@
+name: Probnik parent isolated tests
+on:
+  pull_request:
+    paths:
+      - 'probnik*notify.py'
+      - 'tests/test_probnik*notify.py'
+      - '.github/workflows/probnik-parent-tests.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_probnik*notify.py' -v
+      - run: python -m py_compile probnik_parent_notify.py probnik_result_notify.py

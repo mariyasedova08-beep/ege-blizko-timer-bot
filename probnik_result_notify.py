@@ -67,6 +67,12 @@ async def dispatch_pending(context):
     _dispatch_running = True
     try:
         await _dispatch_pending(context)
+        if os.getenv("PROBNIK_PARENT_NOTIFY_ENABLED", "").strip() == "1":
+            try:
+                import probnik_parent_notify
+                await probnik_parent_notify.dispatch_pending(context)
+            except Exception as exc:
+                print("Probnik parent dispatch failed:", type(exc).__name__, flush=True)
     finally:
         _dispatch_running = False
 
