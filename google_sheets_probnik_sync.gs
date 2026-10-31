@@ -23,6 +23,7 @@ function syncProbnikResultsToBot() {
     const dateCol = findHeader(headers, ['ДАТА']);
     const primaryCol = findHeader(headers, ['ПЕРВИЧНЫЙ БАЛЛ']);
     const secondaryCol = findHeader(headers, ['ВТОРИЧНЫЙ БАЛЛ']);
+    const statusCol = findHeader(headers, ['СТАТУС']);
     if (eventCol < 0 || dateCol < 0) return;
 
     const taskCols = {};
@@ -37,6 +38,10 @@ function syncProbnikResultsToBot() {
       const eventName = String(row[eventCol] || '').trim();
       const eventDate = String(row[dateCol] || '').trim();
       if (!eventName || !eventDate) continue;
+      const publicationStatus = statusCol >= 0 ? String(row[statusCol] || '').trim().toLowerCase() : '';
+      // Status-aware EGE sheets publish only explicitly approved rows.
+      // Legacy sheets without a status column retain their existing behavior.
+      if (statusCol >= 0 && publicationStatus !== 'опубликовано') continue;
 
       const tasks = {};
       Object.keys(taskCols).forEach(task => {
@@ -54,6 +59,7 @@ function syncProbnikResultsToBot() {
         event_date: eventDate,
         primary_score: primaryScore,
         secondary_score: secondaryScore,
+        publication_status: statusCol >= 0 ? 'опубликовано' : 'legacy',
         tasks: tasks
       });
     }
