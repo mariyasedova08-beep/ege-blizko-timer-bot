@@ -13,7 +13,7 @@ class ParentNoticeTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.db = self.tmp.name+'/test.db'
-        self.env = patch.dict(os.environ, {parents.FLAG:'1',parents.SINCE:'2026-10-31T00:00:00+00:00',students.ENV_FLAG:'1'})
+        self.env = patch.dict(os.environ, {parents.FLAG:'1',parents.BACKFILL:'0',parents.SINCE:'2026-10-31T00:00:00+00:00',students.ENV_FLAG:'1'})
         self.env.start()
         self.student = (1, 'TEST', '', '', '', None)
         self.live = types.ModuleType('run_bot_live56')
@@ -106,4 +106,29 @@ class ParentNoticeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_student_flag_off_prevents_parent_delivery(self):
         with patch.dict(os.environ,{students.ENV_FLAG:'0'}):await parents.dispatch_pending(self.ctx)
+        self.send.assert_not_awaited()
+
+    async def test_explicit_october_backfill_once(self):
+        with sqlite3.connect(self.db) as c:
+            c.execute("UPDATE probnik_result_notice_queue SET event_name='ПРОБНИК №1',created_at='2026-10-30T00:00:00+00:00'")
+            c.execute("UPDATE probnik_results SET event_name='ПРОБНИК №1'")
+        with patch.dict(os.environ,{parents.BACKFILL:'1'}):
+            await parents.dispatch_pending(self.ctx)
+            await parents.dispatch_pending(self.ctx)
+        self.assertEqual(self.send.await_count,2)
+
+    async def test_backfill_never_sends_entrance_exam(self):
+        with sqlite3.connect(self.db) as c:
+            c.execute("UPDATE probnik_result_notice_queue SET event_name='Входной пробник',event_date='02.09.2026',created_at='2026-10-30T00:00:00+00:00'")
+            c.execute("UPDATE probnik_results SET event_name='Входной пробник',event_date='02.09.2026'")
+        with patch.dict(os.environ,{parents.BACKFILL:'1'}):
+            await parents.dispatch_pending(self.ctx)
+        self.send.assert_not_awaited()
+
+    async def test_backfill_requires_publication_queue_evidence(self):
+        with sqlite3.connect(self.db) as c:
+            c.execute("DELETE FROM probnik_result_notice_queue")
+            c.execute("UPDATE probnik_results SET event_name='ПРОБНИК №1'")
+        with patch.dict(os.environ,{parents.BACKFILL:'1'}):
+            await parents.dispatch_pending(self.ctx)
         self.send.assert_not_awaited()
