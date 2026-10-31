@@ -21,6 +21,7 @@ class ProbnikResultNotificationQueueTests(unittest.TestCase):
         )
 
     def count(self):
+        notice.ensure_tables(self.conn)
         return self.conn.execute(
             "SELECT COUNT(*) FROM probnik_result_notice_queue"
         ).fetchone()[0]
