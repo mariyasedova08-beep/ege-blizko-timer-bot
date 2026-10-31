@@ -10,6 +10,7 @@ import sqlite3
 from datetime import datetime, timezone
 
 ENV_FLAG = "PROBNIK_RESULT_NOTIFY_ENABLED"
+_dispatch_running = False
 
 
 def enabled():
@@ -55,6 +56,22 @@ def queue_publication(conn, *, student_name, event_name, event_date,
 
 
 async def dispatch_pending(context):
+    """Prevent overlapping delivery ticks in this bot process.
+
+    This is a single-process guard, not a cross-process delivery guarantee.
+    """
+    global _dispatch_running
+    if not enabled() or _dispatch_running:
+        return
+    # No await between checking and setting: atomic within the bot event loop.
+    _dispatch_running = True
+    try:
+        await _dispatch_pending(context)
+    finally:
+        _dispatch_running = False
+
+
+async def _dispatch_pending(context):
     """Deliver only to an unambiguously matched, Telegram-linked student."""
     if not enabled():
         return
@@ -102,3 +119,4 @@ async def dispatch_pending(context):
                 WHERE id = ? AND status = 'pending'
             """, (status, reason, status, datetime.now(timezone.utc).isoformat(), notice_id))
             conn.commit()
+
