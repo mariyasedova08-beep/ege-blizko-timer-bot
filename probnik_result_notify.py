@@ -73,6 +73,12 @@ async def dispatch_pending(context):
                 await probnik_parent_notify.dispatch_pending(context)
             except Exception as exc:
                 print("Probnik parent dispatch failed:", type(exc).__name__, flush=True)
+        if os.getenv("INDIVIDUAL_PROBNIK_ENABLED", "").strip() == "1":
+            try:
+                import individual_probnik
+                await individual_probnik.dispatch_pending(context)
+            except Exception as exc:
+                print("Individual probnik dispatch failed:", type(exc).__name__, flush=True)
     finally:
         _dispatch_running = False
 
@@ -125,4 +131,5 @@ async def _dispatch_pending(context):
                 WHERE id = ? AND status = 'pending'
             """, (status, reason, status, datetime.now(timezone.utc).isoformat(), notice_id))
             conn.commit()
+
 
