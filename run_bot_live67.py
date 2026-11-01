@@ -395,6 +395,10 @@ async def text_router_with_individuals(update, context):
 live7.student_text_router = text_router_with_individuals
 
 
+import sys as _individual_sys
+import individual_probnik as _individual_probnik
+_individual_probnik.install(_individual_sys.modules[__name__])
+
 if __name__ == "__main__":
     live59.ensure_coreapp_webhook_audit_table()
     live31.live25.ensure_lesson_day_before_table()
@@ -431,3 +435,4 @@ if __name__ == "__main__":
     print("Safe /test oxides route ready", flush=True)
     print("CoreApp live sync receiver v2 ready", flush=True)
     live24.main()
+
