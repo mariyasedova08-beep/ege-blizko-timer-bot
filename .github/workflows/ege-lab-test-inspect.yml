@@ -22,7 +22,8 @@ jobs:
           umask 077
           key_file=$(mktemp)
           hosts_file=$(mktemp)
-          trap 'rm -f "$key_file" "$hosts_file"' EXIT
+          report_file=$(mktemp)
+          trap 'rm -f "$key_file" "$hosts_file" "$report_file"' EXIT
           printf '%s\n' "$INSPECT_KEY" | tr -d '\r' > "$key_file"
           printf '%s\n' "$PINNED_HOST" | tr -d '\r' | awk 'NF {print $0}' > "$hosts_file"
           ssh-keygen -y -P '' -f "$key_file" >/dev/null
@@ -36,4 +37,22 @@ jobs:
           ssh -T -F /dev/null -o BatchMode=yes -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$hosts_file" \
             -o PasswordAuthentication=no -o ConnectTimeout=10 \
-            -i "$key_file" ege-lab-inspect@77.233.212.200 lab-test-status-v1
+            -i "$key_file" ege-lab-inspect@77.233.212.200 lab-test-status-v1 > "$report_file"
+          python3 - "$report_file" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1]))
+          sandbox = report.get('sandbox_8768', {})
+          expected = {
+              'build': '286a6a6a3cff7105',
+              'bundle_sha256': '669d611d1c1eea7a15e0824da5fe1ed4395f363b0b68bed752feb14e5cd63800',
+              'html_sha256': '661682307a9a504fac65138750182ba528770d366ef840f45510f8af0b01c1da',
+              'payload_sha256': '0f18bc770591c85007c1412e64098db0b11793ffe598e083f0de1f252d2648cd',
+          }
+          if sandbox.get('ok') is not True or sandbox.get('sandbox') is not True:
+              raise SystemExit('SANDBOX_NOT_READY')
+          for key, value in expected.items():
+              if sandbox.get(key) != value:
+                  raise SystemExit('SANDBOX_BUILD_MISMATCH: ' + key)
+          print('SANDBOX_REMOTE_HASHES_VERIFIED')
+          print(json.dumps({'build': sandbox['build'], 'coverage': sandbox.get('coverage')}, sort_keys=True))
+          PY
