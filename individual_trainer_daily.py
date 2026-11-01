@@ -256,7 +256,10 @@ def _individual_detail_text(row):
 
 
 def _individual_detail_markup(student_id, telegram_id):
+    import os
     rows = []
+    if str(os.getenv("INDIVIDUAL_PROBNIK_ENABLED", "")).strip() == "1":
+        rows.append([InlineKeyboardButton("📝 Пробники", callback_data=f"cab:individual:probnik:{int(student_id)}")])
     if telegram_id:
         rows.append([InlineKeyboardButton("📊 Статистика тренажёров", callback_data=f"cab:individual:stats:{int(student_id)}")])
         rows.append([InlineKeyboardButton("🧪 Отправить тренажёры сейчас", callback_data=f"cab:individual:send:{int(student_id)}")])
@@ -397,3 +400,4 @@ def install():
     _INSTALLED = True
     print("Individual daily trainer reminders ready: every day 16:00", flush=True)
     print("Individual trainer admin statistics ready", flush=True)
+
