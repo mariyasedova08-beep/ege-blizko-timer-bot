@@ -22,4 +22,4 @@ jobs:
       - run: python tests/prepare_lab_review_fixture.py
       - run: npm install --no-save --no-package-lock playwright@1.56.1 pdf-lib@1.17.1 pdfjs-dist@4.10.38
       - run: npx playwright install --with-deps chromium
-      - run: node tests/check_lab_review_browser.cjs
+      - run: python tests/run_lab_sandbox_browser.py

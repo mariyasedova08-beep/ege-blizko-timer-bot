@@ -4,7 +4,7 @@ const {chromium}=require('playwright');
 const {PDFDocument}=require('pdf-lib');
 const path=require('node:path');
 const root=path.dirname(require.resolve('pdfjs-dist/package.json'));
-const url='https://isolated-lab.invalid/lab-app';
+const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
 (async()=>{
  const browser=await chromium.launch({headless:true,...(process.env.LAB_CHROMIUM_PATH?{executablePath:process.env.LAB_CHROMIUM_PATH,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']}: {})});
  try{
@@ -13,6 +13,7 @@ const url='https://isolated-lab.invalid/lab-app';
    const errors=[];page.on('pageerror',e=>errors.push(String(e)));
    await page.route('**/*',route=>{
     const u=route.request().url();
+    if(process.env.LAB_SANDBOX_URL&&(u===url||u===url+'/api'))return route.continue();
     if(u===url)return route.fulfill({contentType:'text/html',body:fs.readFileSync('lab-visual-preview/review.html','utf8')});
     if(u===url+'/api')return route.fulfill({contentType:'application/json',body:fs.readFileSync('lab-visual-preview/review.json','utf8')});
     if(u.includes('telegram-web-app'))return route.fulfill({contentType:'text/javascript',body:'window.Telegram={WebApp:{ready(){},expand(){},initData:"",initDataUnsafe:{}}}'});
