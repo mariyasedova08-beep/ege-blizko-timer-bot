@@ -144,14 +144,16 @@ def main():
     ssh_dir = HOME / '.ssh'
     if ssh_dir.is_symlink():
         raise SystemExit('SSH_DIRECTORY_IS_SYMLINK')
-    ssh_dir.mkdir(mode=0o700, exist_ok=True)
+    # sshd reads authorized_keys as the login UID; root ownership prevents
+    # replacement, while public-read permissions permit key authentication.
+    ssh_dir.mkdir(mode=0o755, exist_ok=True)
     os.chown(ssh_dir, 0, 0)
-    os.chmod(ssh_dir, 0o700)
+    os.chmod(ssh_dir, 0o755)
     LIBEXEC.mkdir(mode=0o755, exist_ok=True)
     install_new(INSPECTOR, INSPECTOR_SOURCE, 0o755)
     install_new(ENTRY, ENTRY_SOURCE, 0o755)
     install_new(SUDOERS, SUDOERS_SOURCE, 0o440)
-    install_new(ssh_dir / 'authorized_keys', authorized, 0o600)
+    install_new(ssh_dir / 'authorized_keys', authorized, 0o644)
     # Execute precisely the permitted diagnostic as its restricted run-as user.
     checked(['sudo', '-n', '-u', USER, 'env', 'SSH_ORIGINAL_COMMAND=lab-test-status-v1', str(ENTRY)])
     print('LAB_TEST_READONLY_ACCESS_INSTALLED')
