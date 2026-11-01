@@ -23,11 +23,16 @@ jobs:
           key_file=$(mktemp)
           hosts_file=$(mktemp)
           trap 'rm -f "$key_file" "$hosts_file"' EXIT
-          printf '%s\n' "$INSPECT_KEY" > "$key_file"
-          printf '%s\n' "$PINNED_HOST" > "$hosts_file"
+          printf '%s\n' "$INSPECT_KEY" | tr -d '\r' > "$key_file"
+          printf '%s\n' "$PINNED_HOST" | tr -d '\r' | awk 'NF {print $0}' > "$hosts_file"
           ssh-keygen -y -P '' -f "$key_file" >/dev/null
-          awk 'NF != 3 || $1 != "77.233.212.200" || $2 != "ssh-ed25519" {bad=1} END {exit bad || NR != 1}' "$hosts_file"
+          printf 'PRIVATE_KEY_FORMAT_OK\n'
+          if ! awk 'NF != 3 || $1 != "77.233.212.200" || $2 != "ssh-ed25519" {bad=1} END {exit bad || NR != 1}' "$hosts_file"; then
+            printf 'LAB_TEST_KNOWN_HOSTS_FORMAT_INVALID: expected one host-key line, without console prompt or command text\n' >&2
+            exit 1
+          fi
           ssh-keygen -lf "$hosts_file" >/dev/null
+          printf 'PINNED_HOST_KEY_FORMAT_OK\n'
           ssh -T -F /dev/null -o BatchMode=yes -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$hosts_file" \
             -o PasswordAuthentication=no -o ConnectTimeout=10 \
