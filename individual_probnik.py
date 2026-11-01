@@ -177,7 +177,8 @@ def install(live):
     _live=live
     live._individual_probnik_installed=True
     live.INDIVIDUAL_KEYBOARD=ReplyKeyboardMarkup([['🧪 Тренажёры'],[BUTTON]],resize_keyboard=True)
-    previous_sync=live.live10.save_probnik_sync
+    sync_owner=live.live24.live10
+    previous_sync=sync_owner.save_probnik_sync
     def sync(payload):
         with sqlite3.connect(live.bot.COREAPP_DB_PATH) as conn:
             individuals=conn.execute('SELECT id,display_name,telegram_user_id FROM individual_students WHERE active=1').fetchall()
@@ -191,7 +192,7 @@ def install(live):
                 conn.execute('UPDATE probnik_sync_status SET last_rows=?,last_students=? WHERE id=1',(rows+added,students+individuals_count))
             return rows+added,students+individuals_count
         return rows,students
-    live.live10.save_probnik_sync=sync
+    sync_owner.save_probnik_sync=sync
     previous_start=live.live7.start_router
     previous_text=live.live7.student_text_router
     async def home(message,context,row):
@@ -206,7 +207,7 @@ def install(live):
             row=live._individual_by_telegram(update.effective_user.id)
             if row:
                 with sqlite3.connect(live.bot.COREAPP_DB_PATH) as conn:response=results_text(conn,int(row[0]))
-                return await update.effective_message.reply_text(response,reply_markup=live.INDIVIDUAL_KEYBOARD)
+                return await update.effective_message.reply_text(response,reply_markup=live.INDIVIDUAL_KEYBOARD,parse_mode=None)
         return await previous_text(update,context)
     live.live7.start_router=start
     live.live7.student_text_router=text
@@ -224,7 +225,7 @@ def install(live):
                 if row:
                     with sqlite3.connect(live.bot.COREAPP_DB_PATH) as conn:response=results_text(conn,int(row[0]))
                     await q.answer()
-                    return await q.message.reply_text(response)
+                    return await q.message.reply_text(response,parse_mode=None)
             if len(parts)==3 and parts[:2]==['cab','individual'] and parts[2].isdigit():
                 row=live._individual_by_id(int(parts[2]))
                 if row:
