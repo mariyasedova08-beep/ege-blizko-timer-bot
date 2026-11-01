@@ -1,0 +1,25 @@
+name: Isolated lab review — no deploy
+on:
+  push:
+    branches: ['feature/lab-review-board-*']
+  pull_request:
+    branches: ['release/lab-two-modes-20261025-reviewed']
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m unittest discover -s tests -p 'test_lab*.py' -v
+      - run: python tests/prepare_lab_review_fixture.py
+      - run: npm install --no-save --no-package-lock playwright@1.56.1 pdf-lib@1.17.1 pdfjs-dist@4.10.38
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/check_lab_review_browser.cjs

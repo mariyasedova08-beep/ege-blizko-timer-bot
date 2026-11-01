@@ -1,0 +1,123 @@
+// All HTTP routes are fixtures. No Telegram, VPS, databases or production access.
+const fs=require('node:fs'), assert=require('node:assert/strict');
+const {chromium}=require('playwright');
+const {PDFDocument}=require('pdf-lib');
+const path=require('node:path');
+const root=path.dirname(require.resolve('pdfjs-dist/package.json'));
+const url='https://isolated-lab.invalid/lab-app';
+(async()=>{
+ const browser=await chromium.launch({headless:true,...(process.env.LAB_CHROMIUM_PATH?{executablePath:process.env.LAB_CHROMIUM_PATH,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']}: {})});
+ try{
+  for(const size of [{width:1440,height:1000},{width:820,height:1180}]){
+   const page=await browser.newPage({viewport:size,acceptDownloads:true});
+   const errors=[];page.on('pageerror',e=>errors.push(String(e)));
+   await page.route('**/*',route=>{
+    const u=route.request().url();
+    if(u===url)return route.fulfill({contentType:'text/html',body:fs.readFileSync('lab-visual-preview/review.html','utf8')});
+    if(u===url+'/api')return route.fulfill({contentType:'application/json',body:fs.readFileSync('lab-visual-preview/review.json','utf8')});
+    if(u.includes('telegram-web-app'))return route.fulfill({contentType:'text/javascript',body:'window.Telegram={WebApp:{ready(){},expand(){},initData:"",initDataUnsafe:{}}}'});
+    const file=u.includes('pdf.worker.min.mjs')?path.join(root,'build/pdf.worker.min.mjs'):
+     u.includes('pdf.min.mjs')?path.join(root,'build/pdf.min.mjs'):
+     u.includes('pdf-lib.min.js')?path.join(path.dirname(require.resolve('pdf-lib/package.json')),'dist/pdf-lib.min.js'):null;
+    if(file)return route.fulfill({contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:fs.readFileSync(file)});
+    return route.abort();
+   });
+   await page.goto(url);
+   await page.waitForFunction(()=>lessonReady);
+   await page.locator('[data-page="lesson"]').click();
+   // Actual chemistry and separate tubes.
+   await page.evaluate(()=>{lessonSetReagent('a','nahco3');lessonSetReagent('b','koh');lessonConductStep()});
+   await page.waitForFunction(()=>document.getElementById('lessonReaction').textContent.includes('Na₂CO₃ + K₂CO₃'));
+   await page.evaluate(()=>lessonSelectTube(1));
+   assert.equal(await page.evaluate(()=>lessonChain),null);
+   await page.evaluate(()=>lessonSelectTube(0));
+   assert.match(await page.locator('#lessonReaction').innerText(),/Na₂CO₃/);
+   // Dissolution completes in the original tube after switching away.
+   await page.evaluate(()=>{lessonClearActiveTube();lessonSetReagent('a','alcl3');lessonSetReagent('b','naoh');lessonConductStep()});
+   await page.locator('#lessonExcess').click();
+   await page.evaluate(()=>lessonSelectTube(1));
+   await page.waitForFunction(()=>lessonTubeStates[0].dissolving===false&&lessonTubeStates[0].chain.steps[0].reaction.excess==='naoh');
+   await page.evaluate(()=>lessonSelectTube(0));
+   assert.equal(await page.evaluate(()=>lessonDissolving),false);
+   // Resize panel with keyboard.
+   await page.locator('#lessonPanelDivider').focus();await page.keyboard.press('ArrowRight');
+   assert.equal(await page.locator('#lessonPanelDivider').getAttribute('aria-valuenow'),'35');
+   // PDF stays separate from board; annotate before switching.
+   const pdf=await PDFDocument.create();pdf.addPage([600,400]);pdf.addPage([600,400]);
+   const buffer=Buffer.from(await pdf.save());
+   await page.locator('#lessonPDFInput').setInputFiles({name:'lesson.pdf',mimeType:'application/pdf',buffer});
+   await page.waitForFunction(()=>lessonPageCount===2&&lessonPdfDocument!==null);
+   await page.selectOption('#lessonPDFNavigation','2');await page.waitForFunction(()=>lessonPage===2);
+   await page.selectOption('#lessonPDFNavigation','1');await page.waitForFunction(()=>lessonPage===1);
+   await page.evaluate(()=>{lessonNotes['1']=[{color:'#171719',width:3,opacity:1,points:[{x:.1,y:.1},{x:.2,y:.2}]}];lessonRedrawInk()});
+   await page.locator('#lessonBoardToggle').click();
+   const draw=async()=>{
+    const box=await page.locator('#lessonBoardCanvas').boundingBox();
+    assert.ok(box.width>100&&box.height>100);
+    await page.mouse.move(box.x+60,box.y+60);await page.mouse.down();
+    await page.mouse.move(box.x+140,box.y+110,{steps:6});await page.mouse.up();
+   };
+   await draw();
+   assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),1);
+   // Pan beyond old 2400x1600 bounds and draw there, zoom keeps scene anchor.
+   await page.evaluate(()=>{lessonBoardView={x:6000,y:-3000,zoom:.5};lessonBoardDraw()});
+   await draw();
+   assert.ok(await page.evaluate(()=>lessonBoardStrokes[1].points[0].x>6000&&lessonBoardStrokes[1].points[0].y<0));
+   const box=await page.locator('#lessonBoardCanvas').boundingBox();
+   await page.mouse.move(box.x+100,box.y+100);
+   const zoomAnchor=await page.evaluate(()=>lessonBoardPoint({clientX:document.getElementById('lessonBoardCanvas').getBoundingClientRect().left+100,clientY:document.getElementById('lessonBoardCanvas').getBoundingClientRect().top+100}).x);
+   await page.keyboard.down('Control');await page.mouse.wheel(0,-200);await page.keyboard.up('Control');
+   await page.waitForFunction(()=>lessonBoardView.zoom>.5);
+   assert.ok(await page.evaluate(anchor=>Math.abs(lessonBoardPoint({clientX:document.getElementById('lessonBoardCanvas').getBoundingClientRect().left+100,clientY:document.getElementById('lessonBoardCanvas').getBoundingClientRect().top+100}).x-anchor)<2,zoomAnchor));
+   // Import, move and resize an actual image at world coordinates.
+   const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=80;c.height=40;c.getContext('2d').fillRect(0,0,80,40);return c.toDataURL().split(',')[1]});
+   await page.locator('#lessonBoardImageInput').setInputFiles({name:'image.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
+   await page.waitForFunction(()=>lessonBoardItems.length===1);
+   const imageBefore=await page.evaluate(()=>({...lessonBoardItems[0],image:null}));
+   assert.ok(imageBefore.x>6000);
+   await page.evaluate(()=>{lessonBoardSnapshot();document.getElementById('lessonBoardImageSize').value='600';document.getElementById('lessonBoardImageSize').dispatchEvent(new Event('input'))});
+   assert.equal(await page.evaluate(()=>lessonBoardItems[0].w),600);
+   assert.equal(await page.evaluate(()=>lessonBoardItems[0].h),300);
+   await page.locator('#lessonBoardUndo').click();
+   assert.equal(await page.evaluate(()=>lessonBoardItems[0].w),imageBefore.w);
+   await page.locator('#lessonBoardPen').click();
+   // Save and reopen world coordinates and camera; reject malformed project atomically.
+   let download=page.waitForEvent('download');await page.locator('#lessonBoardSaveProject').click();
+   let file=await download;const project=fs.readFileSync(await file.path());
+   const parsed=JSON.parse(project);assert.equal(parsed.version,2);assert.equal(parsed.pages[0].strokes.length,2);
+   await page.evaluate(async content=>{await lessonBoardOpenProject(new File([content],'board.json'))},project.toString());
+   assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),2);
+   const before=await page.evaluate(()=>JSON.stringify(lessonBoardStrokes));
+   await page.evaluate(async()=>{await lessonBoardOpenProject(new File(['{"format":"wrong"}'],'bad.json'))});
+   assert.equal(await page.evaluate(()=>JSON.stringify(lessonBoardStrokes)),before);
+   // Old format is still readable.
+   const legacy={format:'ege-blizko-board',version:1,width:2400,height:1600,activePage:0,pages:[{name:'Old',items:[],strokes:[]}]};
+   await page.evaluate(async content=>lessonBoardOpenProject(new File([content],'old.json')),JSON.stringify(legacy));
+   assert.equal(await page.evaluate(()=>lessonBoardPages[0].name),'Old');
+   await page.evaluate(async content=>lessonBoardOpenProject(new File([content],'board.json')),project.toString());
+   // Export includes offscreen scene and preserves editable project.
+   download=page.waitForEvent('download');await page.locator('#lessonBoardExport').click();
+   file=await download;assert.equal((await PDFDocument.load(fs.readFileSync(await file.path()))).getPageCount(),1);
+   assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),2);
+   // Eraser removes a stroke, undo restores it.
+   await page.evaluate(()=>{lessonBoardSnapshot();lessonBoardErase(lessonBoardStrokes[1].points[1]);lessonBoardDraw()});
+   assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),1);
+   await page.locator('#lessonBoardUndo').click();assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),2);
+   // PDF import to board adds pages, keeps presentation notes.
+   await page.locator('#lessonBoardPDFInput').setInputFiles({name:'slides.pdf',mimeType:'application/pdf',buffer});
+   await page.waitForFunction(()=>lessonBoardPages.length===3);
+   assert.equal(await page.evaluate(()=>lessonNotes['1'].length),1);
+   await page.locator('#lessonBoardFullscreen').click();
+   assert.equal(await page.locator('body').evaluate(e=>e.classList.contains('lesson-board-fullscreen')),true);
+   await page.keyboard.press('Escape');
+   assert.equal(await page.locator('body').evaluate(e=>e.classList.contains('lesson-board-fullscreen')),false);
+   await page.screenshot({path:'lab-visual-preview/review-'+size.width+'.png'});
+   await page.locator('#lessonBoardToggle').click();
+   assert.equal(await page.evaluate(()=>lessonPageCount),2);
+   assert.equal(await page.evaluate(()=>lessonNotes['1'].length),1);
+   assert.deepEqual(errors,[]);
+   console.log('REVIEW_BROWSER_OK',size.width,size.height,'chemistry, tubes, PDF, world coordinates, zoom, projects v1/v2, eraser, undo, export, fullscreen');
+   await page.close();
+  }
+ }finally{await browser.close()}
+})().catch(e=>{console.error(e);process.exit(1)});
