@@ -1,0 +1,22 @@
+name: Individual probnik isolated tests
+on:
+  pull_request:
+    paths:
+      - 'individual_probnik.py'
+      - 'run_bot_live67.py'
+      - 'probnik*notify.py'
+      - 'tests/test_*probnik*.py'
+      - 'deploy/install_individual_probnik.py'
+      - '.github/workflows/individual-probnik-tests.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_*probnik*.py' -v
+      - run: python -m py_compile individual_probnik.py run_bot_live67.py probnik_result_notify.py deploy/install_individual_probnik.py
