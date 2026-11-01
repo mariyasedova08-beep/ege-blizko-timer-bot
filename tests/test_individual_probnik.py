@@ -153,6 +153,7 @@ class InstalledIntegrationTests(unittest.IsolatedAsyncioTestCase):
             live23=types.SimpleNamespace(cabinet_callback=AsyncMock(),_admin_private=lambda u:False),
             _individual_by_telegram=individual)
         self.old_start=self.live.live7.start_router;self.old_text=self.live.live7.student_text_router
+        self.live.live24=types.SimpleNamespace(live10=self.live.live10)
         ind.install(self.live)
     def tearDown(self):
         ind._live=self.previous;self.telegram.stop();self.env.stop();self.tmp.cleanup()
