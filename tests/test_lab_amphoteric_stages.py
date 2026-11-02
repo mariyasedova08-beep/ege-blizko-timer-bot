@@ -39,7 +39,9 @@ class AmphotericStages(unittest.TestCase):
 
     def test_lesson_and_main_lab_share_excess_variants(self):
         self.assertIn('id="lessonExcess"', SOURCE)
-        self.assertIn('findReaction(a,b,heated,lessonExcess)', SOURCE)
+        self.assertIn('excess=lessonExcess', SOURCE)
+        self.assertIn('findReaction(a,b,heated,excess)', SOURCE)
+        self.assertIn('lessonSelectedReaction(pair.a,pair.b,state.heated,state.medium||"",state.excess)', SOURCE)
         self.assertIn('reactionVariants(a,b).find(x=>x.excess===alkali)', SOURCE)
         self.assertIn('lessonDissolving', SOURCE)
         self.assertIn('overrideReaction=undefined', SOURCE)
