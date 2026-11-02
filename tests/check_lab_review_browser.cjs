@@ -131,6 +131,25 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.equal(await page.evaluate(()=>window.lessonMutations),0);
    assert.ok(await page.evaluate(()=>window.lessonPptRef.getAnimations({subtree:true}).includes(window.originalAnimation)));
    await page.evaluate(()=>window.lessonObserver.disconnect());
+   // MnO2 is available by ordinary name and acts as oxidizer with both halide acids.
+   assert.ok(await page.evaluate(()=>lessonSearchMatches('оксид марганца 4').some(([id])=>id==='mno2')));
+   for(const acid of ['hcl','hbr']){
+    await page.evaluate(value=>{lessonClearActiveTube();lessonSetReagent('a','mno2');lessonSetReagent('b',value);lessonConductStep()},acid);
+    assert.match(await page.locator('#lessonReaction').innerText(),/Окислитель:.*MnO₂/);
+    if(acid==='hcl'){
+     assert.equal(await page.locator('#lessonTube1 .dissolving-solid').count(),0);
+     assert.equal(await page.locator('#lessonTube1 .bubbleLayer').count(),0);
+     await page.locator('#lessonHeat').click();
+     assert.equal(await page.locator('#lessonTube1 .bubbleLayer').count(),1);
+     assert.match(await page.locator('#lessonReaction').innerText(),/концентрированная HCl/);
+    }else{
+     assert.equal(await page.locator('#lessonTube1 .bubbleLayer').count(),0);
+     assert.equal(await page.locator('#lessonTube1 .liq').evaluate(e=>e.style.background),'rgb(164, 104, 54)');
+    }
+    assert.equal(await page.locator('#lessonTube1 .dissolving-solid').count(),1);
+    await page.locator('#lessonReaction .reaction-redox summary').click();
+    assert.match(await page.locator('#lessonReaction').innerText(),/2e⁻/);
+   }
    // Resize panel with keyboard.
    await page.locator('#lessonPanelDivider').focus();await page.keyboard.press('ArrowRight');
    assert.equal(await page.locator('#lessonPanelDivider').getAttribute('aria-valuenow'),'35');

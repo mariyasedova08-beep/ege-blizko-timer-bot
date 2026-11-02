@@ -52,3 +52,22 @@ class CandidateReview(unittest.TestCase):
             self.assertTrue(row['heat'])
             self.assertIn('водный раствор',row['condition'])
             self.assertNotIn(f'{cation}₂BeO₂',row['eq'])
+
+    def test_mno2_halide_acids_keep_distinct_conditions_and_redox_roles(self):
+        for acid,halogen,salt in [('hcl','Cl','MnCl₂'),('hbr','Br','MnBr₂')]:
+            rows=[r for r in self.payload if {r['a'],r['b']}=={'mno2',acid}]
+            self.assertEqual(len(rows),1, 'no duplicate pairs')
+            row=rows[0]
+            self.assertIn(salt,row['eq'])
+            self.assertIn(halogen+'₂',row['eq'])
+            self.assertIn('Mn(+4)',row['oxidizer'])
+            self.assertIn(halogen+'(−1)',row['reducer'])
+            self.assertEqual(len(row['electron_balance']),2)
+            self.assertEqual(row['heat'],acid=='hcl')
+            self.assertIn('твёрдый MnO₂',row['sign'])
+            if acid=='hcl':
+                self.assertEqual(row['gas'],'Cl₂')
+                self.assertIn('концентрированная',row['condition'])
+            else:
+                self.assertEqual(row['gas'],'', 'bromine colouring must not invent hydrogen/bromine bubbles')
+                self.assertEqual(row['t'],'c')

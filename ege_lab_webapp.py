@@ -193,6 +193,18 @@ def reaction_payload():
         }
         for a,b,eq,kind,sign,sol,ppt,gas,heat in REACTIONS
     ]
+    # Curated Mn(IV) oxidizer demonstrations. Keep the imported equations,
+    # enrich their teaching metadata rather than creating duplicate pairs.
+    for row in payload:
+        if row["a"] == "mno2" and row["b"] in {"hcl", "hbr"}:
+            bromide = row["b"] == "hbr"
+            row["oxidizer"] = "MnO₂: Mn(+4) → Mn(+2)"
+            row["reducer"] = "HBr: Br(−1) → Br(0)" if bromide else "HCl: Cl(−1) → Cl(0)"
+            row["electron_balance"] = ["Mn(+4) + 2e⁻ → Mn(+2)",
+                "2Br(−1) − 2e⁻ → Br₂(0)" if bromide else "2Cl(−1) − 2e⁻ → Cl₂(0)"]
+            row["condition"] = "водный раствор HBr" if bromide else "концентрированная HCl; нагревание"
+            row["sign"] = ("Тёмный твёрдый MnO₂ постепенно расходуется; раствор приобретает оранжево-бурую окраску Br₂."
+                if bromide else "Тёмный твёрдый MnO₂ постепенно расходуется; выделяется жёлто-зелёный Cl₂.")
     payload.extend(dict(item) for item in EXCHANGE_REACTIONS)
     for salt, (first, second) in AMPHOTERIC_STAGES.items():
         if not any({r["a"], r["b"]} == {salt, "naoh"} and not r.get("excess") for r in payload):
@@ -1864,9 +1876,14 @@ function gasObservationHTML(x){
  const note=info.note?' '+info.note:'';
  return '<div class="reaction-gas"><b>Газ '+x.gas+':</b> цвет — '+info.color+'; запах — '+info.smell+'.'+note+'<span class="gas-safety">Запах указан справочно. Не вдыхайте выделяющиеся газы.</span></div>';
 }
+function redoxRolesHTML(x){
+ if(!x?.oxidizer||!x.reducer)return "";
+ const balance=(x.electron_balance||[]).map(line=>'<div>'+task6Esc(line)+'</div>').join("");
+ return '<div class="reaction-note reaction-redox"><b>Окислитель:</b> '+task6Esc(x.oxidizer)+'<br><b>Восстановитель:</b> '+task6Esc(x.reducer)+'<details><summary>Электронный баланс</summary>'+balance+'</details></div>';
+}
 function reactionResultHTML(x,heated=false){
  if(!x)return '<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот опыт пока не добавлен в базу.</div></div>';
- if(x.heat&&!heated)return '<div class="reaction-card"><div class="reaction-head"><span class="reaction-status">🔥 Нужен нагрев</span></div><div class="reaction-sign">Без нагревания видимого результата не показываем.</div><div class="reaction-equation">'+x.eq+'</div></div>';
+ if(x.heat&&!heated)return '<div class="reaction-card"><div class="reaction-head"><span class="reaction-status">🔥 Нужен нагрев</span></div><div class="reaction-sign">Без нагревания видимого результата не показываем.</div><div class="reaction-equation">'+x.eq+'</div>'+(x.condition?'<div class="reaction-note">Условие: '+task6Esc(x.condition)+'</div>':'')+redoxRolesHTML(x)+'</div>';
  const noVisible=x.t==="n"&&!oxideHydration(x), noReaction=x.t==="z";
  const icon=x.t==="p"?"⬇️":x.t==="g"?"🫧":x.t==="c"?"🎨":x.t==="x"?"✨":noReaction?"⛔":"✓";
  const title=noReaction?"Реакция не идёт":"Реакция протекает";
@@ -1882,7 +1899,7 @@ function reactionResultHTML(x,heated=false){
  const condition=x.condition?'<div class="reaction-note">Условие: '+x.condition+'</div>':'';
  const stages=x.stages?'<div class="reaction-note"><b>1. Осадок</b><div class="reaction-equation">'+x.stages.first+'</div><b>2. Растворение в избытке</b><div class="reaction-equation">'+x.stages.second+'</div><b>Суммарно</b></div>':'';
  const note=noReaction?'<div class="reaction-note">Смесь остаётся без химического превращения в указанных условиях.</div>':(noVisible?'<div class="reaction-note">Реакция есть, но визуального эффекта в пробирке нет.</div>':'');
- return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div>'+stages+'<div class="reaction-equation">'+x.eq+'</div>'+condition+gasObservationHTML(x)+note+'</div>';
+ return '<div class="reaction-card '+((noVisible||noReaction)?'no-visible':'')+'"><div class="reaction-head"><span class="reaction-status">'+icon+' '+title+'</span></div><div class="reaction-sign">'+(noReaction?'Почему: ':'Признак: ')+sign+'</div>'+stages+'<div class="reaction-equation">'+x.eq+'</div>'+condition+redoxRolesHTML(x)+gasObservationHTML(x)+note+'</div>';
 }
 // CaO is consumed by sulfuric acid while fine CaSO4 creates a cloudy
 // suspension. Avoid rendering a pile of macroscopic white precipitate.
@@ -3648,6 +3665,7 @@ function lessonNormalizeFormula(text){
  return String(text||"").normalize("NFKC").toLocaleLowerCase("ru")
    .replace(/[\s\u00a0.,·\-–—()[\]{}]/g,"");
 }
+const lessonReagentAliases={mno2:["оксид марганца 4","оксид марганца (4)","диоксид марганца"]};
 function lessonSearchMatches(raw){
  const q=lessonNormalizeFormula(raw);
  if(!q)return [];
@@ -3655,7 +3673,8 @@ function lessonSearchMatches(raw){
     lessonNormalizeFormula(id).includes(q)||
     lessonNormalizeFormula(r[0]).includes(q)||
     lessonNormalizeFormula(r[1]||"").includes(q)||
-    lessonNormalizeFormula(r[4]||"").includes(q)
+    lessonNormalizeFormula(r[4]||"").includes(q)||
+    lessonNormalizeFormula((lessonReagentAliases[id]||[]).join(" ")).includes(q)
  ).sort((a,b)=>{
     const exact=x=>lessonNormalizeFormula(x[0])===q||lessonNormalizeFormula(x[1][0])===q?0:1;
     return exact(a)-exact(b)||
