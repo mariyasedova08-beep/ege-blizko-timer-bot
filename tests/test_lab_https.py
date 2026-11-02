@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import shutil
+import socket
 import subprocess
 import tempfile
 import unittest
@@ -92,9 +93,14 @@ class LabHTTPS(unittest.TestCase):
             root=Path(folder)
             subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-subj','/CN='+setup.DOMAIN,'-days','1','-keyout',str(root/'privkey.pem'),'-out',str(root/'fullchain.pem')],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             test=root/'site.conf';main=root/'nginx.conf'
-            main.write_text('pid '+str(root/'nginx.pid')+';\nerror_log '+str(root/'error.log')+';\nevents {}\nhttp { access_log '+str(root/'access.log')+'; include '+str(test)+'; }\n')
+            temp_paths=' '.join(kind+'_temp_path '+str(root/kind)+';' for kind in ('client_body','proxy','fastcgi','uwsgi','scgi'))
+            main.write_text('pid '+str(root/'nginx.pid')+';\nerror_log '+str(root/'error.log')+';\nevents {}\nhttp { '+temp_paths+' access_log '+str(root/'access.log')+'; include '+str(test)+'; }\n')
+            with socket.socket() as a, socket.socket() as b:
+                a.bind(('127.0.0.1',0));b.bind(('127.0.0.1',0))
+                http_port=a.getsockname()[1];tls_port=b.getsockname()[1]
             with patch.object(setup,'LINEAGE',root),patch.object(setup,'BASE',root):
                 for tls in (False,True):
-                    test.write_text(setup.configuration(tls))
+                    text=setup.configuration(tls).replace('listen 80;',f'listen 127.0.0.1:{http_port};').replace('listen 443 ssl;',f'listen 127.0.0.1:{tls_port} ssl;')
+                    test.write_text(text)
                     result=subprocess.run([shutil.which('nginx'),'-t','-p',str(root),'-c',str(main)],capture_output=True,text=True)
                     self.assertEqual(result.returncode,0,result.stderr)
