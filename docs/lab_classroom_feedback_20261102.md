@@ -1,6 +1,6 @@
 # ЕГЭ БЛИЗКО — общее обновление после урока, 02.11.2026
 
-Статус: пакет подготовлен; на Timeweb пока работает предыдущая сборка e239902d64bd19b6. Production не изменялся.
+Статус: пакет подготовлен, общий GitHub CI и отдельные HTTPS/nginx-проверки успешны; на Timeweb пока работает предыдущая сборка e239902d64bd19b6. Production не изменялся.
 
 ## Выполнено
 
@@ -39,3 +39,28 @@ Runtime commit: `7089040e6ecf2c13e790a47080595790dc266cee`.
 Build: `cf3e20fd49ed54ce`.
 Bundle SHA-256: `16af6f772e88a5710e8fe6c3985a7047ea5b37e1b3237f7dcf39cb9644d02b15`.
 Installer SHA-256: `4651d7a54ec92f88344de16f98a7c97a00fefc66e5de9cab601fa29010c68815`.
+
+Установщик опубликован в commit `eb0cb2525b2a6f2c2fc726f6d3eeac65017c4014`.
+
+Отдельные HTTPS/nginx-тесты с реальным nginx/openssl (включая два локально пропущенных) успешно выполнены:
+https://github.com/mariyasedova08-beep/ege-blizko-timer-bot/actions/runs/41505498182
+
+Команда для доверенной root-консоли Timeweb (только тестовый sandbox):
+
+```bash
+bash <<'BASH'
+set -euo pipefail
+update_file=$(mktemp /tmp/lab-test-update-XXXXXX.py)
+trap 'rm -f "$update_file"' EXIT
+curl -fsSL --connect-timeout 10 --max-time 60 \
+  'https://raw.githubusercontent.com/mariyasedova08-beep/ege-blizko-timer-bot/eb0cb2525b2a6f2c2fc726f6d3eeac65017c4014/deploy/bootstrap_lab_sandbox.py' \
+  -o "$update_file"
+printf '%s  %s\n' \
+  '4651d7a54ec92f88344de16f98a7c97a00fefc66e5de9cab601fa29010c68815' \
+  "$update_file" | sha256sum -c -
+python3 "$update_file"
+BASH
+```
+
+Общая проверка финального пакета на GitHub (тесты + desktop/tablet браузер):
+https://github.com/mariyasedova08-beep/ege-blizko-timer-bot/actions/runs/41505642877 — success.
