@@ -1363,7 +1363,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 #lesson #lessonToolPen,#lesson #lessonToolMarker,#lesson #lessonStraightLine{font-size:0}
 #lesson #lessonToolPen:before{content:"✎";font-size:21px}
 #lesson #lessonToolMarker:before{content:"▰";font-size:20px}
-#lesson #lessonToolEraser{font-size:13px;display:inline-flex;align-items:center;gap:5px;min-height:40px;padding:6px 10px}
+#lesson #lessonToolEraser{font-size:13px;display:inline-flex;align-items:center;gap:5px;min-height:44px;padding:6px 10px}
 .lesson-eraser-icon{width:20px;height:20px;flex-shrink:0;vertical-align:middle}
 #lesson #lessonStraightLine:before{content:"╱";font-size:20px}
 #lesson .lesson-extra-menu{margin:0}
@@ -3214,7 +3214,7 @@ function lessonSmoothPoints(points){
 }
 function lessonPointerSamples(event,converter){
  const events=typeof event.getCoalescedEvents==="function"?event.getCoalescedEvents():[];
- return (events.length?events:[event]).map(converter);
+ return [...events,event].map(converter);
 }
 function lessonAddStrokeSamples(stroke,event,converter,canvas){
  for(const point of lessonPointerSamples(event,converter)){
