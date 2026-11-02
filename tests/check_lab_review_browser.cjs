@@ -206,8 +206,8 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    const buffer=Buffer.from(await pdf.save());
    await page.locator('#lessonPDFInput').setInputFiles({name:'lesson.pdf',mimeType:'application/pdf',buffer});
    await page.waitForFunction(()=>lessonPageCount===2&&lessonPdfDocument!==null);
-   await page.selectOption('#lessonPDFNavigation','2');await page.waitForFunction(()=>lessonPage===2);
-   await page.selectOption('#lessonPDFNavigation','1');await page.waitForFunction(()=>lessonPage===1);
+   await page.locator('#lessonNext').click();await page.waitForFunction(()=>lessonPage===2);
+   await page.locator('#lessonPrevious').click();await page.waitForFunction(()=>lessonPage===1);
    // Real pen events with zero pressure still write; board state is untouched by PDF input.
    await page.locator('#lessonInkCanvas').scrollIntoViewIfNeeded();
    const inkBox=await page.locator('#lessonInkCanvas').boundingBox(),pen=await page.context().newCDPSession(page);

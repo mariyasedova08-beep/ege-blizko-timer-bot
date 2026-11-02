@@ -1636,7 +1636,6 @@ body.lesson-board-fullscreen{overflow:hidden!important}
         
         <button id="lessonPrevious" type="button" title="Предыдущая страница"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
         <span id="lessonPageCounter">1 / 1</span>
-        <select id="lessonPDFNavigation" aria-label="Страницы и закладки PDF" style="max-width:170px" hidden></select>
         <button id="lessonNext" type="button" title="Следующая страница"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button>
       </div>
       <div class="lesson-ink-strip">
@@ -3636,34 +3635,9 @@ async function lessonRenderPage(){
  }
  if(ticket!==lessonRendering)return;
  document.getElementById("lessonPageCounter").textContent=lessonPage+" / "+lessonPageCount;
- document.getElementById("lessonPDFNavigation").value=String(lessonPage);
  document.getElementById("lessonPrevious").disabled=lessonPage<=1;
  document.getElementById("lessonNext").disabled=lessonPage>=lessonPageCount;
  lessonRedrawInk();
-}
-async function lessonPDFNavigation(documentPDF){
- const select=document.getElementById("lessonPDFNavigation");select.replaceChildren();
- for(let i=1;i<=documentPDF.numPages;i++){
-  const option=document.createElement("option");option.value=String(i);option.textContent="Страница "+i;select.appendChild(option);
- }
- select.hidden=false;
- try{
-  const walk=async(items,depth=0)=>{
-   for(const item of items||[]){
-    if(documentPDF!==lessonPdfDocument)return;
-    let dest=item.dest;if(typeof dest==="string")dest=await documentPDF.getDestination(dest);
-    if(Array.isArray(dest)&&dest[0]!==undefined){
-     const index=Number.isInteger(dest[0])?dest[0]:await documentPDF.getPageIndex(dest[0]);
-     if(index>=0&&index<documentPDF.numPages){
-      const option=document.createElement("option");option.value=String(index+1);option.textContent="  ".repeat(Math.min(depth,5))+"▸ "+String(item.title||"Закладка").slice(0,100);select.appendChild(option);
-     }
-    }
-    await walk(item.items,depth+1);
-   }
-  };
-  await walk(await documentPDF.getOutline());
- }catch(err){/* Malformed optional bookmarks must not prevent PDF reading. */}
- select.value=String(lessonPage);
 }
 async function lessonOpenPDF(file){
  if(!file)return;
@@ -3680,7 +3654,6 @@ async function lessonOpenPDF(file){
   lessonPdfKey="ege-lab-lesson-notes-v1:"+file.name+":"+file.size+":"+file.lastModified;
   lessonPage=1;lessonPageCount=documentPDF.numPages;
   lessonRestoreLocal();
-  await lessonPDFNavigation(documentPDF);
   await lessonRenderPage();
   document.getElementById("lessonFileName").textContent=file.name;
   lessonStatus("PDF и рукописные записи работают одновременно с опытом.");
@@ -4549,7 +4522,6 @@ function lessonSetup(){
  lessonPopulateReagents();
  lessonRestoreLocal();
  document.getElementById("lessonPDFInput").onchange=event=>lessonOpenPDF(event.target.files[0]);
- document.getElementById("lessonPDFNavigation").onchange=event=>{const page=Number(event.target.value);if(Number.isInteger(page)&&page>=1&&page<=lessonPageCount){lessonPage=page;lessonRenderPage();}};
  document.getElementById("lessonMedium").onchange=()=>{lessonStarted=false;lessonRenderExperiment();};
  document.getElementById("lessonConduct").onclick=lessonConductStep;
  document.getElementById("lessonExcess").onclick=()=>{
