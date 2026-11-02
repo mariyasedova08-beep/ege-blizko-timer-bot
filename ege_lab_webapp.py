@@ -3375,14 +3375,14 @@ function lessonSmoothPoints(points){
  const clean=points.map((p,i)=>{
   if(i===0||i===points.length-1)return p;
   const a=points[i-1],b=points[i+1];
-  return {x:a.x*.1+p.x*.8+b.x*.1,y:a.y*.1+p.y*.8+b.y*.1};
+  return {x:a.x*.2+p.x*.6+b.x*.2,y:a.y*.2+p.y*.6+b.y*.2};
  });
  const out=[clean[0]],mid=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
  for(let i=1;i<points.length-1;i++){
   const start=i===1?clean[0]:mid(clean[i-1],clean[i]);
   const control=clean[i],end=mid(clean[i],clean[i+1]);
-  for(let step=1;step<=2;step++){
-   const t=step/2,u=1-t;
+  for(let step=1;step<=8;step++){
+   const t=step/8,u=1-t;
    out.push({x:u*u*start.x+2*u*t*control.x+t*t*end.x,
              y:u*u*start.y+2*u*t*control.y+t*t*end.y});
   }
