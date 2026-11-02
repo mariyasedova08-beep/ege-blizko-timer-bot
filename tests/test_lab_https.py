@@ -186,7 +186,7 @@ class LabHTTPS(unittest.TestCase):
                             sock.sendall(f'{method} {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\nContent-Length: {len(data)}\r\n\r\n'.encode()+data)
                             response=http.client.HTTPResponse(sock);response.begin()
                             return response.status,hashlib.sha256(sock.getpeercert(binary_form=True)).hexdigest(),response.read()
-                with patch.object(setup,'tls_request',side_effect=request):
+                with patch.object(setup,'tls_request',side_effect=request), patch.object(setup,'EXPECTED_BUNDLE',health['bundle_sha256']), patch.object(setup,'EXPECTED_HTML',hashlib.sha256(html).hexdigest()):
                     with self.assertRaises(ssl.SSLCertVerificationError):setup.verify_sandbox()
                     write_config(new)
                     subprocess.run([shutil.which('nginx'),'-p',str(root),'-c',str(main),'-s','reload'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
