@@ -1,6 +1,6 @@
 # ЕГЭ БЛИЗКО — общее обновление после урока, 02.11.2026
 
-Статус: пакет подготовлен, общий GitHub CI и отдельные HTTPS/nginx-проверки успешны; на Timeweb пока работает предыдущая сборка e239902d64bd19b6. Production не изменялся.
+Статус: пакет установлен на тестовый Timeweb; общий GitHub CI и отдельные HTTPS/nginx-проверки успешны. Прямая внешняя HTTPS-проверка подтвердила build cf3e20fd49ed54ce и хеши. Независимые read-only SSH и публичные браузерные проверки успешно завершены. Production не изменялся.
 
 ## Выполнено
 
@@ -64,3 +64,15 @@ BASH
 
 Общая проверка финального пакета на GitHub (тесты + desktop/tablet браузер):
 https://github.com/mariyasedova08-beep/ege-blizko-timer-bot/actions/runs/41505642877 — success.
+
+Вывод установки владельца: backup `/var/lib/ege-lab-sandbox/backups/20261102T191003Z-e9213b`; build `cf3e20fd49ed54ce`, все ожидаемые хеши совпали; `NO_PRODUCTION_DEPLOYMENT_PERFORMED`.
+
+## Проверка установленной версии
+
+- Read-only SSH: https://github.com/mariyasedova08-beep/ege-blizko-timer-bot/actions/runs/41508285671 — success, точные build и четыре контрольные суммы.
+- Публичный HTTPS и браузерные сценарии desktop/tablet: https://github.com/mariyasedova08-beep/ege-blizko-timer-bot/actions/runs/41508285729 — success.
+- В общей GitHub-проверке 41505642877 выполнены все 87 тестов без пропусков, включая nginx.
+
+Тестовый адрес: https://lab-test.77-233-212-200.sslip.io/lab-app
+
+Готово к повторному пробному уроку. Перед обновлением вкладки сохранить проект доски. Физическое ощущение письма на Wacom/iMac остаётся пользовательской проверкой. Production не развёртывался; PR остаётся черновиком.
