@@ -4240,6 +4240,7 @@ function lessonBoardSetup(){
   lessonBoardScheduleDraw();
  };
  canvas.onpointerup=canvas.onpointercancel=canvas.onlostpointercapture=event=>{
+  if(event.pointerType==="touch"&&lessonBoardPointer?.pointerType==="pen")return;
   touches.delete(event.pointerId);if(touches.size<2)pinch=null;if(!touches.size)touchBlocked=false;
   lessonBoardPointer=null;lessonBoardScheduleDraw();
  };
