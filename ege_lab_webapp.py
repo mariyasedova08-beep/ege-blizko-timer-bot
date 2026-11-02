@@ -1467,6 +1467,9 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 #lesson .lesson-extra-items .lesson-color-presets button{width:44px;height:44px;border:9px solid #fff;background-clip:padding-box;box-sizing:border-box}
 #lesson .lesson-extra-menu[open] .lesson-extra-items{width:246px;max-height:65dvh;overflow:auto}
 #lesson select{min-height:44px}
+.heat-hint{padding:10px 12px;margin:7px 0;border:1px solid #E9A9CB;border-radius:12px;background:#FFF1F8;color:#52233D;font-size:13px;line-height:1.5}
+.heat-hint[hidden]{display:none}
+#heat.heat-required,#lessonHeat.heat-required{border:2px solid #C44988!important;background:#F4D9E6!important;color:#171719;box-shadow:0 0 0 3px #F4D9E660;font-weight:700}
 </style></head><body><div class="app">
 <div class="lab-topbar">
   <div class="lab-brand">ЕГЭ БЛИЗКО</div>
@@ -1522,6 +1525,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
         <button id="lessonHeat" type="button" aria-pressed="false">🔥 Нагрев</button>
         <button id="lessonReset" type="button" title="Очистить только выбранную пробирку">↺ Очистить пробирку</button>
       </div>
+      <div id="lessonHeatHint" class="heat-hint" role="status" hidden></div>
       <div class="indicator-tools"><button type="button" id="lessonIndicatorToggle" aria-expanded="false">🧪 Индикаторы</button><div id="lessonIndicatorPanel" class="indicator-panel" hidden></div><small id="lessonIndicatorNote"></small></div>
       <div class="lesson-tube-modes" aria-label="Количество пробирок">Пробирок:
         <button type="button" data-lesson-count="1" aria-pressed="false">1</button>
@@ -1687,7 +1691,8 @@ body.lesson-board-fullscreen{overflow:hidden!important}
       <div id="indicatorPanel" class="indicator-panel" hidden></div>
       <small id="indicatorNote"></small>
       <button id="excess">➕ Последний реактив в избытке</button>
-      <button id="heat">🔥 Нагреть</button>
+      <button id="heat" aria-pressed="false">🔥 Нагрев</button>
+      <div id="heatHint" class="heat-hint" role="status" hidden></div>
       <button id="clear">🧽 Очистить</button>
     </div>
     <div id="result" class="lab-result">Выбери пробирку и добавь реактивы.</div>
@@ -1881,9 +1886,22 @@ function redoxRolesHTML(x){
  const balance=(x.electron_balance||[]).map(line=>'<div>'+task6Esc(line)+'</div>').join("");
  return '<div class="reaction-note reaction-redox"><b>Окислитель:</b> '+task6Esc(x.oxidizer)+'<br><b>Восстановитель:</b> '+task6Esc(x.reducer)+'<details><summary>Электронный баланс</summary>'+balance+'</details></div>';
 }
+function syncHeatHint(buttonId,hintId,reaction,heated,manualStart=false){
+ const button=document.getElementById(buttonId),hint=document.getElementById(hintId);
+ const needed=!!(reaction&&reaction.t!=="z"&&reaction.heat&&!heated);
+ button.classList.toggle("heat-required",needed);button.setAttribute("aria-pressed",String(!!heated));
+ button.textContent=needed?"🔥 Нагрев — нужен":heated?"🔥 Нагрев включён":"🔥 Нагрев";
+ if(needed){
+  button.setAttribute("aria-describedby",hintId);
+  const text="Эта реакция есть в базе — нужен нагрев. Нажми кнопку «🔥 Нагрев»."+(manualStart?" Если опыт ещё не запущен, затем нажми «Провести».":"");
+  const message=text+(reaction.condition?" Условия: "+reaction.condition+".":"");
+  if(hint.textContent!==message)hint.textContent=message;
+ }else{button.removeAttribute("aria-describedby");if(hint.textContent)hint.textContent="";}
+ hint.hidden=!needed;
+}
 function reactionResultHTML(x,heated=false){
  if(!x)return '<div class="reaction-card no-visible"><div class="reaction-head"><span class="reaction-status">Нет данных</span></div><div class="reaction-sign">Этот опыт пока не добавлен в базу.</div></div>';
- if(x.heat&&!heated)return '<div class="reaction-card"><div class="reaction-head"><span class="reaction-status">🔥 Нужен нагрев</span></div><div class="reaction-sign">Без нагревания видимого результата не показываем.</div><div class="reaction-equation">'+x.eq+'</div>'+(x.condition?'<div class="reaction-note">Условие: '+task6Esc(x.condition)+'</div>':'')+redoxRolesHTML(x)+'</div>';
+ if(x.heat&&!heated)return '<div class="reaction-card"><div class="reaction-head"><span class="reaction-status">🔥 Нужен нагрев</span></div><div class="reaction-sign">Реакция есть в базе. Нажми кнопку «🔥 Нагрев», чтобы провести её в нужных условиях.</div><div class="reaction-equation">'+x.eq+'</div>'+(x.condition?'<div class="reaction-note">Условие: '+task6Esc(x.condition)+'</div>':'')+redoxRolesHTML(x)+'</div>';
  const noVisible=x.t==="n"&&!oxideHydration(x), noReaction=x.t==="z";
  const icon=x.t==="p"?"⬇️":x.t==="g"?"🫧":x.t==="c"?"🎨":x.t==="x"?"✨":noReaction?"⛔":"✓";
  const title=noReaction?"Реакция не идёт":"Реакция протекает";
@@ -2181,6 +2199,9 @@ function renderTubes(){
   const labelHost=wrap.querySelector(".tube-label-host");if(labelHost.innerHTML!==label)labelHost.innerHTML=label;
  });
  syncTubeMedium();
+ const selected=tubes[selectedTube];
+ const heatReaction=selected.length===2?tubeReaction(selectedTube):null;
+ syncHeatHint("heat","heatHint",heatReaction,tubeHeat[selectedTube]);
  syncIndicatorControls();
  positionMobileReactionCallout();
 }
@@ -2312,6 +2333,11 @@ function add(id){
     "Следующий этап требует выбора среды реакции. Автоматическое продолжение такой цепочки пока недоступно.":
     needsHeat?"Для следующего этапа сначала включи нагрев 🔥 и добавь реактив снова.":
     "Для добавленного реактива нет подтверждённой реакции с текущими продуктами. Цепочка не изменена.";
+   if(needsHeat){
+    const pending=available.map(candidate=>findReaction(candidate,id,true)).find(rx=>rx&&rx.t!=="z"&&rx.heat);
+    syncHeatHint("heat","heatHint",pending,false);
+    document.getElementById("heatHint").textContent+=" После нагрева добавь выбранный реактив ещё раз.";
+   }
    return;
   }
   if(matches.length===1){
@@ -3826,8 +3852,19 @@ function lessonPopulateReagents(){
  lessonUpdateMedium();
  lessonRenderExperiment();
 }
+function lessonSyncHeatHint(){
+ let pending=null;
+ if(!lessonHeated){
+  const {a,b}=lessonSelectedReagents,medium=document.getElementById("lessonMedium").value;
+  const choices=(lessonChain?lessonChain.available:[a]).filter(id=>id&&b&&id!==b)
+   .map(id=>lessonSelectedReaction(id,b,lessonHeated,medium,lessonExcess)).filter(rx=>rx&&rx.t!=="z");
+  // Do not require heating when a valid room-temperature pathway exists.
+  if(!choices.some(rx=>!rx.heat))pending=choices.find(rx=>rx.heat)||null;
+ }
+ syncHeatHint("lessonHeat","lessonHeatHint",pending,lessonHeated,true);
+}
 function lessonRenderExperiment(){
- lessonSyncIndicators();
+ lessonSyncIndicators();lessonSyncHeatHint();
  const a=lessonSelectedReagents.a;
  const b=lessonSelectedReagents.b;
  const history=document.getElementById("lessonChainHistory");
@@ -3840,7 +3877,7 @@ function lessonRenderExperiment(){
   const info=document.getElementById("lessonReaction");
   info.innerHTML=lessonChain.noReactionNotice?
    '<div class="chain-no-reaction">⛔ Нет подтверждённой реакции с оставшимися веществами. Предыдущие продукты сохраняются; выделившийся газ не участвует в следующем этапе.</div>':
-   reactionResultHTML(last,false);
+   reactionResultHTML(last,true);
   history.hidden=false;
   history.innerHTML='<details class="chain-history" open><summary>Цепочка: '+chainStepLabel(lessonChain.steps.length)+'</summary>'+lessonChain.steps.map((step,n)=>'<div class="reaction-equation">'+(n+1)+'. '+task6Esc(step.reaction.eq)+'</div>'+chainUntrackedNotice(step)).join('')+'<small>Цепочка качественная: количества реагентов не рассчитываются.</small></details>';
   return;
@@ -3882,10 +3919,7 @@ function lessonConductStep(){
  const medium=document.getElementById("lessonMedium").value;
  const options=lessonChain.available.filter(id=>id!==b).map(id=>{
   const requiresMedium=lessonHasMedium(id,b);
-  const rx=requiresMedium?
-   (data.medium_reactions||[]).find(x=>x.medium===medium&&
-    ((x.a===id&&x.b===b)||(x.b===id&&x.a===b)))||null:
-   findReaction(id,b,lessonHeated,lessonExcess);
+  const rx=lessonSelectedReaction(id,b,lessonHeated,medium,lessonExcess);
   return {id,rx,requiresMedium};
  });
  // Several products can coexist. A medium-dependent possibility must not

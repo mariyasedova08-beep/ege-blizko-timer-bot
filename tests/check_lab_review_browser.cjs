@@ -25,6 +25,12 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    });
    await page.goto(url);
    await page.waitForFunction(()=>lessonReady);
+   await page.evaluate(()=>{tubes[0]=['mno2','hcl'];selectedTube=0;renderTubes()});
+   assert.ok(await page.locator('#heatHint').isVisible());
+   assert.equal(await page.locator('#heat').getAttribute('aria-describedby'),'heatHint');
+   await page.evaluate(()=>{tubeHeat[0]=true;renderTubes()});
+   assert.ok(await page.locator('#heatHint').isHidden());
+   await page.evaluate(()=>{tubes[0]=[];tubeHeat[0]=false;renderTubes()});
    // Independent DOM in the free laboratory: touching tube 2 cannot restart tube 1.
    await page.evaluate(()=>{
     tubes[0]=['cuso4','naoh'];selectedTube=0;renderTubes();
@@ -66,6 +72,24 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
     return stroke.points.map(point=>point.x);
    });
    assert.deepEqual(sampleQuality,[0,1,2,3,4,5]);
+   // Heat guidance appears before conducting a known hot reaction; never for cold/unknown pairs.
+   await page.evaluate(()=>{lessonClearActiveTube();lessonSetReagent('a','mno2');lessonSetReagent('b','hcl')});
+   assert.ok(await page.locator('#lessonHeatHint').isVisible());
+   assert.match(await page.locator('#lessonHeatHint').innerText(),/реакция есть в базе.*нужен нагрев/);
+   assert.match(await page.locator('#lessonHeatHint').innerText(),/концентрированная HCl/);
+   assert.equal(await page.locator('#lessonHeat').getAttribute('aria-describedby'),'lessonHeatHint');
+   assert.equal(await page.evaluate(()=>lessonStarted),false);
+   assert.equal(await page.locator('#lessonTube1 .bubbleLayer').count(),0);
+   await page.locator('#lessonHeat').click();
+   assert.ok(await page.locator('#lessonHeatHint').isHidden());
+   await page.evaluate(()=>lessonConductStep());
+   assert.equal(await page.locator('#lessonTube1 .bubbleLayer').count(),1);
+   for(const pair of [['hcl','naoh'],['cuso4','nacl'],['br2','naoh']]){
+    await page.evaluate(([a,b])=>{lessonClearActiveTube();lessonSetReagent('a',a);lessonSetReagent('b',b)},pair);
+    assert.ok(await page.locator('#lessonHeatHint').isHidden());
+    assert.equal(await page.locator('#lessonHeat').getAttribute('aria-describedby'),null);
+   }
+   await page.evaluate(()=>lessonClearActiveTube());
    // Actual chemistry and separate tubes.
    await page.evaluate(()=>{lessonSetReagent('a','nahco3');lessonSetReagent('b','koh');lessonConductStep()});
    await page.waitForFunction(()=>document.getElementById('lessonReaction').textContent.includes('Na₂CO₃ + K₂CO₃'));
