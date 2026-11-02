@@ -43,9 +43,9 @@ jobs:
           report = json.load(open(sys.argv[1]))
           sandbox = report.get('sandbox_8768', {})
           expected = {
-              'build': 'e7da155c21fb48ae',
-              'bundle_sha256': '2cadb6e2c4e50de44bd7d1b8948899852addda0b0ef0272424ae0ea5728d1d29',
-              'html_sha256': 'b9b42718ef5aa09bd580abbee90c82eced92f771e162580a2896a0cc6d4b85be',
+              'build': '2af9df6e25782a8e',
+              'bundle_sha256': '70bd6f9a9d729ccdd44fbf93533312974a99c7136ee3f093002449ed635622e2',
+              'html_sha256': 'a060082578cf1661885b33057ffc34d6721168b57bf22c57d6659878e99689b2',
               'payload_sha256': '630ed69d26cd064e2d601b65ec7836f28ce67e3d3bb9bb3c0b68f23544982d19',
           }
           if sandbox.get('ok') is not True or sandbox.get('sandbox') is not True:

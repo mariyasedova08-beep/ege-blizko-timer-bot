@@ -1,1 +1,1 @@
-Compact toolbar update detected on public test HTTPS 2026-11-02; build e7da155c21fb48ae. Verify trusted HTTPS, hashes, desktop/tablet browser. Read-only checks; no deployment.
+Single-row lesson toolbar detected on public test HTTPS 2026-11-02; build 2af9df6e25782a8e. Verify trusted HTTPS, exact hashes and desktop/tablet browser. Read-only checks; no deployment.
