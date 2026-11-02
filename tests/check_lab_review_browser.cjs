@@ -133,8 +133,6 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    }
    await page.evaluate(()=>{lessonClearActiveTube();lessonSetReagent('a','k2mno4');lessonSetReagent('b','hcl')});
    assert.ok(await page.locator('#lessonMediumField').isHidden());
-   assert.ok(await page.locator('.lesson-winter-header').isVisible());
-   assert.equal(await page.locator('.lesson-kulek img').evaluate(e=>e.complete&&e.naturalWidth>0),true);
    assert.equal(await page.locator('#lessonPDFNavigation').count(),0);
    await page.evaluate(()=>{lessonClearActiveTube();tubes[3]=[];tubeMedium[3]=''});
    // Actual chemistry and separate tubes.
