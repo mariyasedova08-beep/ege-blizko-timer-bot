@@ -1,1 +1,1 @@
-HTTPS sandbox installed 2026-11-02; build 286a6a6a3cff7105. Read-only public verification; no deployment.
+Sandbox update reported installed 2026-11-02; build e239902d64bd19b6. Verify trusted public HTTPS and desktop/tablet browser behavior. Read-only checks; no deployment.
