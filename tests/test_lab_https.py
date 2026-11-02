@@ -23,6 +23,10 @@ class LabHTTPS(unittest.TestCase):
         self.assertNotIn('include ',text)
         self.assertNotIn('/opt/bots',text)
         for host in setup.EXISTING:self.assertNotIn('server_name '+host+';',text)
+        self.assertTrue(setup.existing_http2('server {\nlisten 443 ssl http2;\n}'))
+        self.assertIn('listen 443 ssl http2;',setup.configuration(True,True))
+        self.assertNotIn('http2',setup.configuration(True,False))
+        with self.assertRaises(RuntimeError):setup.existing_http2('listen 443 ssl proxy_protocol;')
 
     def test_certificate_challenge_has_separate_webroot_before_tls(self):
         text=setup.configuration(False)
@@ -99,8 +103,8 @@ class LabHTTPS(unittest.TestCase):
                 a.bind(('127.0.0.1',0));b.bind(('127.0.0.1',0))
                 http_port=a.getsockname()[1];tls_port=b.getsockname()[1]
             with patch.object(setup,'LINEAGE',root),patch.object(setup,'BASE',root):
-                for tls in (False,True):
-                    text=setup.configuration(tls).replace('listen 80;',f'listen 127.0.0.1:{http_port};').replace('listen 443 ssl;',f'listen 127.0.0.1:{tls_port} ssl;')
+                for tls,http2 in ((False,False),(True,False),(True,True)):
+                    text=setup.configuration(tls,http2).replace('listen 80;',f'listen 127.0.0.1:{http_port};').replace('listen 443 ssl',f'listen 127.0.0.1:{tls_port} ssl')
                     test.write_text(text)
                     result=subprocess.run([shutil.which('nginx'),'-t','-p',str(root),'-c',str(main)],capture_output=True,text=True)
                     self.assertEqual(result.returncode,0,result.stderr)

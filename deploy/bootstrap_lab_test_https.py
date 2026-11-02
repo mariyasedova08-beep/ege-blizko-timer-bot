@@ -29,6 +29,7 @@ EXISTING = ('77-233-212-200.sslip.io', 'lms-77-233-212-200.sslip.io', 'prepodmin
 EXPECTED_BUNDLE = '669d611d1c1eea7a15e0824da5fe1ed4395f363b0b68bed752feb14e5cd63800'
 EXPECTED_HTML = '661682307a9a504fac65138750182ba528770d366ef840f45510f8af0b01c1da'
 MARKER = '# EGE_LAB_TEST_HTTPS_MANAGED_V1'
+HTTP2 = False
 HOOK_TEXT = '''#!/bin/sh
 set -eu
 [ "${RENEWED_LINEAGE:-}" = /etc/letsencrypt/live/ege-lab-sandbox-test ] || exit 0
@@ -37,7 +38,8 @@ set -eu
 '''
 
 
-def configuration(tls):
+def configuration(tls, http2=None):
+    listen = "443 ssl" + (" http2" if (HTTP2 if http2 is None else http2) else "")
     challenge = f'''    location ^~ /.well-known/acme-challenge/ {{
         root {BASE}/acme;
         default_type text/plain;
@@ -54,7 +56,7 @@ server {{
 '''
     if tls:
         result += f'''server {{
-    listen 443 ssl;
+    listen {listen};
     server_name {DOMAIN};
     ssl_certificate {LINEAGE}/fullchain.pem;
     ssl_certificate_key {LINEAGE}/privkey.pem;
@@ -76,6 +78,17 @@ server {{
 }}
 '''
     return result
+
+
+def managed_configs():
+    return {configuration(False), configuration(True,False), configuration(True,True)}
+
+
+def existing_http2(dump):
+    flags=re.findall(r'^\s*listen\s+(?:0\.0\.0\.0:)?443(?:\s+([^;]+))?;',dump,re.M)
+    if any('proxy_protocol' in (line or '').split() for line in flags):
+        raise RuntimeError('existing IPv4 TLS listener requires PROXY protocol; automatic setup refused')
+    return any('http2' in (line or '').split() for line in flags)
 
 
 def run(*args, timeout=40):
@@ -192,7 +205,7 @@ def restore(folder):
         elif path.exists():
             expected=HOOK_TEXT if name=='hook' else None
             text=path.read_text()
-            if (name=='hook' and text!=expected) or (name=='config' and text not in {configuration(False),configuration(True)}):
+            if (name=='hook' and text!=expected) or (name=='config' and text not in managed_configs()):
                 raise RuntimeError('unknown file during rollback')
             path.unlink()
     # Disable auto-renewal only for the newly created test certificate.
@@ -221,6 +234,7 @@ def verify_sandbox():
 
 
 def main():
+    global HTTP2
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--rollback',action='store_true')
     args=parser.parse_args()
@@ -238,11 +252,12 @@ def main():
             restore(backups[-1].parent);return
         run('nginx','-t')
         check_dir(CONF.parent);check_dir(HOOK.parent)
-        if CONF.is_symlink() or (CONF.exists() and CONF.read_text() not in {configuration(False),configuration(True)}):
+        if CONF.is_symlink() or (CONF.exists() and CONF.read_text() not in managed_configs()):
             raise SystemExit('UNKNOWN_EXISTING_TEST_CONFIG_REFUSED')
         if HOOK.is_symlink() or (HOOK.exists() and HOOK.read_text()!=HOOK_TEXT):
             raise SystemExit('UNKNOWN_EXISTING_CERTIFICATE_HOOK_REFUSED')
         dump=run('nginx','-T')
+        HTTP2=existing_http2(dump)
         if not CONF.exists() and any(DOMAIN in line.split() for line in re.findall(r'^\s*server_name\s+([^;]+);',dump,re.M)):
             raise SystemExit('TEST_HOSTNAME_ALREADY_CONFIGURED_ELSEWHERE')
         addresses={x[4][0] for x in socket.getaddrinfo(DOMAIN,443)}
