@@ -1,1 +1,1 @@
-Classroom feedback package reported installed 2026-11-02; build cf3e20fd49ed54ce. Verify trusted public HTTPS, exact hashes and desktop/tablet browser behavior. Read-only checks; no deployment.
+Presentation and handwriting update reported installed 2026-11-02; build 3ed2e039dead8207. Verify trusted HTTPS, exact hashes and desktop/tablet browser behavior. Read-only checks; no deployment.
