@@ -1,1 +1,1 @@
-Presentation and handwriting update reported installed 2026-11-02; build 3ed2e039dead8207. Verify trusted HTTPS, exact hashes and desktop/tablet browser behavior. Read-only checks; no deployment.
+Compact toolbar update detected on public test HTTPS 2026-11-02; build e7da155c21fb48ae. Verify trusted HTTPS, hashes, desktop/tablet browser. Read-only checks; no deployment.
