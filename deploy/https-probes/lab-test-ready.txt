@@ -1,0 +1,1 @@
+HTTPS sandbox installed 2026-11-02; build 286a6a6a3cff7105. Read-only public verification; no deployment.
