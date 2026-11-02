@@ -1,12 +1,17 @@
 """Test only the new HTTPS virtual host and rollback; never contact an ACME CA."""
 import hashlib
+import http.client
+from http.server import ThreadingHTTPServer
 import importlib.util
 import json
 from pathlib import Path
 import shutil
 import socket
+import ssl
 import subprocess
 import tempfile
+import threading
+import time
 import unittest
 from unittest.mock import patch
 
@@ -91,11 +96,101 @@ class LabHTTPS(unittest.TestCase):
         with patch.object(setup,'production_status',return_value={'host':{'status':200,'certificate_sha256':'new'}}):
             with self.assertRaises(RuntimeError):setup.assert_production_same(before)
 
+    def test_waits_for_new_nginx_workers_without_disabling_tls(self):
+        expected={'ok':True,'sandbox':True}
+        stale=ssl.SSLCertVerificationError('stale certificate hostname')
+        with patch.object(setup,'verify_sandbox',side_effect=[stale,stale,expected]) as verify,patch.object(setup.time,'sleep') as sleep:
+            self.assertEqual(setup.wait_for_sandbox(attempts=3,delay=1),expected)
+            self.assertEqual(verify.call_count,3);self.assertEqual(sleep.call_count,2)
+
+    def test_persistent_certificate_error_is_never_accepted(self):
+        with patch.object(setup,'verify_sandbox',side_effect=ssl.SSLCertVerificationError('wrong hostname')) as verify,patch.object(setup.time,'sleep'):
+            with self.assertRaises(RuntimeError):setup.wait_for_sandbox(attempts=3,delay=0)
+            self.assertEqual(verify.call_count,3)
+
+    def test_openssl_zero_exit_with_negative_hostname_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'fullchain.pem').touch();(root/'privkey.pem').touch()
+            with patch.object(setup,'LINEAGE',root),patch.object(setup,'run',return_value='Hostname '+setup.DOMAIN+' does NOT match certificate'):
+                with self.assertRaises(RuntimeError):setup.certificate_usable()
+
+    def test_saved_renewal_restored_and_valid_certificate_reused_without_ca_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);lineage=base/'lineage';lineage.mkdir()
+            archive=Path('/etc/letsencrypt/archive')/setup.NAME
+            content='version = 2.9.0\narchive_dir = '+str(archive)+'\n'+''.join(key+' = '+str(lineage/(key+'.pem'))+'\n' for key in ('cert','privkey','chain','fullchain'))
+            content+='[renewalparams]\nauthenticator = webroot\ndeploy_hook = '+str(setup.HOOK)+'\n[[webroot_map]]\n'+setup.DOMAIN+' = '+str(base/'acme')+'\n'
+            backup=base/'backups/old';backup.mkdir(parents=True)
+            (backup/'new-test-renewal.disabled').write_text(content)
+            renewal=base/'renewal.conf'
+            with patch.object(setup,'BASE',base),patch.object(setup,'LINEAGE',lineage),patch.object(setup,'RENEWAL',renewal),patch.object(setup,'check_dir',lambda path:None),patch.object(setup,'certificate_usable',return_value=True),patch.object(setup,'run') as run:
+                setup.ensure_test_certificate('existing-account')
+            self.assertEqual(renewal.read_text(),content)
+            run.assert_not_called()
+            self.assertTrue((backup/'new-test-renewal.disabled').exists())
+
+    def test_renewal_for_other_certificate_is_rejected(self):
+        content='archive_dir = /etc/letsencrypt/archive/production\ncert = /etc/letsencrypt/live/production/cert.pem\n[renewalparams]\nauthenticator = webroot\n'
+        with self.assertRaises(ValueError):setup.validate_saved_renewal(content)
+
+    @unittest.skipUnless(shutil.which('nginx') and shutil.which('openssl'),'requires nginx and openssl')
+    def test_real_nginx_reload_replaces_wrong_certificate_before_accepting_build(self):
+        spec=importlib.util.spec_from_file_location('reload_sandbox_server',ROOT/'deploy/lab_sandbox_server.py')
+        backend_module=importlib.util.module_from_spec(spec);spec.loader.exec_module(backend_module)
+        html,payload,health=backend_module.load_bundle(ROOT/'preview/lab-sandbox/bundle.json')
+        backend=ThreadingHTTPServer(('127.0.0.1',0),backend_module.handler_for(html,payload,health))
+        thread=threading.Thread(target=backend.serve_forever,daemon=True);thread.start()
+        process=None
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                root=Path(directory);old=root/'old';old.mkdir();new=root/'new';new.mkdir()
+                for folder,host in ((old,'old.invalid'),(new,setup.DOMAIN)):
+                    subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','60','-subj','/CN='+host,'-addext','subjectAltName=DNS:'+host,'-keyout',str(folder/'privkey.pem'),'-out',str(folder/'fullchain.pem')],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                with socket.socket() as a,socket.socket() as b:
+                    a.bind(('127.0.0.1',0));b.bind(('127.0.0.1',0))
+                    http_port=a.getsockname()[1];tls_port=b.getsockname()[1]
+                site=root/'site.conf';main=root/'nginx.conf'
+                paths=' '.join(kind+'_temp_path '+str(root/kind)+';' for kind in ('client_body','proxy','fastcgi','uwsgi','scgi'))
+                main.write_text('pid '+str(root/'pid')+';\nerror_log '+str(root/'error.log')+';\nevents {}\nhttp { '+paths+' access_log off; include '+str(site)+'; }\n')
+                def write_config(lineage):
+                    with patch.object(setup,'LINEAGE',lineage),patch.object(setup,'BASE',root):
+                        text=setup.configuration(True,False).replace('listen 80;',f'listen 127.0.0.1:{http_port};').replace('listen 443 ssl;',f'listen 127.0.0.1:{tls_port} ssl;').replace('http://127.0.0.1:8768',f'http://127.0.0.1:{backend.server_port}')
+                    site.write_text(text)
+                write_config(old)
+                process=subprocess.Popen([shutil.which('nginx'),'-p',str(root),'-c',str(main),'-g','daemon off;'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                for _ in range(100):
+                    if process.poll() is not None:raise RuntimeError('test nginx exited')
+                    try:
+                        with socket.create_connection(('127.0.0.1',tls_port),timeout=.2):break
+                    except OSError:time.sleep(.05)
+                context=ssl.create_default_context()
+                context.load_verify_locations(cadata=(old/'fullchain.pem').read_text()+(new/'fullchain.pem').read_text())
+                self.assertTrue(context.check_hostname);self.assertEqual(context.verify_mode,ssl.CERT_REQUIRED)
+                def request(host,path='/',method='GET',body=None):
+                    with socket.create_connection(('127.0.0.1',tls_port),timeout=3) as raw:
+                        with context.wrap_socket(raw,server_hostname=host) as sock:
+                            data=body or b''
+                            sock.sendall(f'{method} {path} HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\nContent-Length: {len(data)}\r\n\r\n'.encode()+data)
+                            response=http.client.HTTPResponse(sock);response.begin()
+                            return response.status,hashlib.sha256(sock.getpeercert(binary_form=True)).hexdigest(),response.read()
+                with patch.object(setup,'tls_request',side_effect=request):
+                    with self.assertRaises(ssl.SSLCertVerificationError):setup.verify_sandbox()
+                    write_config(new)
+                    subprocess.run([shutil.which('nginx'),'-p',str(root),'-c',str(main),'-s','reload'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                    self.assertEqual(setup.wait_for_sandbox(attempts=50,delay=.05)['build'],health['build'])
+                process.terminate();process.wait(timeout=5);process=None
+        finally:
+            if process is not None:
+                process.terminate()
+                try:process.wait(timeout=5)
+                except subprocess.TimeoutExpired:process.kill();process.wait()
+            backend.shutdown();backend.server_close();thread.join()
+
     @unittest.skipUnless(shutil.which('nginx') and shutil.which('openssl'),'requires nginx and openssl')
     def test_real_nginx_accepts_both_generated_configurations(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)
-            subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-subj','/CN='+setup.DOMAIN,'-days','1','-keyout',str(root/'privkey.pem'),'-out',str(root/'fullchain.pem')],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-subj','/CN='+setup.DOMAIN,'-days','60','-keyout',str(root/'privkey.pem'),'-out',str(root/'fullchain.pem')],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             test=root/'site.conf';main=root/'nginx.conf'
             temp_paths=' '.join(kind+'_temp_path '+str(root/kind)+';' for kind in ('client_body','proxy','fastcgi','uwsgi','scgi'))
             main.write_text('pid '+str(root/'nginx.pid')+';\nerror_log '+str(root/'error.log')+';\nevents {}\nhttp { '+temp_paths+' access_log '+str(root/'access.log')+'; include '+str(test)+'; }\n')
@@ -103,6 +198,7 @@ class LabHTTPS(unittest.TestCase):
                 a.bind(('127.0.0.1',0));b.bind(('127.0.0.1',0))
                 http_port=a.getsockname()[1];tls_port=b.getsockname()[1]
             with patch.object(setup,'LINEAGE',root),patch.object(setup,'BASE',root):
+                self.assertTrue(setup.certificate_usable())
                 for tls,http2 in ((False,False),(True,False),(True,True)):
                     text=setup.configuration(tls,http2).replace('listen 80;',f'listen 127.0.0.1:{http_port};').replace('listen 443 ssl',f'listen 127.0.0.1:{tls_port} ssl')
                     test.write_text(text)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Add ONLY the separate laboratory HTTPS virtual host, with checked rollback."""
 import argparse
+import configparser
 from datetime import datetime, timezone
 import fcntl
 import hashlib
@@ -15,6 +16,7 @@ import socket
 import ssl
 import subprocess
 import tempfile
+import time
 import urllib.request
 
 DOMAIN = 'lab-test.77-233-212-200.sslip.io'
@@ -233,13 +235,79 @@ def verify_sandbox():
     return health
 
 
+def certificate_usable():
+    cert=LINEAGE/'fullchain.pem'
+    if not cert.is_file() or not (LINEAGE/'privkey.pem').is_file():
+        return False
+    # Check the certificate on disk before changing the TLS virtual host.
+    hostname=run('openssl','x509','-in',str(cert),'-noout','-checkhost',DOMAIN).strip()
+    # OpenSSL x509 can exit zero even when its checkhost result is negative.
+    if hostname!='Hostname '+DOMAIN+' does match certificate':
+        raise RuntimeError('saved test certificate hostname does not match')
+    check=subprocess.run(['openssl','x509','-in',str(cert),'-noout','-checkend',str(30*86400)],capture_output=True,text=True,timeout=10)
+    return check.returncode==0
+
+
+def validate_saved_renewal(content):
+    parser=configparser.ConfigParser(interpolation=None)
+    parser.read_string('[lineage]\n'+content)
+    for key in ('cert','privkey','chain','fullchain'):
+        if parser.get('lineage',key,fallback='')!=str(LINEAGE/(key+'.pem')):
+            raise ValueError('saved renewal belongs to another certificate')
+    if parser.get('lineage','archive_dir',fallback='')!=str(Path('/etc/letsencrypt/archive')/NAME):
+        raise ValueError('saved renewal archive differs')
+    if parser.get('renewalparams','authenticator',fallback='')!='webroot':
+        raise ValueError('saved renewal does not use webroot')
+    for key in ('pre_hook','post_hook'):
+        if parser.get('renewalparams',key,fallback='').strip():
+            raise ValueError('unexpected saved certificate hook')
+    hook=parser.get('renewalparams','deploy_hook',fallback='').strip()
+    if hook and hook!=str(HOOK):raise ValueError('unexpected deploy hook')
+
+
+def restore_test_renewal():
+    if RENEWAL.exists():return
+    backups=sorted((BASE/'backups').glob('*/new-test-renewal.disabled'))
+    if not backups:
+        if LINEAGE.exists():raise RuntimeError('test certificate exists but its saved renewal configuration was not found')
+        return
+    source=backups[-1]
+    if source.is_symlink() or source.stat().st_uid!=os.geteuid():
+        raise ValueError('untrusted saved test renewal')
+    content=source.read_text()
+    validate_saved_renewal(content)
+    atomic(RENEWAL,content.encode(),0o600)
+    print('SAVED_TEST_RENEWAL_RESTORED',flush=True)
+
+
+def ensure_test_certificate(account):
+    restore_test_renewal()
+    if certificate_usable():
+        print('REUSING_VALID_TEST_CERTIFICATE',flush=True)
+        return
+    run(*certbot_command(account),timeout=240)
+    if not certificate_usable():raise RuntimeError('issued test certificate is not usable')
+
+
+def wait_for_sandbox(attempts=20,delay=1):
+    # systemctl reload returns before nginx has necessarily replaced workers.
+    # Every attempt still checks the CA chain, hostname, HTML and API.
+    last=None
+    for attempt in range(attempts):
+        try:return verify_sandbox()
+        except (OSError,ValueError,RuntimeError,http.client.HTTPException) as error:
+            last=error
+            if attempt+1<attempts:time.sleep(delay)
+    raise RuntimeError('new HTTPS virtual host did not become ready; rolling back') from last
+
+
 def main():
     global HTTP2
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--rollback',action='store_true')
     args=parser.parse_args()
     if os.geteuid()!=0:raise SystemExit('ROOT_CONSOLE_REQUIRED')
-    for command in ('nginx','certbot','systemctl'):
+    for command in ('nginx','certbot','systemctl','openssl'):
         if not shutil.which(command):raise SystemExit('MISSING_PROGRAM: '+command)
     lock_fd=os.open('/run/lock/ege-lab-test-https.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
     with os.fdopen(lock_fd,'a+') as lock:
@@ -301,14 +369,14 @@ def main():
                 if reply.status!=200 or reply.read(200)!=token.encode():raise RuntimeError('challenge route failed')
                 connection.close()
             finally:probe.unlink(missing_ok=True)
-            run(*certbot_command(account),timeout=240)
+            ensure_test_certificate(account)
             atomic(CONF,configuration(True).encode())
             reload_checked(hashes)
-            result=verify_sandbox()
+            result=wait_for_sandbox()
             assert_production_same(before)
             print(json.dumps({'ok':True,'build':result['build'],'url':'https://'+DOMAIN+'/lab-app'},sort_keys=True))
             print('TEST_HTTPS_READY_EXISTING_ROUTES_UNCHANGED')
-        except Exception:
+        except BaseException:
             restore(folder)
             raise
 
