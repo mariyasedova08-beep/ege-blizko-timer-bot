@@ -1,6 +1,6 @@
 # Сглаживание почерка и презентация во всё окно — 02.11.2026
 
-Статус: подготовлено и проверено в изолированной ветке; на Timeweb ещё не установлено.
+Статус: установлено в тестовом sandbox Timeweb. Прямая внешняя проверка HTTPS и точной сборки прошла; независимые SSH и публичные браузерные проверки завершились успешно.
 
 ## Изменения
 
@@ -48,3 +48,14 @@ BASH
 ```
 
 Общий GitHub CI финального пакета (87 тестов и браузер desktop/tablet): https://github.com/mariyasedova08-beep/ege-blizko-timer-bot/actions/runs/41510284245 — success.
+
+Вывод установки владельца: backup `/var/lib/ege-lab-sandbox/backups/20261102T193159Z-f17462`; build `3ed2e039dead8207`, ожидаемые bundle/HTML/payload SHA-256 совпали, `sandbox: true`, `NO_PRODUCTION_DEPLOYMENT_PERFORMED`.
+
+## Независимая проверка установленной версии
+
+- Read-only SSH, точные build и хеши: https://github.com/mariyasedova08-beep/ege-blizko-timer-bot/actions/runs/41510974046 — success.
+- Публичный HTTPS и браузер desktop/tablet: https://github.com/mariyasedova08-beep/ege-blizko-timer-bot/actions/runs/41510974063 — success.
+
+Тестовый адрес: https://lab-test.77-233-212-200.sslip.io/lab-app
+
+Готово к повторной пользовательской проверке. Перед обновлением вкладки сохранить проект доски/PDF. Новый режим сглаживает только новые штрихи; старые записи не переписывает. Оценка почерка на физическом Wacom/iMac остаётся за преподавателем. Production не изменялся.
