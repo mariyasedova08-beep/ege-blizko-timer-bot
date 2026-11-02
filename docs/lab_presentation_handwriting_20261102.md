@@ -22,7 +22,7 @@
 
 Откат: `python3 /var/lib/ege-lab-sandbox/installer.py --rollback`.
 
-Runtime commit: `98c9b4d9cf360721d6352aa89ce5d4247993876b`.
-Build: `998c4bb1cf934236`.
-Bundle: `8dd56a65fd1f1530c91ce93cf19cc048c056011d4ee44407064330abd54360ee`.
-Installer SHA-256: `1060034f46c3820e527239d4cd5ef9bca5cd5ca7e4e6bc1e40179e7a0b2b07ea`.
+Runtime commit: `10801e460a63b73e1151e5dcbff0c4e1921b1b48`.
+Build: `3ed2e039dead8207`.
+Bundle: `aa16ceb59fa1dbc53f8cc345750f957e08e82d041f0dc7c1974910768e85bb35`.
+Installer SHA-256: `101349e17d92cbfce1b818a74479886c58d5619bc1684581c921b9a8be77677b`.
