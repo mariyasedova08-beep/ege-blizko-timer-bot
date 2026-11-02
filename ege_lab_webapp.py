@@ -1421,6 +1421,11 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 #lesson .lesson-paper-space{padding-top:12px}
 #lesson .lesson-board-bar{flex-shrink:0}
 #lesson .lesson-board-space{min-height:180px}
+#lesson .lesson-workspace-tabs{display:flex;flex-wrap:wrap;gap:6px;order:0;align-self:flex-start}
+#lesson .lesson-workspace-tabs button{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:8px 13px;border:1px solid #E8CDDD;border-radius:12px;background:#F8F5F2;color:#171719;font-size:14px;font-weight:600}
+#lesson .lesson-workspace-tabs svg{width:22px;height:22px;flex-shrink:0}
+#lesson .lesson-workspace-tabs button[aria-pressed="true"]{background:#F4D9E6;border-color:#C44988;box-shadow:inset 0 -3px 0 #C44988}
+#lesson .lesson-workspace-tabs button:focus-visible{outline:2px solid #F00087;outline-offset:2px}
 
 </style></head><body><div class="app">
 <div class="lab-topbar">
@@ -1507,13 +1512,17 @@ body.lesson-board-fullscreen{overflow:hidden!important}
   <div id="lessonPanelDivider" role="separator" tabindex="0" aria-label="Изменить ширину лаборатории и презентации" aria-orientation="vertical" aria-valuemin="20" aria-valuemax="65" aria-valuenow="30"></div>
   <section class="lesson-pdf-pane" aria-label="Рабочая тетрадь преподавателя">
     <div class="lesson-pane-head">
+      <div class="lesson-workspace-tabs" role="group" aria-label="Рабочая область урока">
+        <button id="lessonPresentationTab" type="button" aria-pressed="true" title="Открыть презентацию PDF и записи на слайдах"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M12 16v5m-5 0h10M7 7h10M7 11h6"/></svg> Презентация</button>
+        <button id="lessonBoardToggle" type="button" aria-pressed="false" title="Открыть бесконечную доску"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg> Доска</button>
+      </div>
       <button id="lessonToolbarToggle" type="button" aria-expanded="true" title="Свернуть или открыть инструменты">Скрыть инструменты</button>
       <div class="lesson-lesson-tools">
       <div class="lesson-file-controls">
         <label for="lessonPDFInput" class="lesson-file-label" title="Открыть свой PDF">📄 PDF</label>
         <input id="lessonPDFInput" type="file" accept="application/pdf,.pdf">
       </div>
-        <button id="lessonBoardToggle" type="button" aria-pressed="false" title="Переключиться между презентацией и свободной доской">▦ Доска</button>
+        
         <button id="lessonPrevious" type="button" title="Предыдущая страница">←</button>
         <span id="lessonPageCounter">1 / 1</span>
         <select id="lessonPDFNavigation" aria-label="Страницы и закладки PDF" style="max-width:170px" hidden></select>
@@ -3995,14 +4004,16 @@ function lessonBoardSetTool(tool){
  document.getElementById("lessonBoardCanvas").style.cursor=(tool==="move"||tool==="pan")?"grab":"crosshair";
  lessonBoardDraw();
 }
-function lessonBoardToggle(){
- lessonBoardMode=!lessonBoardMode;
+function lessonBoardToggle(target){
+ const next=typeof target==="boolean"?target:!lessonBoardMode;
+ if(next===lessonBoardMode)return;
+ lessonBoardMode=next;
  if(!lessonBoardMode)lessonBoardSetFullscreen(false);
  document.getElementById("lessonPaperSpace").hidden=lessonBoardMode;
  document.getElementById("lessonBoardSpace").hidden=!lessonBoardMode;
  document.getElementById("lessonBoardBar").hidden=!lessonBoardMode;
  document.getElementById("lessonBoardToggle").setAttribute("aria-pressed",String(lessonBoardMode));
- document.getElementById("lessonBoardToggle").textContent=lessonBoardMode?"📄 Презентация":"▦ Доска";
+ document.getElementById("lessonPresentationTab").setAttribute("aria-pressed",String(!lessonBoardMode));
  if(lessonBoardMode)lessonBoardDraw();else lessonRenderPage();
  lessonStatus(lessonBoardMode?"Свободная доска открыта. Презентация и записи сохранены отдельно.":"Презентация с прежними пометками открыта.");
 }
@@ -4063,7 +4074,8 @@ function lessonBoardSetup(){
   lessonBoardPages[lessonBoardPageIndex].name=name.trim().slice(0,65);
   lessonBoardRefreshPages();
  };
- document.getElementById("lessonBoardToggle").onclick=lessonBoardToggle;
+ document.getElementById("lessonBoardToggle").onclick=()=>lessonBoardToggle(true);
+ document.getElementById("lessonPresentationTab").onclick=()=>lessonBoardToggle(false);
  document.getElementById("lessonBoardPen").onclick=()=>lessonSetTool("pen");
  document.getElementById("lessonBoardEraser").onclick=()=>lessonSetTool("erase");
  document.getElementById("lessonBoardMove").onclick=()=>lessonBoardSetTool("move");
