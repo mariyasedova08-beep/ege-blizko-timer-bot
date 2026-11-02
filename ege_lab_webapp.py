@@ -1421,6 +1421,12 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 #lesson .lesson-paper-space{padding-top:12px}
 #lesson .lesson-board-bar{flex-shrink:0}
 #lesson .lesson-board-space{min-height:180px}
+#lesson .lesson-board-navigation{display:flex;align-items:center;flex-wrap:wrap;gap:5px;padding:5px;border:1px solid #E8CDDD;border-radius:12px;background:#fff}
+#lesson .lesson-board-navigation button,#lesson .lesson-board-bar>button{min-height:40px}
+#lesson #lessonBoardDocumentName{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+#lesson #lessonBoardPageCounter{min-width:45px;text-align:center;font-variant-numeric:tabular-nums}
+#lesson .lesson-board-bar button:disabled{opacity:.4;cursor:default}
+#lesson .lesson-board-bar button[aria-pressed="true"]{background:#F4D9E6;border-color:#C44988}
 #lesson .lesson-workspace-tabs{display:flex;flex-wrap:wrap;gap:6px;order:0;align-self:flex-start}
 #lesson .lesson-workspace-tabs button{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:8px 13px;border:1px solid #E8CDDD;border-radius:12px;background:#F8F5F2;color:#171719;font-size:14px;font-weight:600}
 #lesson .lesson-workspace-tabs svg{width:22px;height:22px;flex-shrink:0}
@@ -1557,21 +1563,33 @@ body.lesson-board-fullscreen{overflow:hidden!important}
       <button id="lessonBoardPen" type="button" aria-pressed="true">✎ Писать</button>
       <button id="lessonBoardEraser" type="button" aria-pressed="false" title="Стереть штрих на доске"><svg class="lesson-eraser-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m4 14 9-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3L12 22H8l-4-4a3 3 0 0 1 0-4Z"/><path d="m9 9 8 8M12 22h10"/></svg> Ластик</button>
       <button id="lessonBoardPan" type="button" aria-pressed="false">✋ Перемещать доску</button>
-      <button id="lessonBoardHome" type="button">⌂ К началу</button>
-      <span id="lessonBoardZoom" aria-live="polite">100%</span>
-      <button id="lessonBoardMove" type="button" aria-pressed="false">↔ Двигать изображение</button>
+      <div class="lesson-board-navigation" role="group" aria-label="Масштаб и обзор доски">
+        <button id="lessonBoardZoomOut" type="button" aria-label="Уменьшить масштаб доски">−</button>
+        <button id="lessonBoardZoom" type="button" title="Вернуть масштаб 100%">100%</button>
+        <button id="lessonBoardZoomIn" type="button" aria-label="Увеличить масштаб доски">＋</button>
+        <button id="lessonBoardFit" type="button">Показать всё</button>
+        <button id="lessonBoardDocument" type="button">К документу</button>
+        <button id="lessonBoardHome" type="button" title="Вернуться к началу координат">⌂</button>
+      </div>
+      <div class="lesson-board-navigation" role="group" aria-label="Страницы PDF на доске">
+        <span id="lessonBoardDocumentName"></span>
+        <button id="lessonBoardPrevious" type="button" aria-label="Предыдущая страница на доске">←</button>
+        <span id="lessonBoardPageCounter" aria-live="polite">1 / 1</span>
+        <button id="lessonBoardNext" type="button" aria-label="Следующая страница на доске">→</button>
+      </div>
+      <button id="lessonBoardMove" type="button" aria-pressed="false">↔ Выбрать / двигать</button>
       <select id="lessonBoardPages" aria-label="Лист доски" title="Выбрать лист доски"></select>
       <button id="lessonBoardAddPage" type="button">＋ Лист</button>
       <button id="lessonBoardRenamePage" type="button">Переименовать</button>
       <label for="lessonBoardImageInput">＋ Изображение</label><input id="lessonBoardImageInput" type="file" accept="image/png,image/jpeg,image/webp">
       <label for="lessonBoardPDFInput">＋ PDF на доску</label><input id="lessonBoardPDFInput" type="file" accept="application/pdf,.pdf">
-      <label>Размер изображения <input id="lessonBoardImageSize" type="range" min="100" max="1300" value="480" aria-label="Ширина выбранного изображения"></label>
+      <label title="Меняет размер выбранной картинки. Для увеличения PDF используй кнопки масштаба.">Размер картинки <input id="lessonBoardImageSize" type="range" min="100" max="1300" value="480" aria-label="Ширина выбранного изображения"></label>
       <button id="lessonBoardUndo" type="button">↶ Отменить</button>
       <button id="lessonBoardFullscreen" type="button" aria-pressed="false" title="Развернуть доску на весь экран или вернуться к лаборатории">⛶ На весь экран</button>
       <button id="lessonBoardSaveProject" type="button">↓ Сохранить проект</button>
       <label for="lessonBoardOpenProject">↑ Открыть проект</label><input id="lessonBoardOpenProject" type="file" accept=".json,application/json">
       <button id="lessonBoardExport" type="button">↓ Доска в PDF</button>
-      <small>Колесо — перемещение, Ctrl + колесо — масштаб. На планшете выбери «Перемещать доску».</small>
+      <small>Масштаб: ＋ / − или два пальца. Один палец пишет; «Перемещать доску» двигает обзор. PDF листается стрелками и закреплён под записями.</small>
     </div>
     <div id="lessonPaperSpace" class="lesson-paper-space">
       <div id="lessonCanvasWrap"><canvas id="lessonPdfCanvas"></canvas><canvas id="lessonInkCanvas" aria-label="Писать стилусом по странице"></canvas></div>
@@ -3825,6 +3843,7 @@ function lessonBoardRefreshPages(){
   select.appendChild(option);
  });
  select.value=String(lessonBoardPageIndex);
+ lessonBoardRefreshNavigation();
 }
 function lessonBoardSwitchPage(index){
  if(!Number.isInteger(index)||index<0||index>=lessonBoardPages.length)return;
@@ -3834,6 +3853,7 @@ function lessonBoardSwitchPage(index){
  lessonBoardView={x:0,y:0,zoom:1,...lessonBoardPages[index].view};
  lessonBoardUndoStack=[];lessonBoardSelection=null;lessonBoardPointer=null;
  lessonBoardRefreshPages();lessonBoardDraw();
+ if(!lessonBoardPages[index].view&&lessonBoardItems.length)lessonBoardFit("document");
  lessonStatus("Открыт лист «"+lessonBoardPages[index].name+"». Другие листы сохранены.");
 }
 function lessonBoardImageData(image){
@@ -3865,7 +3885,7 @@ async function lessonBoardImportPDF(file){
   }
   // Render everything before modifying the current project, so a bad PDF
   // cannot leave the user's board half-imported.
-  const newPages=[];
+  const newPages=[],documentId="pdf-"+Date.now()+"-"+Math.random().toString(36).slice(2);
   for(let index=1;index<=pdf.numPages;index++){
    const page=await pdf.getPage(index),natural=page.getViewport({scale:1});
    const viewport=page.getViewport({scale:Math.min(2,1650/natural.width,1350/natural.height)});
@@ -3876,14 +3896,15 @@ async function lessonBoardImportPDF(file){
    const image=await lessonBoardLoadImage(bitmap.toDataURL("image/jpeg",.94));
    const w=Math.min(1700,image.naturalWidth),h=w*image.naturalHeight/image.naturalWidth;
    newPages.push({name:file.name.replace(/\.pdf$/i,"").slice(0,44)+" · "+index,
-    items:[{image,x:Math.round((2400-w)/2),y:Math.max(35,Math.round((1600-h)/2)),w,h}],strokes:[]});
+    document:{id:documentId,title:file.name.slice(0,80),page:index,total:pdf.numPages},
+    items:[{image,x:Math.round((2400-w)/2),y:Math.max(35,Math.round((1600-h)/2)),w,h,locked:true}],strokes:[]});
    bitmap.width=bitmap.height=0;
   }
   lessonBoardStoreCurrent();
   const first=lessonBoardPages.length;lessonBoardPages.push(...newPages);
   lessonBoardSwitchPage(first);
   lessonBoardSetTool("pen");
-  lessonStatus("Добавлено "+newPages.length+" слайдов как отдельные листы. Пиши по ним и сохраняй проект или PDF.");
+  lessonStatus("PDF открыт на доске. Листай стрелками рядом с номером страницы; увеличивай кнопками ＋ / − или двумя пальцами.");
  }catch(err){lessonStatus("Не удалось вставить PDF на доску. Проверь формат файла и соединение.");}
  finally{try{await pdf?.destroy();}catch(err){}}
 }
@@ -3894,9 +3915,9 @@ async function lessonBoardSaveProject(){
  try{
   lessonBoardStoreCurrent();
   const pages=lessonBoardPages.map(page=>({
-   name:page.name,view:page.view,
+   name:page.name,view:page.view,document:page.document,
    strokes:page.strokes.map(stroke=>({color:stroke.color,width:stroke.width,opacity:stroke.opacity,points:stroke.points.map(p=>({x:p.x,y:p.y}))})),
-   items:page.items.map(item=>({x:item.x,y:item.y,w:item.w,h:item.h,image:lessonBoardImageData(item.image)}))
+   items:page.items.map(item=>({x:item.x,y:item.y,w:item.w,h:item.h,locked:item.locked===true,image:lessonBoardImageData(item.image)}))
   }));
   const content=JSON.stringify({format:"ege-blizko-board",version:2,width:2400,height:1600,activePage:lessonBoardPageIndex,pages});
   lessonDownload(content,"ЕГЭ_БЛИЗКО_проект_доски.json","application/json");
@@ -3918,7 +3939,7 @@ async function lessonBoardOpenProject(file){
    for(const item of page.items){
     if(++imageCount>200||!lessonBoardValidNumber(item.x,-10000000,10000000)||!lessonBoardValidNumber(item.y,-10000000,10000000)||
        !lessonBoardValidNumber(item.w,1,2400)||!lessonBoardValidNumber(item.h,1,2400))throw Error("bad-image");
-    items.push({x:item.x,y:item.y,w:item.w,h:item.h,image:await lessonBoardLoadImage(item.image)});
+    items.push({x:item.x,y:item.y,w:item.w,h:item.h,locked:item.locked===true,image:await lessonBoardLoadImage(item.image)});
    }
    const strokes=page.strokes.map(stroke=>{
     if(!/^#[0-9a-f]{6}$/i.test(stroke.color)||!lessonBoardValidNumber(stroke.width,.1,100)||
@@ -3932,7 +3953,9 @@ async function lessonBoardOpenProject(file){
    });
    const view=page.view||{x:0,y:0,zoom:1};
    if(!lessonBoardValidNumber(view.x,-10000000,10000000)||!lessonBoardValidNumber(view.y,-10000000,10000000)||!lessonBoardValidNumber(view.zoom,.1,4))throw Error("bad-view");
-   pages.push({name:page.name||"Без названия",items,strokes,view});
+   const doc=page.document;
+   if(doc&&(typeof doc.id!=="string"||doc.id.length>128||typeof doc.title!=="string"||doc.title.length>80||!Number.isInteger(doc.page)||!Number.isInteger(doc.total)||doc.page<1||doc.page>doc.total||doc.total>20))throw Error("bad-document");
+   pages.push({name:page.name||"Без названия",items,strokes,view,document:doc?{id:doc.id,title:doc.title,page:doc.page,total:doc.total}:undefined});
   }
   // Only replace the current board after the entire file has been validated.
   lessonBoardPages=pages;lessonBoardPageIndex=0;lessonBoardItems=pages[0].items;lessonBoardStrokes=pages[0].strokes;
@@ -3981,6 +4004,42 @@ function lessonBoardDraw(){
  if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
  lessonBoardPaint(canvas.getContext("2d"),width,height,lessonBoardView);
  document.getElementById("lessonBoardZoom").textContent=Math.round(lessonBoardView.zoom*100)+"%";
+ lessonBoardRefreshNavigation();
+}
+function lessonBoardPageGroup(){
+ const doc=lessonBoardPages[lessonBoardPageIndex].document;
+ return lessonBoardPages.map((page,index)=>({page,index})).filter(entry=>!doc||entry.page.document?.id===doc.id).map(entry=>entry.index);
+}
+function lessonBoardRefreshNavigation(){
+ const group=lessonBoardPageGroup(),position=group.indexOf(lessonBoardPageIndex);
+ document.getElementById("lessonBoardPageCounter").textContent=(position+1)+" / "+group.length;
+ document.getElementById("lessonBoardDocumentName").textContent=lessonBoardPages[lessonBoardPageIndex].document?.title||"Листы доски";
+ document.getElementById("lessonBoardPrevious").disabled=position<=0;
+ document.getElementById("lessonBoardNext").disabled=position>=group.length-1;
+ document.getElementById("lessonBoardDocument").disabled=!lessonBoardItems.length;
+}
+function lessonBoardTurnPage(direction){
+ const group=lessonBoardPageGroup(),position=group.indexOf(lessonBoardPageIndex);
+ if(group[position+direction]!==undefined)lessonBoardSwitchPage(group[position+direction]);
+}
+function lessonBoardZoomTo(zoom,anchor=null,screen=null){
+ const space=document.getElementById("lessonBoardSpace");
+ screen=screen||{x:space.clientWidth/2,y:space.clientHeight/2};
+ anchor=anchor||{x:lessonBoardView.x+screen.x/lessonBoardView.zoom,y:lessonBoardView.y+screen.y/lessonBoardView.zoom};
+ zoom=Math.max(.1,Math.min(4,zoom));
+ lessonBoardView={x:anchor.x-screen.x/zoom,y:anchor.y-screen.y/zoom,zoom};lessonBoardDraw();
+}
+function lessonBoardFit(kind){
+ const space=document.getElementById("lessonBoardSpace");
+ const items=kind==="document"?[lessonBoardSelection||lessonBoardItems.find(item=>item.locked)||lessonBoardItems[0]].filter(Boolean):lessonBoardItems;
+ const bounds=[];
+ for(const item of items)bounds.push({x:item.x,y:item.y},{x:item.x+item.w,y:item.y+item.h});
+ if(kind!=="document")for(const stroke of lessonBoardStrokes)for(const point of stroke.points)bounds.push({x:point.x-stroke.width,y:point.y-stroke.width},{x:point.x+stroke.width,y:point.y+stroke.width});
+ if(!bounds.length){lessonBoardView={x:0,y:0,zoom:1};lessonBoardDraw();return;}
+ let left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
+ for(const point of bounds){left=Math.min(left,point.x);top=Math.min(top,point.y);right=Math.max(right,point.x);bottom=Math.max(bottom,point.y);}
+ const zoom=Math.min((Math.max(1,space.clientWidth-48))/Math.max(1,right-left),(Math.max(1,space.clientHeight-48))/Math.max(1,bottom-top));
+ lessonBoardZoomTo(zoom,{x:(left+right)/2,y:(top+bottom)/2});
 }
 function lessonBoardPoint(event){
  const rect=document.getElementById("lessonBoardCanvas").getBoundingClientRect();
@@ -4032,12 +4091,19 @@ function lessonBoardSetup(){
  const canvas=document.getElementById("lessonBoardCanvas");
  new ResizeObserver(lessonBoardScheduleDraw).observe(document.getElementById("lessonBoardSpace"));
  document.getElementById("lessonBoardPan").onclick=()=>lessonBoardSetTool("pan");
+ document.getElementById("lessonBoardZoomIn").onclick=()=>lessonBoardZoomTo(lessonBoardView.zoom*1.25);
+ document.getElementById("lessonBoardZoomOut").onclick=()=>lessonBoardZoomTo(lessonBoardView.zoom/1.25);
+ document.getElementById("lessonBoardZoom").onclick=()=>lessonBoardZoomTo(1);
+ document.getElementById("lessonBoardFit").onclick=()=>lessonBoardFit("all");
+ document.getElementById("lessonBoardDocument").onclick=()=>lessonBoardFit("document");
+ document.getElementById("lessonBoardPrevious").onclick=()=>lessonBoardTurnPage(-1);
+ document.getElementById("lessonBoardNext").onclick=()=>lessonBoardTurnPage(1);
  document.getElementById("lessonBoardHome").onclick=()=>{lessonBoardView={x:0,y:0,zoom:1};lessonBoardDraw();};
  canvas.addEventListener("wheel",event=>{
   event.preventDefault();
   if(event.ctrlKey||event.metaKey){
    const anchor=lessonBoardPoint(event),old=lessonBoardView.zoom;
-   const zoom=Math.max(.1,Math.min(4,old*Math.exp(-event.deltaY*.002)));
+   const zoom=Math.max(.1,Math.min(4,old*Math.exp(-Math.max(-1000,Math.min(1000,event.deltaY))*.002)));
    lessonBoardView.x=anchor.x-(anchor.x-lessonBoardView.x)*old/zoom;
    lessonBoardView.y=anchor.y-(anchor.y-lessonBoardView.y)*old/zoom;
    lessonBoardView.zoom=zoom;
@@ -4105,29 +4171,59 @@ function lessonBoardSetup(){
   const previous=lessonBoardUndoStack.pop();if(!previous)return;
   lessonBoardItems=previous.items;lessonBoardStrokes=previous.strokes;lessonBoardSelection=null;lessonBoardDraw();
  };
+ const touches=new Map();let pinch=null,touchBlocked=false;
+ const touchPair=()=>{const points=[...touches.values()];return {distance:Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y),mid:{x:(points[0].x+points[1].x)/2,y:(points[0].y+points[1].y)/2}};};
  canvas.onpointerdown=event=>{
+  if(event.pointerType==="touch"&&lessonBoardPointer?.pointerType==="pen")return;
+  if(event.pointerType==="touch"){
+   touches.set(event.pointerId,{x:event.clientX,y:event.clientY});
+   if(touches.size>=2){
+    event.preventDefault();canvas.setPointerCapture(event.pointerId);
+    if(touches.size===2){
+     if(lessonBoardPointer&&lessonBoardPointer.kind!=="pan"){
+      const previous=lessonBoardUndoStack.pop();
+      if(previous){lessonBoardItems=previous.items;lessonBoardStrokes=previous.strokes;lessonBoardSelection=null;}
+     }
+     lessonBoardPointer=null;touchBlocked=true;
+     const pair=touchPair(),rect=canvas.getBoundingClientRect();
+     pinch={distance:Math.max(1,pair.distance),zoom:lessonBoardView.zoom,anchor:{x:lessonBoardView.x+(pair.mid.x-rect.left)/lessonBoardView.zoom,y:lessonBoardView.y+(pair.mid.y-rect.top)/lessonBoardView.zoom}};
+    }
+    lessonBoardDraw();return;
+   }
+   if(touchBlocked)return;
+  }
   if(event.button!==0&&event.pointerType==="mouse")return;
   if(lessonBoardPointer)return;
   const p=lessonBoardPoint(event);
   if(lessonBoardTool==="pan"){
    lessonBoardPointer={kind:"pan",clientX:event.clientX,clientY:event.clientY,x:lessonBoardView.x,y:lessonBoardView.y};
   }else if(lessonBoardTool==="move"){
-   lessonBoardSelection=[...lessonBoardItems].reverse().find(item=>p.x>=item.x&&p.x<=item.x+item.w&&p.y>=item.y&&p.y<=item.y+item.h)||null;
-   if(!lessonBoardSelection){lessonBoardDraw();return;}
+   lessonBoardSelection=[...lessonBoardItems].reverse().find(item=>!item.locked&&p.x>=item.x&&p.x<=item.x+item.w&&p.y>=item.y&&p.y<=item.y+item.h)||null;
+   if(!lessonBoardSelection){lessonBoardDraw();lessonStatus("PDF закреплён под записями. Для увеличения используй ＋ / −, для перемещения — «Перемещать доску».");return;}
    lessonBoardSnapshot();lessonBoardPointer={kind:"move",start:p,x:lessonBoardSelection.x,y:lessonBoardSelection.y};
   }else{
    lessonBoardSnapshot();
    if(lessonTool==="erase"){
     lessonBoardErase(p);lessonBoardPointer={kind:"erase"};
+    lessonBoardPointer.pointerType=event.pointerType;
     event.preventDefault();canvas.setPointerCapture(event.pointerId);lessonBoardDraw();return;
    }
    const marker=lessonTool==="marker",width=Number(document.getElementById("lessonPenWidth").value)||3;
    const stroke={color:marker?lessonMarkerColorValue:lessonPenColorValue,width:marker?width*4:width,opacity:marker?.32:1,points:lessonLineMode?[p,p]:[p],straight:lessonLineMode};
    lessonBoardStrokes.push(stroke);lessonBoardPointer={kind:"draw",stroke};
   }
+  if(lessonBoardPointer)lessonBoardPointer.pointerType=event.pointerType;
   event.preventDefault();canvas.setPointerCapture(event.pointerId);lessonBoardDraw();
  };
  canvas.onpointermove=event=>{
+  if(event.pointerType==="touch"&&touches.has(event.pointerId)){
+   touches.set(event.pointerId,{x:event.clientX,y:event.clientY});
+   if(pinch&&touches.size===2){
+    event.preventDefault();const pair=touchPair(),rect=canvas.getBoundingClientRect();
+    lessonBoardZoomTo(pinch.zoom*pair.distance/pinch.distance,pinch.anchor,{x:pair.mid.x-rect.left,y:pair.mid.y-rect.top});return;
+   }
+   if(touchBlocked)return;
+  }
   if(!lessonBoardPointer||!canvas.hasPointerCapture(event.pointerId))return;
   const p=lessonBoardPoint(event);
   if(lessonBoardPointer.kind==="pan"){
@@ -4143,7 +4239,10 @@ function lessonBoardSetup(){
   }
   lessonBoardScheduleDraw();
  };
- canvas.onpointerup=canvas.onpointercancel=canvas.onlostpointercapture=()=>{lessonBoardPointer=null;lessonBoardScheduleDraw();};
+ canvas.onpointerup=canvas.onpointercancel=canvas.onlostpointercapture=event=>{
+  touches.delete(event.pointerId);if(touches.size<2)pinch=null;if(!touches.size)touchBlocked=false;
+  lessonBoardPointer=null;lessonBoardScheduleDraw();
+ };
  document.getElementById("lessonBoardExport").onclick=async()=>{
   const exportPages=lessonBoardPages.map(page=>({...page,items:page.items.map(item=>({...item})),strokes:page.strokes.map(stroke=>({...stroke,points:stroke.points.map(p=>({...p}))}))}));
   try{
@@ -4346,7 +4445,27 @@ function lessonSetup(){
   }catch(err){lessonStatus("Не удалось прочитать записи или не совпадает число страниц.");}
  };
  const canvas=document.getElementById("lessonInkCanvas");
+ const touches=new Map();let pinch=null,touchBlocked=false;
+ const touchPair=()=>{const points=[...touches.values()];return {distance:Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y),mid:{x:(points[0].x+points[1].x)/2,y:(points[0].y+points[1].y)/2}};};
  canvas.onpointerdown=event=>{
+  if(event.pointerType==="touch"&&lessonBoardPointer?.pointerType==="pen")return;
+  if(event.pointerType==="touch"){
+   touches.set(event.pointerId,{x:event.clientX,y:event.clientY});
+   if(touches.size>=2){
+    event.preventDefault();canvas.setPointerCapture(event.pointerId);
+    if(touches.size===2){
+     if(lessonBoardPointer&&lessonBoardPointer.kind!=="pan"){
+      const previous=lessonBoardUndoStack.pop();
+      if(previous){lessonBoardItems=previous.items;lessonBoardStrokes=previous.strokes;lessonBoardSelection=null;}
+     }
+     lessonBoardPointer=null;touchBlocked=true;
+     const pair=touchPair(),rect=canvas.getBoundingClientRect();
+     pinch={distance:Math.max(1,pair.distance),zoom:lessonBoardView.zoom,anchor:{x:lessonBoardView.x+(pair.mid.x-rect.left)/lessonBoardView.zoom,y:lessonBoardView.y+(pair.mid.y-rect.top)/lessonBoardView.zoom}};
+    }
+    lessonBoardDraw();return;
+   }
+   if(touchBlocked)return;
+  }
   if(event.button!==0&&event.pointerType==="mouse")return;
   event.preventDefault();canvas.setPointerCapture(event.pointerId);
   const point=lessonGetPoint(event);
