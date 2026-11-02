@@ -1,0 +1,27 @@
+name: Public test lab HTTPS — no deployment
+on:
+  push:
+    branches: ['feature/lab-review-board-20261101']
+    paths: ['deploy/https-probes/lab-test-ready.txt']
+permissions:
+  contents: read
+jobs:
+  verify-public-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify trusted HTTPS certificate and exact deployed test build
+        run: python tests/check_lab_https_public.py
+      - run: npm install --no-save --no-package-lock playwright@1.56.1 pdf-lib@1.17.1 pdfjs-dist@4.10.38
+      - run: npx playwright install --with-deps chromium
+      - name: Test actual public HTTPS lab in desktop and tablet Chromium
+        env:
+          LAB_SANDBOX_URL: https://lab-test.77-233-212-200.sslip.io/lab-app
+        run: node tests/check_lab_review_browser.cjs
