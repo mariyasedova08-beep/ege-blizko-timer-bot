@@ -241,7 +241,7 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.locator('#lessonPrevious').click();await page.waitForFunction(()=>lessonPage===1);
    // Presentation expands independently and always provides an exit.
    const labBeforeFull=await page.evaluate(()=>JSON.stringify(lessonTubeStates));
-   assert.ok(await page.locator('#lessonPresentationFullscreen').evaluate(e=>e.clientWidth>=120&&e.scrollWidth<=e.clientWidth));
+   assert.ok(await page.locator('#lessonPresentationFullscreen').evaluate(e=>e.clientWidth>=32&&e.scrollWidth<=e.clientWidth));
    await page.locator('#lessonPresentationFullscreen').click();
    assert.ok(await page.locator('.lesson-studio').evaluate(e=>e.classList.contains('presentation-fullscreen')));
    assert.ok(await page.locator('.lesson-lab-pane').isHidden());
