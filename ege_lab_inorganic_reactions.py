@@ -9,6 +9,7 @@ these when the learner explicitly marks the last added reagent as excess.
 """
 
 EXTRA_REACTIONS = [
+    ("kmno4","hcl","2KMnO₄ + 16HCl → 2MnCl₂ + 5Cl₂↑ + 2KCl + 8H₂O","g","фиолетовая окраска исчезает, выделяется жёлто-зелёный хлор; HCl — реагент и источник кислой среды","#f8fbff","","Cl₂",0),
     # Simple substances: water and non-oxidising acids
     ("na","h2o","2Na + 2H₂O → 2NaOH + H₂↑","g","бурное выделение H₂, металл быстро исчезает","#f8fbff","","H₂",0),
     ("k","h2o","2K + 2H₂O → 2KOH + H₂↑","g","очень бурное выделение H₂, металл быстро исчезает","#f8fbff","","H₂",0),

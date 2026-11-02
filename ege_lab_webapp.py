@@ -467,6 +467,9 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .gasPlume{position:absolute;z-index:7;left:18%;right:18%;top:8px;height:44%;pointer-events:none;opacity:.72;filter:blur(4px);background:radial-gradient(ellipse at center,var(--gasColor) 0 25%,rgba(255,255,255,0) 70%);animation:plume 1.8s ease-in-out infinite alternate}
 @keyframes rise{0%{transform:translateY(0) translateX(0) scale(.72);opacity:.35}10%{opacity:1}75%{transform:translateY(-92px) translateX(var(--drift)) scale(1.08);opacity:1}100%{transform:translateY(-138px) translateX(calc(var(--drift)*.5)) scale(1.18);opacity:.15}}
 @keyframes pop{0%{transform:translateY(0) scale(.7);opacity:.2}55%{opacity:1}100%{transform:translateY(-18px) scale(1.3);opacity:0}}
+.gasPlume.cl2{left:7%;right:7%;height:64%;filter:blur(3px);animation-name:chlorinePlume}
+@keyframes chlorinePlume{from{transform:translateY(1px) scale(.96);opacity:.7}to{transform:translateY(-4px) scale(1.03);opacity:.95}}
+#lesson .lesson-tube-frame .bubbleLayer.cl2 .bubble,.bubbleLayer.cl2 .bubble{border-color:rgba(124,149,32,.85);background:rgba(198,216,87,.28);box-shadow:0 0 0 .5px rgba(103,130,24,.4)}
 @keyframes plume{from{transform:translateY(2px) scale(.9);opacity:.28}to{transform:translateY(-6px) scale(1.08);opacity:.7}}
 .heatShimmer{position:absolute;z-index:6;left:12%;right:12%;top:11%;height:24%;background:repeating-linear-gradient(90deg,transparent 0 7px,rgba(240,0,135,.08) 8px 9px,transparent 10px 15px);filter:blur(3px);animation:shimmer .9s ease-in-out infinite alternate}
 @keyframes shimmer{to{transform:translateY(-4px) skewX(-4deg);opacity:.35}}
@@ -1950,7 +1953,7 @@ const GAS_REFERENCE=Object.freeze({
  "SO₂":{color:"бесцветный",smell:"резкий удушливый",plume:"rgba(255,255,255,.18)"},
  "H₂S":{color:"бесцветный",smell:"тухлых яиц",plume:"rgba(255,255,255,.18)"},
  "NH₃":{color:"бесцветный",smell:"резкий характерный",plume:"rgba(255,255,255,.18)"},
- "Cl₂":{color:"жёлто-зелёный",smell:"резкий удушливый",plume:"rgba(190,210,92,.46)"}
+ "Cl₂":{color:"жёлто-зелёный",smell:"резкий удушливый",plume:"rgba(166,191,40,.82)"}
 });
 function gasObservationHTML(x){
  if(!x||!x.gas)return "";
@@ -2113,8 +2116,8 @@ function bubblesHTML(x,v=[]){
  }
  const gasInfo=GAS_REFERENCE[x.gas];
  const gasColor=gasInfo?gasInfo.plume:'rgba(255,255,255,.18)';
- const gasClass=x.gas==="NO₂"?" no2":"";
- return (strong?'<div class="boilLayer'+gasClass+'">'+boil.join("")+'</div>':'')+'<div class="bubbleLayer '+(strong?'strong':'')+gasClass+'">'+parts.join("")+'</div><div class="surfaceFizz'+gasClass+'">'+fizz.join("")+'</div><div class="gasPlume" style="--gasColor:'+gasColor+'"></div>';
+ const gasClass=x.gas==="NO₂"?" no2":x.gas==="Cl₂"?" cl2":"";
+ return (strong?'<div class="boilLayer'+gasClass+'">'+boil.join("")+'</div>':'')+'<div class="bubbleLayer '+(strong?'strong':'')+gasClass+'">'+parts.join("")+'</div><div class="surfaceFizz'+gasClass+'">'+fizz.join("")+'</div><div class="gasPlume'+gasClass+'" style="--gasColor:'+gasColor+'"></div>';
 }
 // Determine whether the chemical record supports visible consumption of a
 // solid; a missing/non-reactive/heating-required reaction must not dissolve it.
@@ -2213,7 +2216,8 @@ function tubeHTML(v,i,active,heated,excess="",overrideReaction=undefined,indicat
 }
 function tubeHasMedium(v){
  if(v.length!==2)return false;
- return (v.includes("kmno4")||(data.medium_reactions||[]).some(r=>
+ if(v.includes("kmno4")&&v.includes("hcl"))return false;
+ return (v.some(id=>["kmno4","k2mno4"].includes(id))||(data.medium_reactions||[]).some(r=>
    (r.a===v[0]&&r.b===v[1])||(r.a===v[1]&&r.b===v[0])));
 }
 function tubeReaction(i){
@@ -3824,8 +3828,9 @@ function lessonShowSuggestions(slot,raw){
  input.removeAttribute("aria-activedescendant");
 }
 function lessonHasMedium(a,b){
- if(!a||!b)return a==="kmno4"||b==="kmno4";
- if(a==="kmno4"||b==="kmno4")return true;
+ if((a==="kmno4"&&b==="hcl")||(b==="kmno4"&&a==="hcl"))return false;
+ if(!a||!b)return [a,b].some(id=>["kmno4","k2mno4"].includes(id));
+ if([a,b].some(id=>["kmno4","k2mno4"].includes(id)))return true;
  return (data.medium_reactions||[]).some(x=>
    (x.a===a&&x.b===b)||(x.a===b&&x.b===a));
 }
@@ -3839,6 +3844,7 @@ function lessonUpdateMedium(){
  const select=document.getElementById("lessonMedium");
  if(!active){select.value="";return;}
  const title=(a==="kmno4"||b==="kmno4")?"KMnO₄":
+   (a==="k2mno4"||b==="k2mno4")?"K₂MnO₄":
    (a==="k2cr2o7"||b==="k2cr2o7")?"K₂Cr₂O₇":
    (a==="k2cro4"||b==="k2cro4")?"K₂CrO₄":"выбранного вещества";
  field.querySelector("label").textContent="Среда реакции с "+title;
