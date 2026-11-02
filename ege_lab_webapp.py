@@ -3776,7 +3776,12 @@ function lessonSelectedReaction(a,b,heated,medium=document.getElementById("lesso
       return findReaction(a,b,heated);
   return null;
  }
- return findReaction(a,b,heated,excess);
+ const available=findReaction(a,b,heated,excess);
+ if(available)return available;
+ const pending=reactionExpected(a,b,excess);
+ // A known heating requirement is not a missing catalogue entry. Execution
+ // still checks heat before building the chain or showing a visual reaction.
+ return pending?.heat?pending:null;
 }
 function lessonPopulateReagents(){
  for(const [slot,label] of [["a","A"],["b","B"]]){
