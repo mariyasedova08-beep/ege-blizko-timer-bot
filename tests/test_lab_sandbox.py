@@ -5,6 +5,7 @@ import hashlib
 import http.client
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -41,6 +42,10 @@ class SandboxRuntime(unittest.TestCase):
 
     def test_bundle_matches_current_sources_deterministically(self):
         self.assertEqual(builder.build(),self.bundle.read_bytes())
+        self.assertEqual(installer.BUNDLE_SHA256, self.health['bundle_sha256'])
+        self.assertEqual(installer.EXPECTED_BUILD, self.health['build'])
+        self.assertEqual(installer.EXPECTED_HTML, self.health['html_sha256'])
+        self.assertEqual(installer.EXPECTED_PAYLOAD, self.health['payload_sha256'])
         self.assertEqual(self.health['coverage'],{'substances':219,'reactions':1423,'medium_reactions':89})
         self.assertIn('Тестовая лаборатория'.encode(),self.html)
         self.assertNotIn(b'https://telegram.org/js/telegram-web-app.js',self.html)
@@ -114,3 +119,37 @@ class SandboxInstall(unittest.TestCase):
         import io
         with patch.object(installer,'PACKAGE_COMMIT','a'*40),patch.object(installer.urllib.request,'urlopen',return_value=io.BytesIO(b'wrong')):
             with self.assertRaises(ValueError):installer.download('bundle.json',installer.BUNDLE_SHA256)
+
+    def test_failed_update_restores_existing_release_and_only_its_service(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder);old=base/'releases/old';old.mkdir(parents=True);(base/'backups').mkdir()
+            (old/'sentinel').write_text('old release preserved')
+            installer.activate(old,base)
+            unit=base/'unit';unit.write_text(installer.UNIT)
+            inspect=base/'inspector';inspect.write_text(installer.NEW_INSPECTOR)
+            # Model a trusted root-owned helper without requiring chown on the CI runner.
+            class RootOwnedInspector(type(inspect)):
+                def stat(self, *args, **kwargs):
+                    values=list(super().stat(*args, **kwargs));values[4]=0
+                    return os.stat_result(values)
+            trusted_inspect=RootOwnedInspector(inspect)
+            commands=[]
+            def mock_run(*args,**kwargs):
+                commands.append(args);return subprocess.CompletedProcess(args,0,'','')
+            original_current,original_activate=installer.current_target,installer.activate
+            source=(ROOT/'preview/lab-sandbox/bundle.json').read_bytes()
+            code=(ROOT/'deploy/lab_sandbox_server.py').read_bytes()
+            with patch.object(installer.os,'geteuid',return_value=0),patch.object(installer.shutil,'which',return_value='/mock/program'),patch.object(installer,'trusted_directory',lambda path:None),patch.object(installer,'BASE',base),patch.object(installer,'UNIT_PATH',unit),patch.object(installer,'INSPECTOR',trusted_inspect),patch.object(installer,'run',side_effect=mock_run),patch.object(installer,'download',side_effect=[source,code]),patch.object(installer,'current_target',side_effect=lambda base_arg=base:original_current(base_arg)),patch.object(installer,'activate',side_effect=lambda target:original_activate(target,base)),patch.object(installer,'health',side_effect=ValueError('failed new build')),patch.object(installer.time,'sleep'),patch('sys.argv',['bootstrap_lab_sandbox.py']):
+                with self.assertRaisesRegex(RuntimeError,'sandbox healthcheck failed'):
+                    installer.main()
+            self.assertEqual(installer.current_target(base),str(old))
+            self.assertEqual((old/'sentinel').read_text(),'old release preserved')
+            self.assertEqual(unit.read_text(),installer.UNIT)
+            self.assertEqual(inspect.read_text(),installer.NEW_INSPECTOR)
+            self.assertEqual(len(list((base/'backups').glob('*/receipt.json'))),1)
+            self.assertIn(('systemctl','restart',installer.UNIT_NAME),commands)
+            self.assertIn(('systemctl','stop',installer.UNIT_NAME),commands)
+            for command in commands:
+                self.assertEqual(command[0],'systemctl')
+                self.assertTrue(command==('systemctl','daemon-reload') or command[-1]==installer.UNIT_NAME)

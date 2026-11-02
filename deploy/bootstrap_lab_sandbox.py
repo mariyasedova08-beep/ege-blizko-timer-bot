@@ -15,8 +15,11 @@ import tempfile
 import time
 import urllib.request
 
-PACKAGE_COMMIT = '6d57f7721668eaa2440fcfba1fd522a1163d2c74'
-BUNDLE_SHA256 = '669d611d1c1eea7a15e0824da5fe1ed4395f363b0b68bed752feb14e5cd63800'
+PACKAGE_COMMIT = '85f4d81dd582bc1e8f4ee8113f0a8a9496e61e0f'
+BUNDLE_SHA256 = 'b23b0591f09636a5ca37effb049ee130dfce37addf4ecf04b511da42c4ec80c7'
+EXPECTED_BUILD = 'e239902d64bd19b6'
+EXPECTED_HTML = '0ffc0e8bd1a16fdf08599515091778b3244e72f1cbeca353dd3992e9a69798cf'
+EXPECTED_PAYLOAD = 'b284a1359d8b08b45520c4e20d6ce65e9752dbb20657623abee0ba63a03050d8'
 SERVER_SHA256 = '9c9a9e9a947a3a6b2d35e7cb9cc5f6ee5a22876e0ea39455372bbad2a53138cd'
 OLD_INSPECTOR_SHA256 = '576bf5ee70b75262a6b22824ca85b02b70ffa7d2fda49e767c8bd201c58124ff'
 BASE = Path('/var/lib/ege-lab-sandbox')
@@ -176,6 +179,9 @@ def health():
         result = json.loads(response.read(20_000))
     if result.get('sandbox') is not True or result.get('bundle_sha256') != BUNDLE_SHA256:
         raise ValueError('wrong sandbox build running')
+    for key, expected in (('build', EXPECTED_BUILD), ('html_sha256', EXPECTED_HTML), ('payload_sha256', EXPECTED_PAYLOAD)):
+        if result.get(key) != expected:
+            raise ValueError('wrong sandbox content: ' + key)
     return result
 
 
@@ -246,7 +252,7 @@ def main():
         print(json.dumps(result, sort_keys=True))
         print('SANDBOX_READY_LOOPBACK_ONLY http://127.0.0.1:8768/lab-app')
         print('NO_PRODUCTION_DEPLOYMENT_PERFORMED')
-    except Exception:
+    except BaseException:
         restore(saved)
         raise
 
