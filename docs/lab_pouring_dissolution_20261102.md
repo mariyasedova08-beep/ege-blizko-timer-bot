@@ -20,3 +20,5 @@ BeO + NaOH и BeO + KOH уже присутствовали в кандидат�
 Сверка уравнения с раствором: учебное пособие ИРНИТУ https://www.istu.edu/docs/education/faculty/zvf/ood/magistratyra/himiya/himiya/6._istochniki_informacii/himiya_zadachi_po_obschey_himii.pdf ; характеристика белого твёрдого BeO: https://winter.group.shef.ac.uk/webelements/compounds/beryllium/beryllium_oxide.html .
 
 Проверки включают обе щёлочи, нагревание, струю, исчезновение твёрдой фазы, отсутствие повторного растворения при возврате в пробирку и сохранение исходного CuO во время перехода цепочки к CuCl₂. Изменения подготовлены для изолированного sandbox; рабочие приложения не изменяются, публичная сборка автоматически не обновляется.
+
+Подтверждённая проверка: https://github.com/mariyasedova08-beep/ege-blizko-timer-bot/actions/runs/41474536365 — success, commit `1064815cb5eed96accc0a6266db1e619effd3322`: 83 теста и браузерные сценарии 1440×1000 / 820×1180 при DPR=2.
