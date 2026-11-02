@@ -1554,6 +1554,15 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 #lesson .lesson-toolbar-actions button{min-width:32px;min-height:32px;padding:4px 6px;font-size:10px;border-radius:8px}
 #lesson .lesson-toolbar-actions #lessonExport{font-size:10px;padding:5px 8px}
 @media(max-width:1100px){#lesson #lessonUndo{min-width:32px;padding:4px 6px}}
+/* One continuous material/ink row; only the controls scroll on narrow panes. */
+#lesson .lesson-lesson-tools{flex:1 1 100%;min-width:0;max-width:100%;box-sizing:border-box;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:flex-start;gap:8px;overflow-x:auto;overflow-y:visible}
+#lesson .lesson-document-tools{flex:none;flex-wrap:nowrap;padding:0 8px 0 0;border-bottom:0;border-right:1px solid #F0E9ED;white-space:nowrap}
+#lesson .lesson-ink-strip{flex:1 0 auto;flex-wrap:nowrap;gap:6px}
+#lesson .lesson-primary-ink{flex:none;flex-wrap:nowrap}
+#lesson .lesson-quick-colors{flex:none;flex-wrap:nowrap}
+#lesson .lesson-extra-menu{flex:none;margin-left:auto}
+#lesson .lesson-extra-menu[open] .lesson-extra-items{position:fixed;top:var(--lesson-settings-top,120px);right:var(--lesson-settings-right,12px);left:auto;max-height:65dvh;z-index:100010}
+#lesson .lesson-studio.presentation-fullscreen #lessonPresentationFullscreen{display:none}
 /* Finger controls keep their touch area on actual touch-first devices. */
 @media(pointer:coarse){
  #lesson .lesson-workspace-tabs button,#lesson #lessonToolbarToggle,#lesson .lesson-document-tools>button,#lesson #lessonPresentationFullscreen,#lesson .lesson-primary-ink>button,#lesson .lesson-extra-menu summary,#lesson #lessonToolPen,#lesson #lessonToolMarker,#lesson #lessonStraightLine,#lesson #lessonToolEraser,#lesson .lesson-toolbar-actions button,#lesson .lesson-lesson-tools .lesson-file-controls label.lesson-file-label{min-width:44px;min-height:44px}
@@ -4591,6 +4600,11 @@ function lessonSetup(){
  if(lessonReady)return;
  lessonReady=true;
  lessonRestoreInkTools();
+ const inkMenu=document.querySelector("#lesson .lesson-extra-menu");
+ const positionInkMenu=()=>{const rect=inkMenu.querySelector("summary").getBoundingClientRect();inkMenu.style.setProperty("--lesson-settings-top",Math.min(rect.bottom+6,window.innerHeight-120)+"px");inkMenu.style.setProperty("--lesson-settings-right",Math.max(8,window.innerWidth-rect.right)+"px");};
+ inkMenu.addEventListener("toggle",()=>{if(inkMenu.open)positionInkMenu();});
+ window.addEventListener("resize",()=>{if(inkMenu.open)positionInkMenu();});
+ document.querySelector("#lesson .lesson-lesson-tools").addEventListener("scroll",()=>{if(inkMenu.open)positionInkMenu();});
  document.getElementById("lessonBeautify").onchange=event=>{lessonBeautify=event.target.checked;lessonSaveInkTools();};
  document.getElementById("lesson").addEventListener("pointerdown",event=>{
   if(!event.target.closest(".lesson-extra-menu"))document.querySelector("#lesson .lesson-extra-menu").open=false;
