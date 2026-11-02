@@ -108,6 +108,19 @@ class LabHTTPS(unittest.TestCase):
             with self.assertRaises(RuntimeError):setup.wait_for_sandbox(attempts=3,delay=0)
             self.assertEqual(verify.call_count,3)
 
+    def test_address_specific_listener_is_preserved_for_public_ip(self):
+        dump='listen '+setup.IP+':443 ssl http2;\nlisten 127.0.0.1:443 ssl;\n'
+        bind=setup.existing_tls_bind(dump)
+        self.assertEqual(bind,setup.IP+':443')
+        self.assertTrue(setup.existing_http2(dump,bind))
+        self.assertIn('listen '+setup.IP+':443 ssl http2;',setup.configuration(True,True,bind))
+        self.assertEqual(setup.existing_tls_bind('listen 443 ssl;'),'443')
+
+    def test_tls_probe_uses_public_destination_with_hostname_validation(self):
+        with patch.object(setup.socket,'create_connection',side_effect=RuntimeError('test stop before network')) as connection:
+            with self.assertRaisesRegex(RuntimeError,'test stop'):setup.tls_request(setup.DOMAIN)
+            connection.assert_called_once_with((setup.IP,443),timeout=5)
+
     def test_openssl_zero_exit_with_negative_hostname_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'fullchain.pem').touch();(root/'privkey.pem').touch()

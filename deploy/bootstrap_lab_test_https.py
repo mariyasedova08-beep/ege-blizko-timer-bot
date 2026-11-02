@@ -32,6 +32,7 @@ EXPECTED_BUNDLE = '669d611d1c1eea7a15e0824da5fe1ed4395f363b0b68bed752feb14e5cd63
 EXPECTED_HTML = '661682307a9a504fac65138750182ba528770d366ef840f45510f8af0b01c1da'
 MARKER = '# EGE_LAB_TEST_HTTPS_MANAGED_V1'
 HTTP2 = False
+TLS_BIND = "443"
 HOOK_TEXT = '''#!/bin/sh
 set -eu
 [ "${RENEWED_LINEAGE:-}" = /etc/letsencrypt/live/ege-lab-sandbox-test ] || exit 0
@@ -40,8 +41,8 @@ set -eu
 '''
 
 
-def configuration(tls, http2=None):
-    listen = "443 ssl" + (" http2" if (HTTP2 if http2 is None else http2) else "")
+def configuration(tls, http2=None, bind=None):
+    listen = (TLS_BIND if bind is None else bind) + " ssl" + (" http2" if (HTTP2 if http2 is None else http2) else "")
     challenge = f'''    location ^~ /.well-known/acme-challenge/ {{
         root {BASE}/acme;
         default_type text/plain;
@@ -83,11 +84,17 @@ server {{
 
 
 def managed_configs():
-    return {configuration(False), configuration(True,False), configuration(True,True)}
+    return {configuration(False)} | {configuration(True,http2,bind) for http2 in (False,True) for bind in ("443",IP+":443")}
 
 
-def existing_http2(dump):
-    flags=re.findall(r'^\s*listen\s+(?:0\.0\.0\.0:)?443(?:\s+([^;]+))?;',dump,re.M)
+def existing_tls_bind(dump):
+    explicit=r'^\s*listen\s+'+re.escape(IP)+r':443(?:\s|;)'
+    return IP+':443' if re.search(explicit,dump,re.M) else '443'
+
+
+def existing_http2(dump,bind='443'):
+    address=r'(?:0\.0\.0\.0:)?443' if bind=='443' else re.escape(bind)
+    flags=re.findall(r'^\s*listen\s+'+address+r'(?:\s+([^;]+))?;',dump,re.M)
     if any('proxy_protocol' in (line or '').split() for line in flags):
         raise RuntimeError('existing IPv4 TLS listener requires PROXY protocol; automatic setup refused')
     return any('http2' in (line or '').split() for line in flags)
@@ -145,7 +152,7 @@ def verify_unchanged(before):
 
 def tls_request(host, path='/', method='GET', body=None):
     context = ssl.create_default_context()
-    with socket.create_connection(('127.0.0.1',443),timeout=5) as raw:
+    with socket.create_connection((IP,443),timeout=5) as raw:
         with context.wrap_socket(raw,server_hostname=host) as sock:
             fingerprint = hashlib.sha256(sock.getpeercert(binary_form=True)).hexdigest()
             content = body or b''
@@ -302,7 +309,7 @@ def wait_for_sandbox(attempts=20,delay=1):
 
 
 def main():
-    global HTTP2
+    global HTTP2, TLS_BIND
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--rollback',action='store_true')
     args=parser.parse_args()
@@ -325,7 +332,8 @@ def main():
         if HOOK.is_symlink() or (HOOK.exists() and HOOK.read_text()!=HOOK_TEXT):
             raise SystemExit('UNKNOWN_EXISTING_CERTIFICATE_HOOK_REFUSED')
         dump=run('nginx','-T')
-        HTTP2=existing_http2(dump)
+        TLS_BIND=existing_tls_bind(dump)
+        HTTP2=existing_http2(dump,TLS_BIND)
         if not CONF.exists() and any(DOMAIN in line.split() for line in re.findall(r'^\s*server_name\s+([^;]+);',dump,re.M)):
             raise SystemExit('TEST_HOSTNAME_ALREADY_CONFIGURED_ELSEWHERE')
         addresses={x[4][0] for x in socket.getaddrinfo(DOMAIN,443)}
