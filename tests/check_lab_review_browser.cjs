@@ -91,9 +91,9 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
     const target=await page.locator(selector).first().boundingBox();assert.ok(target.width>=32&&target.height>=32,selector+JSON.stringify(target));
    }
    const sampleQuality=await page.evaluate(()=>{
-    const stroke={points:[{x:0,y:0}]};
+    const stroke={points:[{x:0,y:0}]};lessonBeautify=false;
     for(const x of [1,2,3,4,5])lessonAddStrokeSamples(stroke,{clientX:x,clientY:0},event=>({x:event.clientX,y:event.clientY}),{clientWidth:1,clientHeight:1});
-    return stroke.points.map(point=>point.x);
+    lessonBeautify=true;return stroke.points.map(point=>point.x);
    });
    assert.deepEqual(sampleQuality,[0,1,2,3,4,5]);
    const beautify=await page.evaluate(()=>{
@@ -106,6 +106,24 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.deepEqual(beautify.result[0],beautify.input[0]);assert.deepEqual(beautify.result.at(-1),beautify.input.at(-1));
    assert.ok(Math.max(...beautify.result.slice(5,-5).map(p=>Math.abs(p.y)))<.3);
    assert.deepEqual(beautify.off,beautify.input);assert.deepEqual(beautify.line,beautify.input);
+   const liveInk=await page.evaluate(()=>{
+    function trace(scale=1,extra={}){
+     const stroke={points:[{x:0,y:0}],...extra};
+     for(let i=1;i<=100;i++)lessonAddStrokeSamples(stroke,{timeStamp:i*8,clientX:i*.4,clientY:i%2?.8:-.8},e=>({x:e.clientX/scale,y:e.clientY/scale}),{clientWidth:scale,clientHeight:scale});
+     lessonAddStrokeSamples(stroke,{type:'pointerup',timeStamp:808,clientX:40.4,clientY:0},e=>({x:e.clientX/scale,y:e.clientY/scale}),{clientWidth:scale,clientHeight:scale});
+     return stroke.points.map(p=>({x:p.x*scale,y:p.y*scale}));
+    }
+    const fast={points:[{x:0,y:0}]};
+    for(let i=1;i<=20;i++)lessonAddStrokeSamples(fast,{timeStamp:i*8,clientX:i*20,clientY:0},e=>({x:e.clientX,y:e.clientY}),{clientWidth:1,clientHeight:1});
+    return {pen:trace(),zoom:trace(2),marker:trace(1,{opacity:.32}),line:trace(1,{straight:true}),fast:fast.points};
+   });
+   assert.ok(Math.max(...liveInk.pen.slice(10,-1).map(p=>Math.abs(p.y)))<.4);
+   assert.deepEqual(liveInk.pen.at(-1),{x:40.4,y:0});
+   assert.deepEqual(liveInk.pen,liveInk.zoom);
+   for(let i=0;i<liveInk.pen.length-1;i++)assert.ok(Math.abs(liveInk.pen[i].x-i*.4)<=1.5);
+   assert.equal(Math.max(...liveInk.marker.map(p=>Math.abs(p.y))),.8);
+   assert.deepEqual(liveInk.marker,liveInk.line);
+   liveInk.fast.forEach((p,i)=>assert.ok(Math.abs(p.x-i*20)<=1.5));
    // Heat guidance appears before conducting a known hot reaction; never for cold/unknown pairs.
    await page.evaluate(()=>{lessonClearActiveTube();lessonSetReagent('a','mno2');lessonSetReagent('b','hcl')});
    assert.ok(await page.locator('#lessonHeatHint').isVisible());

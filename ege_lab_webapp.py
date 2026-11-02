@@ -1707,7 +1707,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
           <div class="lesson-color-presets" id="lessonColorPresets" aria-label="Цвета ручки"></div>
           <label class="lesson-width-label">Толщина <input id="lessonPenWidth" type="range" min="1" max="10" value="3"></label>
           
-          <label class="lesson-width-label" title="Сглаживать новые штрихи ручки после отрыва пера; без распознавания букв и формул"><input id="lessonBeautify" type="checkbox" checked> Красивое письмо</label>
+          <label class="lesson-width-label" title="Стабилизировать ручку во время письма и сглаживать штрих после отрыва пера; без замены букв и формул"><input id="lessonBeautify" type="checkbox" checked> Красивое письмо</label>
           <small>Для новых штрихов ручки · без замены букв</small>
           <button type="button" id="lessonExportNotes">↓ Резервная копия записей</button>
           <label for="lessonImportNotes" class="lesson-file-label">↑ Загрузить записи</label>
@@ -3472,20 +3472,34 @@ function lessonFinishStroke(stroke,sx=1,sy=1){
  });
  stroke.points=out.map(p=>({x:p.x/sx,y:p.y/sy}));
 }
-function lessonPointerSamples(event,converter){
- const events=typeof event.getCoalescedEvents==="function"?event.getCoalescedEvents():[];
- return [...events,event].map(converter);
-}
+// Keep transient input state outside saved strokes/projects.
+const lessonStrokeFilters=new WeakMap();
 function lessonAddStrokeSamples(stroke,event,converter,canvas){
- for(const point of lessonPointerSamples(event,converter)){
+ const samples=typeof event.getCoalescedEvents==="function"?event.getCoalescedEvents():[];
+ const sx=canvas.clientWidth||1,sy=canvas.clientHeight||1;
+ for(const sample of [...samples,event]){
+  let point=converter(sample);
   const last=stroke.points[stroke.points.length-1];
   if(!last){stroke.points.push(point);continue;}
-  const dx=(point.x-last.x)*canvas.clientWidth;
-  const dy=(point.y-last.y)*canvas.clientHeight;
-  const distance=Math.hypot(dx,dy);
-  // Preserve the measured position: a distance-dependent lag filter made
-  // slow handwriting feel sticky. Reject only imperceptible duplicate samples.
-  if(distance>=.15)stroke.points.push(point);
+  if(lessonBeautify&&!stroke.straight&&!(stroke.opacity<1)){
+   const raw={x:point.x*sx,y:point.y*sy},time=Number(sample.timeStamp);
+   let state=lessonStrokeFilters.get(stroke);
+   if(!state)state={raw:{x:last.x*sx,y:last.y*sy},filtered:{x:last.x*sx,y:last.y*sy},time:time-8};
+   // Ignore duplicate coalesced/main events. Adapt to speed in screen pixels,
+   // keeping fine slow strokes calm without dragging fast movements behind.
+   const distance=Math.hypot(raw.x-state.raw.x,raw.y-state.raw.y);
+   if(distance<.001&&event.type!=="pointerup")continue;
+   const dt=Number.isFinite(time)&&Number.isFinite(state.time)?Math.max(.001,Math.min(.04,(time-state.time)/1000)):.008;
+   const speed=distance/dt,alpha=1-Math.exp(-2*Math.PI*(6+.055*speed)*dt);
+   let filtered={x:state.filtered.x+alpha*(raw.x-state.filtered.x),y:state.filtered.y+alpha*(raw.y-state.filtered.y)};
+   const lag=Math.hypot(raw.x-filtered.x,raw.y-filtered.y),limit=1.5;
+   if(lag>limit){filtered.x=raw.x+(filtered.x-raw.x)*limit/lag;filtered.y=raw.y+(filtered.y-raw.y)*limit/lag;}
+   // Finish exactly at the pen lift; small indices and stroke ends stay intact.
+   if(event.type==="pointerup"&&sample===event)filtered=raw;
+   lessonStrokeFilters.set(stroke,{raw,filtered,time});
+   point={x:filtered.x/sx,y:filtered.y/sy};
+  }
+  if(Math.hypot((point.x-last.x)*sx,(point.y-last.y)*sy)>=.15||(event.type==="pointerup"&&(point.x!==last.x||point.y!==last.y)))stroke.points.push(point);
  }
 }
 // The pen may deliver hundreds of coalesced samples per second. Paint at most

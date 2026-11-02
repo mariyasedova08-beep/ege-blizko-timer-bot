@@ -199,7 +199,7 @@ class LaboratoryReleaseChecks(unittest.TestCase):
 
     def test_stylus_smoothing_is_shared_by_canvas_and_pdf_export(self):
         self.assertIn('function lessonSmoothPoints(points)', self.html)
-        self.assertIn('function lessonPointerSamples(event,converter)', self.html)
+        self.assertIn('const lessonStrokeFilters=new WeakMap()', self.html)
         self.assertIn('event.getCoalescedEvents()', self.html)
         self.assertIn('lessonSmoothPoints(stroke.points).forEach', self.html)
         self.assertIn('lessonSmoothPoints(stroke.points).entries()', self.html)
