@@ -1,6 +1,6 @@
 # Сглаживание почерка и презентация во всё окно — 02.11.2026
 
-Статус: подготовлено в изолированной ветке; на Timeweb ещё не установлено.
+Статус: подготовлено и проверено в изолированной ветке; на Timeweb ещё не установлено.
 
 ## Изменения
 
@@ -26,3 +26,25 @@ Runtime commit: `10801e460a63b73e1151e5dcbff0c4e1921b1b48`.
 Build: `3ed2e039dead8207`.
 Bundle: `aa16ceb59fa1dbc53f8cc345750f957e08e82d041f0dc7c1974910768e85bb35`.
 Installer SHA-256: `101349e17d92cbfce1b818a74479886c58d5619bc1684581c921b9a8be77677b`.
+
+Пакет установки опубликован в commit `040e8f247a03889f57366a74643a87c37aa5c8fe`.
+HTTPS/nginx-проверка: https://github.com/mariyasedova08-beep/ege-blizko-timer-bot/actions/runs/41510236440 — success.
+
+Команда для доверенной root-консоли Timeweb (только тестовый sandbox):
+
+```bash
+bash <<'BASH'
+set -euo pipefail
+update_file=$(mktemp /tmp/lab-test-update-XXXXXX.py)
+trap 'rm -f "$update_file"' EXIT
+curl -fsSL --connect-timeout 10 --max-time 60 \
+  'https://raw.githubusercontent.com/mariyasedova08-beep/ege-blizko-timer-bot/040e8f247a03889f57366a74643a87c37aa5c8fe/deploy/bootstrap_lab_sandbox.py' \
+  -o "$update_file"
+printf '%s  %s\n' \
+  '101349e17d92cbfce1b818a74479886c58d5619bc1684581c921b9a8be77677b' \
+  "$update_file" | sha256sum -c -
+python3 "$update_file"
+BASH
+```
+
+Общий GitHub CI финального пакета (87 тестов и браузер desktop/tablet): https://github.com/mariyasedova08-beep/ege-blizko-timer-bot/actions/runs/41510284245 — success.
