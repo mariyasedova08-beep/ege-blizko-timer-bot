@@ -1,1 +1,1 @@
-Single-row lesson toolbar detected on public test HTTPS 2026-11-02; build 2af9df6e25782a8e. Verify trusted HTTPS, exact hashes and desktop/tablet browser. Read-only checks; no deployment.
+Live pen stabilizer installed on public test HTTPS 2026-11-02; build a21cb18b56a95b4a. Verify trusted HTTPS, exact hashes and desktop/tablet browser. Read-only checks; no deployment.
