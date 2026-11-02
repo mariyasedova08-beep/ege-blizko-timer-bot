@@ -70,6 +70,33 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.waitForFunction(()=>lessonTubeStates[0].dissolving===false&&lessonTubeStates[0].chain.steps[0].reaction.excess==='naoh');
    await page.evaluate(()=>lessonSelectTube(0));
    assert.equal(await page.evaluate(()=>lessonDissolving),false);
+   // Solids remain visible while liquid pours, then dissolve only under valid conditions.
+   for(const alkali of ['naoh','koh']){
+    await page.evaluate(base=>{lessonClearActiveTube();lessonSetReagent('a','beo');lessonSetReagent('b',base);lessonConductStep()},alkali);
+    assert.equal(await page.locator('#lessonTube1 .pourStream').count(),1);
+    assert.equal(await page.locator('#lessonTube1 .dissolving-solid').count(),0);
+    assert.equal(await page.locator('#lessonTube1 .solidBed').count(),1);
+    await page.locator('#lessonHeat').click();
+    assert.equal(await page.locator('#lessonTube1 .dissolving-solid').count(),1);
+    assert.match(await page.locator('#lessonReaction').innerText(),/Be\(OH\)₄/);
+    const eventClock=await page.evaluate(()=>lessonMotion.solidAt);
+    await page.evaluate(()=>lessonSelectTube(1));await page.evaluate(()=>lessonSelectTube(0));
+    assert.equal(await page.evaluate(()=>lessonMotion.solidAt),eventClock);
+    await page.waitForFunction(()=>Number(getComputedStyle(document.querySelector('#lessonTube1 .solidBed')).opacity)<.05);
+    await page.evaluate(()=>lessonSelectTube(1));await page.evaluate(()=>lessonSelectTube(0));
+    assert.ok(await page.locator('#lessonTube1 .solidBed').evaluate(e=>Number(getComputedStyle(e).opacity)<.05));
+   }
+   // Product substitution must not remove the starting solid before the animation.
+   await page.evaluate(()=>{lessonClearActiveTube();lessonSetReagent('a','cuo');lessonSetReagent('b','hcl');lessonConductStep()});
+   assert.equal(await page.locator('#lessonTube1 .dissolving-solid').count(),1);
+   assert.ok(await page.evaluate(()=>lessonChain!==null));
+   assert.ok(await page.locator('#lessonTube1 .liq').evaluate(e=>parseFloat(e.style.height)>0));
+   const solidClock=await page.evaluate(()=>lessonMotion.solidAt);
+   await page.evaluate(()=>lessonRenderExperiment());
+   assert.equal(await page.evaluate(()=>lessonMotion.solidAt),solidClock);
+   // A dry mixture with no reaction must not become liquid or consume its solid.
+   const inert=await page.evaluate(()=>tubeHTML(['beo','cuo'],0,false,false,'',{t:'z',eq:'',sign:''}));
+   assert.ok(!inert.includes('dissolving-solid'));assert.ok(inert.includes('height:0%'));
    // Resize panel with keyboard.
    await page.locator('#lessonPanelDivider').focus();await page.keyboard.press('ArrowRight');
    assert.equal(await page.locator('#lessonPanelDivider').getAttribute('aria-valuenow'),'35');

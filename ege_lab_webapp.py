@@ -189,7 +189,7 @@ def reaction_payload():
         {
             "a":a,"b":b,"eq":eq,"t":kind,"sign":sign,"sol":sol,
             "ppt":ppt,"ppt2":"#e9ca3c" if "FeS↓ + S↓" in eq else "", "gas":gas,"heat":bool(heat),"excess":"",
-            "condition":("концентрированная щёлочь, нагревание" if a in {"zno", "al2o3", "beo"} else "")
+            "condition":("водный раствор концентрированной щёлочи; нагревание (не сплавление)" if a == "beo" else "концентрированная щёлочь, нагревание" if a in {"zno", "al2o3"} else "")
         }
         for a,b,eq,kind,sign,sol,ppt,gas,heat in REACTIONS
     ]
@@ -429,11 +429,19 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .bubbleLayer.no2 .bubble{border-color:rgba(150,64,24,.96);background:radial-gradient(circle at 32% 28%,rgba(255,221,195,.92) 0 14%,rgba(202,92,38,.64) 15% 48%,rgba(137,55,22,.34) 49% 100%);box-shadow:0 0 0 1px rgba(114,43,16,.50),inset -2px -2px 4px rgba(108,40,15,.34),0 2px 6px rgba(92,37,17,.28)}
 .surfaceFizz.no2 i{border-color:rgba(153,65,24,.95);background:rgba(198,86,34,.62);box-shadow:0 0 0 1px rgba(108,43,17,.42)}
 .boilLayer.no2 .boilCell{background:radial-gradient(ellipse at 50% 75%,rgba(217,113,62,.62),rgba(150,61,25,.28) 55%,transparent 72%)}
+/* Pour a visible stream, raise the meniscus, then let surface ripples settle. */
+.liq.filling{animation:liquidFill 1s ease-out both;animation-delay:var(--pourAge,0s)}
+.pourStream{position:absolute;z-index:8;top:-2px;bottom:var(--toLevel);left:42%;width:7%;min-width:4px;background:var(--pourColor);border:1px solid rgba(97,141,164,.45);border-radius:0 0 50% 50%;animation:liquidStream 1s ease-out both;animation-delay:var(--pourAge,0s);pointer-events:none}
+.pourRipple{position:absolute;z-index:9;left:15%;width:70%;height:8px;bottom:var(--toLevel);border:2px solid rgba(89,138,159,.6);border-radius:50%;animation:liquidRipple 1s ease-out both;animation-delay:var(--pourAge,0s);pointer-events:none}
+@keyframes liquidFill{from{height:var(--fromLevel)}to{height:var(--toLevel)}}
+@keyframes liquidStream{0%{opacity:0;transform:scaleX(.6)}12%,72%{opacity:.85}100%{opacity:0;transform:scaleX(.4)}}
+@keyframes liquidRipple{0%{opacity:0;transform:scaleX(.4)}30%{opacity:.8}100%{opacity:0;transform:scaleX(1.1)}}
+@media(prefers-reduced-motion:reduce){.liq.filling{animation:none}.pourStream,.pourRipple{display:none}}
 .solidBed{position:absolute;left:12%;right:12%;bottom:6%;height:26%;z-index:5;pointer-events:none}
 .solidChunk{position:absolute;left:var(--l);bottom:var(--b);width:var(--s);height:calc(var(--s)*.62);background:var(--sc);border-radius:35% 45% 38% 48%;transform:rotate(var(--r));box-shadow:inset 2px 2px 3px rgba(255,255,255,.48),0 1px 2px rgba(0,0,0,.16)}
-.solidBed.dissolving-solid{animation:solidConsume 2.5s ease-in-out both}
+.solidBed.dissolving-solid{animation:solidConsume 2.5s ease-in-out both;animation-delay:var(--solidAge,0s)}
 .solidBed.reactive-metal{left:12%;right:12%;height:29%;bottom:6%}
-.solidBed.reactive-metal.dissolving-solid{animation:metalConsume 2.8s ease-in-out both}
+.solidBed.reactive-metal.dissolving-solid{animation:metalConsume 2.8s ease-in-out both;animation-delay:var(--solidAge,0s)}
 @keyframes solidConsume{0%{opacity:1;transform:scale(1)}30%{opacity:1;transform:scale(.91)}100%{opacity:0;transform:translateY(8px) scale(.12)}}
 @keyframes metalConsume{0%{opacity:1;transform:scale(1)}35%{opacity:.95;transform:scale(.86)}100%{opacity:0;transform:translateY(7px) scale(.16)}}
 @media(prefers-reduced-motion:reduce){.dense-bed{animation:none}.solidBed.dissolving-solid{animation:none;opacity:.25;transform:scale(.35)}}
@@ -1997,14 +2005,14 @@ function bubblesHTML(x,v=[]){
 // Determine whether the chemical record supports visible consumption of a
 // solid; a missing/non-reactive/heating-required reaction must not dissolve it.
 function solidReactionMode(v,x){
- if(!x||x.t==="z"||(x.t==="n"&&!oxideHydration(x)))return "";
+ if(!x||x.t==="z")return "";
  const solids=v.filter(id=>String((reagent(id)||[])[3]||"").includes("тв."));
  if(!solids.length)return "";
  if(solids.some(id=>(reagent(id)||[])[1]==="Металлы"))return "reactive_metal";
  const sign=String(x.sign||"").toLowerCase();
  if(oxideHydration(x))return "dissolving_solid";
  if(/разлагается|разложени/.test(sign))return "decomposing_solid";
- if(/растворяется|растворяются|исчезает|исчезают/.test(sign))return "dissolving_solid";
+ if(/растворяется|растворяются|растворени|исчезает|исчезают/.test(sign))return "dissolving_solid";
  // A solid reactant is consumed if it occurs on the left of a confirmed
  // equation but is absent from the products. Do not rely on Russian prose.
  const eq=String(x.eq||""),parts=eq.split(/→|⟶/);
@@ -2039,10 +2047,31 @@ function metalDepositHTML(v,x){
  }
  return '<div class="metalReactionBed"><i class="metalPiece" style="--metalColor:'+m[2]+'"></i>'+crystals.join("")+'</div>';
 }
-function tubeHTML(v,i,active,heated,excess="",overrideReaction=undefined,indicator="",indicatorExplicit=""){
+function tubeIsLiquid(id){
+ const phase=String((reagent(id)||[])[3]||"");return !!phase&&!phase.includes("тв.")&&!phase.includes("газ");
+}
+// Per-tube event clocks survive re-renders and switching workbenches. Negative
+// CSS delays resume a physical transition instead of restarting it.
+function tubeMotionFor(state,history,reaction,sources=history){
+ const now=Date.now(),previous=state.history||[];
+ if(history.length<previous.length||(previous.length&&history[0]!==previous[0])){
+  for(const key of Object.keys(state))delete state[key];
+ }
+ const amount=Math.min(84,(history.filter(tubeIsLiquid).length+(state.extraPours||0))*22);
+ if(amount>(state.level||0)){
+  state.from=state.level||0;state.pourAt=now;state.pourColor=reagent(history.filter(tubeIsLiquid).at(-1))[2];
+ }
+ state.level=amount;state.history=history.slice();
+ const key=reaction&&reaction.t!=="z"?reaction.eq+"|"+history.join(","):"";
+ if(key&&key!==state.reactionKey){state.reactionKey=key;state.solidAt=now;state.solidSources=sources.slice();}
+ return {level:state.level,from:state.from||0,pourColor:state.pourColor||"#d8eaf4",pourAge:state.pourAt?(now-state.pourAt)/1000:10,
+  solidAge:state.solidAt?(now-state.solidAt)/1000:10,solidSources:reaction?state.solidSources:null};
+}
+function tubeHTML(v,i,active,heated,excess="",overrideReaction=undefined,indicator="",indicatorExplicit="",motion=null){
  // Lesson studio supplies its own medium/stage result; never read the main lab tube state.
- const x=overrideReaction===undefined ?
+ const chosen=overrideReaction===undefined ?
    (v.length===2?(tubeDissolving[i]?reactionExpected(v[0],v[1]):findReaction(v[0],v[1],heated,excess)):null) : overrideReaction;
+ const x=chosen&&chosen.heat&&!heated?null:chosen;
  const base=v.length?reagent(v[v.length-1])[2]:"#f8fbff";
  // Keep a colorless solution optically clear when a white precipitate forms.
  // The contrast comes from particle edges and the bench backing, not dyed liquid.
@@ -2056,13 +2085,16 @@ function tubeHTML(v,i,active,heated,excess="",overrideReaction=undefined,indicat
    return !st.includes("тв.")&&!st.includes("газ");
  });
  // Each subsequent pour raises the visual level; the tube has a fixed capacity.
- const liquidHeight=(x&&x.t!=="z")||hasLiquid?Math.min(84,58+Math.max(0,v.length-2)*6):0;
+ const liquidHeight=motion?motion.level:(hasLiquid?Math.min(84,v.filter(tubeIsLiquid).length*22):0);
  const hasMetalDeposit=!!(x&&x.ppt&&v.some(id=>String((reagent(id)||[])[1]||"")==="Металлы"));
- const solids=solidReagentHTML(v,x,hasMetalDeposit);
+ const solids=solidReagentHTML(motion?.solidSources||v,x,hasMetalDeposit);
  const deposit=hasMetalDeposit?metalDepositHTML(v,x):"";
  const reactionVisual=x&&x.t!=="z"?((hasMetalDeposit?"":precipitateHTML(x))+bubblesHTML(x,v)+deposit+'<i class="reactionGlow"></i>'):"";
  const shimmer=(heated&&v.length)?'<i class="heatShimmer"></i>':"";
- return '<div class="tube '+(active?'on':'')+'"><i class="liq'+((oxideSulfateTurbidity(x)||oxideHydration(x)==="cloudy")?' oxide-turbidity':'')+'" style="height:'+liquidHeight+'%;background:'+sol+'"></i>'+solids+reactionVisual+shimmer+'</div>';
+ const pouring=!!(motion&&motion.pourAge<1&&motion.level>motion.from);
+ const timing=motion?' style="--pourAge:-'+motion.pourAge+'s;--solidAge:-'+motion.solidAge+'s;--fromLevel:'+motion.from+'%;--toLevel:'+liquidHeight+'%;--pourColor:'+motion.pourColor+'"':'';
+ const stream=pouring?'<i class="pourStream" aria-hidden="true"></i><i class="pourRipple" aria-hidden="true"></i>':'';
+ return '<div class="tube '+(active?'on':'')+'"'+timing+'><i class="liq'+(pouring?' filling':'')+((oxideSulfateTurbidity(x)||oxideHydration(x)==="cloudy")?' oxide-turbidity':'')+'" style="height:'+liquidHeight+'%;background:'+sol+'"></i>'+stream+solids+reactionVisual+shimmer+'</div>';
 }
 function tubeHasMedium(v){
  if(v.length!==2)return false;
@@ -2088,6 +2120,7 @@ function syncTubeMedium(){
  field.hidden=!visible;
  document.getElementById("tubeMedium").value=visible?tubeMedium[selectedTube]:"";
 }
+const mainTubeMotion=[{},{},{},{}];
 function renderTubes(){
  const box=document.getElementById("tubes");box.innerHTML="";
  tubes.forEach((v,i)=>{
@@ -2109,7 +2142,7 @@ function renderTubes(){
   }
   const excessLabel=tubeExcess[i]?'<div class="tubeSmall">избыток: '+reagent(tubeExcess[i])[0]+'</div>':'';
   wrap.innerHTML=callout+
-      tubeHTML(v,i,i===selectedTube,tubeHeat[i],tubeExcess[i],visibleReaction,tubeIndicators[i],tubeMedium[i])+
+      tubeHTML(v,i,i===selectedTube,tubeHeat[i],tubeExcess[i],visibleReaction,tubeIndicators[i],tubeMedium[i],tubeMotionFor(mainTubeMotion[i],v,visibleReaction,hasChain?[chain.steps.at(-1).reactant,chain.steps.at(-1).reagent]:v))+
       '<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+
       (v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>'+excessLabel;
   wrap.onclick=()=>{selectedTube=i;syncTubePicker();renderTubes()};box.appendChild(wrap);
@@ -2290,6 +2323,7 @@ document.getElementById("excess").onclick=()=>{
  const alkali=v.find(id=>id==="naoh"||id==="koh");
  tubeExcess[selectedTube]=alkali&&reactionVariants(v[0],v[1]).some(x=>x.excess===alkali)?alkali:v[v.length-1];
  const index=selectedTube;
+ if(tubeIsLiquid(tubeExcess[index]))mainTubeMotion[index].extraPours=(mainTubeMotion[index].extraPours||0)+1;
  const x=reactionExpected(v[0],v[1],tubeExcess[index]);
  tubeDissolving[index]=!!(x&&x.stages);
  document.getElementById("result").innerHTML=x&&x.excess?"Показываю реакцию при избытке "+reagent(tubeExcess[selectedTube])[0]+".":"Для этой пары отдельный результат избытка пока не требуется.";
@@ -3071,22 +3105,22 @@ function renderStats(){
 // Teacher's live lesson studio. Both panels stay interactive at the same time.
 // PDF input, ink notes and downloads remain entirely local to the browser.
 let lessonReady=false,lessonStarted=false,lessonHeated=false,lessonExcess="",lessonDissolving=false,lessonIndicator="";
-let lessonChain=null;
+let lessonChain=null,lessonMotion={};
 let lessonLabInkTool="view",lessonLabInkStrokes=[],lessonLabInkDrawing=null;
 let lessonTubeStates=[null,null,null,null];
 const lessonModeStates={};
 let lessonActiveTube=0,lessonVisibleTubeCount=2;
 function lessonEmptyTube(){
  return {reagents:{a:"",b:""},chain:null,started:false,heated:false,
-  excess:"",dissolving:false,medium:"",indicator:"",ink:[]};
+  excess:"",dissolving:false,medium:"",indicator:"",ink:[],motion:{}};
 }
 function lessonCaptureTube(){
  return {reagents:{...lessonSelectedReagents},chain:lessonChain,started:lessonStarted,
   heated:lessonHeated,excess:lessonExcess,dissolving:lessonDissolving,
-  medium:document.getElementById("lessonMedium").value,indicator:lessonIndicator,ink:lessonLabInkStrokes};
+  medium:document.getElementById("lessonMedium").value,indicator:lessonIndicator,ink:lessonLabInkStrokes,motion:lessonMotion};
 }
 function lessonApplyTube(state){
- lessonSelectedReagents={...state.reagents};lessonChain=state.chain;
+ lessonSelectedReagents={...state.reagents};lessonChain=state.chain;lessonMotion=state.motion||{};
  lessonStarted=state.started;lessonHeated=state.heated;
  lessonExcess=state.excess;lessonDissolving=state.dissolving;
  lessonIndicator=state.indicator||"";
@@ -3115,7 +3149,12 @@ function lessonPreviewTube(state,index){
   result=state.dissolving?findReaction(pair.a,pair.b,state.heated):
    (index===lessonActiveTube?lessonSelectedReaction(pair.a,pair.b,state.heated):findReaction(pair.a,pair.b,state.heated,state.excess));
  }
- return tubeHTML(ids,0,index===lessonActiveTube,state.heated,state.excess,result,state.indicator||"",state.medium||"");
+ const effective=result&&result.heat&&!state.heated?null:result;
+ const last=state.chain?.steps.at(-1);
+ const history=state.chain?state.chain.ids:(state.started&&pair.b?[pair.a,pair.b].filter(Boolean):[pair.a].filter(Boolean));
+ const sources=last?[last.reactant,last.reagent]:history;
+ const motion=tubeMotionFor(state.motion||(state.motion={}),history,effective,sources);
+ return tubeHTML(ids,0,index===lessonActiveTube,state.heated,state.excess,result,state.indicator||"",state.medium||"",motion);
 }
 function lessonSyncIndicators(){
  const panel=document.getElementById("lessonIndicatorPanel");if(!panel)return;
@@ -3178,7 +3217,7 @@ function lessonClearActiveTube(){
  lessonIndicator="";
  lessonStarted=false;lessonHeated=false;lessonExcess="";lessonDissolving=false;
  lessonApplyTube({...lessonCaptureTube(),reagents:{a:"",b:""},chain:null,
-  started:false,heated:false,excess:"",dissolving:false,medium:""});
+  started:false,heated:false,excess:"",dissolving:false,medium:"",motion:{}});
  lessonTubeStates[lessonActiveTube]=lessonCaptureTube();
  lessonRenderExperiment();
 }
@@ -3617,7 +3656,7 @@ function lessonCloseSuggestions(slot){
 }
 function lessonSetReagent(slot,id){
  if(!data.reagents[id])return;
- if(slot==="a")lessonChain=null;
+ if(slot==="a"){lessonChain=null;lessonMotion={};}
  lessonSelectedReagents[slot]=id;
  document.getElementById(slot==="a"?"lessonReagentA":"lessonReagentB").value=data.reagents[id][0];
  lessonCloseSuggestions(slot);
@@ -3819,6 +3858,7 @@ function lessonConductStep(){
  const matches=options.filter(x=>x.rx&&x.rx.t!=="z"&&(!x.rx.heat||lessonHeated));
  if(!matches.length){
   if(pendingHeat){info.textContent="Для следующего этапа нужен нагрев 🔥";return;}
+  if(tubeIsLiquid(b))lessonMotion.extraPours=(lessonMotion.extraPours||0)+1;
   lessonChain.noReactionNotice=true;lessonRenderExperiment();return;
  }
  const advance=choice=>{
@@ -4348,7 +4388,8 @@ function lessonSetup(){
   // qualitative chain to the dissolved aluminate/zincate products.
   const canUpdateChain=!!(lessonChain&&lessonChain.steps.length===1&&
     lessonChain.steps[0].reactant===a&&lessonChain.steps[0].reagent===b);
-  lessonExcess=alkali;lessonStarted=true;lessonDissolving=canUpdateChain;
+  lessonMotion.extraPours=(lessonMotion.extraPours||0)+1;
+ lessonExcess=alkali;lessonStarted=true;lessonDissolving=canUpdateChain;
   document.getElementById("lessonExcess").setAttribute("aria-pressed","true");
   lessonRenderExperiment();
   const targetTube=lessonActiveTube,targetStates=lessonTubeStates,targetChain=lessonChain;

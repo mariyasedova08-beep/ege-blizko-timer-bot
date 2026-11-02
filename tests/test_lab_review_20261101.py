@@ -42,3 +42,13 @@ class CandidateReview(unittest.TestCase):
             self.assertIn(row['a'], self.data['REAGENTS'])
             self.assertIn(row['b'], self.data['REAGENTS'])
         print('CANDIDATE_COVERAGE', len(self.data['REAGENTS']), len(self.payload), len(self.data['MEDIUM_REACTIONS']))
+
+    def test_beo_uses_aqueous_hydroxocomplexes_not_fusion_products(self):
+        for alkali,cation in [('naoh','Na'),('koh','K')]:
+            rows=[r for r in self.payload if {r['a'],r['b']}=={'beo',alkali}]
+            self.assertTrue(rows)
+            row=rows[0]
+            self.assertEqual(row['eq'],f'BeO + 2{cation}OH + H₂O → {cation}₂[Be(OH)₄]')
+            self.assertTrue(row['heat'])
+            self.assertIn('водный раствор',row['condition'])
+            self.assertNotIn(f'{cation}₂BeO₂',row['eq'])
