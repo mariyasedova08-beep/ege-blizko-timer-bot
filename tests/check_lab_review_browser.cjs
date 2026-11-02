@@ -70,6 +70,17 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.waitForFunction(()=>lessonTubeStates[0].dissolving===false&&lessonTubeStates[0].chain.steps[0].reaction.excess==='naoh');
    await page.evaluate(()=>lessonSelectTube(0));
    assert.equal(await page.evaluate(()=>lessonDissolving),false);
+   const pouring=await page.evaluate(()=>{
+    const state={},original=Date.now;let now=100000;Date.now=()=>now;
+    try{
+     const first=tubeMotionFor(state,['naoh'],null);now+=400;
+     const resumed=tubeMotionFor(state,['naoh'],null);
+     const next=tubeMotionFor(state,['naoh','hcl'],null);
+     return {first,resumed,next};
+    }finally{Date.now=original;}
+   });
+   assert.equal(pouring.first.level,22);assert.equal(pouring.first.from,0);
+   assert.equal(pouring.resumed.pourAge,.4);assert.equal(pouring.next.level,44);assert.equal(pouring.next.from,22);
    // Solids remain visible while liquid pours, then dissolve only under valid conditions.
    for(const alkali of ['naoh','koh']){
     await page.evaluate(base=>{lessonClearActiveTube();lessonSetReagent('a','beo');lessonSetReagent('b',base);lessonConductStep()},alkali);

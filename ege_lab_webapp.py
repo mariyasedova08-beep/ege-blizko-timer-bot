@@ -443,6 +443,7 @@ button.on,button.primary{background:var(--pink);color:#fff}.page{display:none}.p
 .solidBed.reactive-metal{left:12%;right:12%;height:29%;bottom:6%}
 .solidBed.reactive-metal.dissolving-solid{animation:metalConsume 2.8s ease-in-out both;animation-delay:var(--solidAge,0s)}
 @keyframes solidConsume{0%{opacity:1;transform:scale(1)}30%{opacity:1;transform:scale(.91)}100%{opacity:0;transform:translateY(8px) scale(.12)}}
+.metalPiece.dissolving-metal{animation:metalConsume 2.8s ease-in-out both;animation-delay:var(--solidAge,0s)}
 @keyframes metalConsume{0%{opacity:1;transform:scale(1)}35%{opacity:.95;transform:scale(.86)}100%{opacity:0;transform:translateY(7px) scale(.16)}}
 @media(prefers-reduced-motion:reduce){.dense-bed{animation:none}.solidBed.dissolving-solid{animation:none;opacity:.25;transform:scale(.35)}}
 .metalReactionBed{position:absolute;z-index:5;left:10%;right:10%;bottom:5%;height:30%;pointer-events:none}
@@ -2045,7 +2046,7 @@ function metalDepositHTML(v,x){
  for(let n=0;n<22;n++){
    crystals.push('<i class="metalCrystal" style="--l:'+(12+(n*31)%70)+'%;--b:'+(8+(n*17)%30)+'%;--s:'+(4+(n%5)*3)+'px;--r:'+(((n*37)%100)-50)+'deg;--depositColor:'+x.ppt+'"></i>');
  }
- return '<div class="metalReactionBed"><i class="metalPiece" style="--metalColor:'+m[2]+'"></i>'+crystals.join("")+'</div>';
+ return '<div class="metalReactionBed"><i class="metalPiece dissolving-metal" style="--metalColor:'+m[2]+'"></i>'+crystals.join("")+'</div>';
 }
 function tubeIsLiquid(id){
  const phase=String((reagent(id)||[])[3]||"");return !!phase&&!phase.includes("тв.")&&!phase.includes("газ");
@@ -2086,9 +2087,10 @@ function tubeHTML(v,i,active,heated,excess="",overrideReaction=undefined,indicat
  });
  // Each subsequent pour raises the visual level; the tube has a fixed capacity.
  const liquidHeight=motion?motion.level:(hasLiquid?Math.min(84,v.filter(tubeIsLiquid).length*22):0);
- const hasMetalDeposit=!!(x&&x.ppt&&v.some(id=>String((reagent(id)||[])[1]||"")==="Металлы"));
- const solids=solidReagentHTML(motion?.solidSources||v,x,hasMetalDeposit);
- const deposit=hasMetalDeposit?metalDepositHTML(v,x):"";
+ const solidInput=motion?.solidSources||v;
+ const hasMetalDeposit=!!(x&&x.ppt&&solidInput.some(id=>String((reagent(id)||[])[1]||"")==="Металлы"));
+ const solids=solidReagentHTML(solidInput,x,hasMetalDeposit);
+ const deposit=hasMetalDeposit?metalDepositHTML(solidInput,x):"";
  const reactionVisual=x&&x.t!=="z"?((hasMetalDeposit?"":precipitateHTML(x))+bubblesHTML(x,v)+deposit+'<i class="reactionGlow"></i>'):"";
  const shimmer=(heated&&v.length)?'<i class="heatShimmer"></i>':"";
  const pouring=!!(motion&&motion.pourAge<1&&motion.level>motion.from);
