@@ -1,1 +1,1 @@
-Sandbox update reported installed 2026-11-02; build e239902d64bd19b6. Verify trusted public HTTPS and desktop/tablet browser behavior. Read-only checks; no deployment.
+Classroom feedback package reported installed 2026-11-02; build cf3e20fd49ed54ce. Verify trusted public HTTPS, exact hashes and desktop/tablet browser behavior. Read-only checks; no deployment.

@@ -43,10 +43,10 @@ jobs:
           report = json.load(open(sys.argv[1]))
           sandbox = report.get('sandbox_8768', {})
           expected = {
-              'build': 'e239902d64bd19b6',
-              'bundle_sha256': 'b23b0591f09636a5ca37effb049ee130dfce37addf4ecf04b511da42c4ec80c7',
-              'html_sha256': '0ffc0e8bd1a16fdf08599515091778b3244e72f1cbeca353dd3992e9a69798cf',
-              'payload_sha256': 'b284a1359d8b08b45520c4e20d6ce65e9752dbb20657623abee0ba63a03050d8',
+              'build': 'cf3e20fd49ed54ce',
+              'bundle_sha256': '16af6f772e88a5710e8fe6c3985a7047ea5b37e1b3237f7dcf39cb9644d02b15',
+              'html_sha256': 'def8087270ef89dfc741ffb48f7dcb918f6d1e02f2fdea1bfc09189891a08cf2',
+              'payload_sha256': '630ed69d26cd064e2d601b65ec7836f28ce67e3d3bb9bb3c0b68f23544982d19',
           }
           if sandbox.get('ok') is not True or sandbox.get('sandbox') is not True:
               raise SystemExit('SANDBOX_NOT_READY')
