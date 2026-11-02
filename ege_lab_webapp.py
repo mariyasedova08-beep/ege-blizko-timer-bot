@@ -3849,7 +3849,7 @@ function lessonConductStep(){
 let lessonBoardMode=false,lessonBoardTool="pen",lessonBoardItems=[],lessonBoardStrokes=[];
 let lessonBoardSelection=null,lessonBoardPointer=null,lessonBoardUndoStack=[];
 let lessonBoardView={x:0,y:0,zoom:1};
-let lessonBoardFrame=0;
+let lessonBoardFrame=0,lessonBoardFitMode=null;
 function lessonBoardScheduleDraw(){if(!lessonBoardFrame)lessonBoardFrame=requestAnimationFrame(()=>{lessonBoardFrame=0;lessonBoardDraw();});}
 let lessonBoardPageIndex=0,lessonBoardPages=[{name:"Лист 1",items:[],strokes:[]}];
 function lessonBoardStoreCurrent(){
@@ -3869,7 +3869,7 @@ function lessonBoardRefreshPages(){
 }
 function lessonBoardSwitchPage(index){
  if(!Number.isInteger(index)||index<0||index>=lessonBoardPages.length)return;
- lessonBoardStoreCurrent();lessonBoardPageIndex=index;
+ lessonBoardFitMode=null;lessonBoardStoreCurrent();lessonBoardPageIndex=index;
  lessonBoardItems=lessonBoardPages[index].items;
  lessonBoardStrokes=lessonBoardPages[index].strokes;
  lessonBoardView={x:0,y:0,zoom:1,...lessonBoardPages[index].view};
@@ -4063,6 +4063,7 @@ function lessonBoardTurnPage(direction){
  if(group[position+direction]!==undefined)lessonBoardSwitchPage(group[position+direction]);
 }
 function lessonBoardZoomTo(zoom,anchor=null,screen=null){
+ lessonBoardFitMode=null;
  const space=document.getElementById("lessonBoardSpace");
  screen=screen||{x:space.clientWidth/2,y:space.clientHeight/2};
  anchor=anchor||{x:lessonBoardView.x+screen.x/lessonBoardView.zoom,y:lessonBoardView.y+screen.y/lessonBoardView.zoom};
@@ -4079,7 +4080,7 @@ function lessonBoardFit(kind){
  let left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
  for(const point of bounds){left=Math.min(left,point.x);top=Math.min(top,point.y);right=Math.max(right,point.x);bottom=Math.max(bottom,point.y);}
  const zoom=Math.min((Math.max(1,space.clientWidth-48))/Math.max(1,right-left),(Math.max(1,space.clientHeight-48))/Math.max(1,bottom-top));
- lessonBoardZoomTo(zoom,{x:(left+right)/2,y:(top+bottom)/2});
+ lessonBoardZoomTo(zoom,{x:(left+right)/2,y:(top+bottom)/2});lessonBoardFitMode=kind;
 }
 function lessonBoardPoint(event){
  const rect=document.getElementById("lessonBoardCanvas").getBoundingClientRect();
@@ -4130,7 +4131,7 @@ function lessonBoardSetFullscreen(enabled){
 }
 function lessonBoardSetup(){
  const canvas=document.getElementById("lessonBoardCanvas");
- new ResizeObserver(lessonBoardScheduleDraw).observe(document.getElementById("lessonBoardSpace"));
+ new ResizeObserver(()=>{if(lessonBoardFitMode&&lessonBoardMode)lessonBoardFit(lessonBoardFitMode);else lessonBoardScheduleDraw();}).observe(document.getElementById("lessonBoardSpace"));
  document.getElementById("lessonBoardPan").onclick=()=>lessonBoardSetTool("pan");
  document.getElementById("lessonBoardZoomIn").onclick=()=>lessonBoardZoomTo(lessonBoardView.zoom*1.25);
  document.getElementById("lessonBoardZoomOut").onclick=()=>lessonBoardZoomTo(lessonBoardView.zoom/1.25);
@@ -4139,9 +4140,9 @@ function lessonBoardSetup(){
  document.getElementById("lessonBoardDocument").onclick=()=>lessonBoardFit("document");
  document.getElementById("lessonBoardPrevious").onclick=()=>lessonBoardTurnPage(-1);
  document.getElementById("lessonBoardNext").onclick=()=>lessonBoardTurnPage(1);
- document.getElementById("lessonBoardHome").onclick=()=>{lessonBoardView={x:0,y:0,zoom:1};lessonBoardDraw();};
+ document.getElementById("lessonBoardHome").onclick=()=>{lessonBoardFitMode=null;lessonBoardView={x:0,y:0,zoom:1};lessonBoardDraw();};
  canvas.addEventListener("wheel",event=>{
-  event.preventDefault();
+  lessonBoardFitMode=null;event.preventDefault();
   if(event.ctrlKey||event.metaKey){
    const anchor=lessonBoardPoint(event),old=lessonBoardView.zoom;
    const zoom=Math.max(.1,Math.min(4,old*Math.exp(-Math.max(-1000,Math.min(1000,event.deltaY))*.002)));
@@ -4238,7 +4239,7 @@ function lessonBoardSetup(){
   if(lessonBoardPointer)return;
   const p=lessonBoardPoint(event);
   if(lessonBoardTool==="pan"){
-   lessonBoardPointer={kind:"pan",clientX:event.clientX,clientY:event.clientY,x:lessonBoardView.x,y:lessonBoardView.y};
+   lessonBoardFitMode=null;lessonBoardPointer={kind:"pan",clientX:event.clientX,clientY:event.clientY,x:lessonBoardView.x,y:lessonBoardView.y};
   }else if(lessonBoardTool==="move"){
    lessonBoardSelection=[...lessonBoardItems].reverse().find(item=>!item.locked&&p.x>=item.x&&p.x<=item.x+item.w&&p.y>=item.y&&p.y<=item.y+item.h)||null;
    if(!lessonBoardSelection){lessonBoardDraw();lessonStatus("PDF закреплён под записями. Для увеличения используй ＋ / −, для перемещения — «Перемещать доску».");return;}

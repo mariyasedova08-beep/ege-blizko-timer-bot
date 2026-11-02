@@ -174,6 +174,7 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.equal(await page.locator('#lessonBoardPageCounter').innerText(),'1 / 2');
    assert.equal(await page.locator('#lessonBoardPrevious').isDisabled(),true);
    assert.equal(await page.locator('#lessonBoardDocumentName').innerText(),'slides.pdf');
+   await page.waitForFunction(()=>{const i=lessonBoardItems[0],v=lessonBoardView,s=document.getElementById('lessonBoardSpace');return (i.y+i.h-v.y)*v.zoom<=s.clientHeight-20});
    const fitted=await page.evaluate(()=>{const item=lessonBoardItems[0],v=lessonBoardView,space=document.getElementById('lessonBoardSpace');return {left:(item.x-v.x)*v.zoom,top:(item.y-v.y)*v.zoom,right:(item.x+item.w-v.x)*v.zoom,bottom:(item.y+item.h-v.y)*v.zoom,width:space.clientWidth,height:space.clientHeight};});
    assert.ok(fitted.left>=20&&fitted.top>=20&&fitted.right<=fitted.width-20&&fitted.bottom<=fitted.height-20,JSON.stringify(fitted));
    await page.locator('#lessonBoardPen').click();await draw();
