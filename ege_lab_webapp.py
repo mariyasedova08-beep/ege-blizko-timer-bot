@@ -2122,11 +2122,23 @@ function syncTubeMedium(){
  field.hidden=!visible;
  document.getElementById("tubeMedium").value=visible?tubeMedium[selectedTube]:"";
 }
+// Preserve the actual liquid/precipitate nodes when only another workbench changes.
+const tubeVisualCache=new WeakMap();
+function renderTubeVisual(host,key,create,active){
+ if(tubeVisualCache.get(host)!==key){host.innerHTML=create();tubeVisualCache.set(host,key);}
+ host.querySelector(".tube")?.classList.toggle("on",active);
+}
 const mainTubeMotion=[{},{},{},{}];
 function renderTubes(){
- const box=document.getElementById("tubes");box.innerHTML="";
+ const box=document.getElementById("tubes");
  tubes.forEach((v,i)=>{
-  const wrap=document.createElement("div");wrap.className="tube-slot"+(i===selectedTube?" active-slot":"");
+  let wrap=box.children[i];
+  if(!wrap){
+   wrap=document.createElement("div");wrap.className="tube-slot";
+   wrap.innerHTML='<div class="tube-callout-host"></div><div class="tube-visual-host"></div><div class="tubeLabel">'+(i+1)+'</div><div class="tube-label-host"></div>';
+   wrap.onclick=()=>{selectedTube=i;syncTubePicker();renderTubes()};box.appendChild(wrap);
+  }
+  wrap.classList.toggle("active-slot",i===selectedTube);
   const chain=tubeChain[i],hasChain=!!(chain&&chain.steps.length>1);
   const hasMedium=!hasChain&&tubeHasMedium(v);
   const x=hasChain?chain.steps[chain.steps.length-1].reaction:(v.length===2?tubeReaction(i):null);
@@ -2143,11 +2155,13 @@ function renderTubes(){
     callout='<div class="tube-callout'+cls+'">'+content+history+'</div>';
   }
   const excessLabel=tubeExcess[i]?'<div class="tubeSmall">избыток: '+reagent(tubeExcess[i])[0]+'</div>':'';
-  wrap.innerHTML=callout+
-      tubeHTML(v,i,i===selectedTube,tubeHeat[i],tubeExcess[i],visibleReaction,tubeIndicators[i],tubeMedium[i],tubeMotionFor(mainTubeMotion[i],v,visibleReaction,hasChain?[chain.steps.at(-1).reactant,chain.steps.at(-1).reagent]:v))+
-      '<div class="tubeLabel">'+(i+1)+'</div><div class="tubeSmall">'+
-      (v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>'+excessLabel;
-  wrap.onclick=()=>{selectedTube=i;syncTubePicker();renderTubes()};box.appendChild(wrap);
+  const calloutHost=wrap.querySelector(".tube-callout-host");
+  if(calloutHost.innerHTML!==callout)calloutHost.innerHTML=callout;
+  const key=JSON.stringify([v,tubeHeat[i],tubeExcess[i],visibleReaction,tubeIndicators[i],tubeMedium[i],mainTubeMotion[i].extraPours||0]);
+  renderTubeVisual(wrap.querySelector(".tube-visual-host"),key,
+   ()=>tubeHTML(v,i,i===selectedTube,tubeHeat[i],tubeExcess[i],visibleReaction,tubeIndicators[i],tubeMedium[i],tubeMotionFor(mainTubeMotion[i],v,visibleReaction,hasChain?[chain.steps.at(-1).reactant,chain.steps.at(-1).reagent]:v)),i===selectedTube);
+  const label='<div class="tubeSmall">'+(v.map(q=>reagent(q)[0]).join(" + ")||"пусто")+'</div>'+excessLabel;
+  const labelHost=wrap.querySelector(".tube-label-host");if(labelHost.innerHTML!==label)labelHost.innerHTML=label;
  });
  syncTubeMedium();
  syncIndicatorControls();
@@ -3149,7 +3163,7 @@ function lessonPreviewTube(state,index){
  }else if(state.started&&pair.a&&pair.b){
   ids=[pair.a,pair.b];
   result=state.dissolving?findReaction(pair.a,pair.b,state.heated):
-   (index===lessonActiveTube?lessonSelectedReaction(pair.a,pair.b,state.heated):findReaction(pair.a,pair.b,state.heated,state.excess));
+   lessonSelectedReaction(pair.a,pair.b,state.heated,state.medium||"",state.excess);
  }
  const effective=result&&result.heat&&!state.heated?null:result;
  const last=state.chain?.steps.at(-1);
@@ -3177,7 +3191,8 @@ function lessonRenderTubePair(){
  document.getElementById("lessonTubeGrid").dataset.count=String(lessonVisibleTubeCount);
  for(let i=0;i<4;i++){
   const state=i===lessonActiveTube?active:lessonTubeStates[i];
-  document.getElementById("lessonTube"+(i+1)).innerHTML=lessonPreviewTube(state,i);
+  const key=JSON.stringify([state.reagents,state.chain,state.started,state.heated,state.excess,state.dissolving,state.medium,state.indicator,state.motion?.extraPours||0]);
+  renderTubeVisual(document.getElementById("lessonTube"+(i+1)),key,()=>lessonPreviewTube(state,i),i===lessonActiveTube);
  }
  document.querySelectorAll("[data-lesson-tube]").forEach(btn=>{
   const on=Number(btn.dataset.lessonTube)===lessonActiveTube;
@@ -3731,10 +3746,9 @@ function lessonUpdateMedium(){
  document.getElementById("lessonMediumHint").textContent=
    "Укажи среду и дополнительные вещества по уравнению; они не добавляются автоматически.";
 }
-function lessonSelectedReaction(a,b,heated){
+function lessonSelectedReaction(a,b,heated,medium=document.getElementById("lessonMedium").value,excess=lessonExcess){
  if(!a||!b)return null;
  if(lessonHasMedium(a,b)){
-  const medium=document.getElementById("lessonMedium").value;
   if(!medium)return null;
   const exact=(data.medium_reactions||[]).find(x=>x.medium===medium &&
       ((x.a===a&&x.b===b)||(x.a===b&&x.b===a)));
@@ -3743,7 +3757,7 @@ function lessonSelectedReaction(a,b,heated){
       return findReaction(a,b,heated);
   return null;
  }
- return findReaction(a,b,heated,lessonExcess);
+ return findReaction(a,b,heated,excess);
 }
 function lessonPopulateReagents(){
  for(const [slot,label] of [["a","A"],["b","B"]]){

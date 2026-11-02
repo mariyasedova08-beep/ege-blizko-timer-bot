@@ -25,6 +25,16 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    });
    await page.goto(url);
    await page.waitForFunction(()=>lessonReady);
+   // Independent DOM in the free laboratory: touching tube 2 cannot restart tube 1.
+   await page.evaluate(()=>{
+    tubes[0]=['cuso4','naoh'];selectedTube=0;renderTubes();
+    window.freeTubeRef=document.querySelector('#tubes .tube-slot .tube');window.freePptRef=window.freeTubeRef.querySelector('.pptLayer');
+    window.freeMutations=0;window.freeObserver=new MutationObserver(records=>window.freeMutations+=records.length);window.freeObserver.observe(window.freeTubeRef,{childList:true,subtree:true});
+    selectedTube=1;tubes[1]=['fecl3','naoh'];renderTubes();tubeHeat[1]=true;renderTubes();selectedTube=0;renderTubes();
+   });
+   assert.ok(await page.evaluate(()=>document.querySelector('#tubes .tube-slot .tube')===window.freeTubeRef&&window.freeTubeRef.querySelector('.pptLayer')===window.freePptRef&&window.freePptRef!==null));
+   assert.equal(await page.evaluate(()=>window.freeMutations),0);
+   await page.evaluate(()=>{window.freeObserver.disconnect();tubes=[[],[],[],[]];tubeHeat=[false,false,false,false];tubeChain=[null,null,null,null];selectedTube=0;renderTubes()});
    await page.locator('[data-page="lesson"]').click();
    // Eraser is explicitly labelled and visible, rather than an ambiguous delete glyph.
    assert.ok(await page.locator('#lessonToolEraser').isVisible());
@@ -108,6 +118,19 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    // A dry mixture with no reaction must not become liquid or consume its solid.
    const inert=await page.evaluate(()=>tubeHTML(['beo','cuo'],0,false,false,'',{t:'z',eq:'',sign:''}));
    assert.ok(!inert.includes('dissolving-solid'));assert.ok(inert.includes('height:0%'));
+   // Lesson workbenches retain actual nodes and running animations across unrelated actions.
+   await page.evaluate(()=>{
+    lessonClearActiveTube();lessonSetReagent('a','cuso4');lessonSetReagent('b','naoh');lessonConductStep();
+    window.lessonTubeRef=document.querySelector('#lessonTube1 .tube');window.lessonPptRef=window.lessonTubeRef.querySelector('.pptLayer');
+    window.lessonMutations=0;window.lessonObserver=new MutationObserver(records=>window.lessonMutations+=records.length);window.lessonObserver.observe(document.getElementById('lessonTube1'),{childList:true,subtree:true});
+    window.originalAnimation=window.lessonPptRef.getAnimations({subtree:true})[0];
+    lessonSelectTube(1);lessonClearActiveTube();lessonSetReagent('a','fecl3');lessonSetReagent('b','naoh');lessonConductStep();
+    lessonHeated=true;lessonRenderExperiment();lessonSelectTube(0);
+   });
+   assert.ok(await page.evaluate(()=>document.querySelector('#lessonTube1 .tube')===window.lessonTubeRef&&window.lessonTubeRef.querySelector('.pptLayer')===window.lessonPptRef));
+   assert.equal(await page.evaluate(()=>window.lessonMutations),0);
+   assert.ok(await page.evaluate(()=>window.lessonPptRef.getAnimations({subtree:true}).includes(window.originalAnimation)));
+   await page.evaluate(()=>window.lessonObserver.disconnect());
    // Resize panel with keyboard.
    await page.locator('#lessonPanelDivider').focus();await page.keyboard.press('ArrowRight');
    assert.equal(await page.locator('#lessonPanelDivider').getAttribute('aria-valuenow'),'35');
