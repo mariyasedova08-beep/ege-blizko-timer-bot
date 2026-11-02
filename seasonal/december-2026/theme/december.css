@@ -1,0 +1,36 @@
+/* Scoped decoration: never targets canvas, tubes, PDF, inputs or app handlers. */
+body.ege-december-cabinet {
+ --milk:#F8F5F2;--ink:#171719;--soft:#F4D9E6;--pink:#F00087;--hot:#F00087;
+ --line:#eadfe4;--paper:#fffdfc;
+ background:radial-gradient(ellipse at 0 0,#f4d9e655,transparent 60%),#F8F5F2;
+}
+body.ege-december-cabinet .november-banner {display:none}
+.ege-december-banner {position:relative;isolation:isolate;overflow:hidden;box-sizing:border-box;
+ min-height:146px;padding:24px 146px 24px 22px;margin:0 0 16px;border:1px solid #e7d3de;
+ border-radius:22px;background:radial-gradient(ellipse at 90% 100%,#fff 0 24%,transparent 25%),
+ linear-gradient(115deg,#fffdfb,#f4d9e6);color:#171719;
+}
+.ege-december-title {display:block;font:650 25px/1.18 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:-.035em;max-width:360px}
+.ege-december-copy {display:block;margin-top:10px;color:#745366;font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.ege-december-mascot {position:absolute;right:12px;bottom:-12px;width:122px;height:137px;pointer-events:none;user-select:none}
+.ege-december-mascot img {display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom}
+/* A separate UI accessory retains the original dog's markings and upright ears. */
+.ege-december-hat {position:absolute;left:37%;top:12%;width:24%;height:16%;background:#c72e45;
+ border-radius:80% 50% 12% 12%;transform:rotate(12deg);box-shadow:inset -5px 1px 0 #a4203544}
+.ege-december-hat::before {content:'';position:absolute;left:-10%;right:-10%;bottom:-4%;height:25%;background:#fffdf8;border-radius:8px;box-shadow:0 1px 2px #62425122}
+.ege-december-hat::after {content:'';position:absolute;right:-10%;top:-12%;width:32%;aspect-ratio:1;background:#fffdf8;border-radius:50%}
+.ege-december-banner::before {content:'✧  ·  ❄';position:absolute;right:12px;top:9px;color:#a95c7c;font-size:13px;letter-spacing:8px;pointer-events:none}
+body.ege-december-lab #lesson > .ege-december-banner {min-height:68px;padding:13px 96px 12px 18px;margin-bottom:10px;border-radius:16px}
+body.ege-december-lab .ege-december-title {font-size:18px;max-width:none}
+body.ege-december-lab .ege-december-copy {font-size:11px;margin-top:3px}
+body.ege-december-lab .ege-december-mascot {width:72px;height:81px;bottom:-9px;right:15px}
+body.ege-december-lab .ege-december-banner::before {display:none}
+html:has(:fullscreen) .ege-december-banner {display:none!important}
+@media(max-width:480px){
+ .ege-december-banner {padding:20px 104px 20px 17px;min-height:144px}
+ .ege-december-title {font-size:23px}
+ .ege-december-copy {font-size:12px}
+ .ege-december-mascot {width:98px;height:110px;right:1px;bottom:-5px}
+ body.ege-december-lab .ege-december-title {font-size:16px}
+}
+@media print {.ege-december-banner {display:none!important}}
