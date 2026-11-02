@@ -26,6 +26,12 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.goto(url);
    await page.waitForFunction(()=>lessonReady);
    await page.locator('[data-page="lesson"]').click();
+   // Eraser is explicitly labelled and visible, rather than an ambiguous delete glyph.
+   assert.ok(await page.locator('#lessonToolEraser').isVisible());
+   assert.ok(Number(await page.locator('#lessonToolEraser').evaluate(e=>getComputedStyle(e).fontSize.replace('px','')))>0);
+   await page.locator('#lessonToolEraser').click();
+   assert.equal(await page.evaluate(()=>lessonTool),'erase');
+   await page.locator('#lessonToolPen').click();
    // Actual chemistry and separate tubes.
    await page.evaluate(()=>{lessonSetReagent('a','nahco3');lessonSetReagent('b','koh');lessonConductStep()});
    await page.waitForFunction(()=>document.getElementById('lessonReaction').textContent.includes('Na₂CO₃ + K₂CO₃'));
@@ -100,6 +106,16 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    download=page.waitForEvent('download');await page.locator('#lessonBoardExport').click();
    file=await download;assert.equal((await PDFDocument.load(fs.readFileSync(await file.path()))).getPageCount(),1);
    assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),2);
+   // Board eraser remains directly accessible when the main toolbar is collapsed.
+   await page.locator('#lessonToolbarToggle').click();
+   assert.ok(await page.locator('#lessonBoardEraser').isVisible());
+   await page.locator('#lessonBoardEraser').click();
+   assert.equal(await page.evaluate(()=>lessonTool),'erase');
+   assert.equal(await page.locator('#lessonBoardEraser').getAttribute('aria-pressed'),'true');
+   await page.locator('#lessonBoardPen').click();
+   assert.equal(await page.evaluate(()=>lessonTool),'pen');
+   assert.equal(await page.locator('#lessonBoardEraser').getAttribute('aria-pressed'),'false');
+   await page.locator('#lessonToolbarToggle').click();
    // Eraser removes a stroke, undo restores it.
    await page.evaluate(()=>{lessonBoardSnapshot();lessonBoardErase(lessonBoardStrokes[1].points[1]);lessonBoardDraw()});
    assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),1);

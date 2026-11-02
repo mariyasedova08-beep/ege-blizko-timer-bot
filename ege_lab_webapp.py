@@ -1360,10 +1360,11 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 #lesson .lesson-lesson-tools #lessonPageCounter{font-size:11px;white-space:nowrap;min-width:35px;text-align:center;color:#f8f5f2}
 #lesson .lesson-lesson-tools .lesson-file-controls .lesson-file-label{display:inline-flex;align-items:center;justify-content:center;font-size:0}
 #lesson .lesson-lesson-tools .lesson-file-controls .lesson-file-label:before{content:"▤";font-size:20px}
-#lesson #lessonToolPen,#lesson #lessonToolMarker,#lesson #lessonToolEraser,#lesson #lessonStraightLine{font-size:0}
+#lesson #lessonToolPen,#lesson #lessonToolMarker,#lesson #lessonStraightLine{font-size:0}
 #lesson #lessonToolPen:before{content:"✎";font-size:21px}
 #lesson #lessonToolMarker:before{content:"▰";font-size:20px}
-#lesson #lessonToolEraser:before{content:"⌫";font-size:21px}
+#lesson #lessonToolEraser{font-size:13px;display:inline-flex;align-items:center;gap:5px;min-height:40px;padding:6px 10px}
+.lesson-eraser-icon{width:20px;height:20px;flex-shrink:0;vertical-align:middle}
 #lesson #lessonStraightLine:before{content:"╱";font-size:20px}
 #lesson .lesson-extra-menu{margin:0}
 #lesson .lesson-extra-menu summary{font-size:0;white-space:nowrap}
@@ -1521,7 +1522,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
         <button id="lessonToolPen" type="button" aria-pressed="true">✎ Ручка</button>
          <button id="lessonToolMarker" type="button" aria-pressed="false">▰ Выделитель</button>
         <button id="lessonStraightLine" type="button" aria-pressed="false" title="Прямая линия выбранной ручкой или выделителем">╱ Линия</button>
-        <button id="lessonToolEraser" type="button" aria-pressed="false">⌫ Ластик</button>
+        <button id="lessonToolEraser" type="button" aria-label="Ластик" title="Ластик — стереть штрих" aria-pressed="false"><svg class="lesson-eraser-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m4 14 9-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3L12 22H8l-4-4a3 3 0 0 1 0-4Z"/><path d="m9 9 8 8M12 22h10"/></svg> Ластик</button>
       <details class="lesson-extra-menu">
         <summary aria-label="Цвет, толщина и настройки письма">🎨 Цвет и толщина</summary>
         <div class="lesson-extra-items">
@@ -1545,6 +1546,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
     </div>
     <div id="lessonBoardBar" class="lesson-board-bar" hidden>
       <button id="lessonBoardPen" type="button" aria-pressed="true">✎ Писать</button>
+      <button id="lessonBoardEraser" type="button" aria-pressed="false" title="Стереть штрих на доске"><svg class="lesson-eraser-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m4 14 9-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3L12 22H8l-4-4a3 3 0 0 1 0-4Z"/><path d="m9 9 8 8M12 22h10"/></svg> Ластик</button>
       <button id="lessonBoardPan" type="button" aria-pressed="false">✋ Перемещать доску</button>
       <button id="lessonBoardHome" type="button">⌂ К началу</button>
       <span id="lessonBoardZoom" aria-live="polite">100%</span>
@@ -3355,6 +3357,8 @@ function lessonSetTool(which){
  document.getElementById("lessonToolPen").setAttribute("aria-pressed",String(which==="pen"));
   document.getElementById("lessonToolMarker").setAttribute("aria-pressed",String(which==="marker"));
  document.getElementById("lessonToolEraser").setAttribute("aria-pressed",String(which==="erase"));
+ document.getElementById("lessonBoardEraser").setAttribute("aria-pressed",String(which==="erase"));
+ if(lessonBoardMode)document.getElementById("lessonBoardPen").setAttribute("aria-pressed",String(which!=="erase"));
  document.getElementById("lessonInkCanvas").classList.toggle("eraser",which==="erase");
 }
 function lessonSetLineMode(enabled){
@@ -3985,7 +3989,8 @@ function lessonBoardErase(point){
 function lessonBoardSetTool(tool){
  lessonBoardTool=tool;
  document.getElementById("lessonBoardPan").setAttribute("aria-pressed",String(tool==="pan"));
- document.getElementById("lessonBoardPen").setAttribute("aria-pressed",String(tool==="pen"));
+ document.getElementById("lessonBoardPen").setAttribute("aria-pressed",String(tool==="pen"&&lessonTool!=="erase"));
+ document.getElementById("lessonBoardEraser").setAttribute("aria-pressed",String(tool==="pen"&&lessonTool==="erase"));
  document.getElementById("lessonBoardMove").setAttribute("aria-pressed",String(tool==="move"));
  document.getElementById("lessonBoardCanvas").style.cursor=(tool==="move"||tool==="pan")?"grab":"crosshair";
  lessonBoardDraw();
@@ -4059,7 +4064,8 @@ function lessonBoardSetup(){
   lessonBoardRefreshPages();
  };
  document.getElementById("lessonBoardToggle").onclick=lessonBoardToggle;
- document.getElementById("lessonBoardPen").onclick=()=>lessonBoardSetTool("pen");
+ document.getElementById("lessonBoardPen").onclick=()=>lessonSetTool("pen");
+ document.getElementById("lessonBoardEraser").onclick=()=>lessonSetTool("erase");
  document.getElementById("lessonBoardMove").onclick=()=>lessonBoardSetTool("move");
  document.getElementById("lessonBoardImageInput").onchange=async event=>{
   const file=event.target.files[0];if(!file)return;
