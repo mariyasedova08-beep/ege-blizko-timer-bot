@@ -28,8 +28,8 @@ HOOK = Path('/usr/local/libexec/ege-lab-test-tls-reload')
 LINEAGE = Path('/etc/letsencrypt/live') / NAME
 RENEWAL = Path('/etc/letsencrypt/renewal') / (NAME + '.conf')
 EXISTING = ('77-233-212-200.sslip.io', 'lms-77-233-212-200.sslip.io', 'prepodmin.77-233-212-200.sslip.io')
-EXPECTED_BUNDLE = 'b23b0591f09636a5ca37effb049ee130dfce37addf4ecf04b511da42c4ec80c7'
-EXPECTED_HTML = '0ffc0e8bd1a16fdf08599515091778b3244e72f1cbeca353dd3992e9a69798cf'
+EXPECTED_BUNDLE = '16af6f772e88a5710e8fe6c3985a7047ea5b37e1b3237f7dcf39cb9644d02b15'
+EXPECTED_HTML = 'def8087270ef89dfc741ffb48f7dcb918f6d1e02f2fdea1bfc09189891a08cf2'
 MARKER = '# EGE_LAB_TEST_HTTPS_MANAGED_V1'
 HTTP2 = False
 TLS_BIND = "443"
@@ -237,7 +237,7 @@ def verify_sandbox():
         raise RuntimeError('wrong HTML over HTTPS')
     code,_,body=tls_request(DOMAIN,'/lab-app/api','POST',b'{"action":"load"}')
     api=json.loads(body)
-    if code!=200 or not api.get('ok') or api['data']['coverage']!={'substances':219,'reactions':1423,'medium_reactions':89}:
+    if code!=200 or not api.get('ok') or api['data']['coverage']!={'substances':219,'reactions':1424,'medium_reactions':96}:
         raise RuntimeError('wrong chemistry API over HTTPS')
     return health
 

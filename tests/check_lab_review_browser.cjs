@@ -114,6 +114,29 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
     assert.equal(await page.locator('#lessonHeat').getAttribute('aria-describedby'),null);
    }
    await page.evaluate(()=>lessonClearActiveTube());
+   // Classroom feedback: direct acid reagent, real manganate(VI) media and visible chlorine.
+   await page.evaluate(()=>{lessonClearActiveTube();lessonSetReagent('a','kmno4');lessonSetReagent('b','hcl')});
+   assert.ok(await page.locator('#lessonMediumField').isHidden());
+   await page.locator('#lessonConduct').click();
+   assert.match(await page.locator('#lessonReaction').innerText(),/5Cl₂/);
+   assert.equal(await page.locator('#lessonTube1 .gasPlume.cl2').count(),1);
+   const gasStyle=await page.locator('#lessonTube1 .gasPlume.cl2').evaluate(e=>({name:getComputedStyle(e).animationName,color:e.style.getPropertyValue('--gasColor')}));
+   assert.equal(gasStyle.name,'chlorinePlume');assert.match(gasStyle.color,/166,191,40/);
+   for(const medium of ['acid','neutral','alkaline','weak_alkaline']){
+    await page.evaluate(m=>{lessonClearActiveTube();lessonSetReagent('a','k2mno4');lessonSetReagent('b','k2so3');document.getElementById('lessonMedium').value=m;lessonConductStep()},medium);
+    assert.ok(await page.locator('#lessonMediumField').isVisible());
+    assert.match(await page.locator('#lessonReaction').innerText(),medium==='acid'?/MnSO₄/:/MnO₂/);
+    assert.equal(await page.locator('#lessonTube1 .pptLayer').count(),medium==='acid'?0:1);
+    assert.equal(await page.locator('#lessonTube1 .bubbleLayer').count(),0);
+    const free=await page.evaluate(m=>{tubes[3]=['k2so3','k2mno4'];tubeMedium[3]=m;return tubeReaction(3)},medium);
+    assert.ok(free);assert.match(free.sign,/Зелёная/);
+   }
+   await page.evaluate(()=>{lessonClearActiveTube();lessonSetReagent('a','k2mno4');lessonSetReagent('b','hcl')});
+   assert.ok(await page.locator('#lessonMediumField').isHidden());
+   assert.ok(await page.locator('.lesson-winter-header').isVisible());
+   assert.equal(await page.locator('.lesson-kulek img').evaluate(e=>e.complete&&e.naturalWidth>0),true);
+   assert.equal(await page.locator('#lessonPDFNavigation').count(),0);
+   await page.evaluate(()=>{lessonClearActiveTube();tubes[3]=[];tubeMedium[3]=''});
    // Actual chemistry and separate tubes.
    await page.evaluate(()=>{lessonSetReagent('a','nahco3');lessonSetReagent('b','koh');lessonConductStep()});
    await page.waitForFunction(()=>document.getElementById('lessonReaction').textContent.includes('Na₂CO₃ + K₂CO₃'));
@@ -204,7 +227,7 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    // PDF stays separate from board; annotate before switching.
    const pdf=await PDFDocument.create();pdf.addPage([600,400]);pdf.addPage([600,400]);
    const buffer=Buffer.from(await pdf.save());
-   await page.locator('#lessonPDFInput').setInputFiles({name:'lesson.pdf',mimeType:'application/pdf',buffer});
+   await page.locator('#lessonPDFInput').setInputFiles({name:'lesson-'+size.width+'.pdf',mimeType:'application/pdf',buffer});
    await page.waitForFunction(()=>lessonPageCount===2&&lessonPdfDocument!==null);
    await page.locator('#lessonNext').click();await page.waitForFunction(()=>lessonPage===2);
    await page.locator('#lessonPrevious').click();await page.waitForFunction(()=>lessonPage===1);

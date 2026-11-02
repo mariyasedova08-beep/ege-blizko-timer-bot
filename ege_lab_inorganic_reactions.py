@@ -835,6 +835,35 @@ from ege_lab_mn_cr_pdf_import import PDF_MEDIUM_REACTIONS, PDF_EXTRA_REACTIONS
 EXTRA_REACTIONS.extend(PDF_EXTRA_REACTIONS)
 MEDIUM_REACTIONS.extend(PDF_MEDIUM_REACTIONS)
 
+
+# Manganate(VI), not permanganate(VII). Neutral K/K example: CKE 2026,
+# MCHP-R0-100-2605, task 8. Acid analogue follows imported MN-46.
+# Alkaline outcome is complete reduction with sufficient sulfite, not a claim
+# about all concentrations/intermediate Mn(V) species.
+for _cation, _manganate, _sulfite in (("K", "k2mno4", "k2so3"),
+                                      ("Na", "na2mno4", "na2so3")):
+    for _medium in ("acid", "neutral", "weak_alkaline", "alkaline"):
+        if any(r["a"] == _manganate and r["b"] == _sulfite and
+               r["medium"] == _medium for r in MEDIUM_REACTIONS):
+            continue
+        _acid = _medium == "acid"
+        MEDIUM_REACTIONS.append({
+            "a": _manganate, "b": _sulfite, "medium": _medium,
+            "eq": (f"{_cation}₂MnO₄ + 2{_cation}₂SO₃ + 2H₂SO₄ → MnSO₄ + 3{_cation}₂SO₄ + 2H₂O"
+                   if _acid else f"{_cation}₂MnO₄ + {_cation}₂SO₃ + H₂O → MnO₂↓ + {_cation}₂SO₄ + 2{_cation}OH"),
+            "t": "c" if _acid else "p",
+            "sign": ("Зелёная окраска манганата исчезает; Mn(VI) → Mn(II)."
+                     if _acid else "Зелёная окраска исчезает, выпадает бурый MnO₂; Mn(VI) → Mn(IV)."),
+            "sol": "#f8fbff", "ppt": "" if _acid else "#69432e", "gas": "",
+            "condition": ("Разбавленная H₂SO₄; достаточное количество сульфита"
+                          if _acid else "Водный раствор; достаточное количество сульфита; конечный продукт восстановления — MnO₂"),
+            "heat": False,
+        })
+# MN-46 had a generic permanganate caption although its reagent is manganate.
+for _row in MEDIUM_REACTIONS:
+    if _row["a"] == "na2mno4" and _row["b"] == "na2so3" and _row["medium"] == "acid":
+        _row["sign"] = "Зелёная окраска манганата исчезает; Mn(VI) → Mn(II)."
+
 def validate_reactions(known_ids):
     for row in EXTRA_REACTIONS:
         if row[0] not in known_ids or row[1] not in known_ids:

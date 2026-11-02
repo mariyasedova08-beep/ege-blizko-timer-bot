@@ -74,7 +74,7 @@ def check_balanced(equation):
 class PriorityChemistry(unittest.TestCase):
     def test_curated_count_and_identifiers(self):
         medium = CHEM["MEDIUM_REACTIONS"]
-        self.assertEqual(len(medium), 89)
+        self.assertEqual(len(medium), 96)
         for row in medium:
             self.assertIn(row["a"], REAGENTS)
             self.assertIn(row["b"], REAGENTS)
