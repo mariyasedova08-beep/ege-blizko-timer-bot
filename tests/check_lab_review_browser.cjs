@@ -9,7 +9,7 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
  const browser=await chromium.launch({headless:true,...(process.env.LAB_CHROMIUM_PATH?{executablePath:process.env.LAB_CHROMIUM_PATH,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']}: {})});
  try{
   for(const size of [{width:1440,height:1000},{width:820,height:1180}]){
-   const page=await browser.newPage({viewport:size,acceptDownloads:true});
+   const page=await browser.newPage({viewport:size,deviceScaleFactor:2,acceptDownloads:true});
    const errors=[];page.on('pageerror',e=>errors.push(String(e)));
    await page.route('**/*',route=>{
     const u=route.request().url();
@@ -32,6 +32,30 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.locator('#lessonToolEraser').click();
    assert.equal(await page.evaluate(()=>lessonTool),'erase');
    await page.locator('#lessonToolPen').click();
+   // Each tool keeps its own colour and width, including after erase and reload.
+   await page.locator('#lessonQuickColors [data-ink="#171719"]').click();
+   await page.evaluate(()=>{const width=document.getElementById('lessonPenWidth');width.value='2';width.dispatchEvent(new Event('input'))});
+   await page.locator('#lessonToolMarker').click();
+   await page.locator('#lessonQuickColors [data-ink="#ffce00"]').click();
+   await page.evaluate(()=>{const width=document.getElementById('lessonPenWidth');width.value='6';width.dispatchEvent(new Event('input'))});
+   await page.locator('#lessonToolPen').click();
+   assert.equal(await page.locator('#lessonPenColor').inputValue(),'#171719');
+   assert.equal(await page.locator('#lessonPenWidth').inputValue(),'2');
+   await page.locator('#lessonToolEraser').click();await page.locator('#lessonToolMarker').click();
+   assert.equal(await page.locator('#lessonPenColor').inputValue(),'#ffce00');
+   assert.equal(await page.locator('#lessonPenWidth').inputValue(),'6');
+   await page.evaluate(()=>{lessonPenColorValue='#ffffff';lessonMarkerColorValue='#ffffff';lessonTool='pen';lessonRestoreInkTools();lessonSetTool('pen')});
+   assert.equal(await page.evaluate(()=>lessonPenColorValue),'#171719');
+   assert.equal(await page.evaluate(()=>lessonMarkerColorValue),'#ffce00');
+   for(const selector of ['#lessonToolPen','#lessonToolMarker','#lessonToolEraser','#lessonQuickColors button']){
+    const target=await page.locator(selector).first().boundingBox();assert.ok(target.width>=44&&target.height>=44,selector+JSON.stringify(target));
+   }
+   const sampleQuality=await page.evaluate(()=>{
+    const stroke={points:[{x:0,y:0}]};
+    for(const x of [1,2,3,4,5])lessonAddStrokeSamples(stroke,{clientX:x,clientY:0},event=>({x:event.clientX,y:event.clientY}),{clientWidth:1,clientHeight:1});
+    return stroke.points.map(point=>point.x);
+   });
+   assert.deepEqual(sampleQuality,[0,1,2,3,4,5]);
    // Actual chemistry and separate tubes.
    await page.evaluate(()=>{lessonSetReagent('a','nahco3');lessonSetReagent('b','koh');lessonConductStep()});
    await page.waitForFunction(()=>document.getElementById('lessonReaction').textContent.includes('Na₂CO₃ + K₂CO₃'));
@@ -56,6 +80,15 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.waitForFunction(()=>lessonPageCount===2&&lessonPdfDocument!==null);
    await page.selectOption('#lessonPDFNavigation','2');await page.waitForFunction(()=>lessonPage===2);
    await page.selectOption('#lessonPDFNavigation','1');await page.waitForFunction(()=>lessonPage===1);
+   // Real pen events with zero pressure still write; board state is untouched by PDF input.
+   await page.locator('#lessonInkCanvas').scrollIntoViewIfNeeded();
+   const inkBox=await page.locator('#lessonInkCanvas').boundingBox(),pen=await page.context().newCDPSession(page);
+   await pen.send('Input.dispatchMouseEvent',{type:'mousePressed',x:inkBox.x+20,y:inkBox.y+20,button:'left',buttons:1,pointerType:'pen',force:0});
+   for(let n=1;n<=10;n++)await pen.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:inkBox.x+20+n*3,y:inkBox.y+20+n,button:'left',buttons:1,pointerType:'pen',force:0});
+   await pen.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:inkBox.x+55,y:inkBox.y+32,button:'left',buttons:0,pointerType:'pen',force:0});
+   assert.ok(await page.evaluate(()=>lessonCurrentStrokes().at(-1).points.length>=10));
+   assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),0);
+   await pen.detach();
    await page.evaluate(()=>{lessonNotes['1']=[{color:'#171719',width:3,opacity:1,points:[{x:.1,y:.1},{x:.2,y:.2}]}];lessonRedrawInk()});
    assert.equal(await page.locator('#lessonPresentationTab').innerText(),'Презентация');
    await page.locator('#lessonPresentationTab').click();
@@ -70,7 +103,12 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
     await page.mouse.move(box.x+60,box.y+60);await page.mouse.down();
     await page.mouse.move(box.x+140,box.y+110,{steps:6});await page.mouse.up();
    };
+   await page.evaluate(()=>{window.boardPaintCalls=0;window.originalBoardPaint=lessonBoardPaint;lessonBoardPaint=(...args)=>{window.boardPaintCalls++;return window.originalBoardPaint(...args)}});
    await draw();
+   await page.waitForTimeout(50);
+   assert.ok(await page.evaluate(()=>window.boardPaintCalls<=4));
+   await page.evaluate(()=>{lessonBoardPaint=window.originalBoardPaint});
+   assert.ok(await page.evaluate(()=>document.getElementById('lessonBoardCanvas').width>=document.getElementById('lessonBoardSpace').clientWidth));
    assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),1);
    // Pan beyond old 2400x1600 bounds and draw there, zoom keeps scene anchor.
    await page.evaluate(()=>{lessonBoardView={x:6000,y:-3000,zoom:.5};lessonBoardDraw()});

@@ -1433,6 +1433,19 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 #lesson .lesson-workspace-tabs button[aria-pressed="true"]{background:#F4D9E6;border-color:#C44988;box-shadow:inset 0 -3px 0 #C44988}
 #lesson .lesson-workspace-tabs button:focus-visible{outline:2px solid #F00087;outline-offset:2px}
 
+/* Comfortable pen/touch targets; no pressure threshold is required for ink. */
+#lesson button,#lesson .lesson-file-label,#lesson .lesson-board-bar label,#lesson .lesson-extra-menu summary{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}
+#lesson .lesson-lesson-tools>button,#lesson .lesson-toolbar-actions button,#lesson .lesson-board-bar button,#lesson .lesson-board-bar label,#lesson .lesson-ink-tools button,#lesson .lesson-extra-menu summary{min-width:44px;min-height:44px;box-sizing:border-box}
+#lesson #lessonToolPen,#lesson #lessonToolMarker,#lesson #lessonStraightLine{font-size:13px;display:inline-flex;align-items:center;gap:5px}
+#lesson #lessonToolPen:before,#lesson #lessonToolMarker:before,#lesson #lessonStraightLine:before{content:none}
+#lesson #lessonToolPen,#lesson #lessonToolMarker,#lesson #lessonBoardPen,#lesson #lessonBoardMarker{box-shadow:inset 0 -3px 0 var(--tool-ink,#C44988)}
+#lesson .lesson-quick-colors{gap:4px;flex-wrap:wrap}
+#lesson .lesson-quick-colors button{width:44px;height:44px;min-width:44px;border:10px solid #F8F5F2;background-clip:padding-box;box-sizing:border-box;box-shadow:none}
+#lesson .lesson-quick-colors button[aria-pressed="true"]{outline:2px solid #C44988;outline-offset:-4px}
+#lesson .lesson-extra-items .lesson-color-presets{grid-template-columns:repeat(5,44px);gap:2px}
+#lesson .lesson-extra-items .lesson-color-presets button{width:44px;height:44px;border:9px solid #fff;background-clip:padding-box;box-sizing:border-box}
+#lesson .lesson-extra-menu[open] .lesson-extra-items{width:246px;max-height:65dvh;overflow:auto}
+#lesson select{min-height:44px}
 </style></head><body><div class="app">
 <div class="lab-topbar">
   <div class="lab-brand">ЕГЭ БЛИЗКО</div>
@@ -1535,7 +1548,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
         <button id="lessonNext" type="button" title="Следующая страница">→</button>
         <div id="lessonQuickColors" class="lesson-quick-colors" role="group" aria-label="Быстрый выбор цвета ручки или выделителя"></div>
         <button id="lessonToolPen" type="button" aria-pressed="true">✎ Ручка</button>
-         <button id="lessonToolMarker" type="button" aria-pressed="false">▰ Выделитель</button>
+         <button id="lessonToolMarker" type="button" aria-pressed="false">▰ Маркер</button>
         <button id="lessonStraightLine" type="button" aria-pressed="false" title="Прямая линия выбранной ручкой или выделителем">╱ Линия</button>
         <button id="lessonToolEraser" type="button" aria-label="Ластик" title="Ластик — стереть штрих" aria-pressed="false"><svg class="lesson-eraser-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m4 14 9-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3L12 22H8l-4-4a3 3 0 0 1 0-4Z"/><path d="m9 9 8 8M12 22h10"/></svg> Ластик</button>
       <details class="lesson-extra-menu">
@@ -1561,6 +1574,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
     </div>
     <div id="lessonBoardBar" class="lesson-board-bar" hidden>
       <button id="lessonBoardPen" type="button" aria-pressed="true">✎ Писать</button>
+      <button id="lessonBoardMarker" type="button" aria-pressed="false">▰ Маркер</button>
       <button id="lessonBoardEraser" type="button" aria-pressed="false" title="Стереть штрих на доске"><svg class="lesson-eraser-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m4 14 9-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3L12 22H8l-4-4a3 3 0 0 1 0-4Z"/><path d="m9 9 8 8M12 22h10"/></svg> Ластик</button>
       <button id="lessonBoardPan" type="button" aria-pressed="false">✋ Перемещать доску</button>
       <div class="lesson-board-navigation" role="group" aria-label="Масштаб и обзор доски">
@@ -3171,6 +3185,7 @@ function lessonClearActiveTube(){
 let lessonPdfDocument=null,lessonPdfOriginalBytes=null,lessonPdfName="",lessonPdfKey="ege-lesson-blank";
 let lessonPage=1,lessonPageCount=1,lessonTool="pen",lessonDrawing=null,lessonLineMode=false;
 let lessonPenColorValue="#f00087",lessonMarkerColorValue="#ffce00";
+let lessonPenWidthValue=3,lessonMarkerWidthValue=3,lessonLastInkTool="pen";
 let lessonNotes={},lessonPageSize={},lessonRendering=0;
 const lessonLibraries={};
 // Quadratic interpolation removes sharp corners caused by discrete tablet
@@ -3182,7 +3197,7 @@ function lessonSmoothPoints(points){
  const clean=points.map((p,i)=>{
   if(i===0||i===points.length-1)return p;
   const a=points[i-1],b=points[i+1];
-  return {x:a.x*.2+p.x*.6+b.x*.2,y:a.y*.2+p.y*.6+b.y*.2};
+  return {x:a.x*.1+p.x*.8+b.x*.1,y:a.y*.1+p.y*.8+b.y*.1};
  });
  const out=[clean[0]],mid=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
  for(let i=1;i<points.length-1;i++){
@@ -3208,15 +3223,9 @@ function lessonAddStrokeSamples(stroke,event,converter,canvas){
   const dx=(point.x-last.x)*canvas.clientWidth;
   const dy=(point.y-last.y)*canvas.clientHeight;
   const distance=Math.hypot(dx,dy);
-  // Wacom can report sub-pixel hand tremor even while writing steadily.
-  // Stabilize slow motion more than fast strokes, keeping corners responsive.
-  if(distance<.7)continue;
-  const weight=Math.max(.24,Math.min(.92,distance/10));
-  const filtered={x:last.x+(point.x-last.x)*weight,
-                  y:last.y+(point.y-last.y)*weight};
-  if(Math.hypot((filtered.x-last.x)*canvas.clientWidth,
-                (filtered.y-last.y)*canvas.clientHeight)>.55)
-   stroke.points.push(filtered);
+  // Preserve the measured position: a distance-dependent lag filter made
+  // slow handwriting feel sticky. Reject only imperceptible duplicate samples.
+  if(distance>=.15)stroke.points.push(point);
  }
 }
 // The pen may deliver hundreds of coalesced samples per second. Paint at most
@@ -3367,26 +3376,39 @@ function lessonEraseAt(point){
   }
  }
 }
-function lessonSetTool(which){
+function lessonSaveInkTools(){
+ try{localStorage.setItem("ege-lesson-ink-tools",JSON.stringify({pen:lessonPenColorValue,marker:lessonMarkerColorValue,penWidth:lessonPenWidthValue,markerWidth:lessonMarkerWidthValue}));}catch(err){}
+}
+function lessonRestoreInkTools(){
+ try{
+  const saved=JSON.parse(localStorage.getItem("ege-lesson-ink-tools")||"{}");
+  if(/^#[0-9a-f]{6}$/i.test(saved.pen))lessonPenColorValue=saved.pen;
+  if(/^#[0-9a-f]{6}$/i.test(saved.marker))lessonMarkerColorValue=saved.marker;
+  if(Number.isFinite(saved.penWidth)&&saved.penWidth>=1&&saved.penWidth<=10)lessonPenWidthValue=saved.penWidth;
+  if(Number.isFinite(saved.markerWidth)&&saved.markerWidth>=1&&saved.markerWidth<=10)lessonMarkerWidthValue=saved.markerWidth;
+ }catch(err){}
+ document.getElementById("lessonPenColor").value=lessonPenColorValue;
+ document.getElementById("lessonPenWidth").value=lessonPenWidthValue;
+}
+function lessonSyncInkTools(){
+ const color=lessonTool==="marker"?lessonMarkerColorValue:lessonPenColorValue;
+ document.getElementById("lessonPenColor").value=color;
+ document.querySelectorAll("#lessonColorPresets button,#lessonQuickColors button").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.ink===color)));
+ for(const [id,tool] of [["lessonToolPen","pen"],["lessonToolMarker","marker"],["lessonToolEraser","erase"]])document.getElementById(id).setAttribute("aria-pressed",String(lessonTool===tool));
+ for(const id of ["lessonToolPen","lessonBoardPen"])document.getElementById(id).style.setProperty("--tool-ink",lessonPenColorValue);
+ for(const id of ["lessonToolMarker","lessonBoardMarker"])document.getElementById(id).style.setProperty("--tool-ink",lessonMarkerColorValue);
+ document.getElementById("lessonInkCanvas").classList.toggle("eraser",lessonTool==="erase");
  if(lessonBoardMode)lessonBoardSetTool("pen");
- const picker=document.getElementById("lessonPenColor");
- if(picker&&(lessonTool==="pen"||lessonTool==="marker")){
-  if(lessonTool==="pen")lessonPenColorValue=picker.value;
-  else lessonMarkerColorValue=picker.value;
- }
+}
+function lessonSetTool(which){
+ const width=document.getElementById("lessonPenWidth");
+ if(lessonTool==="pen")lessonPenWidthValue=Number(width.value);
+ if(lessonTool==="marker")lessonMarkerWidthValue=Number(width.value);
  lessonTool=which;
- if(picker&&(which==="pen"||which==="marker"))picker.value=which==="pen"?lessonPenColorValue:lessonMarkerColorValue;
- if(picker){
-  document.querySelectorAll("#lessonColorPresets button,#lessonQuickColors button").forEach(button=>{
-   button.setAttribute("aria-pressed",String(button.dataset.ink===picker.value));
-  });
+ if(which==="pen"||which==="marker"){
+  lessonLastInkTool=which;width.value=which==="pen"?lessonPenWidthValue:lessonMarkerWidthValue;
  }
- document.getElementById("lessonToolPen").setAttribute("aria-pressed",String(which==="pen"));
-  document.getElementById("lessonToolMarker").setAttribute("aria-pressed",String(which==="marker"));
- document.getElementById("lessonToolEraser").setAttribute("aria-pressed",String(which==="erase"));
- document.getElementById("lessonBoardEraser").setAttribute("aria-pressed",String(which==="erase"));
- if(lessonBoardMode)document.getElementById("lessonBoardPen").setAttribute("aria-pressed",String(which!=="erase"));
- document.getElementById("lessonInkCanvas").classList.toggle("eraser",which==="erase");
+ lessonSyncInkTools();lessonSaveInkTools();
 }
 function lessonSetLineMode(enabled){
  lessonLineMode=enabled;
@@ -3971,8 +3993,8 @@ function lessonBoardSnapshot(){
 }
 // Scene coordinates are independent of viewport pixels; panning never allocates
 // an enormous bitmap. Only the visible area is rendered, including negative space.
-function lessonBoardPaint(ctx,width,height,view,selection=true,scene={items:lessonBoardItems,strokes:lessonBoardStrokes}){
- ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;
+function lessonBoardPaint(ctx,width,height,view,selection=true,scene={items:lessonBoardItems,strokes:lessonBoardStrokes},pixelRatio=1){
+ ctx.save();ctx.setTransform(pixelRatio,0,0,pixelRatio,0,0);ctx.globalAlpha=1;
  ctx.fillStyle="#fffdfa";ctx.fillRect(0,0,width,height);
  ctx.translate(-view.x*view.zoom,-view.y*view.zoom);ctx.scale(view.zoom,view.zoom);
  ctx.strokeStyle="#e9dfe5";ctx.lineWidth=1/view.zoom;
@@ -3986,23 +4008,41 @@ function lessonBoardPaint(ctx,width,height,view,selection=true,scene={items:less
    ctx.strokeStyle="#f00087";ctx.lineWidth=2/view.zoom;ctx.strokeRect(item.x,item.y,item.w,item.h);
   }
  }
- for(const stroke of scene.strokes){
-  const pts=lessonSmoothPoints(stroke.points);if(!pts.length)continue;
+ for(const stroke of scene.strokes)lessonBoardPaintStroke(ctx,stroke);
+ ctx.restore();
+}
+function lessonBoardPaintStroke(ctx,stroke){
+  const pts=lessonSmoothPoints(stroke.points);if(!pts.length)return;
   ctx.beginPath();ctx.lineWidth=stroke.width;ctx.lineCap="round";ctx.lineJoin="round";
   ctx.strokeStyle=stroke.color;ctx.globalAlpha=stroke.opacity;
   ctx.moveTo(pts[0].x,pts[0].y);
   for(const p of pts.slice(1))ctx.lineTo(p.x,p.y);
   if(pts.length===1)ctx.lineTo(pts[0].x+.01,pts[0].y+.01);
   ctx.stroke();ctx.globalAlpha=1;
- }
- ctx.restore();
 }
+let lessonBoardInkCache=null;
 function lessonBoardDraw(){
  const canvas=document.getElementById("lessonBoardCanvas"),space=document.getElementById("lessonBoardSpace");
  if(space.hidden)return;
  const width=Math.max(1,space.clientWidth),height=Math.max(1,space.clientHeight);
- if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
- lessonBoardPaint(canvas.getContext("2d"),width,height,lessonBoardView);
+ const pixelRatio=Math.min(window.devicePixelRatio||1,2);
+ const backingWidth=Math.round(width*pixelRatio),backingHeight=Math.round(height*pixelRatio);
+ if(canvas.width!==backingWidth)canvas.width=backingWidth;if(canvas.height!==backingHeight)canvas.height=backingHeight;
+ canvas.style.width=width+"px";canvas.style.height=height+"px";
+ const ctx=canvas.getContext("2d"),active=lessonBoardPointer?.kind==="draw"?lessonBoardPointer.stroke:null;
+ if(active){
+  const key=[width,height,pixelRatio,lessonBoardView.x,lessonBoardView.y,lessonBoardView.zoom].join(":");
+  if(!lessonBoardInkCache||lessonBoardInkCache.stroke!==active||lessonBoardInkCache.key!==key){
+   const bitmap=document.createElement("canvas");bitmap.width=backingWidth;bitmap.height=backingHeight;
+   lessonBoardPaint(bitmap.getContext("2d"),width,height,lessonBoardView,false,{items:lessonBoardItems,strokes:lessonBoardStrokes.filter(stroke=>stroke!==active)},pixelRatio);
+   lessonBoardInkCache={bitmap,stroke:active,key};
+  }
+  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(lessonBoardInkCache.bitmap,0,0);
+  ctx.save();ctx.setTransform(pixelRatio,0,0,pixelRatio,0,0);ctx.translate(-lessonBoardView.x*lessonBoardView.zoom,-lessonBoardView.y*lessonBoardView.zoom);ctx.scale(lessonBoardView.zoom,lessonBoardView.zoom);
+  lessonBoardPaintStroke(ctx,active);ctx.restore();
+ }else{
+  lessonBoardInkCache=null;lessonBoardPaint(ctx,width,height,lessonBoardView,true,undefined,pixelRatio);
+ }
  document.getElementById("lessonBoardZoom").textContent=Math.round(lessonBoardView.zoom*100)+"%";
  lessonBoardRefreshNavigation();
 }
@@ -4056,8 +4096,9 @@ function lessonBoardErase(point){
 }
 function lessonBoardSetTool(tool){
  lessonBoardTool=tool;
+ document.getElementById("lessonBoardMarker").setAttribute("aria-pressed",String(tool==="pen"&&lessonTool==="marker"));
  document.getElementById("lessonBoardPan").setAttribute("aria-pressed",String(tool==="pan"));
- document.getElementById("lessonBoardPen").setAttribute("aria-pressed",String(tool==="pen"&&lessonTool!=="erase"));
+ document.getElementById("lessonBoardPen").setAttribute("aria-pressed",String(tool==="pen"&&lessonTool==="pen"));
  document.getElementById("lessonBoardEraser").setAttribute("aria-pressed",String(tool==="pen"&&lessonTool==="erase"));
  document.getElementById("lessonBoardMove").setAttribute("aria-pressed",String(tool==="move"));
  document.getElementById("lessonBoardCanvas").style.cursor=(tool==="move"||tool==="pan")?"grab":"crosshair";
@@ -4143,6 +4184,7 @@ function lessonBoardSetup(){
  document.getElementById("lessonBoardToggle").onclick=()=>lessonBoardToggle(true);
  document.getElementById("lessonPresentationTab").onclick=()=>lessonBoardToggle(false);
  document.getElementById("lessonBoardPen").onclick=()=>lessonSetTool("pen");
+ document.getElementById("lessonBoardMarker").onclick=()=>lessonSetTool("marker");
  document.getElementById("lessonBoardEraser").onclick=()=>lessonSetTool("erase");
  document.getElementById("lessonBoardMove").onclick=()=>lessonBoardSetTool("move");
  document.getElementById("lessonBoardImageInput").onchange=async event=>{
@@ -4205,14 +4247,14 @@ function lessonBoardSetup(){
    lessonBoardSnapshot();
    if(lessonTool==="erase"){
     lessonBoardErase(p);lessonBoardPointer={kind:"erase"};
-    lessonBoardPointer.pointerType=event.pointerType;
+    lessonBoardPointer.pointerType=event.pointerType;lessonBoardPointer.pointerId=event.pointerId;
     event.preventDefault();canvas.setPointerCapture(event.pointerId);lessonBoardDraw();return;
    }
    const marker=lessonTool==="marker",width=Number(document.getElementById("lessonPenWidth").value)||3;
    const stroke={color:marker?lessonMarkerColorValue:lessonPenColorValue,width:marker?width*4:width,opacity:marker?.32:1,points:lessonLineMode?[p,p]:[p],straight:lessonLineMode};
    lessonBoardStrokes.push(stroke);lessonBoardPointer={kind:"draw",stroke};
   }
-  if(lessonBoardPointer)lessonBoardPointer.pointerType=event.pointerType;
+  if(lessonBoardPointer){lessonBoardPointer.pointerType=event.pointerType;lessonBoardPointer.pointerId=event.pointerId;}
   event.preventDefault();canvas.setPointerCapture(event.pointerId);lessonBoardDraw();
  };
  canvas.onpointermove=event=>{
@@ -4241,6 +4283,11 @@ function lessonBoardSetup(){
  };
  canvas.onpointerup=canvas.onpointercancel=canvas.onlostpointercapture=event=>{
   if(event.pointerType==="touch"&&lessonBoardPointer?.pointerType==="pen")return;
+  if(lessonBoardPointer&&event.pointerId!==lessonBoardPointer.pointerId)return;
+  if(event.type==="pointerup"&&lessonBoardPointer?.stroke){
+   if(lessonBoardPointer.stroke.straight)lessonBoardPointer.stroke.points[1]=lessonBoardPoint(event);
+   else lessonAddStrokeSamples(lessonBoardPointer.stroke,event,lessonBoardPoint,{clientWidth:lessonBoardView.zoom,clientHeight:lessonBoardView.zoom});
+  }
   touches.delete(event.pointerId);if(touches.size<2)pinch=null;if(!touches.size)touchBlocked=false;
   lessonBoardPointer=null;lessonBoardScheduleDraw();
  };
@@ -4274,6 +4321,7 @@ function lessonBoardSetup(){
 function lessonSetup(){
  if(lessonReady)return;
  lessonReady=true;
+ lessonRestoreInkTools();
  lessonBoardSetup();
  lessonLabInkSetup();
  lessonTubeStates[0]=lessonCaptureTube();
@@ -4387,12 +4435,14 @@ function lessonSetup(){
  const picker=document.getElementById("lessonPenColor");
  const menu=document.querySelector("#lesson .lesson-extra-menu");
  const applyInkColor=(color,selected)=>{
+  if(lessonTool==="erase")lessonSetTool(lessonLastInkTool);
   picker.value=color;
   if(lessonTool==="marker")lessonMarkerColorValue=color;
   else lessonPenColorValue=color;
   for(const button of document.querySelectorAll("#lessonColorPresets button,#lessonQuickColors button")){
    button.setAttribute("aria-pressed",String(button.dataset.ink===color));
   }
+  lessonSyncInkTools();lessonSaveInkTools();
   if(selected)menu.open=false;
  };
  lessonColors.forEach(color=>{
@@ -4410,10 +4460,12 @@ function lessonSetup(){
   btn.onclick=()=>applyInkColor(color,false);
   quickPalette.appendChild(btn);
  });
- picker.oninput=()=>{
-  if(lessonTool==="marker")lessonMarkerColorValue=picker.value;
-  else lessonPenColorValue=picker.value;
- };
+ picker.oninput=()=>applyInkColor(picker.value,false);
+ document.getElementById("lessonPenWidth").addEventListener("input",()=>{
+  if(lessonTool==="marker")lessonMarkerWidthValue=Number(document.getElementById("lessonPenWidth").value);
+  else lessonPenWidthValue=Number(document.getElementById("lessonPenWidth").value);
+  lessonSaveInkTools();
+ });
  document.getElementById("lessonPenWidth").addEventListener("change",()=>{menu.open=false;});
  document.getElementById("lessonToolEraser").onclick=()=>lessonSetTool("erase");
  document.getElementById("lessonUndo").onclick=()=>{lessonCurrentStrokes().pop();lessonRedrawInk();lessonSaveLocal();};
@@ -4446,39 +4498,20 @@ function lessonSetup(){
   }catch(err){lessonStatus("Не удалось прочитать записи или не совпадает число страниц.");}
  };
  const canvas=document.getElementById("lessonInkCanvas");
- const touches=new Map();let pinch=null,touchBlocked=false;
- const touchPair=()=>{const points=[...touches.values()];return {distance:Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y),mid:{x:(points[0].x+points[1].x)/2,y:(points[0].y+points[1].y)/2}};};
+ let inkPointer=null;
  canvas.onpointerdown=event=>{
-  if(event.pointerType==="touch"&&lessonBoardPointer?.pointerType==="pen")return;
-  if(event.pointerType==="touch"){
-   touches.set(event.pointerId,{x:event.clientX,y:event.clientY});
-   if(touches.size>=2){
-    event.preventDefault();canvas.setPointerCapture(event.pointerId);
-    if(touches.size===2){
-     if(lessonBoardPointer&&lessonBoardPointer.kind!=="pan"){
-      const previous=lessonBoardUndoStack.pop();
-      if(previous){lessonBoardItems=previous.items;lessonBoardStrokes=previous.strokes;lessonBoardSelection=null;}
-     }
-     lessonBoardPointer=null;touchBlocked=true;
-     const pair=touchPair(),rect=canvas.getBoundingClientRect();
-     pinch={distance:Math.max(1,pair.distance),zoom:lessonBoardView.zoom,anchor:{x:lessonBoardView.x+(pair.mid.x-rect.left)/lessonBoardView.zoom,y:lessonBoardView.y+(pair.mid.y-rect.top)/lessonBoardView.zoom}};
-    }
-    lessonBoardDraw();return;
-   }
-   if(touchBlocked)return;
-  }
-  if(event.button!==0&&event.pointerType==="mouse")return;
-  event.preventDefault();canvas.setPointerCapture(event.pointerId);
+  if(inkPointer!==null||(event.pointerType==="mouse"&&event.button!==0))return;
+  inkPointer=event.pointerId;event.preventDefault();canvas.setPointerCapture(event.pointerId);
   const point=lessonGetPoint(event);
   if(lessonTool==="erase"){lessonEraseAt(point);return;}
-  lessonDrawing={color:document.getElementById("lessonPenColor").value,
-                 tool:lessonTool,opacity:lessonTool==="marker"?.32:1,
-                 width:lessonTool==="marker"?Math.max(12,Number(document.getElementById("lessonPenWidth").value)*4):Number(document.getElementById("lessonPenWidth").value),
-                 points:lessonLineMode?[point,point]:[point],straight:lessonLineMode};
-  lessonCurrentStrokes().push(lessonDrawing);lessonRedrawInk();
+  lessonDrawing={color:lessonTool==="marker"?lessonMarkerColorValue:lessonPenColorValue,
+   tool:lessonTool,opacity:lessonTool==="marker"?.32:1,
+   width:lessonTool==="marker"?Math.max(12,Number(document.getElementById("lessonPenWidth").value)*4):Number(document.getElementById("lessonPenWidth").value),
+   points:lessonLineMode?[point,point]:[point],straight:lessonLineMode};
+  lessonCurrentStrokes().push(lessonDrawing);lessonSchedulePdfInk();
  };
  canvas.onpointermove=event=>{
-  if(!canvas.hasPointerCapture(event.pointerId))return;
+  if(event.pointerId!==inkPointer||!canvas.hasPointerCapture(event.pointerId))return;
   event.preventDefault();const point=lessonGetPoint(event);
   if(lessonTool==="erase"){lessonEraseAt(point);return;}
   if(!lessonDrawing)return;
@@ -4486,7 +4519,14 @@ function lessonSetup(){
   else lessonAddStrokeSamples(lessonDrawing,event,lessonGetPoint,canvas);
   lessonSchedulePdfInk();
  };
- const endDrawing=()=>{
+ const endDrawing=event=>{
+  if(event.pointerId!==inkPointer)return;
+  if(lessonDrawing&&event.type==="pointerup"){
+   const point=lessonGetPoint(event);
+   if(lessonDrawing.straight)lessonDrawing.points[1]=point;
+   else lessonAddStrokeSamples(lessonDrawing,event,lessonGetPoint,canvas);
+  }
+  inkPointer=null;
   if(lessonDrawing){lessonDrawing=null;lessonSchedulePdfInk();lessonSaveLocal();}
  };
  canvas.onpointerup=endDrawing;canvas.onpointercancel=endDrawing;canvas.onlostpointercapture=endDrawing;
