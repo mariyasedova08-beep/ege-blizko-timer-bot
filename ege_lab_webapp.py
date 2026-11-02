@@ -1532,6 +1532,35 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 @media(prefers-reduced-motion:reduce){#lesson button{transition:none!important}}
 
 
+/* Compact presentation controls: release vertical space for the PDF. */
+#lesson .lesson-pdf-pane .lesson-pane-head{padding:8px 10px;gap:6px}
+#lesson .lesson-workspace-tabs{padding:3px;gap:2px;border-radius:11px}
+#lesson .lesson-workspace-tabs button{min-height:32px;padding:5px 9px;font-size:11px;border-radius:8px}
+#lesson .lesson-workspace-tabs svg{width:16px;height:16px}
+#lesson #lessonToolbarToggle{min-height:32px;padding:4px 8px;font-size:10px;border-radius:8px}
+#lesson .lesson-lesson-tools{gap:6px;padding:6px;border-radius:12px}
+#lesson .lesson-document-tools{gap:4px;padding-bottom:6px}
+#lesson .lesson-document-tools>button{width:32px;height:32px;min-width:32px;min-height:32px;font-size:12px;border-radius:8px;padding:4px 6px}
+#lesson .lesson-document-tools #lessonPageCounter{min-width:30px;font-size:10px}
+#lesson .lesson-lesson-tools .lesson-file-controls label.lesson-file-label{min-height:32px;padding:5px 8px;font-size:10px;gap:5px;border-radius:8px}
+#lesson #lessonPresentationFullscreen{min-width:32px;min-height:32px;padding:4px 8px;font-size:11px}
+#lesson .lesson-ink-strip{gap:6px}
+#lesson .lesson-primary-ink{padding:3px;gap:2px;border-radius:9px}
+#lesson .lesson-primary-ink>button,#lesson .lesson-extra-menu summary{min-width:32px;min-height:32px;padding:4px 6px;font-size:10px;gap:4px;line-height:16px;border-radius:7px}
+#lesson #lessonToolPen,#lesson #lessonToolMarker,#lesson #lessonStraightLine,#lesson #lessonToolEraser{min-height:32px;font-size:10px;padding:4px 6px}
+#lesson .lesson-control-icon{width:15px;height:15px}
+#lesson .lesson-quick-colors button{width:32px;height:32px;min-width:32px;border-width:7px}
+#lesson .lesson-toolbar-actions{gap:4px}
+#lesson .lesson-toolbar-actions button{min-width:32px;min-height:32px;padding:4px 6px;font-size:10px;border-radius:8px}
+#lesson .lesson-toolbar-actions #lessonExport{font-size:10px;padding:5px 8px}
+@media(max-width:1100px){#lesson #lessonUndo{min-width:32px;padding:4px 6px}}
+/* Finger controls keep their touch area on actual touch-first devices. */
+@media(pointer:coarse){
+ #lesson .lesson-workspace-tabs button,#lesson #lessonToolbarToggle,#lesson .lesson-document-tools>button,#lesson #lessonPresentationFullscreen,#lesson .lesson-primary-ink>button,#lesson .lesson-extra-menu summary,#lesson #lessonToolPen,#lesson #lessonToolMarker,#lesson #lessonStraightLine,#lesson #lessonToolEraser,#lesson .lesson-toolbar-actions button,#lesson .lesson-lesson-tools .lesson-file-controls label.lesson-file-label{min-width:44px;min-height:44px}
+ #lesson .lesson-quick-colors button{width:44px;height:44px;min-width:44px;border-width:11px}
+}
+
+
 #lesson .lesson-board-active .lesson-primary-ink,#lesson .lesson-board-active .lesson-toolbar-actions{display:none}
 #lesson .lesson-board-active .lesson-ink-strip{gap:8px}
 #lesson .lesson-board-active .lesson-lesson-tools{padding:7px 10px}

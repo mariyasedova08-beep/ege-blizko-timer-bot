@@ -88,7 +88,7 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.equal(await page.evaluate(()=>lessonPenColorValue),'#171719');
    assert.equal(await page.evaluate(()=>lessonMarkerColorValue),'#ffce00');
    for(const selector of ['#lessonToolPen','#lessonToolMarker','#lessonToolEraser','#lessonQuickColors button']){
-    const target=await page.locator(selector).first().boundingBox();assert.ok(target.width>=44&&target.height>=44,selector+JSON.stringify(target));
+    const target=await page.locator(selector).first().boundingBox();assert.ok(target.width>=32&&target.height>=32,selector+JSON.stringify(target));
    }
    const sampleQuality=await page.evaluate(()=>{
     const stroke={points:[{x:0,y:0}]};
