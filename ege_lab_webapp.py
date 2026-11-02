@@ -1337,6 +1337,14 @@ body:has(#lesson.page.on) .app{max-width:none}
 .lesson-board-bar input[type=range]{width:95px;accent-color:#f00087}
 .lesson-board-space{flex:1;min-height:0;overflow:hidden;background:#f3eef1;position:relative;overscroll-behavior:contain}
 #lessonBoardCanvas{display:block;background-color:#fffdfa;background-image:linear-gradient(#e8dfe575 1px,transparent 1px),linear-gradient(90deg,#e8dfe575 1px,transparent 1px);background-size:26px 26px;touch-action:none;cursor:crosshair}
+#lessonPresentationFullscreen{display:inline-flex;align-items:center;gap:8px;min-height:44px;border:1px solid #eadce5;border-radius:12px;background:#fff;padding:8px 12px;color:#806579;cursor:pointer}#lessonPresentationExit{display:flex;align-items:center;gap:8px;position:fixed;right:12px;top:10px;z-index:100001;background:#fff;min-height:44px;border:1px solid #ecd8e3;border-radius:12px;padding:8px 14px;color:#171719}#lessonPresentationExit[hidden]{display:none!important}
+body.lesson-presentation-fullscreen{overflow:hidden!important}
+#lesson .lesson-studio.presentation-fullscreen{position:fixed;inset:0;z-index:99990;width:100vw;height:100dvh;min-height:0;display:block;margin:0;padding:0;background:#f8f5f2}
+#lesson .lesson-studio.presentation-fullscreen .lesson-lab-pane,#lesson .lesson-studio.presentation-fullscreen #lessonPanelDivider{display:none!important}
+#lesson .lesson-studio.presentation-fullscreen .lesson-pdf-pane{height:100%;width:100%;border-radius:0;border:0}
+#lesson .lesson-studio.presentation-fullscreen #lessonPresentationFullscreen{visibility:hidden}
+#lesson .lesson-studio.presentation-fullscreen .lesson-pane-head{padding-top:60px}
+#lesson .lesson-board-active #lessonPresentationFullscreen{display:none}
 body.lesson-board-fullscreen{overflow:hidden!important}
 #lesson .lesson-studio.board-fullscreen{position:fixed;inset:0;z-index:99990;width:100vw;height:100dvh;min-height:0;display:block;margin:0;padding:0;background:#f8f5f2}
 #lesson .lesson-studio.board-fullscreen .lesson-lab-pane,#lesson .lesson-studio.board-fullscreen #lessonPanelDivider{display:none!important}
@@ -1564,6 +1572,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 
 <section id="lesson" class="page">
 <div class="lesson-studio" aria-label="Урок с интерактивной лабораторией">
+<button id="lessonPresentationExit" type="button" hidden><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"/></svg><span>Вернуть лабораторию</span></button>
   <aside class="lesson-lab-pane">
     <div class="lesson-pane-head"><h2>🧪 Опыт</h2><small>30% экрана</small></div>
     <div class="lesson-lab-body">
@@ -1640,6 +1649,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
         <button id="lessonPrevious" type="button" title="Предыдущая страница"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
         <span id="lessonPageCounter">1 / 1</span>
         <button id="lessonNext" type="button" title="Следующая страница"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button>
+      <button id="lessonPresentationFullscreen" type="button" aria-label="Презентация на весь экран" aria-pressed="false" title="Скрыть пробирки и развернуть презентацию; выход — Esc"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"/></svg><span>На весь экран</span></button>
       </div>
       <div class="lesson-ink-strip">
       <div class="lesson-primary-ink" role="group" aria-label="Инструмент письма">
@@ -1659,6 +1669,8 @@ body.lesson-board-fullscreen{overflow:hidden!important}
           <div class="lesson-color-presets" id="lessonColorPresets" aria-label="Цвета ручки"></div>
           <label class="lesson-width-label">Толщина <input id="lessonPenWidth" type="range" min="1" max="10" value="3"></label>
           
+          <label class="lesson-width-label" title="Сглаживать новые штрихи ручки после отрыва пера; без распознавания букв и формул"><input id="lessonBeautify" type="checkbox" checked> Красивое письмо</label>
+          <small>Для новых штрихов ручки · без замены букв</small>
           <button type="button" id="lessonExportNotes">↓ Резервная копия записей</button>
           <label for="lessonImportNotes" class="lesson-file-label">↑ Загрузить записи</label>
           <input id="lessonImportNotes" type="file" accept=".json,application/json" style="display:none">
@@ -3367,7 +3379,7 @@ function lessonClearActiveTube(){
 let lessonPdfDocument=null,lessonPdfOriginalBytes=null,lessonPdfName="",lessonPdfKey="ege-lesson-blank";
 let lessonPage=1,lessonPageCount=1,lessonTool="pen",lessonDrawing=null,lessonLineMode=false;
 let lessonPenColorValue="#f00087",lessonMarkerColorValue="#ffce00";
-let lessonPenWidthValue=3,lessonMarkerWidthValue=3,lessonLastInkTool="pen";
+let lessonPenWidthValue=3,lessonMarkerWidthValue=3,lessonLastInkTool="pen",lessonBeautify=true;
 let lessonNotes={},lessonPageSize={},lessonRendering=0;
 const lessonLibraries={};
 // Quadratic interpolation removes sharp corners caused by discrete tablet
@@ -3393,6 +3405,34 @@ function lessonSmoothPoints(points){
  }
  out.push(clean[clean.length-1]);
  return out;
+}
+// Finish-only spatial smoothing: resampling by arc length makes the result
+// independent of tablet event frequency. No delayed cursor or text recognition.
+function lessonFinishStroke(stroke,sx=1,sy=1){
+ if(!lessonBeautify||!stroke||stroke.straight||stroke.opacity<1||stroke.points.length<4)return;
+ const raw=stroke.points.map(p=>({x:p.x*sx,y:p.y*sy}));
+ const lengths=[0];for(let i=1;i<raw.length;i++)lengths.push(lengths[i-1]+Math.hypot(raw[i].x-raw[i-1].x,raw[i].y-raw[i-1].y));
+ const total=lengths[lengths.length-1];if(total<4)return;
+ const step=Math.max(.75,total/12000),samples=[raw[0]];let index=1;
+ for(let d=step;d<total;d+=step){
+  while(index<raw.length-1&&lengths[index]<d)index++;
+  const a=raw[index-1],b=raw[index],t=(d-lengths[index-1])/Math.max(1e-9,lengths[index]-lengths[index-1]);
+  samples.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
+ }
+ samples.push(raw[raw.length-1]);
+ const radius=Math.min(8,Math.ceil(4/step));
+ const out=samples.map((p,i)=>{
+  if(i===0||i===samples.length-1)return p;
+  let x=0,y=0,weight=0;
+  for(let j=Math.max(0,i-radius);j<=Math.min(samples.length-1,i+radius);j++){
+   const w=Math.exp(-.5*((j-i)*step/1.8)**2);x+=samples[j].x*w;y+=samples[j].y*w;weight+=w;
+  }
+  x/=weight;y/=weight;
+  // Keep loops, subscripts, arrow tips and intentional corners close to input.
+  const delta=Math.hypot(x-p.x,y-p.y),limit=1.8,k=delta>limit?limit/delta:1;
+  return {x:p.x+(x-p.x)*k,y:p.y+(y-p.y)*k};
+ });
+ stroke.points=out.map(p=>({x:p.x/sx,y:p.y/sy}));
 }
 function lessonPointerSamples(event,converter){
  const events=typeof event.getCoalescedEvents==="function"?event.getCoalescedEvents():[];
@@ -3482,7 +3522,7 @@ function lessonLabInkSetup(){
   lessonAddStrokeSamples(lessonLabInkDrawing,e,lessonLabInkPoint,canvas);lessonScheduleLabInk();
  });
  for(const name of ["pointerup","pointercancel","lostpointercapture"])
-  canvas.addEventListener(name,()=>{lessonLabInkDrawing=null;});
+  canvas.addEventListener(name,event=>{if(event.type==="pointerup"&&lessonLabInkDrawing){lessonAddStrokeSamples(lessonLabInkDrawing,event,lessonLabInkPoint,canvas);lessonFinishStroke(lessonLabInkDrawing,canvas.clientWidth,canvas.clientHeight);lessonScheduleLabInk();}lessonLabInkDrawing=null;});
  if(typeof ResizeObserver!=="undefined")new ResizeObserver(lessonLabInkRender).observe(canvas.parentElement);
  lessonLabInkRender();
 }
@@ -3559,18 +3599,20 @@ function lessonEraseAt(point){
  }
 }
 function lessonSaveInkTools(){
- try{localStorage.setItem("ege-lesson-ink-tools",JSON.stringify({pen:lessonPenColorValue,marker:lessonMarkerColorValue,penWidth:lessonPenWidthValue,markerWidth:lessonMarkerWidthValue}));}catch(err){}
+ try{localStorage.setItem("ege-lesson-ink-tools",JSON.stringify({pen:lessonPenColorValue,marker:lessonMarkerColorValue,penWidth:lessonPenWidthValue,markerWidth:lessonMarkerWidthValue,beautify:lessonBeautify}));}catch(err){}
 }
 function lessonRestoreInkTools(){
  try{
   const saved=JSON.parse(localStorage.getItem("ege-lesson-ink-tools")||"{}");
   if(/^#[0-9a-f]{6}$/i.test(saved.pen))lessonPenColorValue=saved.pen;
   if(/^#[0-9a-f]{6}$/i.test(saved.marker))lessonMarkerColorValue=saved.marker;
+  if(typeof saved.beautify==="boolean")lessonBeautify=saved.beautify;
   if(Number.isFinite(saved.penWidth)&&saved.penWidth>=1&&saved.penWidth<=10)lessonPenWidthValue=saved.penWidth;
   if(Number.isFinite(saved.markerWidth)&&saved.markerWidth>=1&&saved.markerWidth<=10)lessonMarkerWidthValue=saved.markerWidth;
  }catch(err){}
  document.getElementById("lessonPenColor").value=lessonPenColorValue;
  document.getElementById("lessonPenWidth").value=lessonPenWidthValue;
+ document.getElementById("lessonBeautify").checked=lessonBeautify;
 }
 function lessonSyncInkTools(){
  const color=lessonTool==="marker"?lessonMarkerColorValue:lessonPenColorValue;
@@ -4285,6 +4327,7 @@ function lessonBoardSetTool(tool){
 function lessonBoardToggle(target){
  const next=typeof target==="boolean"?target:!lessonBoardMode;
  if(next===lessonBoardMode)return;
+ lessonPresentationSetFullscreen(false);
  lessonBoardMode=next;
  if(!lessonBoardMode)lessonBoardSetFullscreen(false);
  document.getElementById("lessonPaperSpace").hidden=lessonBoardMode;
@@ -4295,6 +4338,17 @@ function lessonBoardToggle(target){
  document.getElementById("lessonPresentationTab").setAttribute("aria-pressed",String(!lessonBoardMode));
  if(lessonBoardMode)lessonSyncInkTools();else lessonRenderPage();
  lessonStatus(lessonBoardMode?"Свободная доска открыта. Презентация и записи сохранены отдельно.":"Презентация с прежними пометками открыта.");
+}
+function lessonPresentationSetFullscreen(enabled){
+ const studio=document.querySelector("#lesson .lesson-studio");if(!studio)return;
+ const active=!!enabled&&!lessonBoardMode;
+ studio.classList.toggle("presentation-fullscreen",active);
+ document.body.classList.toggle("lesson-presentation-fullscreen",active);
+ const button=document.getElementById("lessonPresentationFullscreen");
+ document.getElementById("lessonPresentationExit").hidden=!active;
+ button.setAttribute("aria-pressed",String(active));
+ button.querySelector("span").textContent=active?"Вернуть лабораторию":"На весь экран";
+ lessonRenderPage();
 }
 function lessonBoardSetFullscreen(enabled){
  const studio=document.querySelector("#lesson .lesson-studio");
@@ -4332,9 +4386,11 @@ function lessonBoardSetup(){
  },{passive:false});
  document.getElementById("lessonBoardImageSize").addEventListener("pointerdown",lessonBoardSnapshot);
  document.getElementById("lessonBoardImageSize").addEventListener("keydown",event=>{if(event.key.startsWith("Arrow"))lessonBoardSnapshot();});
+ document.getElementById("lessonPresentationExit").onclick=()=>lessonPresentationSetFullscreen(false);
+ document.getElementById("lessonPresentationFullscreen").onclick=()=>lessonPresentationSetFullscreen(!document.querySelector("#lesson .lesson-studio").classList.contains("presentation-fullscreen"));
  document.getElementById("lessonBoardFullscreen").onclick=()=>lessonBoardSetFullscreen(!document.querySelector("#lesson .lesson-studio")?.classList.contains("board-fullscreen"));
  document.addEventListener("keydown",event=>{
-  if(event.key==="Escape")document.getElementById("lessonBoardMore").open=false;
+  if(event.key==="Escape"){document.getElementById("lessonBoardMore").open=false;lessonPresentationSetFullscreen(false);}
   if(event.key==="Escape"&&document.querySelector("#lesson .lesson-studio")?.classList.contains("board-fullscreen"))lessonBoardSetFullscreen(false);
  });
  document.getElementById("lessonBoardPDFInput").onchange=async event=>{
@@ -4471,6 +4527,7 @@ function lessonBoardSetup(){
    if(lessonBoardPointer.stroke.straight)lessonBoardPointer.stroke.points[1]=lessonBoardPoint(event);
    else lessonAddStrokeSamples(lessonBoardPointer.stroke,event,lessonBoardPoint,{clientWidth:lessonBoardView.zoom,clientHeight:lessonBoardView.zoom});
   }
+  if(event.type==="pointerup"&&lessonBoardPointer?.stroke)lessonFinishStroke(lessonBoardPointer.stroke,lessonBoardView.zoom,lessonBoardView.zoom);
   touches.delete(event.pointerId);if(touches.size<2)pinch=null;if(!touches.size)touchBlocked=false;
   lessonBoardPointer=null;lessonBoardScheduleDraw();
  };
@@ -4505,6 +4562,7 @@ function lessonSetup(){
  if(lessonReady)return;
  lessonReady=true;
  lessonRestoreInkTools();
+ document.getElementById("lessonBeautify").onchange=event=>{lessonBeautify=event.target.checked;lessonSaveInkTools();};
  document.getElementById("lesson").addEventListener("pointerdown",event=>{
   if(!event.target.closest(".lesson-extra-menu"))document.querySelector("#lesson .lesson-extra-menu").open=false;
   if(!event.target.closest("#lessonBoardMore"))document.getElementById("lessonBoardMore").open=false;
@@ -4721,7 +4779,7 @@ function lessonSetup(){
    else lessonAddStrokeSamples(lessonDrawing,event,lessonGetPoint,canvas);
   }
   inkPointer=null;
-  if(lessonDrawing){lessonDrawing=null;lessonSchedulePdfInk();lessonSaveLocal();}
+  if(lessonDrawing){if(event.type==="pointerup")lessonFinishStroke(lessonDrawing,canvas.clientWidth,canvas.clientHeight);lessonDrawing=null;lessonSchedulePdfInk();lessonSaveLocal();}
  };
  canvas.onpointerup=endDrawing;canvas.onpointercancel=endDrawing;canvas.onlostpointercapture=endDrawing;
  if(window.ResizeObserver){
@@ -4732,7 +4790,7 @@ function lessonSetup(){
 }
 
 document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{
- if(b.dataset.page!=="lesson")lessonBoardSetFullscreen(false);
+ if(b.dataset.page!=="lesson"){lessonBoardSetFullscreen(false);lessonPresentationSetFullscreen(false);}
  document.querySelectorAll("[data-page]").forEach(x=>x.classList.remove("on"));document.querySelectorAll(".page").forEach(x=>x.classList.remove("on"));
  b.classList.add("on");document.getElementById(b.dataset.page).classList.add("on");if(b.dataset.page==="lesson"){lessonRenderPage();}if(b.dataset.page==="exam"&&!exam)nextExam();if(b.dataset.page==="oge")renderOge();if(b.dataset.page==="ege")renderEge();
 });

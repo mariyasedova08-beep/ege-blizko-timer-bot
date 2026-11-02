@@ -96,6 +96,16 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
     return stroke.points.map(point=>point.x);
    });
    assert.deepEqual(sampleQuality,[0,1,2,3,4,5]);
+   const beautify=await page.evaluate(()=>{
+    const points=Array.from({length:81},(_,i)=>({x:i,y:i===0||i===80?0:(i%2?.9:-.9)}));
+    const stroke={points:structuredClone(points),opacity:1};lessonBeautify=true;lessonFinishStroke(stroke);
+    const off={points:structuredClone(points),opacity:1};lessonBeautify=false;lessonFinishStroke(off);
+    const line={points:structuredClone(points),opacity:1,straight:true};lessonBeautify=true;lessonFinishStroke(line);
+    return {input:points,result:stroke.points,off:off.points,line:line.points};
+   });
+   assert.deepEqual(beautify.result[0],beautify.input[0]);assert.deepEqual(beautify.result.at(-1),beautify.input.at(-1));
+   assert.ok(Math.max(...beautify.result.slice(5,-5).map(p=>Math.abs(p.y)))<.3);
+   assert.deepEqual(beautify.off,beautify.input);assert.deepEqual(beautify.line,beautify.input);
    // Heat guidance appears before conducting a known hot reaction; never for cold/unknown pairs.
    await page.evaluate(()=>{lessonClearActiveTube();lessonSetReagent('a','mno2');lessonSetReagent('b','hcl')});
    assert.ok(await page.locator('#lessonHeatHint').isVisible());
@@ -229,6 +239,23 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.waitForFunction(()=>lessonPageCount===2&&lessonPdfDocument!==null);
    await page.locator('#lessonNext').click();await page.waitForFunction(()=>lessonPage===2);
    await page.locator('#lessonPrevious').click();await page.waitForFunction(()=>lessonPage===1);
+   // Presentation expands independently and always provides an exit.
+   const labBeforeFull=await page.evaluate(()=>JSON.stringify(lessonTubeStates));
+   await page.locator('#lessonPresentationFullscreen').click();
+   assert.ok(await page.locator('.lesson-studio').evaluate(e=>e.classList.contains('presentation-fullscreen')));
+   assert.ok(await page.locator('.lesson-lab-pane').isHidden());
+   assert.ok(await page.locator('#lessonPresentationExit').isVisible());
+   const fullBox=await page.locator('.lesson-pdf-pane').boundingBox();assert.ok(fullBox.width>=size.width-2);
+   await page.locator('#lessonNext').click();await page.waitForFunction(()=>lessonPage===2);
+   await page.locator('#lessonPrevious').click();await page.waitForFunction(()=>lessonPage===1);
+   await page.locator('#lessonToolbarToggle').click();
+   assert.ok(await page.locator('#lessonPresentationExit').isVisible());
+   await page.locator('#lessonPresentationExit').click();
+   assert.ok(await page.locator('.lesson-lab-pane').isVisible());
+   await page.locator('#lessonToolbarToggle').click();
+   await page.locator('#lessonPresentationFullscreen').click();await page.keyboard.press('Escape');
+   assert.ok(await page.locator('#lessonPresentationExit').isHidden());
+   assert.equal(await page.evaluate(()=>JSON.stringify(lessonTubeStates)),labBeforeFull);
    // Real pen events with zero pressure still write; board state is untouched by PDF input.
    await page.locator('#lessonInkCanvas').scrollIntoViewIfNeeded();
    const inkBox=await page.locator('#lessonInkCanvas').boundingBox(),pen=await page.context().newCDPSession(page);
