@@ -48,6 +48,30 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.locator('#lessonToolEraser').click();
    assert.equal(await page.evaluate(()=>lessonTool),'erase');
    await page.locator('#lessonToolPen').click();
+   // Tool selection is direct: line -> marker/pen/eraser, without manually toggling off.
+   await page.locator('#lessonStraightLine').click();
+   assert.equal(await page.evaluate(()=>lessonLineMode),true);
+   assert.equal(await page.locator('#lessonToolPen').getAttribute('aria-pressed'),'false');
+   await page.locator('#lessonToolMarker').click();
+   assert.equal(await page.evaluate(()=>lessonLineMode),false);
+   assert.equal(await page.locator('#lessonStraightLine').getAttribute('aria-pressed'),'false');
+   assert.equal(await page.locator('#lessonToolMarker').getAttribute('aria-pressed'),'true');
+   await page.locator('#lessonStraightLine').click();await page.locator('#lessonToolEraser').click();
+   assert.equal(await page.evaluate(()=>lessonLineMode),false);
+   await page.locator('#lessonToolPen').click();
+   // Lab handwriting does not block selection of another tube or chemistry buttons.
+   await page.locator('#lessonLabPen').click();
+   await page.locator('[data-lesson-tube="1"] > span').first().click();
+   assert.equal(await page.evaluate(()=>lessonActiveTube),1);
+   assert.equal(await page.evaluate(()=>lessonLabInkTool),'view');
+   await page.locator('#lessonLabPen').click();await page.locator('#lessonReset').click();
+   assert.equal(await page.evaluate(()=>lessonLabInkTool),'view');
+   await page.locator('[data-lesson-tube="0"] > span').first().click();
+   // Clicking another tool dismisses settings, while preserving separate colours.
+   await page.locator('.lesson-extra-menu summary').click();
+   assert.equal(await page.locator('.lesson-extra-menu').evaluate(e=>e.open),true);
+   await page.locator('#lessonToolPen').click();
+   assert.equal(await page.locator('.lesson-extra-menu').evaluate(e=>e.open),false);
    // Each tool keeps its own colour and width, including after erase and reload.
    await page.locator('#lessonQuickColors [data-ink="#171719"]').click();
    await page.evaluate(()=>{const width=document.getElementById('lessonPenWidth');width.value='2';width.dispatchEvent(new Event('input'))});
@@ -201,6 +225,14 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.locator('#lessonBoardToggle').click();
    assert.equal(await page.evaluate(()=>lessonBoardMode),true);
    assert.equal(await page.locator('#lessonPresentationTab').getAttribute('aria-pressed'),'false');
+   await page.locator('#lessonBoardLine').click();
+   assert.equal(await page.locator('#lessonBoardLine').getAttribute('aria-pressed'),'true');
+   await page.locator('#lessonBoardMarker').click();
+   assert.equal(await page.evaluate(()=>lessonLineMode),false);
+   assert.equal(await page.locator('#lessonBoardLine').getAttribute('aria-pressed'),'false');
+   await page.locator('#lessonBoardPan').click();await page.locator('#lessonBoardPen').click();
+   assert.equal(await page.evaluate(()=>lessonBoardTool),'pen');
+   assert.equal(await page.locator('#lessonBoardPan').getAttribute('aria-pressed'),'false');
    const draw=async()=>{
     const box=await page.locator('#lessonBoardCanvas').boundingBox();
     assert.ok(box.width>100&&box.height>100);
@@ -251,7 +283,7 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.equal(await page.evaluate(()=>lessonBoardPages[0].name),'Old');
    await page.evaluate(async content=>lessonBoardOpenProject(new File([content],'board.json')),project.toString());
    // Export includes offscreen scene and preserves editable project.
-   download=page.waitForEvent('download');await page.locator('#lessonBoardExport').click();
+   download=page.waitForEvent('download');await page.locator('#lessonBoardMore summary').click();await page.locator('#lessonBoardExport').click();await page.locator('#lessonBoardMore').evaluate(e=>e.open=false);
    file=await download;assert.equal((await PDFDocument.load(fs.readFileSync(await file.path()))).getPageCount(),1);
    assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),2);
    // Board eraser remains directly accessible when the main toolbar is collapsed.
@@ -332,6 +364,8 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.equal(await page.locator('#lessonBoardToggle').innerText(),'Доска');
    assert.equal(await page.evaluate(()=>lessonPageCount),2);
    assert.equal(await page.evaluate(()=>lessonNotes['1'].length),1);
+   await page.locator('#lessonPresentationTab').scrollIntoViewIfNeeded();
+   await page.screenshot({path:'lab-visual-preview/review-presentation-'+size.width+'.png'});
    assert.deepEqual(errors,[]);
    console.log('REVIEW_BROWSER_OK',size.width,size.height,'chemistry, tubes, PDF, world coordinates, zoom, projects v1/v2, eraser, undo, export, fullscreen');
    await page.close();

@@ -1470,6 +1470,72 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 .heat-hint{padding:10px 12px;margin:7px 0;border:1px solid #E9A9CB;border-radius:12px;background:#FFF1F8;color:#52233D;font-size:13px;line-height:1.5}
 .heat-hint[hidden]{display:none}
 #heat.heat-required,#lessonHeat.heat-required{border:2px solid #C44988!important;background:#F4D9E6!important;color:#171719;box-shadow:0 0 0 3px #F4D9E660;font-weight:700}
+
+/* Lesson studio: quiet material row, segmented tools, tactile states. */
+#lesson{--lesson-control-bg:#fff;--studio-border:#E9E0E5;--studio-muted:#82717C}
+#lesson .lesson-pdf-pane .lesson-pane-head{display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;padding:12px 14px;gap:10px;background:#FFFCFD;border-color:var(--studio-border)}
+#lesson .lesson-workspace-tabs{margin:0 auto 0 0;align-self:center;background:#F1EBEF;border:1px solid #EAE1E7;padding:4px;gap:3px;border-radius:14px}
+#lesson .lesson-workspace-tabs button{border:1px solid transparent;background:transparent;border-radius:10px;min-height:44px;font-size:13px;padding:8px 13px;box-shadow:none;color:#74646F}
+#lesson .lesson-workspace-tabs button[aria-pressed="true"]{background:#fff;color:#9D336B;border-color:#E8D8E1;box-shadow:0 2px 5px #3F223A0A}
+#lesson #lessonToolbarToggle{order:0;align-self:center;min-height:44px;border:1px solid var(--studio-border);background:#fff;border-radius:11px;padding:7px 11px;font-size:12px;color:#796772}
+#lesson .lesson-lesson-tools{flex:1 0 100%;display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:10px;border:1px solid var(--studio-border);border-radius:16px;background:#fff;box-shadow:0 3px 12px #3F223A05}
+#lesson .lesson-document-tools{display:flex;align-items:center;flex-wrap:wrap;gap:5px;padding-bottom:9px;border-bottom:1px solid #F0E9ED}
+#lesson .lesson-document-tools>button{width:44px;height:44px;border:1px solid #EAE3E8;border-radius:10px;background:#fff;font-size:18px;color:#76606F}
+#lesson .lesson-document-tools select{max-width:165px!important;border:1px solid #EAE3E8;border-radius:10px;background:#FAF8FA;padding:6px;font-size:12px}
+#lesson .lesson-document-tools #lessonPageCounter{color:#776370;font-size:12px;font-variant-numeric:tabular-nums;min-width:40px;text-align:center}
+#lesson .lesson-lesson-tools .lesson-file-controls label.lesson-file-label{display:inline-flex;align-items:center;gap:7px;min-height:44px;font-size:12px;background:#F8F5F7;border:1px solid #EAE3E8;border-radius:10px;padding:8px 11px;cursor:pointer}
+#lesson .lesson-lesson-tools .lesson-file-controls .lesson-file-label:before{content:none}
+#lesson .lesson-ink-strip{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+#lesson .lesson-primary-ink{display:flex;align-items:center;flex-wrap:wrap;gap:3px;padding:4px;background:#F6F2F5;border-radius:12px}
+#lesson .lesson-primary-ink>button,#lesson .lesson-extra-menu summary{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid transparent;border-radius:9px;min-width:44px;min-height:44px;padding:8px 9px;background:transparent;color:#6E5A67;font-size:12px;font-weight:550;line-height:18px}
+#lesson .lesson-primary-ink>button[aria-pressed="true"]{color:#9D336B!important;background:#fff!important;border-color:#E8D2DF!important;box-shadow:0 1px 4px #60344912!important}
+#lesson #lessonToolPen,#lesson #lessonToolMarker,#lesson #lessonBoardPen,#lesson #lessonBoardMarker{position:relative;box-shadow:none}
+#lesson #lessonToolPen:after,#lesson #lessonToolMarker:after,#lesson #lessonBoardPen:after,#lesson #lessonBoardMarker:after{content:"";position:absolute;left:14px;right:14px;bottom:3px;height:2px;border-radius:2px;background:var(--tool-ink,#C44988)}
+#lesson .lesson-control-icon{width:19px;height:19px;flex-shrink:0;vertical-align:middle}
+#lesson .lesson-extra-menu{margin-left:auto;position:relative}
+#lesson .lesson-extra-menu summary{font-size:12px;background:#FAF7F9;border-color:#EAE2E7;cursor:pointer}
+#lesson .lesson-extra-menu summary:before{content:none}
+#lesson .lesson-extra-menu[open] summary{background:#F8EAF2;color:#9D336B;border-color:#DBB7CB}
+#lesson .lesson-quick-colors{order:0;flex:0 1 auto;justify-content:flex-start;gap:0;border:0;padding:0;margin:0}
+#lesson .lesson-quick-colors button{width:44px;height:44px;border:10px solid #fff;box-shadow:none;transition:outline-color .14s ease,background-color .14s ease}
+#lesson .lesson-quick-colors button[aria-pressed="true"]{outline:1.5px solid #C44988;outline-offset:-5px}
+#lesson .lesson-toolbar-actions{order:2;flex:1 0 100%;margin:0;gap:5px;justify-content:flex-end}
+#lesson .lesson-toolbar-actions button{display:inline-flex;align-items:center;gap:6px;min-height:44px;border:1px solid transparent;background:transparent;color:#927784;border-radius:10px;font-size:11px}
+#lesson .lesson-toolbar-actions #lessonExport{margin-left:4px;color:#983568;background:#F7E5EF;border:1px solid #EED0E0;font-weight:650;font-size:12px;padding:8px 12px}
+#lesson .lesson-board-bar{padding:10px 12px;gap:5px;border-color:var(--studio-border);background:#FFFCFD}
+#lesson .lesson-board-bar>button,#lesson .lesson-board-bar>label{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:8px 9px;border-color:#E8DFE5;background:#fff;border-radius:10px;font-size:12px;color:#715E6B}
+#lesson .lesson-board-bar>button[aria-pressed="true"]{background:#F8EAF2;color:#963367;border-color:#DDB8CC;box-shadow:0 0 0 2px #F8EAF2}
+#lesson .lesson-board-navigation{border-radius:12px;border-color:#EAE1E7;background:#F8F5F7;gap:3px;padding:3px}
+#lesson .lesson-board-navigation button{border:0;background:transparent;min-width:44px;min-height:44px;font-size:12px}
+#lesson #lessonBoardSaveProject{background:#F7E5EF;color:#983568;border-color:#EED0E0}
+#lesson .lesson-board-bar>small{width:100%;color:#9B8793;line-height:1.5;font-size:11px}
+#lesson .lesson-pane-head button,#lesson .lesson-board-bar button,#lesson .lesson-lab-actions button,#lesson .lesson-ink-tools button,#lesson .lesson-tube-modes button{transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease}
+#lesson button:not(:disabled):not([data-ink]):hover,#lesson .lesson-file-label:hover,#lesson .lesson-extra-menu summary:hover{background-color:#FAEBF3;box-shadow:0 0 0 2px #F4D9E655}
+#lesson button:not(:disabled):not([data-ink]):active{background-color:#F1D8E5;box-shadow:inset 0 1px 3px #8B3E651A}
+#lesson button:focus-visible,#lesson summary:focus-visible,#lesson .lesson-file-label:focus-within{outline:2px solid #C44988;outline-offset:3px}
+#lesson .lesson-tube-choice>span:first-child{position:relative;z-index:6;min-height:44px;display:flex;align-items:center;justify-content:center;align-self:stretch;background:inherit;border-radius:8px}
+#lesson .lesson-board-active .lesson-document-tools{display:none}
+@media(max-width:1100px){#lesson #lessonUndo span{display:none}#lesson #lessonUndo{padding:8px;min-width:44px}#lesson .lesson-primary-ink{flex:1 0 100%;justify-content:flex-start}#lesson .lesson-ink-strip{gap:6px}#lesson .lesson-quick-colors{flex:1 1 auto}#lesson .lesson-extra-menu{margin-left:0}}
+#lesson .lesson-quick-colors button[data-ink="#ffffff"]{box-shadow:inset 0 0 0 1px #CAB9C5}
+@media(max-width:600px){#lesson .lesson-pdf-pane .lesson-pane-head{padding:8px;gap:7px}#lesson .lesson-workspace-tabs button{padding:7px 9px;font-size:12px}#lesson .lesson-primary-ink>button{padding:7px}#lesson .lesson-primary-ink{gap:1px}}
+@media(prefers-reduced-motion:reduce){#lesson button{transition:none!important}}
+
+
+#lesson .lesson-board-active .lesson-primary-ink,#lesson .lesson-board-active .lesson-toolbar-actions{display:none}
+#lesson .lesson-board-active .lesson-ink-strip{gap:8px}
+#lesson .lesson-board-active .lesson-lesson-tools{padding:7px 10px}
+#lesson .lesson-board-more{position:relative;margin-left:auto}
+#lesson .lesson-board-more summary{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:8px 12px;box-sizing:border-box;border:1px solid #E8DFE5;background:#fff;border-radius:10px;list-style:none;cursor:pointer;color:#715E6B;font-size:12px;font-weight:550}
+#lesson .lesson-board-more[open] summary{background:#F8EAF2;border-color:#DDB8CC;color:#963367}
+#lesson .lesson-board-more-items{display:none}
+#lesson .lesson-board-more[open] .lesson-board-more-items{position:absolute;right:0;top:calc(100% + 8px);z-index:80;display:grid;gap:7px;min-width:250px;width:min(320px,70vw);max-height:min(55dvh,360px);overflow-y:auto;padding:12px;border:1px solid #E8DFE5;border-radius:14px;background:#fff;box-shadow:0 12px 36px #4F244D17}
+#lesson .lesson-board-more-items>label,#lesson .lesson-board-more-items>button{display:flex;align-items:center;gap:7px;min-height:44px;padding:8px 10px;font-size:12px;border:1px solid #E8DFE5;border-radius:9px;background:#FAF8FA;box-sizing:border-box}
+#lesson .lesson-board-more-items select{width:100%;font-size:12px;border:1px solid #E8DFE5;border-radius:9px}
+#lesson .lesson-board-more-items label:has(input[type=range]){display:grid;gap:8px}
+#lesson .lesson-board-more-items input[type=range]{width:100%}
+#lesson .lesson-board-more-items input[type=file]{display:none}
+#lesson .lesson-board-more summary:hover{background:#FAEBF3;box-shadow:0 0 0 2px #F4D9E655}
+
 </style></head><body><div class="app">
 <div class="lab-topbar">
   <div class="lab-brand">ЕГЭ БЛИЗКО</div>
@@ -1562,73 +1628,86 @@ body.lesson-board-fullscreen{overflow:hidden!important}
       </div>
       <button id="lessonToolbarToggle" type="button" aria-expanded="true" title="Свернуть или открыть инструменты">Скрыть инструменты</button>
       <div class="lesson-lesson-tools">
+      <div class="lesson-document-tools" role="group" aria-label="Презентация и страницы">
       <div class="lesson-file-controls">
-        <label for="lessonPDFInput" class="lesson-file-label" title="Открыть свой PDF">📄 PDF</label>
+        <label for="lessonPDFInput" class="lesson-file-label" title="Открыть свой PDF"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H5v18h14V8l-5-5ZM14 3v5h5M8 12h8M8 16h6"/></svg><span>Открыть PDF</span></label>
         <input id="lessonPDFInput" type="file" accept="application/pdf,.pdf">
       </div>
         
-        <button id="lessonPrevious" type="button" title="Предыдущая страница">←</button>
+        <button id="lessonPrevious" type="button" title="Предыдущая страница"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
         <span id="lessonPageCounter">1 / 1</span>
         <select id="lessonPDFNavigation" aria-label="Страницы и закладки PDF" style="max-width:170px" hidden></select>
-        <button id="lessonNext" type="button" title="Следующая страница">→</button>
-        <div id="lessonQuickColors" class="lesson-quick-colors" role="group" aria-label="Быстрый выбор цвета ручки или выделителя"></div>
-        <button id="lessonToolPen" type="button" aria-pressed="true">✎ Ручка</button>
-         <button id="lessonToolMarker" type="button" aria-pressed="false">▰ Маркер</button>
-        <button id="lessonStraightLine" type="button" aria-pressed="false" title="Прямая линия выбранной ручкой или выделителем">╱ Линия</button>
-        <button id="lessonToolEraser" type="button" aria-label="Ластик" title="Ластик — стереть штрих" aria-pressed="false"><svg class="lesson-eraser-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m4 14 9-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3L12 22H8l-4-4a3 3 0 0 1 0-4Z"/><path d="m9 9 8 8M12 22h10"/></svg> Ластик</button>
+        <button id="lessonNext" type="button" title="Следующая страница"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button>
+      </div>
+      <div class="lesson-ink-strip">
+      <div class="lesson-primary-ink" role="group" aria-label="Инструмент письма">
+        
+        <button id="lessonToolPen" type="button" aria-pressed="true"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.5-1L20 7.5 16.5 4 5 15.5 4 20Zm10-13 3.5 3.5M5 15.5 8.5 19"/></svg><span>Ручка</span></button>
+         <button id="lessonToolMarker" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 14 8-10 7 6-8 9-7-5Zm3 3-4 3h7M10 8l7 6"/></svg><span>Маркер</span></button>
+        <button id="lessonStraightLine" type="button" aria-pressed="false" title="Прямая линия выбранной ручкой или выделителем"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 19 14-14"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/></svg><span>Линия</span></button>
+        <button id="lessonToolEraser" type="button" aria-label="Ластик" title="Ластик — стереть штрих" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 14 9-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3L12 22H8l-4-4a3 3 0 0 1 0-4Zm5-5 8 8M12 22h10"/></svg><span>Ластик</span></button>
+      <button type="button" id="lessonUndo" title="Отменить последний штрих"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6-5 5 5 5M4 11h10a6 6 0 0 1 6 6"/></svg><span>Отменить</span></button>
+      </div>
+      <div id="lessonQuickColors" class="lesson-quick-colors" role="group" aria-label="Быстрый выбор цвета ручки или выделителя"></div>
       <details class="lesson-extra-menu">
-        <summary aria-label="Цвет, толщина и настройки письма">🎨 Цвет и толщина</summary>
+        <summary aria-label="Цвет, толщина и настройки письма"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--lesson-control-bg,#fff)"/><circle cx="15" cy="17" r="3" fill="var(--lesson-control-bg,#fff)"/></svg><span>Настройки</span></summary>
         <div class="lesson-extra-items">
           <b style="font-size:12px;font-weight:600">Цвета</b>
           <input id="lessonPenColor" type="color" value="#f00087" hidden>
           <div class="lesson-color-presets" id="lessonColorPresets" aria-label="Цвета ручки"></div>
           <label class="lesson-width-label">Толщина <input id="lessonPenWidth" type="range" min="1" max="10" value="3"></label>
-          <button type="button" id="lessonUndo">↶ Отменить последний штрих</button>
+          
           <button type="button" id="lessonExportNotes">↓ Резервная копия записей</button>
           <label for="lessonImportNotes" class="lesson-file-label">↑ Загрузить записи</label>
           <input id="lessonImportNotes" type="file" accept=".json,application/json" style="display:none">
         </div>
       </details>
       </div>
+      </div>
       <div class="lesson-toolbar-actions">
-        <button id="lessonClearPage" type="button" title="Удалить пометки только с текущего слайда">Очистить страницу</button>
-        <button id="lessonClearAll" type="button" title="Удалить пометки со всех слайдов после подтверждения">Очистить всё</button>
-        <button id="lessonExport" type="button">↓ Сохранить PDF</button>
+        <button id="lessonClearPage" type="button" title="Удалить пометки только с текущего слайда"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg><span>Очистить страницу</span></button>
+        <button id="lessonClearAll" type="button" title="Удалить пометки со всех слайдов после подтверждения"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg><span>Очистить всё</span></button>
+        <button id="lessonExport" type="button"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><span>Сохранить PDF</span></button>
 
       </div>
     </div>
     <div id="lessonBoardBar" class="lesson-board-bar" hidden>
-      <button id="lessonBoardPen" type="button" aria-pressed="true">✎ Писать</button>
-      <button id="lessonBoardMarker" type="button" aria-pressed="false">▰ Маркер</button>
-      <button id="lessonBoardEraser" type="button" aria-pressed="false" title="Стереть штрих на доске"><svg class="lesson-eraser-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m4 14 9-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3L12 22H8l-4-4a3 3 0 0 1 0-4Z"/><path d="m9 9 8 8M12 22h10"/></svg> Ластик</button>
-      <button id="lessonBoardPan" type="button" aria-pressed="false">✋ Перемещать доску</button>
+      <button id="lessonBoardPen" type="button" aria-pressed="true"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.5-1L20 7.5 16.5 4 5 15.5 4 20Zm10-13 3.5 3.5M5 15.5 8.5 19"/></svg><span>Ручка</span></button>
+      <button id="lessonBoardMarker" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 14 8-10 7 6-8 9-7-5Zm3 3-4 3h7M10 8l7 6"/></svg><span>Маркер</span></button>
+      <button id="lessonBoardEraser" type="button" aria-pressed="false" title="Стереть штрих на доске"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 14 9-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3L12 22H8l-4-4a3 3 0 0 1 0-4Zm5-5 8 8M12 22h10"/></svg><span>Ластик</span></button>
+      <button id="lessonBoardLine" type="button" aria-pressed="false" title="Прямая линия"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m5 19 14-14"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/></svg><span>Линия</span></button>
+      <button id="lessonBoardPan" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 12V6a2 2 0 0 1 4 0v6-8a2 2 0 0 1 4 0v8-6a2 2 0 0 1 4 0v10c0 4-3 6-7 6h-1c-2 0-3-1-4-3l-4-6c-1-2 1-4 3-2l1 1Z"/></svg><span>Двигать доску</span></button>
       <div class="lesson-board-navigation" role="group" aria-label="Масштаб и обзор доски">
-        <button id="lessonBoardZoomOut" type="button" aria-label="Уменьшить масштаб доски">−</button>
+        <button id="lessonBoardZoomOut" type="button" aria-label="Уменьшить масштаб доски"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
         <button id="lessonBoardZoom" type="button" title="Вернуть масштаб 100%">100%</button>
-        <button id="lessonBoardZoomIn" type="button" aria-label="Увеличить масштаб доски">＋</button>
+        <button id="lessonBoardZoomIn" type="button" aria-label="Увеличить масштаб доски"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
         <button id="lessonBoardFit" type="button">Показать всё</button>
         <button id="lessonBoardDocument" type="button">К документу</button>
-        <button id="lessonBoardHome" type="button" title="Вернуться к началу координат">⌂</button>
+        <button id="lessonBoardHome" type="button" title="Вернуться к началу координат"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 11 9-8 9 8M5 10v11h14V10M10 21v-7h4v7"/></svg></button>
       </div>
       <div class="lesson-board-navigation" role="group" aria-label="Страницы PDF на доске">
         <span id="lessonBoardDocumentName"></span>
-        <button id="lessonBoardPrevious" type="button" aria-label="Предыдущая страница на доске">←</button>
+        <button id="lessonBoardPrevious" type="button" aria-label="Предыдущая страница на доске"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
         <span id="lessonBoardPageCounter" aria-live="polite">1 / 1</span>
-        <button id="lessonBoardNext" type="button" aria-label="Следующая страница на доске">→</button>
+        <button id="lessonBoardNext" type="button" aria-label="Следующая страница на доске"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button>
       </div>
-      <button id="lessonBoardMove" type="button" aria-pressed="false">↔ Выбрать / двигать</button>
-      <select id="lessonBoardPages" aria-label="Лист доски" title="Выбрать лист доски"></select>
+      <button id="lessonBoardMove" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M3 12h18M8 7l4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg><span>Выбрать объект</span></button>
+      <button id="lessonBoardUndo" type="button"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6-5 5 5 5M4 11h10a6 6 0 0 1 6 6"/></svg><span>Отменить</span></button>
+      <button id="lessonBoardFullscreen" type="button" aria-pressed="false" title="Развернуть доску на весь экран или вернуться к лаборатории">⛶ На весь экран</button>
+      <button id="lessonBoardSaveProject" type="button"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><span>Сохранить проект</span></button>
+      <details id="lessonBoardMore" class="lesson-board-more">
+        <summary><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Материалы</span></summary>
+        <div class="lesson-board-more-items">      <select id="lessonBoardPages" aria-label="Лист доски" title="Выбрать лист доски"></select>
       <button id="lessonBoardAddPage" type="button">＋ Лист</button>
       <button id="lessonBoardRenamePage" type="button">Переименовать</button>
       <label for="lessonBoardImageInput">＋ Изображение</label><input id="lessonBoardImageInput" type="file" accept="image/png,image/jpeg,image/webp">
       <label for="lessonBoardPDFInput">＋ PDF на доску</label><input id="lessonBoardPDFInput" type="file" accept="application/pdf,.pdf">
       <label title="Меняет размер выбранной картинки. Для увеличения PDF используй кнопки масштаба.">Размер картинки <input id="lessonBoardImageSize" type="range" min="100" max="1300" value="480" aria-label="Ширина выбранного изображения"></label>
-      <button id="lessonBoardUndo" type="button">↶ Отменить</button>
-      <button id="lessonBoardFullscreen" type="button" aria-pressed="false" title="Развернуть доску на весь экран или вернуться к лаборатории">⛶ На весь экран</button>
-      <button id="lessonBoardSaveProject" type="button">↓ Сохранить проект</button>
       <label for="lessonBoardOpenProject">↑ Открыть проект</label><input id="lessonBoardOpenProject" type="file" accept=".json,application/json">
       <button id="lessonBoardExport" type="button">↓ Доска в PDF</button>
-      <small>Масштаб: ＋ / − или два пальца. Один палец пишет; «Перемещать доску» двигает обзор. PDF листается стрелками и закреплён под записями.</small>
+</div>
+      </details>
+      <small>Масштаб: + / − или два пальца. Один палец пишет; «Перемещать доску» двигает обзор. PDF листается стрелками и закреплён под записями.</small>
     </div>
     <div id="lessonPaperSpace" class="lesson-paper-space">
       <div id="lessonCanvasWrap"><canvas id="lessonPdfCanvas"></canvas><canvas id="lessonInkCanvas" aria-label="Писать стилусом по странице"></canvas></div>
@@ -3247,6 +3326,7 @@ function lessonRenderTubePair(){
  });
 }
 function lessonSelectTube(index){
+ lessonLabInkMode("view");
  if(index<0||index>=lessonVisibleTubeCount)return;
  if(index===lessonActiveTube)return;
  lessonTubeStates[lessonActiveTube]=lessonCaptureTube();
@@ -3493,7 +3573,7 @@ function lessonSyncInkTools(){
  const color=lessonTool==="marker"?lessonMarkerColorValue:lessonPenColorValue;
  document.getElementById("lessonPenColor").value=color;
  document.querySelectorAll("#lessonColorPresets button,#lessonQuickColors button").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.ink===color)));
- for(const [id,tool] of [["lessonToolPen","pen"],["lessonToolMarker","marker"],["lessonToolEraser","erase"]])document.getElementById(id).setAttribute("aria-pressed",String(lessonTool===tool));
+ for(const [id,tool] of [["lessonToolPen","pen"],["lessonToolMarker","marker"],["lessonToolEraser","erase"]])document.getElementById(id).setAttribute("aria-pressed",String(lessonTool===tool&&(tool==="erase"||!lessonLineMode)));
  for(const id of ["lessonToolPen","lessonBoardPen"])document.getElementById(id).style.setProperty("--tool-ink",lessonPenColorValue);
  for(const id of ["lessonToolMarker","lessonBoardMarker"])document.getElementById(id).style.setProperty("--tool-ink",lessonMarkerColorValue);
  document.getElementById("lessonInkCanvas").classList.toggle("eraser",lessonTool==="erase");
@@ -3503,7 +3583,7 @@ function lessonSetTool(which){
  const width=document.getElementById("lessonPenWidth");
  if(lessonTool==="pen")lessonPenWidthValue=Number(width.value);
  if(lessonTool==="marker")lessonMarkerWidthValue=Number(width.value);
- lessonTool=which;
+ lessonTool=which;document.querySelector("#lesson .lesson-extra-menu").open=false;lessonLineMode=false;document.getElementById("lessonStraightLine").setAttribute("aria-pressed","false");
  if(which==="pen"||which==="marker"){
   lessonLastInkTool=which;width.value=which==="pen"?lessonPenWidthValue:lessonMarkerWidthValue;
  }
@@ -3512,6 +3592,7 @@ function lessonSetTool(which){
 function lessonSetLineMode(enabled){
  lessonLineMode=enabled;
  document.getElementById("lessonStraightLine").setAttribute("aria-pressed",String(enabled));
+ lessonSyncInkTools();
 }
 function lessonSetCanvasDimensions(width,height){
  const paper=document.getElementById("lessonPdfCanvas"),ink=document.getElementById("lessonInkCanvas");
@@ -4211,9 +4292,11 @@ function lessonBoardErase(point){
 }
 function lessonBoardSetTool(tool){
  lessonBoardTool=tool;
- document.getElementById("lessonBoardMarker").setAttribute("aria-pressed",String(tool==="pen"&&lessonTool==="marker"));
+ if(tool!=="pen"){document.querySelector("#lesson .lesson-extra-menu").open=false;lessonLineMode=false;document.getElementById("lessonStraightLine").setAttribute("aria-pressed","false");}
+ document.getElementById("lessonBoardLine").setAttribute("aria-pressed",String(tool==="pen"&&lessonLineMode));
+ document.getElementById("lessonBoardMarker").setAttribute("aria-pressed",String(tool==="pen"&&lessonTool==="marker"&&!lessonLineMode));
  document.getElementById("lessonBoardPan").setAttribute("aria-pressed",String(tool==="pan"));
- document.getElementById("lessonBoardPen").setAttribute("aria-pressed",String(tool==="pen"&&lessonTool==="pen"));
+ document.getElementById("lessonBoardPen").setAttribute("aria-pressed",String(tool==="pen"&&lessonTool==="pen"&&!lessonLineMode));
  document.getElementById("lessonBoardEraser").setAttribute("aria-pressed",String(tool==="pen"&&lessonTool==="erase"));
  document.getElementById("lessonBoardMove").setAttribute("aria-pressed",String(tool==="move"));
  document.getElementById("lessonBoardCanvas").style.cursor=(tool==="move"||tool==="pan")?"grab":"crosshair";
@@ -4227,9 +4310,10 @@ function lessonBoardToggle(target){
  document.getElementById("lessonPaperSpace").hidden=lessonBoardMode;
  document.getElementById("lessonBoardSpace").hidden=!lessonBoardMode;
  document.getElementById("lessonBoardBar").hidden=!lessonBoardMode;
+ document.querySelector("#lesson .lesson-pdf-pane").classList.toggle("lesson-board-active",lessonBoardMode);
  document.getElementById("lessonBoardToggle").setAttribute("aria-pressed",String(lessonBoardMode));
  document.getElementById("lessonPresentationTab").setAttribute("aria-pressed",String(!lessonBoardMode));
- if(lessonBoardMode)lessonBoardDraw();else lessonRenderPage();
+ if(lessonBoardMode)lessonSyncInkTools();else lessonRenderPage();
  lessonStatus(lessonBoardMode?"Свободная доска открыта. Презентация и записи сохранены отдельно.":"Презентация с прежними пометками открыта.");
 }
 function lessonBoardSetFullscreen(enabled){
@@ -4240,7 +4324,7 @@ function lessonBoardSetFullscreen(enabled){
  document.body.classList.toggle("lesson-board-fullscreen",fullscreen);
  const button=document.getElementById("lessonBoardFullscreen");
  button.setAttribute("aria-pressed",String(fullscreen));
- button.textContent=fullscreen?"↙ Вернуть лабораторию":"⛶ На весь экран";
+ button.innerHTML='<svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"/></svg>'+"<span>"+(fullscreen?"Вернуть лабораторию":"На весь экран")+"</span>";
  lessonBoardDraw();
 }
 function lessonBoardSetup(){
@@ -4270,6 +4354,7 @@ function lessonBoardSetup(){
  document.getElementById("lessonBoardImageSize").addEventListener("keydown",event=>{if(event.key.startsWith("Arrow"))lessonBoardSnapshot();});
  document.getElementById("lessonBoardFullscreen").onclick=()=>lessonBoardSetFullscreen(!document.querySelector("#lesson .lesson-studio")?.classList.contains("board-fullscreen"));
  document.addEventListener("keydown",event=>{
+  if(event.key==="Escape")document.getElementById("lessonBoardMore").open=false;
   if(event.key==="Escape"&&document.querySelector("#lesson .lesson-studio")?.classList.contains("board-fullscreen"))lessonBoardSetFullscreen(false);
  });
  document.getElementById("lessonBoardPDFInput").onchange=async event=>{
@@ -4300,6 +4385,9 @@ function lessonBoardSetup(){
  document.getElementById("lessonPresentationTab").onclick=()=>lessonBoardToggle(false);
  document.getElementById("lessonBoardPen").onclick=()=>lessonSetTool("pen");
  document.getElementById("lessonBoardMarker").onclick=()=>lessonSetTool("marker");
+ document.getElementById("lessonBoardLine").onclick=()=>{
+  if(lessonTool==="erase")lessonSetTool("pen");lessonSetLineMode(!lessonLineMode);
+ };
  document.getElementById("lessonBoardEraser").onclick=()=>lessonSetTool("erase");
  document.getElementById("lessonBoardMove").onclick=()=>lessonBoardSetTool("move");
  document.getElementById("lessonBoardImageInput").onchange=async event=>{
@@ -4437,6 +4525,17 @@ function lessonSetup(){
  if(lessonReady)return;
  lessonReady=true;
  lessonRestoreInkTools();
+ document.getElementById("lesson").addEventListener("pointerdown",event=>{
+  if(!event.target.closest(".lesson-extra-menu"))document.querySelector("#lesson .lesson-extra-menu").open=false;
+  if(!event.target.closest("#lessonBoardMore"))document.getElementById("lessonBoardMore").open=false;
+  if(!event.target.closest(".indicator-tools")){
+   document.getElementById("lessonIndicatorPanel").hidden=true;
+   document.getElementById("lessonIndicatorToggle").setAttribute("aria-expanded","false");
+  }
+ },true);
+ document.querySelector("#lesson .lesson-lab-pane").addEventListener("pointerdown",event=>{
+  if(event.target.closest("button,input,select")&&!event.target.closest(".lesson-ink-tools"))lessonLabInkMode("view");
+ },true);
  lessonBoardSetup();
  lessonLabInkSetup();
  lessonTubeStates[0]=lessonCaptureTube();
@@ -4568,7 +4667,7 @@ function lessonSetup(){
   btn.onclick=()=>applyInkColor(color,true);
   palette.appendChild(btn);
  });
- ["#171719","#ffffff","#f02b3b","#ff6a1e","#ffce00","#86c767","#00b4cc","#2078db","#f00087"].forEach(color=>{
+ ["#171719","#ffffff","#f00087","#f02b3b","#ffce00","#2078db","#86c767"].forEach(color=>{
   const btn=document.createElement("button");btn.type="button";btn.dataset.ink=color;
   btn.style.setProperty("--swatch",color);
   btn.setAttribute("aria-label","Выбрать цвет "+color);
@@ -4584,7 +4683,7 @@ function lessonSetup(){
  });
  document.getElementById("lessonPenWidth").addEventListener("change",()=>{menu.open=false;});
  document.getElementById("lessonToolEraser").onclick=()=>lessonSetTool("erase");
- document.getElementById("lessonUndo").onclick=()=>{lessonCurrentStrokes().pop();lessonRedrawInk();lessonSaveLocal();};
+ document.getElementById("lessonUndo").onclick=()=>{if(lessonBoardMode){document.getElementById("lessonBoardUndo").click();return;}lessonCurrentStrokes().pop();lessonRedrawInk();lessonSaveLocal();};
  document.getElementById("lessonClearPage").onclick=()=>{
   const strokes=lessonCurrentStrokes();
   if(!strokes.length){lessonStatus("На текущем слайде нет пометок.");return;}
