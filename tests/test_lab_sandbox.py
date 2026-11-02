@@ -46,7 +46,7 @@ class SandboxRuntime(unittest.TestCase):
         self.assertEqual(installer.EXPECTED_BUILD, self.health['build'])
         self.assertEqual(installer.EXPECTED_HTML, self.health['html_sha256'])
         self.assertEqual(installer.EXPECTED_PAYLOAD, self.health['payload_sha256'])
-        self.assertEqual(self.health['coverage'],{'substances':219,'reactions':1424,'medium_reactions':96})
+        self.assertEqual(self.health['coverage'],{'substances':219,'reactions':1434,'medium_reactions':96})
         self.assertIn('Тестовая лаборатория'.encode(),self.html)
         self.assertNotIn(b'https://telegram.org/js/telegram-web-app.js',self.html)
 

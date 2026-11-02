@@ -142,6 +142,21 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
     assert.equal(await page.locator('#lessonHeat').getAttribute('aria-describedby'),null);
    }
    await page.evaluate(()=>lessonClearActiveTube());
+   // Oxidising acids: consume Cu(I) oxide, use the correct gas and heat gate.
+   for(const [acid,gas,hot] of [['h2so4_conc','SO₂',true],['hno3_conc','NO₂',false],['hno3','NO',false],['h2so4','',false]]){
+    await page.evaluate(a=>{lessonClearActiveTube();lessonSetReagent('a','cu2o');lessonSetReagent('b',a)},acid);
+    if(hot){
+     await page.locator('#lessonConduct').click();
+     assert.equal(await page.locator('#lessonTube1 .bubbleLayer').count(),0);
+     assert.ok(await page.locator('#lessonHeatHint').isVisible());
+     await page.locator('#lessonHeat').click();
+    }else await page.locator('#lessonConduct').click();
+    assert.match(await page.locator('#lessonReaction').innerText(),/CuSO₄|Cu\(NO₃\)₂/);
+    assert.equal(await page.locator('#lessonTube1 .bubbleLayer').count(),gas?1:0);
+    assert.equal(await page.locator('#lessonTube1 .solidBed.dissolving-solid').count(),1);
+    assert.equal(await page.locator('#lessonTube1 .pptLayer').count(),gas?0:1);
+    if(gas==='NO₂')assert.equal(await page.locator('#lessonTube1 .gasPlume.no2').count(),1);
+   }
    // Classroom feedback: direct acid reagent, real manganate(VI) media and visible chlorine.
    await page.evaluate(()=>{lessonClearActiveTube();lessonSetReagent('a','kmno4');lessonSetReagent('b','hcl')});
    assert.ok(await page.locator('#lessonMediumField').isHidden());

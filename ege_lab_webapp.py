@@ -205,6 +205,20 @@ def reaction_payload():
             row["condition"] = "водный раствор HBr" if bromide else "концентрированная HCl; нагревание"
             row["sign"] = ("Тёмный твёрдый MnO₂ постепенно расходуется; раствор приобретает оранжево-бурую окраску Br₂."
                 if bromide else "Тёмный твёрдый MnO₂ постепенно расходуется; выделяется жёлто-зелёный Cl₂.")
+    for row in payload:
+        if row["a"] in {"cu2o", "fe3o4", "fe", "al", "cr"} and row["b"] in {"hno3", "hno3_conc", "h2so4_conc"} and row["t"] != "z":
+            acid = row["b"]
+            row["condition"] = ("концентрированная H₂SO₄; нагревание" if acid == "h2so4_conc" else
+                "концентрированная HNO₃" if acid == "hno3_conc" else
+                "разбавленная HNO₃; стандартный вариант восстановления до NO (не очень разбавленная кислота)")
+            if row["heat"] and acid == "hno3_conc":
+                row["condition"] += "; нагревание"
+            if row["a"] in {"cu2o", "fe3o4"}:
+                sulfur = acid == "h2so4_conc"
+                row["oxidizer"] = "H₂SO₄: S(+6) → S(+4)" if sulfur else ("HNO₃: N(+5) → N(+4)" if acid == "hno3_conc" else "HNO₃: N(+5) → N(+2)")
+                row["reducer"] = "Cu₂O: Cu(+1) → Cu(+2)" if row["a"] == "cu2o" else "Fe₃O₄: Fe(+2) → Fe(+3)"
+                row["electron_balance"] = [("S(+6) + 2e⁻ → S(+4)" if sulfur else "N(+5) + e⁻ → N(+4)" if acid == "hno3_conc" else "N(+5) + 3e⁻ → N(+2)"),
+                    "Cu(+1) − e⁻ → Cu(+2)" if row["a"] == "cu2o" else "Fe(+2) − e⁻ → Fe(+3)"]
     payload.extend(dict(item) for item in EXCHANGE_REACTIONS)
     for salt, (first, second) in AMPHOTERIC_STAGES.items():
         if not any({r["a"], r["b"]} == {salt, "naoh"} and not r.get("excess") for r in payload):
