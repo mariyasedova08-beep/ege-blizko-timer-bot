@@ -13,7 +13,8 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    const errors=[];page.on('pageerror',e=>errors.push(String(e)));
    await page.route('**/*',route=>{
     const u=route.request().url();
-    if(process.env.LAB_SANDBOX_URL&&(u===url||u===url+'/api'))return route.continue();
+    if(process.env.LAB_SANDBOX_URL&&(u===url||u===url+'/api'||u===new URL('/healthz',url).href))return route.continue();
+    if(u===new URL('/healthz',url).href)return route.fulfill({contentType:'application/json',body:JSON.stringify({sandbox:true,build:'0000000000000000'})});
     if(u===url)return route.fulfill({contentType:'text/html',body:fs.readFileSync('lab-visual-preview/review.html','utf8')});
     if(u===url+'/api')return route.fulfill({contentType:'application/json',body:fs.readFileSync('lab-visual-preview/review.json','utf8')});
     if(u.includes('telegram-web-app'))return route.fulfill({contentType:'text/javascript',body:'window.Telegram={WebApp:{ready(){},expand(){},initData:"",initDataUnsafe:{}}}'});
