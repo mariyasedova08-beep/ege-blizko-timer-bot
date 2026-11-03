@@ -18,6 +18,13 @@ def build():
         '<script src="https://telegram.org/js/telegram-web-app.js"></script>',
         '<script>window.Telegram={WebApp:{initData:"",initDataUnsafe:{},ready(){},expand(){}}};</script>')
     html = html.replace('<body>', '<body><div style="padding:6px 12px;background:#F4D9E6;color:#171719;font:12px sans-serif">Тестовая лаборатория · Статистика бота не сохраняется</div>', 1)
+    # This comparison screen exists only in the isolated bundle, never in the bot.
+    pen_test = (ROOT/'preview/pen-comparison.html').read_text()
+    vendor = (ROOT/'vendor/perfect-freehand/index.cjs').read_text()
+    license_text = (ROOT/'vendor/perfect-freehand/LICENSE').read_text()
+    pen_test = pen_test.replace('__PFH_VENDOR__', vendor).replace('__PFH_LICENSE_COMMENT__', '/*\n'+license_text+'\n*/')
+    html = html.replace('<button id="lessonPilotHelp"', '<button id="penCompareOpen" type="button">Проверить ручку</button>\n <button id="lessonPilotHelp"', 1)
+    html = html.replace('</body>', pen_test+'\n</body>', 1)
     payload = {'ok': True, 'data': {
         'reagents': data['REAGENTS'], 'reactions': data['reaction_payload'](),
         'medium_reactions': data['MEDIUM_REACTIONS'],
@@ -30,7 +37,9 @@ def build():
                      'medium_reactions':len(data['MEDIUM_REACTIONS'])}, 'preview':True}}
     # No timestamps: same reviewed runtime files always produce the same bundle.
     names = ['ege_lab_webapp.py','ege_lab_substances.py','ege_lab_inorganic_reactions.py',
-             'ege_lab_exchange_matrix.py','ege_lab_mn_cr_pdf_import.py','ege_task6_reactions.py']
+             'ege_lab_exchange_matrix.py','ege_lab_mn_cr_pdf_import.py','ege_task6_reactions.py',
+             'deploy/build_lab_sandbox.py','preview/pen-comparison.html',
+             'vendor/perfect-freehand/index.cjs','vendor/perfect-freehand/LICENSE']
     hashes = {name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in names}
     runtime_id = hashlib.sha256(json.dumps(hashes,sort_keys=True).encode()).hexdigest()[:16]
     html_bytes = html.encode()
