@@ -550,7 +550,14 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    const lessonBeforeBench=await page.evaluate(()=>JSON.stringify({notes:lessonNotes,board:lessonBoardSerializeProject(),tool:lessonTool,pen:lessonPenColorValue,marker:lessonMarkerColorValue}));
    await page.locator('#penCompareOpen').click();await page.locator('#penCompare').waitFor({state:'visible'});
    const benchBox=await page.locator('#penCompareCanvas').boundingBox(),benchPen=await page.context().newCDPSession(page);
+   await page.evaluate(()=>document.getElementById('penCompareCanvas').addEventListener('pointerdown',e=>window.benchPointerId=e.pointerId,{once:true}));
    await benchPen.send('Input.dispatchMouseEvent',{type:'mousePressed',x:benchBox.x+30,y:benchBox.y+70,button:'left',buttons:1,pointerType:'pen',force:.2});
+   // Replay Safari's duplicated coalesced/parent sample without private user ink.
+   await page.evaluate(()=>{
+    const c=document.getElementById('penCompareCanvas'),r=c.getBoundingClientRect();
+    const e=new PointerEvent('pointermove',{pointerId:window.benchPointerId,pointerType:'pen',clientX:r.left+35,clientY:r.top+72,buttons:1,pressure:.25,bubbles:true});
+    Object.defineProperty(e,'getCoalescedEvents',{value:()=>[e]});c.dispatchEvent(e);
+   });
    for(let i=1;i<=20;i++)await benchPen.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:benchBox.x+30+i*9,y:benchBox.y+70+Math.sin(i/3)*15,button:'left',buttons:1,pointerType:'pen',force:.2+i/50});
    await benchPen.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:benchBox.x+215,y:benchBox.y+75,button:'left',buttons:0,pointerType:'pen',force:0});
    await benchPen.detach();
@@ -567,6 +574,9 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    const benchNatural=JSON.parse(fs.readFileSync(await (await lastBenchDownload).path(),'utf8'));
    assert.equal(benchNatural.engine.version,'1.2.3');assert.equal(benchNatural.preferred,'natural');
    assert.deepEqual(benchRaw.strokes,benchNatural.strokes);assert.ok(benchNatural.diagnostics.pressure.distinctValues>5);
+   assert.ok(benchNatural.diagnostics.duplicatesRemoved>=1);
+   const rawBenchPoints=benchNatural.strokes[0].raw;
+   for(let i=1;i<rawBenchPoints.length;i++)assert.ok(['x','y','t','pressure'].some(k=>rawBenchPoints[i][k]!==rawBenchPoints[i-1][k]));
    assert.ok(benchNatural.strokes[0].raw.some(p=>p.pressure>.2&&p.pressure<.6));
    assert.equal(benchNatural.strokes[0].pointerType,'pen');assert.equal('notes' in benchNatural,false);
    await page.locator('#penCompareClose').click();assert.ok(await page.locator('#penCompare').isHidden());

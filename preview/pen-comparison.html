@@ -83,11 +83,11 @@ __PFH_VENDOR__
   const lo=pressures.length?Math.min(...pressures):0,hi=pressures.length?Math.max(...pressures):0;
   const variations=new Set(pressures.map(p=>Math.round(p*1000))).size;
   const waits=state.frameWaits.slice().sort((a,b)=>a-b),wait=waits.length?waits[Math.floor(waits.length/2)]:0;
-  return {pointerTypes:kinds,pressure:{min:lo,max:hi,distinctValues:variations},samples:samples.length,coalesced:state.strokes.reduce((n,s)=>n+s.coalesced,0),medianFrameWaitMs:Math.round(wait*10)/10,pressureSource:state.strokes.at(-1)&&pressureUsed(state.strokes.at(-1))?'pen':'simulated'};
+  return {pointerTypes:kinds,pressure:{min:lo,max:hi,distinctValues:variations},samples:samples.length,coalesced:state.strokes.reduce((n,s)=>n+s.coalesced,0),duplicatesRemoved:state.strokes.reduce((n,s)=>n+(s.duplicates||0),0),medianFrameWaitMs:Math.round(wait*10)/10,pressureSource:state.strokes.at(-1)&&pressureUsed(state.strokes.at(-1))?'pen':'simulated'};
  }
  function refreshDiagnostics(){
   const d=measureDiagnostics();
-  document.getElementById('penCompareDiagnostics').textContent='Ввод: '+(d.pointerTypes.join(', ')||'нет штрихов')+'. Нажим: '+d.pressure.min.toFixed(3)+'–'+d.pressure.max.toFixed(3)+' ('+d.pressure.distinctValues+' значений). Точек: '+d.samples+', объединённых: '+d.coalesced+'. Ожидание кадра: '+d.medianFrameWaitMs+' мс.';
+  document.getElementById('penCompareDiagnostics').textContent='Ввод: '+(d.pointerTypes.join(', ')||'нет штрихов')+'. Нажим: '+d.pressure.min.toFixed(3)+'–'+d.pressure.max.toFixed(3)+' ('+d.pressure.distinctValues+' значений). Точек: '+d.samples+', объединённых: '+d.coalesced+', повторов исключено: '+d.duplicatesRemoved+'. Ожидание кадра: '+d.medianFrameWaitMs+' мс.';
   dialog.dataset.strokeCount=String(state.strokes.length);dialog.dataset.pressureSource=d.pressureSource;
   document.getElementById('penCompareHint').hidden=state.strokes.length>0;
  }
@@ -125,9 +125,16 @@ __PFH_VENDOR__
   for(const sample of samples){
    if(state.count>=60000){status('Достигнут предел пробы. Скачайте её или очистите поле.');break;}
    const p=point(sample),time=Number.isFinite(sample.timeStamp)?sample.timeStamp:performance.now();
-   stroke.raw.push({...p,pressure:Number.isFinite(sample.pressure)?sample.pressure:null,t:Math.max(0,time-stroke.start)});state.count++;
-   const proxy={type:sample===e?e.type:'pointermove',timeStamp:time};
-   lessonAddStrokeSamples(stroke.baseline,proxy,()=>p,{clientWidth:state.scale,clientHeight:state.scale});
+   const pressure=Number.isFinite(sample.pressure)?sample.pressure:null,t=Math.max(0,time-stroke.start),last=stroke.raw.at(-1);
+   const duplicate=last&&last.x===p.x&&last.y===p.y&&last.t===t&&last.pressure===pressure;
+   if(duplicate)stroke.duplicates++;
+   else{stroke.raw.push({...p,pressure,t});state.count++;}
+   // Safari can repeat the final coalesced sample as the parent event.
+   // Keep later stationary/pressure-only samples; preserve the pen-up endpoint.
+   if(!duplicate||(sample===e&&e.type==='pointerup')){
+    const proxy={type:sample===e?e.type:'pointermove',timeStamp:time};
+    lessonAddStrokeSamples(stroke.baseline,proxy,()=>p,{clientWidth:state.scale,clientHeight:state.scale});
+   }
   }
   state.lastInput=performance.now();schedule();
  }
@@ -140,7 +147,7 @@ __PFH_VENDOR__
  canvas.addEventListener('pointerdown',e=>{
   if(state.active||e.button!==0||state.strokes.length>=100||state.count>=60000)return;
   e.preventDefault();resize();const p=point(e),width=Number(document.getElementById('penCompareWidth').value)/state.scale,color=document.getElementById('penCompareColor').value;
-  const stroke={pointerId:e.pointerId,pointerType:e.pointerType||'unknown',start:e.timeStamp,width,color,raw:[{...p,pressure:Number.isFinite(e.pressure)?e.pressure:null,t:0}],baseline:{renderVersion:2,color,width,opacity:1,points:[p]},complete:false,coalesced:0,dispatches:1};
+  const stroke={pointerId:e.pointerId,pointerType:e.pointerType||'unknown',start:e.timeStamp,width,color,raw:[{...p,pressure:Number.isFinite(e.pressure)?e.pressure:null,t:0}],baseline:{renderVersion:2,color,width,opacity:1,points:[p]},complete:false,coalesced:0,duplicates:0,dispatches:1};
   state.strokes.push(stroke);state.count++;state.active=stroke;canvas.setPointerCapture(e.pointerId);state.lastInput=performance.now();schedule();
  });
  canvas.addEventListener('pointermove',e=>{if(state.active&&state.active.pointerId===e.pointerId){e.preventDefault();record(e);}});
