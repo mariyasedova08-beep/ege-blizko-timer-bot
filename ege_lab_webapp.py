@@ -3499,7 +3499,9 @@ function lessonSmoothPoints(points){
 // time. Centripetal interpolation avoids sharp joins without cutting loops.
 function lessonStrokePoints(stroke,sx=1,sy=1){
  const points=stroke.points||[];
- if(stroke.renderVersion!==2)return lessonSmoothPoints(points);
+ // Roll back interpolating pen curves: they amplify tablet micro-jitter.
+ // Keep the new marker path, but restore the previous pen geometry.
+ if(stroke.renderVersion!==2||!(stroke.opacity<1))return lessonSmoothPoints(points);
  if(points.length<3||stroke.straight)return points;
  const clean=[];
  for(const p of points){const last=clean.at(-1);if(!last||Math.hypot(p.x*sx-last.x,p.y*sy-last.y)>1e-6)clean.push({x:p.x*sx,y:p.y*sy});}
@@ -3523,8 +3525,6 @@ function lessonStrokePoints(stroke,sx=1,sy=1){
 // independent of tablet event frequency. No delayed cursor or text recognition.
 function lessonFinishStroke(stroke,sx=1,sy=1){
  if(!lessonBeautify||!stroke||stroke.straight||stroke.opacity<1||stroke.points.length<4)return;
- // Live ink has already been stabilized; do not reshape letters on pen lift.
- if(stroke.renderVersion===2&&lessonStrokeFilters.has(stroke))return;
  const raw=stroke.points.map(p=>({x:p.x*sx,y:p.y*sy}));
  const lengths=[0];for(let i=1;i<raw.length;i++)lengths.push(lengths[i-1]+Math.hypot(raw[i].x-raw[i-1].x,raw[i].y-raw[i-1].y));
  const total=lengths[lengths.length-1];if(total<4)return;

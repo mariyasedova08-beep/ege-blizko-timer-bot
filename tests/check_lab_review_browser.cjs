@@ -152,15 +152,16 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    liveInk.fast.forEach((p,i)=>assert.ok(Math.abs(p.x-i*20)<=1.5));
    const natural=await page.evaluate(()=>{
     const points=[{x:.1,y:.1},{x:.15,y:.14},{x:.2,y:.1},{x:.15,y:.06},{x:.1,y:.1}];
-    const curve=lessonStrokePoints({renderVersion:2,points},600,300);
+    const curve=lessonStrokePoints({renderVersion:2,opacity:.32,points},600,300);
+    const penCurve=lessonStrokePoints({renderVersion:2,opacity:1,points},600,300);
     const legacy=lessonStrokePoints({points},600,300);
     const live={renderVersion:2,opacity:1,points:[{x:0,y:0}]};
     for(let i=1;i<=8;i++)lessonAddStrokeSamples(live,{timeStamp:i*8,clientX:i,clientY:Math.sin(i)},e=>({x:e.clientX,y:e.clientY}),{clientWidth:1,clientHeight:1});
     const before=JSON.stringify(live.points);lessonFinishStroke(live);
     const duplicates=lessonStrokePoints({renderVersion:2,points:[points[0],points[0],points[1],points[2]]},600,300);
-    return {points,curve,legacy,old:lessonSmoothPoints(points),unchanged:before===JSON.stringify(live.points),duplicates};
+    return {points,curve,penCurve,legacy,old:lessonSmoothPoints(points),unchanged:before===JSON.stringify(live.points),duplicates};
    });
-   assert.ok(natural.unchanged);assert.deepEqual(natural.legacy,natural.old);
+   assert.equal(natural.unchanged,false);assert.deepEqual(natural.penCurve,natural.old);assert.deepEqual(natural.legacy,natural.old);
    natural.points.forEach((p,i)=>{assert.ok(Math.hypot(p.x-natural.curve[i*8].x,p.y-natural.curve[i*8].y)<1e-9)});
    assert.ok(natural.duplicates.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)));
    // Heat guidance appears before conducting a known hot reaction; never for cold/unknown pairs.
