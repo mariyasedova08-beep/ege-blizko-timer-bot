@@ -47,7 +47,7 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.ok(await page.locator('#lessonPilotBar').isVisible());
    await page.locator('#lessonPilotHelp').click();
    assert.ok(await page.locator('#lessonPilotDialog').isVisible());
-   assert.match(await page.locator('#lessonPilotGuide').innerText(),/Автовосстановления доски.*нет/);
+   assert.match(await page.locator('#lessonPilotGuide').innerText(),/Доска автоматически сохраняется локально/);
    await page.keyboard.press('Escape');
    assert.ok(await page.locator('#lessonPilotDialog').isHidden());
    await page.locator('#lessonPilotReport').click();
@@ -474,8 +474,36 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.equal(await page.evaluate(()=>lessonNotes['1'].length),1);
    await page.locator('#lessonPresentationTab').scrollIntoViewIfNeeded();
    await page.screenshot({path:'lab-visual-preview/review-presentation-'+size.width+'.png'});
+   // Persist a complete multi-page scene, reload the tab and explicitly restore.
+   await page.waitForFunction(()=>lessonBoardRecoveryDB!==null);
+   await page.waitForFunction(()=>!lessonBoardRecoveryBusy);
+   await page.evaluate(async()=>{lessonBoardRecoveryDirty=true;await lessonBoardFlushRecovery();});
+   await page.waitForFunction(()=>!lessonBoardRecoveryBusy);
+   const recoveryBefore=await page.evaluate(()=>lessonBoardSerializeProject());
+   assert.match(await page.locator('#lessonBoardSaveState').innerText(),/сохранена/);
+   await page.reload();await page.waitForFunction(()=>lessonReady);
+   await page.locator('[data-page="lesson"]').click();
+   await page.locator('#lessonBoardRecover').waitFor({state:'visible'});
+   page.once('dialog',dialog=>dialog.accept());await page.locator('#lessonBoardRecover').click();
+   await page.waitForFunction(()=>!lessonBoardRecoveryPending);
+   assert.deepEqual(JSON.parse(await page.evaluate(()=>lessonBoardSerializeProject())),JSON.parse(recoveryBefore));
+   // A quota/storage failure is visible and does not report success.
+   await page.waitForFunction(()=>!lessonBoardRecoveryBusy);
+   const recoveryFailure=await page.evaluate(async()=>{
+    const db=lessonBoardRecoveryDB;lessonBoardRecoveryDB={transaction(){throw Error('quota')}};
+    try{lessonBoardView.x+=1;lessonBoardRecoveryDirty=true;await lessonBoardFlushRecovery();return document.getElementById('lessonBoardSaveState').textContent;}
+    finally{lessonBoardRecoveryDB=db;}
+   });
+   assert.match(recoveryFailure,/не сохранена/);
+   // Another tab's revision cannot be silently overwritten.
+   const conflict=await page.evaluate(async()=>{
+    await new Promise((resolve,reject)=>{const tx=lessonBoardRecoveryDB.transaction('boards','readwrite'),store=tx.objectStore('boards');
+     const req=store.get(lessonBoardRecoveryKey());req.onsuccess=()=>store.put({...req.result,revision:req.result.revision+1},lessonBoardRecoveryKey());tx.oncomplete=resolve;tx.onerror=reject;});
+    lessonBoardRecoveryDirty=true;await lessonBoardFlushRecovery();return document.getElementById('lessonBoardSaveState').textContent;
+   });
+   assert.match(conflict,/другой вкладке/);
    assert.deepEqual(errors,[]);
-   console.log('REVIEW_BROWSER_OK',size.width,size.height,'chemistry, tubes, PDF, world coordinates, zoom, projects v1/v2, eraser, undo, export, fullscreen');
+   console.log('REVIEW_BROWSER_OK' ,size.width,size.height,'chemistry, tubes, PDF, world coordinates, zoom, projects v1/v2, eraser, undo, export, fullscreen');
    await page.close();
   }
  }finally{await browser.close()}

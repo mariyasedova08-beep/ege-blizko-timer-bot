@@ -5,6 +5,10 @@ import base64
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import hmac
+import os
+import re
+import time
 from pathlib import Path
 from urllib.parse import urlsplit
 import zlib
@@ -43,7 +47,37 @@ def load_bundle(path):
     return html, payload, health
 
 
-def handler_for(html, payload, health):
+def access_password(password, salt):
+    return hashlib.scrypt(password.encode('utf-8'), salt=bytes.fromhex(salt), n=16384, r=8, p=1, dklen=32).hex()
+
+
+def access_allowed(header, access_file):
+    """Reload on each request: expiry and revocation take effect immediately."""
+    try:
+        if not header.startswith('Basic ') or len(header) > 2048:
+            return False
+        credentials = base64.b64decode(header[6:], validate=True).decode('utf-8')
+        username, password = credentials.split(':', 1)
+        if not re.fullmatch(r'[a-zA-Z0-9_-]{1,48}', username) or not 1 <= len(password) <= 256:
+            return False
+        raw = Path(access_file).read_bytes()
+        if len(raw) > 65536:
+            return False
+        config = json.loads(raw)
+        if config.get('version') != 1 or not isinstance(config.get('users'), dict):
+            return False
+        user = config['users'].get(username)
+        if not isinstance(user, dict) or user.get('revoked') is not False or float(user.get('expires', 0)) <= time.time():
+            return False
+        salt, digest = user.get('salt', ''), user.get('digest', '')
+        if not re.fullmatch(r'[0-9a-f]{32}', salt) or not re.fullmatch(r'[0-9a-f]{64}', digest):
+            return False
+        return hmac.compare_digest(access_password(password, salt), digest)
+    except (OSError, ValueError, TypeError, UnicodeError):
+        return False
+
+
+def handler_for(html, payload, health, access_file=None):
     class Handler(BaseHTTPRequestHandler):
         def setup(self):
             super().setup()
@@ -64,8 +98,25 @@ def handler_for(html, payload, health):
         def json(self, code, data):
             self.send(code, json.dumps(data, ensure_ascii=False).encode())
 
+        def authorized(self):
+            if access_file is None:
+                return True
+            if access_allowed(self.headers.get('Authorization', ''), access_file):
+                self.pilot_user = base64.b64decode(self.headers['Authorization'][6:]).decode('utf-8').split(':', 1)[0]
+                return True
+            self.send_response(401)
+            self.send_header('WWW-Authenticate', 'Basic realm="EGE BLIZKO pilot", charset="UTF-8"')
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Content-Length', '0')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            self.close_connection = True
+            return False
+
         def do_GET(self):
             path = urlsplit(self.path).path
+            if path != '/healthz' and not self.authorized():
+                return
             if path == '/lab-app':
                 return self.send(200, html, 'text/html; charset=utf-8')
             if path == '/healthz':
@@ -73,6 +124,8 @@ def handler_for(html, payload, health):
             return self.json(404, {'ok': False, 'error': 'not_found'})
 
         def do_POST(self):
+            if not self.authorized():
+                return
             if urlsplit(self.path).path != '/lab-app/api':
                 return self.json(404, {'ok': False, 'error': 'not_found'})
             try:
@@ -86,6 +139,8 @@ def handler_for(html, payload, health):
                 return self.json(400, {'ok': False, 'error': 'invalid_request'})
             action = request.get('action')
             if action == 'load':
+                if access_file is not None:
+                    return self.json(200, {**payload, 'data': {**payload['data'], 'pilot_user': self.pilot_user}})
                 return self.json(200, payload)
             if action == 'event':
                 return self.json(200, {'ok': True, 'stats': payload['data']['stats'], 'preview': True})
@@ -97,9 +152,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bundle', type=Path, required=True)
     parser.add_argument('--port', type=int, default=8768)
+    parser.add_argument('--access-file', type=Path, default=os.environ.get('EGE_LAB_ACCESS_FILE') or None, help='Optional pilot user file; configured but unreadable means deny all access')
     args = parser.parse_args()
     html, payload, health = load_bundle(args.bundle)
-    with ThreadingHTTPServer(('127.0.0.1', args.port), handler_for(html, payload, health)) as server:
+    with ThreadingHTTPServer(('127.0.0.1', args.port), handler_for(html, payload, health, args.access_file)) as server:
         server.daemon_threads = True
         print(json.dumps(health), flush=True)
         server.serve_forever()

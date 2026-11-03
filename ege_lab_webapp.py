@@ -1631,7 +1631,10 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 
 <section id="lesson" class="page">
 <div id="lessonPilotBar" class="lesson-pilot-bar" hidden>
- <span><b>Тестовая версия</b> · Доску сохраняйте через «Сохранить проект»</span>
+ <span><b>Тестовая версия</b> · Доска: локальная копия + «Сохранить проект»</span>
+ <span id="lessonBoardSaveState" role="status">Доска: проверяем локальную копию</span>
+ <button id="lessonBoardRecover" type="button" hidden>Восстановить доску</button>
+ <button id="lessonBoardStartNew" type="button" hidden>Начать без восстановления</button>
  <span id="lessonPilotSaveState" role="status">Пометки PDF: только в этом браузере</span>
  <button id="lessonPilotHelp" type="button">Как начать</button>
  <button id="lessonPilotReport" type="button">Сообщить о проблеме</button>
@@ -1642,7 +1645,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
   <p>Откройте PDF во вкладке «Презентация». Стрелки перелистывают слайды, «На весь экран» увеличивает рабочую область. Esc возвращает обычный вид.</p>
   <p>Выберите ручку, маркер или ластик. Цвет и толщина ручки и маркера запоминаются отдельно. В «Настройках» можно включить «Красивое письмо».</p>
   <p>Во вкладке «Доска» можно размещать изображения и PDF. Для перемещения выберите руку; масштаб меняется кнопками или жестом на трекпаде.</p>
-  <p><b>Перед закрытием:</b> скачайте «Сохранить проект» для редактируемой доски и «Сохранить PDF» для презентации с пометками. Оригинальный PDF нужно хранить отдельно. Локальные пометки не являются облачной копией и могут исчезнуть при очистке браузера. Автовосстановления доски после закрытия пока нет.</p>
+  <p><b>Перед закрытием:</b> скачайте «Сохранить проект» для редактируемой доски и «Сохранить PDF» для презентации с пометками. Оригинальный PDF нужно хранить отдельно. Локальные пометки не являются облачной копией и могут исчезнуть при очистке браузера. Доска автоматически сохраняется локально: после повторного открытия нажмите «Восстановить доску». Дождитесь статуса сохранения перед закрытием. Локальная копия не заменяет скачанный проект.</p>
   <p>В лаборатории выберите реагенты и нажмите «Провести». Если нужен нагрев, появится подсказка. Отсутствие пары в базе не означает, что реакция химически невозможна.</p>
  </div>
  <div id="lessonPilotFeedback" hidden>
@@ -4249,15 +4252,16 @@ async function lessonBoardImportPDF(file){
 function lessonBoardValidNumber(value,min,max){
  return typeof value==="number"&&Number.isFinite(value)&&value>=min&&value<=max;
 }
+function lessonBoardSerializeProject(){
+ lessonBoardStoreCurrent();
+ const pages=lessonBoardPages.map(page=>({name:page.name,view:page.view,document:page.document,
+  strokes:page.strokes.map(stroke=>({color:stroke.color,width:stroke.width,opacity:stroke.opacity,points:stroke.points.map(p=>({x:p.x,y:p.y}))})),
+  items:page.items.map(item=>({x:item.x,y:item.y,w:item.w,h:item.h,locked:item.locked===true,image:lessonBoardImageData(item.image)}))}));
+ return JSON.stringify({format:"ege-blizko-board",version:2,width:2400,height:1600,activePage:lessonBoardPageIndex,pages});
+}
 async function lessonBoardSaveProject(){
  try{
-  lessonBoardStoreCurrent();
-  const pages=lessonBoardPages.map(page=>({
-   name:page.name,view:page.view,document:page.document,
-   strokes:page.strokes.map(stroke=>({color:stroke.color,width:stroke.width,opacity:stroke.opacity,points:stroke.points.map(p=>({x:p.x,y:p.y}))})),
-   items:page.items.map(item=>({x:item.x,y:item.y,w:item.w,h:item.h,locked:item.locked===true,image:lessonBoardImageData(item.image)}))
-  }));
-  const content=JSON.stringify({format:"ege-blizko-board",version:2,width:2400,height:1600,activePage:lessonBoardPageIndex,pages});
+  const content=lessonBoardSerializeProject();
   lessonDownload(content,"ЕГЭ_БЛИЗКО_проект_доски.json","application/json");
   lessonStatus("Проект скачан: его можно снова открыть и редактировать. PDF сохраняется отдельно.");
  }catch(err){lessonStatus("Не удалось сохранить проект. Проверь загруженные изображения.");}
@@ -4301,6 +4305,7 @@ async function lessonBoardOpenProject(file){
   lessonBoardSelection=null;lessonBoardUndoStack=[];lessonBoardPointer=null;
   lessonBoardSwitchPage(Number.isInteger(data.activePage)?Math.min(pages.length-1,Math.max(0,data.activePage)):0);
   lessonStatus("Проект открыт. Все листы, изображения и записи снова доступны для редактирования.");
+  return true;
  }catch(err){lessonStatus("Не удалось открыть проект: файл повреждён или не подходит к этой доске. Текущая работа сохранена.");}
 }
 function lessonBoardSnapshot(){
@@ -4338,6 +4343,7 @@ function lessonBoardPaintStroke(ctx,stroke){
 }
 let lessonBoardInkCache=null;
 function lessonBoardDraw(){
+ lessonBoardQueueRecovery();
  const canvas=document.getElementById("lessonBoardCanvas"),space=document.getElementById("lessonBoardSpace");
  if(space.hidden)return;
  const width=Math.max(1,space.clientWidth),height=Math.max(1,space.clientHeight);
@@ -4460,7 +4466,79 @@ function lessonBoardSetFullscreen(enabled){
  button.innerHTML='<svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"/></svg>'+"<span>"+(fullscreen?"Вернуть лабораторию":"На весь экран")+"</span>";
  lessonBoardDraw();
 }
+let lessonBoardRecoveryDB=null,lessonBoardRecoveryTimer=0,lessonBoardRecoveryPending=false;
+let lessonBoardRecoveryRevision=0,lessonBoardRecoveryContent="",lessonBoardRecoveryBusy=false,lessonBoardRecoveryDirty=false;
+const lessonBoardRecoveryKey=()=>"board:"+String(data?.pilot_user||"local-preview");
+function lessonBoardRecoveryStatus(text){const el=document.getElementById("lessonBoardSaveState");if(el)el.textContent=text;}
+function lessonBoardRecoveryRead(){return new Promise((resolve,reject)=>{
+ const tx=lessonBoardRecoveryDB.transaction("boards","readonly"),request=tx.objectStore("boards").get(lessonBoardRecoveryKey());
+ request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+});}
+function lessonBoardQueueRecovery(){
+ if(!lessonBoardRecoveryDB||lessonBoardRecoveryPending)return;
+ lessonBoardRecoveryDirty=true;clearTimeout(lessonBoardRecoveryTimer);
+ lessonBoardRecoveryTimer=setTimeout(lessonBoardFlushRecovery,650);
+}
+async function lessonBoardFlushRecovery(){
+ clearTimeout(lessonBoardRecoveryTimer);
+ if(!lessonBoardRecoveryDB||lessonBoardRecoveryPending||lessonBoardRecoveryBusy||!lessonBoardRecoveryDirty)return;
+ lessonBoardRecoveryBusy=true;lessonBoardRecoveryDirty=false;
+ try{
+  const content=lessonBoardSerializeProject();
+  if(content.length>55*1024*1024)throw Error("size");
+  if(content===lessonBoardRecoveryContent)return;
+  lessonBoardRecoveryStatus("Доска: сохраняем локально…");
+  const revision=lessonBoardRecoveryRevision+1;
+  await new Promise((resolve,reject)=>{
+   const tx=lessonBoardRecoveryDB.transaction("boards","readwrite"),store=tx.objectStore("boards");
+   const request=store.get(lessonBoardRecoveryKey());let conflict=false;
+   request.onsuccess=()=>{
+    if((request.result?.revision||0)!==lessonBoardRecoveryRevision){conflict=true;tx.abort();return;}
+    store.put({revision,content,savedAt:Date.now()},lessonBoardRecoveryKey());
+   };
+   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||Error("storage"));
+   tx.onabort=()=>reject(Error(conflict?"conflict":"storage"));
+  });
+  lessonBoardRecoveryRevision=revision;lessonBoardRecoveryContent=content;
+  lessonBoardRecoveryStatus("Доска сохранена в этом браузере");
+ }catch(err){
+  if(err.message==="conflict")lessonBoardRecoveryPending=true;
+  lessonBoardRecoveryStatus(err.message==="conflict"?"Доска изменена в другой вкладке — сохраните свой проект отдельно":"Доска не сохранена — скачайте проект");
+ }finally{lessonBoardRecoveryBusy=false;if(lessonBoardRecoveryDirty)lessonBoardQueueRecovery();}
+}
+async function lessonBoardSetupRecovery(){
+ if(!data?.preview)return;
+ try{
+  lessonBoardRecoveryDB=await new Promise((resolve,reject)=>{
+   const request=indexedDB.open("ege-blizko-board-recovery",1);
+   request.onupgradeneeded=()=>request.result.createObjectStore("boards");
+   request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+   request.onblocked=()=>reject(Error("blocked"));
+  });
+  const saved=await lessonBoardRecoveryRead();
+  lessonBoardRecoveryRevision=saved?.revision||0;
+  lessonBoardRecoveryPending=!!saved;
+  const recover=document.getElementById("lessonBoardRecover"),fresh=document.getElementById("lessonBoardStartNew");
+  recover.hidden=fresh.hidden=!saved;
+  if(saved){
+   lessonBoardRecoveryStatus("Найдена локальная копия доски — можно восстановить");
+   recover.onclick=async()=>{
+    if(!window.confirm("Восстановить локальную копию? Текущая доска будет заменена. При необходимости сначала скачайте её проект."))return;
+    const restored=await lessonBoardOpenProject(new File([saved.content],"recovery.json",{type:"application/json"}));
+    if(restored){lessonBoardRecoveryContent=saved.content;lessonBoardRecoveryPending=false;recover.hidden=fresh.hidden=true;lessonBoardRecoveryStatus("Доска восстановлена из локальной копии");lessonBoardQueueRecovery();}
+    else lessonBoardRecoveryStatus("Копия повреждена — текущая доска не заменена");
+   };
+   fresh.onclick=()=>{
+    if(!window.confirm("Заменить локальную копию текущей доской? Старую копию после этого восстановить нельзя."))return;
+    lessonBoardRecoveryPending=false;recover.hidden=fresh.hidden=true;lessonBoardQueueRecovery();
+   };
+  }else{lessonBoardRecoveryStatus("Доска: локальная копия будет сохранена после изменения");}
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")lessonBoardFlushRecovery();});
+  window.addEventListener("pagehide",()=>lessonBoardFlushRecovery());
+ }catch(err){lessonBoardRecoveryStatus("Локальная копия доски недоступна — скачивайте проект");}
+}
 function lessonBoardSetup(){
+ lessonBoardSetupRecovery();
  const canvas=document.getElementById("lessonBoardCanvas");
  new ResizeObserver(()=>{if(lessonBoardFitMode&&lessonBoardMode)lessonBoardFit(lessonBoardFitMode);else lessonBoardScheduleDraw();}).observe(document.getElementById("lessonBoardSpace"));
  document.getElementById("lessonBoardPan").onclick=()=>lessonBoardSetTool("pan");
