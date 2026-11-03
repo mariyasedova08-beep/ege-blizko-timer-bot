@@ -1,4 +1,4 @@
-name: Public test lab HTTPS — no deployment
+name: Protected public pilot HTTPS — no deployment
 on:
   push:
     branches: ['feature/lab-review-board-20261101']
@@ -8,20 +8,13 @@ permissions:
 jobs:
   verify-public-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Verify trusted HTTPS certificate and exact deployed test build
-        run: python tests/check_lab_https_public.py
-      - run: npm install --no-save --no-package-lock playwright@1.56.1 pdf-lib@1.17.1 pdfjs-dist@4.10.38
-      - run: npx playwright install --with-deps chromium
-      - name: Test actual public HTTPS lab in desktop and tablet Chromium
-        env:
-          LAB_SANDBOX_URL: https://lab-test.77-233-212-200.sslip.io/lab-app
-        run: node tests/check_lab_review_browser.cjs
+      - name: Verify trusted TLS, anonymous access denial and exact deployed build
+        run: python tests/check_lab_pilot_public.py
+# Authenticated desktop/tablet browser coverage runs with disposable credentials
+# in ege-lab-review-isolated.yml. No owner's password is stored in Actions.

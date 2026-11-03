@@ -1,1 +1,1 @@
-Live pen stabilizer installed on public test HTTPS 2026-11-02; build a21cb18b56a95b4a. Verify trusted HTTPS, exact hashes and desktop/tablet browser. Read-only checks; no deployment.
+Protected pilot installed 2026-11-03; build 3a854f9ba4a48fb0. Verify trusted TLS, HTML/API 401 for anonymous requests and exact hashes. No deployment.
