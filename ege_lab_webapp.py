@@ -329,6 +329,13 @@ HTML = r'''<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
+.lesson-pilot-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;margin-bottom:6px;color:#796473;font-size:11px}
+.lesson-pilot-bar[hidden]{display:none}
+.lesson-pilot-bar button{min-height:32px;padding:5px 9px;font-size:11px;background:#fff;border:1px solid #eadbe4;border-radius:9px;color:#983568}
+.lesson-pilot-dialog{max-width:620px;width:calc(100% - 32px);max-height:85vh;overflow:auto;border:1px solid #eadbe4;border-radius:18px;padding:22px;color:#171719;background:#fffdfb}
+.lesson-pilot-dialog::backdrop{background:rgba(35,20,28,.35)}
+.lesson-pilot-dialog p{font-size:14px;line-height:1.5}
+.lesson-pilot-dialog textarea{display:block;width:100%;margin:8px 0;padding:10px;border:1px solid #dcc9d4;border-radius:10px;font:inherit;resize:vertical}
 :root{--pink:#f00087;--soft:#f4d9e6;--milk:#f8f5f2;--ink:#171719}
 *{box-sizing:border-box}body{margin:0;background:var(--milk);color:var(--ink);font:14px system-ui,-apple-system,sans-serif}
 .app{max-width:1180px;margin:auto;padding:14px}.logo{color:var(--pink);font-weight:900}.tabs,.grid,.answers,.tools,.stats{display:grid;gap:8px}
@@ -1623,6 +1630,30 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 </div>
 
 <section id="lesson" class="page">
+<div id="lessonPilotBar" class="lesson-pilot-bar" hidden>
+ <span><b>Тестовая версия</b> · Доску сохраняйте через «Сохранить проект»</span>
+ <span id="lessonPilotSaveState" role="status">Пометки PDF: только в этом браузере</span>
+ <button id="lessonPilotHelp" type="button">Как начать</button>
+ <button id="lessonPilotReport" type="button">Сообщить о проблеме</button>
+</div>
+<dialog id="lessonPilotDialog" class="lesson-pilot-dialog" aria-labelledby="lessonPilotTitle">
+ <h2 id="lessonPilotTitle">Перед первым уроком</h2>
+ <div id="lessonPilotGuide">
+  <p>Откройте PDF во вкладке «Презентация». Стрелки перелистывают слайды, «На весь экран» увеличивает рабочую область. Esc возвращает обычный вид.</p>
+  <p>Выберите ручку, маркер или ластик. Цвет и толщина ручки и маркера запоминаются отдельно. В «Настройках» можно включить «Красивое письмо».</p>
+  <p>Во вкладке «Доска» можно размещать изображения и PDF. Для перемещения выберите руку; масштаб меняется кнопками или жестом на трекпаде.</p>
+  <p><b>Перед закрытием:</b> скачайте «Сохранить проект» для редактируемой доски и «Сохранить PDF» для презентации с пометками. Оригинальный PDF нужно хранить отдельно. Локальные пометки не являются облачной копией и могут исчезнуть при очистке браузера. Автовосстановления доски после закрытия пока нет.</p>
+  <p>В лаборатории выберите реагенты и нажмите «Провести». Если нужен нагрев, появится подсказка. Отсутствие пары в базе не означает, что реакция химически невозможна.</p>
+ </div>
+ <div id="lessonPilotFeedback" hidden>
+  <p>Опишите: что нажали → что ожидали → что получилось.</p>
+  <label for="lessonPilotMessage">Описание проблемы</label>
+  <textarea id="lessonPilotMessage" rows="5" maxlength="4000" placeholder="Например: после перехода на следующий слайд…"></textarea>
+  <p>Кнопка скачает файл для передачи Марии. В нём будут ваше описание, сборка, браузер, размер окна, реагенты и условия. PDF, изображения и рукописные записи не включаются. Автоматической отправки нет.</p>
+  <button id="lessonPilotDownload" type="button">Скачать сообщение</button>
+ </div>
+ <button id="lessonPilotClose" type="button">Закрыть</button>
+</dialog>
 <div class="lesson-studio" aria-label="Урок с интерактивной лабораторией">
 <button id="lessonPresentationExit" type="button" hidden><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"/></svg><span>Вернуть лабораторию</span></button>
   <aside class="lesson-lab-pane">
@@ -3610,7 +3641,9 @@ function lessonLibrary(src,globalName){
 function lessonSaveLocal(){
  try{
   localStorage.setItem(lessonPdfKey,JSON.stringify({version:1,notes:lessonNotes}));
+  const state=document.getElementById("lessonPilotSaveState");if(state)state.textContent="Пометки PDF сохранены в этом браузере";
  }catch(err){
+  const state=document.getElementById("lessonPilotSaveState");if(state)state.textContent="Пометки PDF не сохранены — скачайте копию";
   lessonStatus("Автосохранение недоступно — сохрани PDF или резервную копию записей.");
  }
 }
@@ -4624,7 +4657,38 @@ function lessonBoardSetup(){
  };
  lessonBoardDraw();
 }
+async function lessonPilotDiagnostic(message){
+ let build="недоступна";
+ try{const response=await fetch("/healthz",{cache:"no-store"});if(response.ok){const health=await response.json();if(health.sandbox===true)build=String(health.build||build);}}catch(err){}
+ return {format:"ege-blizko-pilot-feedback",version:1,createdAt:new Date().toISOString(),build,
+  message:String(message||"").slice(0,4000),browser:navigator.userAgent,
+  viewport:{width:innerWidth,height:innerHeight,pixelRatio:devicePixelRatio},
+  workspace:lessonBoardMode?"board":"presentation",tool:lessonTool,
+  reaction:{a:lessonSelectedReagents.a||"",b:lessonSelectedReagents.b||"",heated:lessonHeated,medium:document.getElementById("lessonMedium").value}};
+}
+function lessonPilotSetup(){
+ if(!data?.preview)return;
+ document.getElementById("lessonPilotBar").hidden=false;
+ const dialog=document.getElementById("lessonPilotDialog");
+ const open=feedback=>{
+  document.getElementById("lessonPilotTitle").textContent=feedback?"Сообщить о проблеме":"Перед первым уроком";
+  document.getElementById("lessonPilotGuide").hidden=feedback;
+  document.getElementById("lessonPilotFeedback").hidden=!feedback;
+  dialog.showModal();
+  document.getElementById(feedback?"lessonPilotMessage":"lessonPilotClose").focus();
+ };
+ document.getElementById("lessonPilotHelp").onclick=()=>open(false);
+ document.getElementById("lessonPilotReport").onclick=()=>open(true);
+ document.getElementById("lessonPilotClose").onclick=()=>dialog.close();
+ document.getElementById("lessonPilotDownload").onclick=async event=>{
+  const button=event.currentTarget;button.disabled=true;
+  try{const report=await lessonPilotDiagnostic(document.getElementById("lessonPilotMessage").value);
+   lessonDownload(JSON.stringify(report,null,2),"ЕГЭ_БЛИЗКО_сообщение_об_ошибке.json","application/json");
+  }finally{button.disabled=false;}
+ };
+}
 function lessonSetup(){
+ lessonPilotSetup();
  if(lessonReady)return;
  lessonReady=true;
  lessonRestoreInkTools();

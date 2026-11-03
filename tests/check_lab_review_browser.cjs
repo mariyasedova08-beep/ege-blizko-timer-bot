@@ -42,6 +42,31 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.equal(await page.evaluate(()=>window.freeMutations),0);
    await page.evaluate(()=>{window.freeObserver.disconnect();tubes=[[],[],[],[]];tubeHeat=[false,false,false,false];tubeChain=[null,null,null,null];selectedTube=0;renderTubes()});
    await page.locator('[data-page="lesson"]').click();
+   // Pilot help is explicit; feedback contains no uploaded lesson or handwritten data.
+   assert.ok(await page.locator('#lessonPilotBar').isVisible());
+   await page.locator('#lessonPilotHelp').click();
+   assert.ok(await page.locator('#lessonPilotDialog').isVisible());
+   assert.match(await page.locator('#lessonPilotGuide').innerText(),/Автовосстановления доски.*нет/);
+   await page.keyboard.press('Escape');
+   assert.ok(await page.locator('#lessonPilotDialog').isHidden());
+   await page.locator('#lessonPilotReport').click();
+   await page.locator('#lessonPilotMessage').fill('Проверка сообщения');
+   const reportDownload=page.waitForEvent('download');await page.locator('#lessonPilotDownload').click();
+   const reportFile=await reportDownload;const report=JSON.parse(fs.readFileSync(await reportFile.path(),'utf8'));
+   assert.equal(report.format,'ege-blizko-pilot-feedback');assert.equal(report.message,'Проверка сообщения');
+   assert.match(report.build,/^[a-f0-9]{16}$/);
+   assert.deepEqual(Object.keys(report).sort(),['format','version','createdAt','build','message','browser','viewport','workspace','tool','reaction'].sort());
+   assert.deepEqual(Object.keys(report.reaction).sort(),['a','b','heated','medium']);
+   await page.locator('#lessonPilotClose').click();
+   const storage=await page.evaluate(()=>{
+    lessonNotes={'1':[{color:'#171719',width:2,points:[{x:.1,y:.2},{x:.2,y:.3}]}]};lessonSaveLocal();
+    lessonNotes={};lessonRestoreLocal();const restored=lessonNotes['1'][0].points.length;
+    const descriptor=Object.getOwnPropertyDescriptor(Storage.prototype,'setItem');
+    Object.defineProperty(Storage.prototype,'setItem',{configurable:true,value(){throw new DOMException('full','QuotaExceededError')}});
+    try{lessonSaveLocal();return {restored,status:document.getElementById('lessonPilotSaveState').textContent};}
+    finally{Object.defineProperty(Storage.prototype,'setItem',descriptor);lessonNotes={};lessonSaveLocal();}
+   });
+   assert.equal(storage.restored,2);assert.match(storage.status,/не сохранены/);
    // Eraser is explicitly labelled and visible, rather than an ambiguous delete glyph.
    assert.ok(await page.locator('#lessonToolEraser').isVisible());
    assert.ok(Number(await page.locator('#lessonToolEraser').evaluate(e=>getComputedStyle(e).fontSize.replace('px','')))>0);
