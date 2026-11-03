@@ -1653,7 +1653,9 @@ body.lesson-board-fullscreen{overflow:hidden!important}
   <label for="lessonPilotMessage">Описание проблемы</label>
   <textarea id="lessonPilotMessage" rows="5" maxlength="4000" placeholder="Например: после перехода на следующий слайд…"></textarea>
   <p>Кнопка скачает файл для передачи Марии. В нём будут ваше описание, сборка, браузер, размер окна, реагенты и условия. PDF, изображения и рукописные записи не включаются. Автоматической отправки нет.</p>
+  <a id="lessonPilotTelegram" href="https://t.me/masedova" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:10px 14px;margin:0 8px 8px 0;border-radius:10px;background:#f00087;color:#fff;text-decoration:none;font-weight:600">Написать Марии в Telegram</a>
   <button id="lessonPilotDownload" type="button">Скачать сообщение</button>
+  <p>Скачанный файл можно прикрепить в чате Telegram. Сообщение и файл автоматически не отправляются.</p>
  </div>
  <button id="lessonPilotClose" type="button">Закрыть</button>
 </dialog>
