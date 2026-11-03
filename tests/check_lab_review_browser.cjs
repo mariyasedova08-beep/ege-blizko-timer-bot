@@ -9,7 +9,7 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
  const browser=await chromium.launch({headless:true,...(process.env.LAB_CHROMIUM_PATH?{executablePath:process.env.LAB_CHROMIUM_PATH,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']}: {})});
  try{
   for(const size of [{width:1440,height:1000},{width:820,height:1180}]){
-   const page=await browser.newPage({viewport:size,deviceScaleFactor:2,acceptDownloads:true});
+   const page=await browser.newPage({viewport:size,deviceScaleFactor:2,acceptDownloads:true,...(process.env.LAB_PILOT_TEST_USER?{httpCredentials:{username:process.env.LAB_PILOT_TEST_USER,password:process.env.LAB_PILOT_TEST_PASSWORD}}:{})});
    const errors=[];page.on('pageerror',e=>errors.push(String(e)));
    await page.route('**/*',route=>{
     const u=route.request().url();
