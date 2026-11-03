@@ -147,9 +147,22 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.deepEqual(liveInk.pen.at(-1),{x:40.4,y:0});
    assert.deepEqual(liveInk.pen,liveInk.zoom);
    for(let i=0;i<liveInk.pen.length-1;i++)assert.ok(Math.abs(liveInk.pen[i].x-i*.4)<=1.5);
-   assert.equal(Math.max(...liveInk.marker.map(p=>Math.abs(p.y))),.8);
-   assert.deepEqual(liveInk.marker,liveInk.line);
+   assert.ok(Math.max(...liveInk.marker.slice(10,-1).map(p=>Math.abs(p.y)))<.3);
+   assert.equal(Math.max(...liveInk.line.map(p=>Math.abs(p.y))),.8);
    liveInk.fast.forEach((p,i)=>assert.ok(Math.abs(p.x-i*20)<=1.5));
+   const natural=await page.evaluate(()=>{
+    const points=[{x:.1,y:.1},{x:.15,y:.14},{x:.2,y:.1},{x:.15,y:.06},{x:.1,y:.1}];
+    const curve=lessonStrokePoints({renderVersion:2,points},600,300);
+    const legacy=lessonStrokePoints({points},600,300);
+    const live={renderVersion:2,opacity:1,points:[{x:0,y:0}]};
+    for(let i=1;i<=8;i++)lessonAddStrokeSamples(live,{timeStamp:i*8,clientX:i,clientY:Math.sin(i)},e=>({x:e.clientX,y:e.clientY}),{clientWidth:1,clientHeight:1});
+    const before=JSON.stringify(live.points);lessonFinishStroke(live);
+    const duplicates=lessonStrokePoints({renderVersion:2,points:[points[0],points[0],points[1],points[2]]},600,300);
+    return {points,curve,legacy,old:lessonSmoothPoints(points),unchanged:before===JSON.stringify(live.points),duplicates};
+   });
+   assert.ok(natural.unchanged);assert.deepEqual(natural.legacy,natural.old);
+   natural.points.forEach((p,i)=>{assert.ok(Math.hypot(p.x-natural.curve[i*8].x,p.y-natural.curve[i*8].y)<1e-9)});
+   assert.ok(natural.duplicates.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)));
    // Heat guidance appears before conducting a known hot reaction; never for cold/unknown pairs.
    await page.evaluate(()=>{lessonClearActiveTube();lessonSetReagent('a','mno2');lessonSetReagent('b','hcl')});
    assert.ok(await page.locator('#lessonHeatHint').isVisible());
@@ -227,8 +240,8 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
      return {first,resumed,next};
     }finally{Date.now=original;}
    });
-   assert.equal(pouring.first.level,22);assert.equal(pouring.first.from,0);
-   assert.equal(pouring.resumed.pourAge,.4);assert.equal(pouring.next.level,44);assert.equal(pouring.next.from,22);
+   assert.equal(pouring.first.level,36);assert.equal(pouring.first.from,0);
+   assert.equal(pouring.resumed.pourAge,.4);assert.equal(pouring.next.level,54);assert.equal(pouring.next.from,36);
    // Solids remain visible while liquid pours, then dissolve only under valid conditions.
    for(const alkali of ['naoh','koh']){
     await page.evaluate(base=>{lessonClearActiveTube();lessonSetReagent('a','beo');lessonSetReagent('b',base);lessonConductStep()},alkali);
@@ -288,6 +301,13 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
     await page.locator('#lessonReaction .reaction-redox summary').click();
     assert.match(await page.locator('#lessonReaction').innerText(),/2e⁻/);
    }
+   // A chromate-producing reaction retains the poured solution volume.
+   await page.evaluate(()=>{lessonClearActiveTube();lessonSetReagent('a','croh3');lessonSetReagent('b','h2o2');document.getElementById('lessonMedium').value='alkaline';lessonHeated=true;lessonConductStep()});
+   assert.match(await page.locator('#lessonReaction').innerText(),/Na₂CrO₄/);
+   const chromateLevel=await page.locator('#lessonTube1 .liq').evaluate(e=>parseFloat(e.style.height));
+   assert.ok(chromateLevel>=36);
+   await page.evaluate(()=>lessonSelectTube(1));await page.evaluate(()=>lessonSelectTube(0));
+   assert.equal(await page.locator('#lessonTube1 .liq').evaluate(e=>parseFloat(e.style.height)),chromateLevel);
    // Resize panel with keyboard.
    await page.locator('#lessonPanelDivider').focus();await page.keyboard.press('ArrowRight');
    assert.equal(await page.locator('#lessonPanelDivider').getAttribute('aria-valuenow'),'35');
@@ -326,6 +346,29 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),0);
    await pen.detach();
    await page.evaluate(()=>{lessonNotes['1']=[{color:'#171719',width:3,opacity:1,points:[{x:.1,y:.1},{x:.2,y:.2}]}];lessonRedrawInk()});
+   const markerPDF=await page.evaluate(async()=>{
+    const savedNotes=lessonNotes,originalDownload=lessonDownload;let bytes;
+    try{
+     lessonNotes={'1':[{renderVersion:2,color:'#ff0000',width:18,opacity:.32,points:[{x:.1,y:.5},{x:.2,y:.5},{x:.3,y:.5},{x:.4,y:.5}]}]};
+     let downloads=0;lessonDownload=value=>{bytes=value;downloads++;};
+     const pending=lessonExportPDF();
+     const feedback={disabled:document.getElementById('lessonExport').disabled,label:document.querySelector('#lessonExport span').textContent};
+     await lessonExportPDF();await pending;
+     const cacheCount=lessonPdfExportCache.pages.size;
+     const realGetPage=lessonPdfDocument.getPage.bind(lessonPdfDocument);let renderedAgain=0;
+     lessonPdfDocument.getPage=(...args)=>{renderedAgain++;return realGetPage(...args)};
+     try{await lessonExportPDF();}finally{lessonPdfDocument.getPage=realGetPage;}
+     if(!feedback.disabled||!feedback.label.includes('Сохраняю')||downloads!==2||cacheCount!==2||renderedAgain!==0)throw Error('export feedback/cache regression');
+     const reader=await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs');
+     const doc=await reader.getDocument({data:new Uint8Array(bytes),isEvalSupported:false}).promise;
+     const sheet=await doc.getPage(1),viewport=sheet.getViewport({scale:1});
+     const canvas=document.createElement('canvas');canvas.width=viewport.width;canvas.height=viewport.height;
+     const context=canvas.getContext('2d');await sheet.render({canvasContext:context,viewport}).promise;
+     const samples=[90,120,150,180,210].map(x=>Array.from(context.getImageData(x,200,1,1).data));
+     await doc.destroy();return samples;
+    }finally{lessonDownload=originalDownload;lessonNotes=savedNotes;lessonRedrawInk();}
+   });
+   markerPDF.forEach(pixel=>{assert.equal(pixel[0],255);assert.ok(Math.abs(pixel[1]-173)<3,JSON.stringify(markerPDF));assert.ok(Math.abs(pixel[2]-173)<3)});
    assert.equal(await page.locator('#lessonPresentationTab').innerText(),'Презентация');
    await page.locator('#lessonPresentationTab').click();
    assert.equal(await page.evaluate(()=>lessonBoardMode),false);

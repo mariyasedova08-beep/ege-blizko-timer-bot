@@ -201,9 +201,9 @@ class LaboratoryReleaseChecks(unittest.TestCase):
         self.assertIn('function lessonSmoothPoints(points)', self.html)
         self.assertIn('const lessonStrokeFilters=new WeakMap()', self.html)
         self.assertIn('event.getCoalescedEvents()', self.html)
-        self.assertIn('lessonSmoothPoints(stroke.points).forEach', self.html)
-        self.assertIn('lessonSmoothPoints(stroke.points).entries()', self.html)
-        self.assertIn('const pts=lessonSmoothPoints(stroke.points||[])', self.html)
+        self.assertIn('lessonStrokePoints(stroke,w,h).forEach', self.html)
+        self.assertIn('lessonStrokePoints(stroke,canvas.width,canvas.height).entries()', self.html)
+        self.assertIn('const pts=lessonStrokePoints(stroke,w,h)', self.html)
         self.assertIn('lessonAddStrokeSamples(lessonDrawing,event,lessonGetPoint,canvas)', self.html)
 
     def test_mobile_comparison_bench_and_white_precipitates_are_visible(self):
@@ -215,9 +215,9 @@ class LaboratoryReleaseChecks(unittest.TestCase):
 
     def test_lesson_pdf_export_rebuilds_pages_and_validates_output(self):
         self.assertIn('await sourcePage.render({canvasContext:context,viewport}).promise', self.html)
-        self.assertIn('sheet.drawImage(embedded,{x:0,y:0,width:base.width,height:base.height})', self.html)
+        self.assertIn('sheet.drawImage(embedded,{x:0,y:0,width:cached.width,height:cached.height})', self.html)
         self.assertNotIn('await pdf.copyPages(source,source.getPageIndices())', self.html)
-        self.assertIn('const sheet=pdf.addPage([base.width,base.height])', self.html)
+        self.assertIn('const sheet=pdf.addPage([cached.width,cached.height])', self.html)
         self.assertIn('trailer.includes("%%EOF")', self.html)
         self.assertIn('setTimeout(()=>URL.revokeObjectURL(url),60000)', self.html)
 

@@ -2267,6 +2267,7 @@ function metalDepositHTML(v,x){
 function tubeIsLiquid(id){
  const phase=String((reagent(id)||[])[3]||"");return !!phase&&!phase.includes("тв.")&&!phase.includes("газ");
 }
+function tubeLiquidLevel(portions){return portions>0?Math.min(84,36+(portions-1)*18):0;}
 // Per-tube event clocks survive re-renders and switching workbenches. Negative
 // CSS delays resume a physical transition instead of restarting it.
 function tubeMotionFor(state,history,reaction,sources=history){
@@ -2274,7 +2275,7 @@ function tubeMotionFor(state,history,reaction,sources=history){
  if(history.length<previous.length||(previous.length&&history[0]!==previous[0])){
   for(const key of Object.keys(state))delete state[key];
  }
- const amount=Math.min(84,(history.filter(tubeIsLiquid).length+(state.extraPours||0))*22);
+ const amount=Math.max(state.level||0,tubeLiquidLevel(history.filter(tubeIsLiquid).length+(state.extraPours||0)));
  if(amount>(state.level||0)){
   state.from=state.level||0;state.pourAt=now;state.pourColor=reagent(history.filter(tubeIsLiquid).at(-1))[2];
  }
@@ -2302,7 +2303,7 @@ function tubeHTML(v,i,active,heated,excess="",overrideReaction=undefined,indicat
    return !st.includes("тв.")&&!st.includes("газ");
  });
  // Each subsequent pour raises the visual level; the tube has a fixed capacity.
- const liquidHeight=motion?motion.level:(hasLiquid?Math.min(84,v.filter(tubeIsLiquid).length*22):0);
+ const liquidHeight=motion?motion.level:(hasLiquid?tubeLiquidLevel(v.filter(tubeIsLiquid).length):0);
  const solidInput=motion?.solidSources||v;
  const hasMetalDeposit=!!(x&&x.ppt&&solidInput.some(id=>String((reagent(id)||[])[1]||"")==="Металлы"));
  const solids=solidReagentHTML(solidInput,x,hasMetalDeposit);
@@ -3494,10 +3495,36 @@ function lessonSmoothPoints(points){
  out.push(clean[clean.length-1]);
  return out;
 }
+// New ink follows the stabilized samples instead of averaging them a second
+// time. Centripetal interpolation avoids sharp joins without cutting loops.
+function lessonStrokePoints(stroke,sx=1,sy=1){
+ const points=stroke.points||[];
+ if(stroke.renderVersion!==2)return lessonSmoothPoints(points);
+ if(points.length<3||stroke.straight)return points;
+ const clean=[];
+ for(const p of points){const last=clean.at(-1);if(!last||Math.hypot(p.x*sx-last.x,p.y*sy-last.y)>1e-6)clean.push({x:p.x*sx,y:p.y*sy});}
+ if(clean.length<3)return points;
+ const out=[clean[0]],blend=(a,b,ta,tb,t)=>({x:((tb-t)*a.x+(t-ta)*b.x)/(tb-ta),y:((tb-t)*a.y+(t-ta)*b.y)/(tb-ta)});
+ for(let i=0;i<clean.length-1;i++){
+  const b=clean[i],c=clean[i+1];
+  const a=clean[i-1]||{x:2*b.x-c.x,y:2*b.y-c.y};
+  const d=clean[i+2]||{x:2*c.x-b.x,y:2*c.y-b.y};
+  const span=(u,v)=>Math.max(1e-4,Math.sqrt(Math.hypot(u.x-v.x,u.y-v.y)));
+  const t0=0,t1=span(a,b),t2=t1+span(b,c),t3=t2+span(c,d);
+  for(let step=1;step<=8;step++){
+   const t=t1+(t2-t1)*step/8;
+   const a1=blend(a,b,t0,t1,t),a2=blend(b,c,t1,t2,t),a3=blend(c,d,t2,t3,t);
+   out.push(blend(blend(a1,a2,t0,t2,t),blend(a2,a3,t1,t3,t),t1,t2,t));
+  }
+ }
+ return out.map(p=>({x:p.x/sx,y:p.y/sy}));
+}
 // Finish-only spatial smoothing: resampling by arc length makes the result
 // independent of tablet event frequency. No delayed cursor or text recognition.
 function lessonFinishStroke(stroke,sx=1,sy=1){
  if(!lessonBeautify||!stroke||stroke.straight||stroke.opacity<1||stroke.points.length<4)return;
+ // Live ink has already been stabilized; do not reshape letters on pen lift.
+ if(stroke.renderVersion===2&&lessonStrokeFilters.has(stroke))return;
  const raw=stroke.points.map(p=>({x:p.x*sx,y:p.y*sy}));
  const lengths=[0];for(let i=1;i<raw.length;i++)lengths.push(lengths[i-1]+Math.hypot(raw[i].x-raw[i-1].x,raw[i].y-raw[i-1].y));
  const total=lengths[lengths.length-1];if(total<4)return;
@@ -3531,7 +3558,8 @@ function lessonAddStrokeSamples(stroke,event,converter,canvas){
   let point=converter(sample);
   const last=stroke.points[stroke.points.length-1];
   if(!last){stroke.points.push(point);continue;}
-  if(lessonBeautify&&!stroke.straight&&!(stroke.opacity<1)){
+  const marker=stroke.opacity<1;
+  if((lessonBeautify||marker)&&!stroke.straight){
    const raw={x:point.x*sx,y:point.y*sy},time=Number(sample.timeStamp);
    let state=lessonStrokeFilters.get(stroke);
    if(!state)state={raw:{x:last.x*sx,y:last.y*sy},filtered:{x:last.x*sx,y:last.y*sy},time:time-8};
@@ -3540,9 +3568,9 @@ function lessonAddStrokeSamples(stroke,event,converter,canvas){
    const distance=Math.hypot(raw.x-state.raw.x,raw.y-state.raw.y);
    if(distance<.001&&event.type!=="pointerup")continue;
    const dt=Number.isFinite(time)&&Number.isFinite(state.time)?Math.max(.001,Math.min(.04,(time-state.time)/1000)):.008;
-   const speed=distance/dt,alpha=1-Math.exp(-2*Math.PI*(6+.055*speed)*dt);
+   const speed=distance/dt,cutoff=marker?3+.025*speed:6+.055*speed,alpha=1-Math.exp(-2*Math.PI*cutoff*dt);
    let filtered={x:state.filtered.x+alpha*(raw.x-state.filtered.x),y:state.filtered.y+alpha*(raw.y-state.filtered.y)};
-   const lag=Math.hypot(raw.x-filtered.x,raw.y-filtered.y),limit=1.5;
+   const lag=Math.hypot(raw.x-filtered.x,raw.y-filtered.y),limit=marker?3:1.5;
    if(lag>limit){filtered.x=raw.x+(filtered.x-raw.x)*limit/lag;filtered.y=raw.y+(filtered.y-raw.y)*limit/lag;}
    // Finish exactly at the pen lift; small indices and stroke ends stay intact.
    if(event.type==="pointerup"&&sample===event)filtered=raw;
@@ -3574,7 +3602,7 @@ function lessonLabInkRender(){
   if(!stroke.points.length)continue;
   ctx.strokeStyle=ctx.fillStyle=stroke.color||"#C44988";
   ctx.lineWidth=(stroke.width||2.6)*scale;ctx.lineJoin="round";ctx.lineCap="round";
-  ctx.beginPath();lessonSmoothPoints(stroke.points).forEach((p,i)=>{
+  ctx.beginPath();lessonStrokePoints(stroke,w,h).forEach((p,i)=>{
    if(i===0)ctx.moveTo(p.x*w,p.y*h);else ctx.lineTo(p.x*w,p.y*h);
   });
   if(stroke.points.length===1){const p=stroke.points[0];ctx.arc(p.x*w,p.y*h,1.5*scale,0,2*Math.PI);ctx.fill();}
@@ -3612,7 +3640,7 @@ function lessonLabInkSetup(){
   e.preventDefault();canvas.setPointerCapture(e.pointerId);
   const point=lessonLabInkPoint(e);
   if(lessonLabInkTool==="erase"){erase(point);return;}
-  lessonLabInkDrawing={color:document.getElementById("lessonPenColor").value,
+  lessonLabInkDrawing={renderVersion:2,color:document.getElementById("lessonPenColor").value,
    width:Number(document.getElementById("lessonPenWidth").value)||3,points:[point]};
   lessonLabInkStrokes.push(lessonLabInkDrawing);lessonLabInkRender();
  });
@@ -3683,7 +3711,7 @@ function lessonRedrawInk(){
   ctx.fillStyle=stroke.color||"#f00087";
   ctx.lineWidth=Math.max(1,Number(stroke.width)||3)*ratio;
   ctx.beginPath();
-  for(const [i,p] of lessonSmoothPoints(stroke.points).entries()){
+  for(const [i,p] of lessonStrokePoints(stroke,canvas.width,canvas.height).entries()){
    const px=p.x*canvas.width,py=p.y*canvas.height;
    if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
   }
@@ -3824,65 +3852,81 @@ function lessonDownload(bytes,name,type){
  // Edge may still be opening the downloaded PDF when the click returns.
  setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
+let lessonPdfExportBusy=false;
+const lessonPdfExportCache={document:null,pages:new Map(),bytes:0};
 async function lessonExportPDF(){
+ if(lessonPdfExportBusy)return;
+ lessonPdfExportBusy=true;
+ const exportButton=document.getElementById("lessonExport"),label=exportButton.querySelector("span");
+ exportButton.disabled=true;exportButton.setAttribute("aria-busy","true");label.textContent="Сохраняю PDF…";
  lessonStatus("Собираю PDF с твоими записями...");
  try{
+  // Paint acknowledgement before loading libraries or assembling a long lesson.
+  await new Promise(resolve=>{requestAnimationFrame(()=>requestAnimationFrame(resolve));setTimeout(resolve,100);});
+  const notes=structuredClone(lessonNotes),sizes=structuredClone(lessonPageSize);
+  const sourceDocument=lessonPdfDocument,sourceBytes=lessonPdfOriginalBytes,sourceName=lessonPdfName;
+  if(lessonPdfExportCache.document!==sourceDocument){lessonPdfExportCache.document=sourceDocument;lessonPdfExportCache.pages.clear();lessonPdfExportCache.bytes=0;}
   const lib=await lessonLibrary("https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js","PDFLib");
   // Render each imported page with the same PDF.js engine used in the lesson.
   // Copying pdf-lib page objects from imperfect classroom PDFs can silently
   // discard their content, even if the exported PDF has valid cross-references.
   const pdf=await lib.PDFDocument.create();
-  if(lessonPdfOriginalBytes){
-   if(!lessonPdfDocument)throw new Error("pdf-not-open");
-   for(let index=1;index<=lessonPdfDocument.numPages;index++){
-    const sourcePage=await lessonPdfDocument.getPage(index);
-    const base=sourcePage.getViewport({scale:1});
-    const viewport=sourcePage.getViewport({scale:2});
-    const canvas=document.createElement("canvas");
-    canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
-    const context=canvas.getContext("2d",{alpha:false});
-    context.fillStyle="#ffffff";context.fillRect(0,0,canvas.width,canvas.height);
-    await sourcePage.render({canvasContext:context,viewport}).promise;
-    const jpeg=await new Promise((resolve,reject)=>canvas.toBlob(blob=>
-     blob?resolve(blob):reject(new Error("pdf-page-image-failed")),"image/jpeg",.94));
-    const embedded=await pdf.embedJpg(await jpeg.arrayBuffer());
-    const sheet=pdf.addPage([base.width,base.height]);
-    sheet.drawImage(embedded,{x:0,y:0,width:base.width,height:base.height});
-    canvas.width=canvas.height=0;
+  if(sourceBytes){
+   if(!sourceDocument)throw new Error("pdf-not-open");
+   for(let index=1;index<=sourceDocument.numPages;index++){
+    label.textContent="PDF: "+index+" / "+sourceDocument.numPages;
+    let cached=lessonPdfExportCache.pages.get(index);
+    if(!cached){
+     const sourcePage=await sourceDocument.getPage(index),base=sourcePage.getViewport({scale:1}),viewport=sourcePage.getViewport({scale:2});
+     const canvas=document.createElement("canvas");canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+     try{
+      const context=canvas.getContext("2d",{alpha:false});context.fillStyle="#ffffff";context.fillRect(0,0,canvas.width,canvas.height);
+      await sourcePage.render({canvasContext:context,viewport}).promise;
+      const jpeg=await new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("pdf-page-image-failed")),"image/jpeg",.94));
+      cached={width:base.width,height:base.height,bytes:new Uint8Array(await jpeg.arrayBuffer())};
+     }finally{canvas.width=canvas.height=0;}
+     const limit=24*1024*1024;
+     if(cached.bytes.byteLength<=limit){
+      while(lessonPdfExportCache.bytes+cached.bytes.byteLength>limit&&lessonPdfExportCache.pages.size){const first=lessonPdfExportCache.pages.keys().next().value;lessonPdfExportCache.bytes-=lessonPdfExportCache.pages.get(first).bytes.byteLength;lessonPdfExportCache.pages.delete(first);}
+      lessonPdfExportCache.pages.set(index,cached);lessonPdfExportCache.bytes+=cached.bytes.byteLength;
+     }
+    }
+    const embedded=await pdf.embedJpg(cached.bytes);
+    const sheet=pdf.addPage([cached.width,cached.height]);sheet.drawImage(embedded,{x:0,y:0,width:cached.width,height:cached.height});
    }
   }else pdf.addPage([960,540]);
   const pages=pdf.getPages();
   for(let i=0;i<pages.length;i++){
    const sheet=pages[i],w=sheet.getWidth(),h=sheet.getHeight();
-   const arr=lessonNotes[String(i+1)]||[];
-   const logical=(lessonPageSize[String(i+1)]||{width:w,height:h}).width;
+   const arr=notes[String(i+1)]||[];
+   const logical=(sizes[String(i+1)]||{width:w,height:h}).width;
    for(const stroke of arr){
-    const pts=lessonSmoothPoints(stroke.points||[]);
+    const pts=lessonStrokePoints(stroke,w,h);
     const rgb=lessonColorToPDF(stroke.color);
     const color=lib.rgb(rgb[0],rgb[1],rgb[2]);
     const thickness=Math.max(.6,Number(stroke.width||3)*w/Math.max(1,logical));
-    for(let k=1;k<pts.length;k++){
-     sheet.drawLine({
-      start:{x:pts[k-1].x*w,y:(1-pts[k-1].y)*h},
-      end:{x:pts[k].x*w,y:(1-pts[k].y)*h},
-      thickness:thickness,color:color,opacity:Math.max(.1,Math.min(1,Number(stroke.opacity??1)))
-     });
+    if(pts.length>1){
+     const path=pts.map((p,k)=>(k?"L":"M")+(p.x*w)+" "+(p.y*h)).join(" ");
+     sheet.pushOperators(lib.setLineJoin(lib.LineJoinStyle.Round));
+     sheet.drawSvgPath(path,{x:0,y:h,borderColor:color,borderWidth:thickness,
+      borderLineCap:lib.LineCapStyle.Round,borderOpacity:Math.max(.1,Math.min(1,Number(stroke.opacity??1)))});
     }
     if(pts.length===1)sheet.drawCircle({
      x:pts[0].x*w,y:(1-pts[0].y)*h,size:thickness/2,color:color,opacity:Math.max(.1,Math.min(1,Number(stroke.opacity??1)))
     });
    }
   }
+  label.textContent="Собираю файл…";
   const bytes=await pdf.save();
   const header=new TextDecoder("latin1").decode(bytes.slice(0,8));
   const trailer=new TextDecoder("latin1").decode(bytes.slice(-1024));
   if(!header.startsWith("%PDF-")||!trailer.includes("%%EOF"))throw new Error("invalid-pdf-output");
-  const title=(lessonPdfName||"Урок").replace(/\.pdf$/i,"")+"_с_записями.pdf";
+  const title=(sourceName||"Урок").replace(/\.pdf$/i,"")+"_с_записями.pdf";
   lessonDownload(bytes,title,"application/pdf");
-  lessonStatus("PDF со всеми страницами и твоими записями сохранён.");
+  lessonStatus("PDF подготовлен — скачивание началось.");
  }catch(err){
   lessonStatus("Не удалось сохранить PDF. Проверь подключение и попробуй ещё раз.");
- }
+ }finally{lessonPdfExportBusy=false;exportButton.disabled=false;exportButton.removeAttribute("aria-busy");label.textContent="Сохранить PDF";}
 }
 // Medium-specific redox from the authoritative catalogue, never a guessed product.
 // The same source powers the 30/70 offline preview and the live lesson.
@@ -4257,7 +4301,7 @@ function lessonBoardValidNumber(value,min,max){
 function lessonBoardSerializeProject(){
  lessonBoardStoreCurrent();
  const pages=lessonBoardPages.map(page=>({name:page.name,view:page.view,document:page.document,
-  strokes:page.strokes.map(stroke=>({color:stroke.color,width:stroke.width,opacity:stroke.opacity,points:stroke.points.map(p=>({x:p.x,y:p.y}))})),
+  strokes:page.strokes.map(stroke=>({...((stroke.renderVersion===2)?{renderVersion:2}:{}),color:stroke.color,width:stroke.width,opacity:stroke.opacity,points:stroke.points.map(p=>({x:p.x,y:p.y}))})),
   items:page.items.map(item=>({x:item.x,y:item.y,w:item.w,h:item.h,locked:item.locked===true,image:lessonBoardImageData(item.image)}))}));
  return JSON.stringify({format:"ege-blizko-board",version:2,width:2400,height:1600,activePage:lessonBoardPageIndex,pages});
 }
@@ -4293,7 +4337,7 @@ async function lessonBoardOpenProject(file){
      if(!lessonBoardValidNumber(p.x,-10000000,10000000)||!lessonBoardValidNumber(p.y,-10000000,10000000))throw Error("bad-point");
      return {x:p.x,y:p.y};
     });
-    return {color:stroke.color,width:stroke.width,opacity:stroke.opacity,points};
+    return {...((stroke.renderVersion===2)?{renderVersion:2}:{}),color:stroke.color,width:stroke.width,opacity:stroke.opacity,points};
    });
    const view=page.view||{x:0,y:0,zoom:1};
    if(!lessonBoardValidNumber(view.x,-10000000,10000000)||!lessonBoardValidNumber(view.y,-10000000,10000000)||!lessonBoardValidNumber(view.zoom,.1,4))throw Error("bad-view");
@@ -4335,7 +4379,7 @@ function lessonBoardPaint(ctx,width,height,view,selection=true,scene={items:less
  ctx.restore();
 }
 function lessonBoardPaintStroke(ctx,stroke){
-  const pts=lessonSmoothPoints(stroke.points);if(!pts.length)return;
+  const pts=lessonStrokePoints(stroke);if(!pts.length)return;
   ctx.beginPath();ctx.lineWidth=stroke.width;ctx.lineCap="round";ctx.lineJoin="round";
   ctx.strokeStyle=stroke.color;ctx.globalAlpha=stroke.opacity;
   ctx.moveTo(pts[0].x,pts[0].y);
@@ -4669,7 +4713,7 @@ function lessonBoardSetup(){
     event.preventDefault();canvas.setPointerCapture(event.pointerId);lessonBoardDraw();return;
    }
    const marker=lessonTool==="marker",width=Number(document.getElementById("lessonPenWidth").value)||3;
-   const stroke={color:marker?lessonMarkerColorValue:lessonPenColorValue,width:marker?width*4:width,opacity:marker?.32:1,points:lessonLineMode?[p,p]:[p],straight:lessonLineMode};
+   const stroke={renderVersion:2,color:marker?lessonMarkerColorValue:lessonPenColorValue,width:marker?width*4:width,opacity:marker?.32:1,points:lessonLineMode?[p,p]:[p],straight:lessonLineMode};
    lessonBoardStrokes.push(stroke);lessonBoardPointer={kind:"draw",stroke};
   }
   if(lessonBoardPointer){lessonBoardPointer.pointerType=event.pointerType;lessonBoardPointer.pointerId=event.pointerId;}
@@ -4971,7 +5015,7 @@ function lessonSetup(){
   inkPointer=event.pointerId;event.preventDefault();canvas.setPointerCapture(event.pointerId);
   const point=lessonGetPoint(event);
   if(lessonTool==="erase"){lessonEraseAt(point);return;}
-  lessonDrawing={color:lessonTool==="marker"?lessonMarkerColorValue:lessonPenColorValue,
+  lessonDrawing={renderVersion:2,color:lessonTool==="marker"?lessonMarkerColorValue:lessonPenColorValue,
    tool:lessonTool,opacity:lessonTool==="marker"?.32:1,
    width:lessonTool==="marker"?Math.max(12,Number(document.getElementById("lessonPenWidth").value)*4):Number(document.getElementById("lessonPenWidth").value),
    points:lessonLineMode?[point,point]:[point],straight:lessonLineMode};
