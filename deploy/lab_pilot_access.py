@@ -20,7 +20,7 @@ def update(path, username, revoke=False, days=14, password=None):
         if path.stat().st_size > 65536:
             raise ValueError('User file too large')
         config=json.loads(path.read_text())
-        if config.get('version') != 1 or not isinstance(config.get('users'),dict):
+        if not isinstance(config,dict) or config.get('version') != 1 or not isinstance(config.get('users'),dict):
             raise ValueError('Invalid existing user file; refusing to replace it')
     else:
         config={'version':1,'users':{}}

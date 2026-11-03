@@ -57,7 +57,8 @@ class PilotAccess(unittest.TestCase):
         import json
         config=json.loads(self.file.read_text());config['users']['teacher_a']['expires']=time.time()-1
         self.file.write_text(json.dumps(config));self.assertEqual(self.request(user='teacher_a',password=self.password)[0],401)
-        self.file.write_text('{broken');self.assertEqual(self.request(user='teacher_b',password=self.password+'b')[0],401)
+        for broken in ['{broken','[]','null']:
+            self.file.write_text(broken);self.assertEqual(self.request(user='teacher_b',password=self.password+'b')[0],401)
         self.file.unlink();self.assertEqual(self.request(user='teacher_b',password=self.password+'b')[0],401)
 
     def test_existing_user_is_not_overwritten(self):

@@ -6,6 +6,7 @@ import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import hmac
+import math
 import os
 import re
 import time
@@ -64,10 +65,13 @@ def access_allowed(header, access_file):
         if len(raw) > 65536:
             return False
         config = json.loads(raw)
-        if config.get('version') != 1 or not isinstance(config.get('users'), dict):
+        if not isinstance(config, dict) or config.get('version') != 1 or not isinstance(config.get('users'), dict):
             return False
         user = config['users'].get(username)
-        if not isinstance(user, dict) or user.get('revoked') is not False or float(user.get('expires', 0)) <= time.time():
+        if not isinstance(user, dict) or user.get('revoked') is not False:
+            return False
+        expires = float(user.get('expires', 0))
+        if not math.isfinite(expires) or expires <= time.time():
             return False
         salt, digest = user.get('salt', ''), user.get('digest', '')
         if not re.fullmatch(r'[0-9a-f]{32}', salt) or not re.fullmatch(r'[0-9a-f]{64}', digest):
