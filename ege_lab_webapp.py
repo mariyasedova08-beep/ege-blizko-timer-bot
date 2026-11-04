@@ -2280,7 +2280,7 @@ function tubeMotionFor(state,history,reaction,sources=history){
  if(history.length<previous.length||(previous.length&&history[0]!==previous[0])){
   for(const key of Object.keys(state))delete state[key];
  }
- const chromateSolution=reaction&&/→[^\n]*(?:Na₂CrO₄|K₂CrO₄)/.test(reaction.eq||"")&&!/сплав|расплав/i.test(reaction.c||"");
+ const chromateSolution=reaction&&/→[^\n]*(?:Na₂CrO₄|K₂CrO₄)/.test(reaction.eq||"");
  const portions=history.filter(tubeIsLiquid).length+(state.extraPours||0);
  const amount=Math.max(state.level||0,tubeLiquidLevel(Math.max(portions,chromateSolution?1:0)));
  if(amount>(state.level||0)){
@@ -4039,6 +4039,14 @@ function lessonUpdateMedium(){
   lessonChain.available.some(id=>lessonHasMedium(id,b)):lessonHasMedium(a,b);
  field.hidden=!active;
  const select=document.getElementById("lessonMedium");
+ const carbonateFusion=[a,b].includes("cr2o3")&&[a,b].includes("kclo3");
+ const mediumLabels={acid:"Кислая",neutral:"Нейтральная",weak_alkaline:"Слабощелочная",alkaline:"Сильнощелочная"};
+ for(const option of select.options){
+  if(!option.value)continue;
+  option.hidden=carbonateFusion&&option.value!=="alkaline";
+  option.textContent=carbonateFusion&&option.value==="alkaline"?"Сплавление с K₂CO₃":mediumLabels[option.value]||option.textContent;
+ }
+ if(carbonateFusion&&select.value!=="alkaline")select.value="";
  if(!active){select.value="";return;}
  const title=(a==="kmno4"||b==="kmno4")?"KMnO₄":
    (a==="k2mno4"||b==="k2mno4")?"K₂MnO₄":
@@ -4047,6 +4055,7 @@ function lessonUpdateMedium(){
    (a==="k2cro4"||b==="k2cro4")?"K₂CrO₄":"выбранного вещества";
  field.querySelector("label").textContent="Среда реакции с "+title;
  document.getElementById("lessonMediumHint").textContent=
+   carbonateFusion?"Выбери сплавление с K₂CO₃ и включи нагрев. Получается жёлтый расплав хромата и выделяется CO₂.":
    "Укажи среду и дополнительные вещества по уравнению; они не добавляются автоматически.";
 }
 function lessonSelectedReaction(a,b,heated,medium=document.getElementById("lessonMedium").value,excess=lessonExcess){

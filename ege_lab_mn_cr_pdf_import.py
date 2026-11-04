@@ -1953,14 +1953,14 @@ SOURCE_RECORDS = json.loads(r'''[
     "b": "kclo3",
     "medium": "alkaline",
     "status": "imported",
-    "eq": "Cr₂O₃ + KClO₃ + 2K₂CO₃ → 2K₂CrO₄ + KCl + 2CO₂",
-    "condition": "Щелочная среда, избыток соответствующей щёлочи; нагревание",
-    "t": "c",
-    "sign": "жёлтая окраска хромата(VI).",
+    "eq": "Cr₂O₃ + KClO₃ + 2K₂CO₃ → 2K₂CrO₄ + KCl + 2CO₂↑",
+    "condition": "Сплавление с K₂CO₃; сильное нагревание",
+    "t": "g",
+    "sign": "образуется жёлтый расплав хромата(VI), выделяется CO₂.",
     "sol": "#f5d532",
     "ppt": "",
     "precipitates": [],
-    "gas": "",
+    "gas": "CO₂",
     "heat": true
   }
 ]''')
@@ -2867,14 +2867,14 @@ PDF_MEDIUM_REACTIONS = json.loads(r'''[
     "a": "cr2o3",
     "b": "kclo3",
     "medium": "alkaline",
-    "eq": "Cr₂O₃ + KClO₃ + 2K₂CO₃ → 2K₂CrO₄ + KCl + 2CO₂",
-    "t": "c",
-    "sign": "жёлтая окраска хромата(VI).",
+    "eq": "Cr₂O₃ + KClO₃ + 2K₂CO₃ → 2K₂CrO₄ + KCl + 2CO₂↑",
+    "t": "g",
+    "sign": "образуется жёлтый расплав хромата(VI), выделяется CO₂.",
     "sol": "#f5d532",
     "ppt": "",
-    "gas": "",
+    "gas": "CO₂",
     "heat": true,
-    "condition": "Щелочная среда, избыток соответствующей щёлочи; нагревание",
+    "condition": "Сплавление с K₂CO₃; сильное нагревание",
     "source_id": "CR-41"
   }
 ]''')

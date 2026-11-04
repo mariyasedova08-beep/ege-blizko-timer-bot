@@ -315,6 +315,14 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.ok(fillRatio>=.35, 'Chromate solution must remain visibly filled: '+fillRatio);
    const oxideChromateLevel=await page.evaluate(()=>tubeMotionFor({},['cr2o3','cl2'],{eq:'Cr₂O₃ + 3Cl₂ + 10NaOH → 2Na₂CrO₄ + 6NaCl + 5H₂O',c:'Щелочная среда',sol:'#ffff00'}).level);
    assert.ok(oxideChromateLevel>=36);
+   // Carbonate fusion is an explicit condition and evolves carbon dioxide.
+   await page.evaluate(()=>{lessonClearActiveTube();lessonSetReagent('a','cr2o3');lessonSetReagent('b','kclo3')});
+   assert.match(await page.locator('#lessonMedium option[value="alkaline"]').innerText(),/Сплавление с K₂CO₃/);
+   await page.selectOption('#lessonMedium','alkaline');
+   await page.evaluate(()=>{lessonHeated=true;lessonConductStep()});
+   assert.match(await page.locator('#lessonReaction').innerText(),/2CO₂↑/);
+   assert.match(await page.locator('#lessonReaction').innerText(),/Сплавление с K₂CO₃/);
+   assert.equal(await page.locator('#lessonTube1 .bubbleLayer').count(),1);
    // Resize panel with keyboard.
    await page.locator('#lessonPanelDivider').focus();await page.keyboard.press('ArrowRight');
    assert.equal(await page.locator('#lessonPanelDivider').getAttribute('aria-valuenow'),'35');
