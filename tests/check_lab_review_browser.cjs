@@ -444,6 +444,26 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=80;c.height=40;c.getContext('2d').fillRect(0,0,80,40);return c.toDataURL().split(',')[1]});
    await page.locator('#lessonBoardImageInput').setInputFiles({name:'image.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
    await page.waitForFunction(()=>lessonBoardItems.length===1);
+   // Paste a clipboard screenshot through the same board image import path.
+   const pasted=await page.evaluate(encoded=>{
+    const bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
+    const transfer=new DataTransfer();transfer.items.add(new File([bytes],'clipboard.png',{type:'image/png'}));
+    const event=new ClipboardEvent('paste',{clipboardData:transfer,bubbles:true,cancelable:true});
+    document.body.dispatchEvent(event);return event.defaultPrevented;
+   },png);
+   assert.equal(pasted,true);
+   await page.waitForFunction(()=>lessonBoardItems.length===2);
+   assert.equal(await page.evaluate(()=>lessonBoardSelection===lessonBoardItems[1]),true);
+   assert.match(await page.evaluate(()=>lessonBoardImageData(lessonBoardItems[1].image)),/^data:image\/png;base64,/);
+   await page.locator('#lessonBoardUndo').click();
+   assert.equal(await page.evaluate(()=>lessonBoardItems.length),1);
+   const editablePaste=await page.evaluate(encoded=>{
+    const transfer=new DataTransfer();transfer.items.add(new File([Uint8Array.from(atob(encoded),c=>c.charCodeAt(0))],'clipboard.png',{type:'image/png'}));
+    const input=document.createElement('input');document.body.appendChild(input);
+    const event=new ClipboardEvent('paste',{clipboardData:transfer,bubbles:true,cancelable:true});
+    input.dispatchEvent(event);input.remove();return event.defaultPrevented;
+   },png);
+   assert.equal(editablePaste,false);
    const imageBefore=await page.evaluate(()=>({...lessonBoardItems[0],image:null}));
    assert.ok(imageBefore.x>6000);
    await page.evaluate(()=>{lessonBoardSnapshot();document.getElementById('lessonBoardImageSize').value='600';document.getElementById('lessonBoardImageSize').dispatchEvent(new Event('input'))});

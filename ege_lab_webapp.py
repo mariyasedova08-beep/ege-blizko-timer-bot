@@ -1833,7 +1833,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
       <button id="lessonBoardExport" type="button">↓ Доска в PDF</button>
 </div>
       </details>
-      <small>Масштаб: + / − или два пальца. Один палец пишет; «Перемещать доску» двигает обзор. PDF листается стрелками и закреплён под записями.</small>
+      <small>Вставить скриншот: ⌘V / Ctrl+V. Масштаб: + / − или два пальца. Один палец пишет; «Перемещать доску» двигает обзор. PDF листается стрелками и закреплён под записями.</small>
     </div>
     <div id="lessonPaperSpace" class="lesson-paper-space">
       <div id="lessonCanvasWrap"><canvas id="lessonPdfCanvas"></canvas><canvas id="lessonInkCanvas" aria-label="Писать стилусом по странице"></canvas></div>
@@ -4343,6 +4343,26 @@ function lessonBoardLoadImage(data){
   const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(Error("image-load"));image.src=data;
  });
 }
+async function lessonBoardImportImage(file){
+ if(!file)return;
+ if(file.size>8*1024*1024){lessonStatus("Изображение больше 8 МБ — выбери файл поменьше.");return;}
+ const page=lessonBoardPages[lessonBoardPageIndex];
+ const url=URL.createObjectURL(file),img=new Image();
+ try{
+  await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});
+  if(lessonBoardPages[lessonBoardPageIndex]!==page){
+   lessonStatus("Лист изменился. Вставь изображение на нужный лист ещё раз.");return;
+  }
+  lessonBoardSnapshot();
+  const w=Math.min(650,img.naturalWidth),h=w*img.naturalHeight/img.naturalWidth;
+  const x=lessonBoardView.x+60/lessonBoardView.zoom;
+  const y=lessonBoardView.y+60/lessonBoardView.zoom;
+  lessonBoardSelection={image:img,x,y,w,h};lessonBoardItems.push(lessonBoardSelection);
+  document.getElementById("lessonBoardImageSize").value=Math.round(w);
+  lessonBoardSetTool("move");lessonStatus("Изображение добавлено. Перетаскивай его по доске.");
+ }catch(err){lessonStatus("Не удалось открыть изображение.");}
+ finally{URL.revokeObjectURL(url);}
+}
 async function lessonBoardImportPDF(file){
  if(!file)return;
  if(file.size>25*1024*1024){lessonStatus("PDF больше 25 МБ — выбери файл поменьше.");return;}
@@ -4729,22 +4749,17 @@ function lessonBoardSetup(){
  document.getElementById("lessonBoardEraser").onclick=()=>lessonSetTool("erase");
  document.getElementById("lessonBoardMove").onclick=()=>lessonBoardSetTool("move");
  document.getElementById("lessonBoardImageInput").onchange=async event=>{
-  const file=event.target.files[0];if(!file)return;
-  if(file.size>8*1024*1024){lessonStatus("Изображение больше 8 МБ — выбери файл поменьше.");return;}
-  const url=URL.createObjectURL(file),img=new Image();
-  try{
-   await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});
-   lessonBoardSnapshot();
-   const w=Math.min(650,img.naturalWidth),h=w*img.naturalHeight/img.naturalWidth;
-   const view=document.getElementById("lessonBoardSpace");
-   const x=lessonBoardView.x+60/lessonBoardView.zoom;
-   const y=lessonBoardView.y+60/lessonBoardView.zoom;
-   lessonBoardSelection={image:img,x,y,w,h};lessonBoardItems.push(lessonBoardSelection);
-   document.getElementById("lessonBoardImageSize").value=Math.round(w);
-   lessonBoardSetTool("move");lessonStatus("Изображение добавлено. Перетаскивай его по доске.");
-  }catch(err){lessonStatus("Не удалось открыть изображение.");}
-  finally{URL.revokeObjectURL(url);event.target.value="";}
+  try{await lessonBoardImportImage(event.target.files[0]);}
+  finally{event.target.value="";}
  };
+ document.addEventListener("paste",event=>{
+  if(!lessonBoardMode||!document.getElementById("lesson").classList.contains("on"))return;
+  if(event.target instanceof Element&&event.target.closest("input,textarea,select,[contenteditable]:not([contenteditable='false'])"))return;
+  const item=Array.from(event.clipboardData?.items||[])
+   .find(item=>item.kind==="file"&&/^image\/(png|jpeg|webp)$/i.test(item.type));
+  const file=item?.getAsFile();if(!file)return;
+  event.preventDefault();void lessonBoardImportImage(file);
+ });
  document.getElementById("lessonBoardImageSize").oninput=event=>{
   if(!lessonBoardSelection)return;
   const w=Number(event.target.value),ratio=lessonBoardSelection.h/lessonBoardSelection.w;
