@@ -464,6 +464,7 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
     input.dispatchEvent(event);input.remove();return event.defaultPrevented;
    },png);
    assert.equal(editablePaste,false);
+   await page.evaluate(()=>{lessonBoardSelection=lessonBoardItems[0]});
    const imageBefore=await page.evaluate(()=>({...lessonBoardItems[0],image:null}));
    assert.ok(imageBefore.x>6000);
    await page.evaluate(()=>{lessonBoardSnapshot();document.getElementById('lessonBoardImageSize').value='600';document.getElementById('lessonBoardImageSize').dispatchEvent(new Event('input'))});
