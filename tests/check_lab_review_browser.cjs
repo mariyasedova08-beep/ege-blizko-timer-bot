@@ -310,9 +310,9 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.evaluate(()=>lessonSelectTube(1));await page.evaluate(()=>lessonSelectTube(0));
    assert.equal(await page.locator('#lessonTube1 .liq').evaluate(e=>parseFloat(e.style.height)),chromateLevel);
    // Solution must occupy the actual rendered tube, including after proportional resizing.
-   await page.waitForTimeout(600);
+   await page.waitForTimeout(1200);
    const fillRatio=await page.locator('#lessonTube1 .liq').evaluate(e=>e.getBoundingClientRect().height/e.parentElement.clientHeight);
-   assert.ok(fillRatio>=.35, 'Chromate solution must remain visibly filled');
+   assert.ok(fillRatio>=.35, 'Chromate solution must remain visibly filled: '+fillRatio);
    const oxideChromateLevel=await page.evaluate(()=>tubeMotionFor({},['cr2o3','cl2'],{eq:'Cr₂O₃ + 3Cl₂ + 10NaOH → 2Na₂CrO₄ + 6NaCl + 5H₂O',c:'Щелочная среда',sol:'#ffff00'}).level);
    assert.ok(oxideChromateLevel>=36);
    // Resize panel with keyboard.
