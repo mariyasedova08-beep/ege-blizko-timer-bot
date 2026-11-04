@@ -572,7 +572,10 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
     const e=new PointerEvent('pointermove',{pointerId:window.benchPointerId,pointerType:'pen',clientX:r.left+35,clientY:r.top+72,buttons:1,pressure:.25,bubbles:true});
     Object.defineProperty(e,'getCoalescedEvents',{value:()=>[e]});c.dispatchEvent(e);
    });
-   for(let i=1;i<=20;i++)await benchPen.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:benchBox.x+30+i*9,y:benchBox.y+70+Math.sin(i/3)*15,button:'left',buttons:1,pointerType:'pen',force:.2+i/50});
+   for(let i=1;i<=20;i++){
+    await benchPen.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:benchBox.x+30+i*9,y:benchBox.y+70+Math.sin(i/3)*15,button:'left',buttons:1,pointerType:'pen',force:.2+i/50});
+    await page.evaluate(()=>new Promise(requestAnimationFrame));
+   }
    await benchPen.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:benchBox.x+215,y:benchBox.y+75,button:'left',buttons:0,pointerType:'pen',force:0});
    await benchPen.detach();
    await page.waitForFunction(()=>document.getElementById('penCompare').dataset.strokeCount==='1'&&document.getElementById('penCompare').dataset.pressureSource==='pen');
