@@ -3861,9 +3861,8 @@ function lessonSetCanvasDimensions(width,height){
 async function lessonRenderPage(){
  const ticket=++lessonRendering;
  const space=document.getElementById("lessonPaperSpace");
+ if(lessonBoardMode||space.hidden)return;
  const canvas=document.getElementById("lessonPdfCanvas");
- const baseWidth=Math.max(120,space.clientWidth-24);
- const baseHeight=Math.max(160,space.clientHeight-24);
  let page=null,logicalWidth=960,logicalHeight=540;
  if(lessonPdfDocument){
   try{
@@ -3873,6 +3872,11 @@ async function lessonRenderPage(){
    logicalWidth=viewport.width;logicalHeight=viewport.height;
   }catch(err){lessonStatus("Не удалось прочитать страницу PDF.");return;}
  }
+ // Wait for workspace toolbars and fullscreen layout before fitting the slide.
+ await new Promise(requestAnimationFrame);
+ if(ticket!==lessonRendering||lessonBoardMode||space.hidden)return;
+ const baseWidth=Math.max(120,space.clientWidth-24);
+ const baseHeight=Math.max(160,space.clientHeight-24);
  lessonPageSize[String(lessonPage)]={width:logicalWidth,height:logicalHeight};
  const scale=Math.min(baseWidth/logicalWidth,baseHeight/logicalHeight);
  const width=Math.max(1,Math.round(scale*logicalWidth));

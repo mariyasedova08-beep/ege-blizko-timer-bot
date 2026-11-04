@@ -351,6 +351,18 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.waitForFunction(()=>lessonPageCount===2&&lessonPdfDocument!==null);
    await page.locator('#lessonNext').click();await page.waitForFunction(()=>lessonPage===2);
    await page.locator('#lessonPrevious').click();await page.waitForFunction(()=>lessonPage===1);
+   // Board zoom must not change the fitted presentation size on return.
+   await page.waitForTimeout(200);
+   const slideBeforeBoard=await page.locator('#lessonCanvasWrap').boundingBox();
+   for(const zoom of [.25,3,1]){
+    await page.locator('#lessonBoardToggle').click();
+    await page.evaluate(z=>lessonBoardZoomTo(z),zoom);
+    await page.locator('#lessonPresentationTab').click();
+    await page.waitForTimeout(200);
+    const restoredSlide=await page.locator('#lessonCanvasWrap').boundingBox();
+    assert.ok(Math.abs(restoredSlide.width-slideBeforeBoard.width)<=2);
+    assert.ok(Math.abs(restoredSlide.height-slideBeforeBoard.height)<=2);
+   }
    // Presentation expands independently and always provides an exit.
    const labBeforeFull=await page.evaluate(()=>JSON.stringify(lessonTubeStates));
    assert.ok(await page.locator('#lessonPresentationFullscreen').evaluate(e=>e.clientWidth>=32&&e.scrollWidth<=e.clientWidth));
