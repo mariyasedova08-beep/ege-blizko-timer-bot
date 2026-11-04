@@ -1611,6 +1611,21 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 #lesson .lesson-board-more-items input[type=file]{display:none}
 #lesson .lesson-board-more summary:hover{background:#FAEBF3;box-shadow:0 0 0 2px #F4D9E655}
 
+#lesson .lesson-tool-split{display:inline-flex;align-items:stretch;flex-shrink:0}
+#lesson .lesson-tool-split>button:first-child{border-radius:8px 0 0 8px}
+#lesson .lesson-tool-split>.lesson-tool-arrow{padding:3px 5px;min-width:24px;min-height:32px;border-radius:0 8px 8px 0;border-left:1px solid #eadfe5}
+#lesson .lesson-ink-settings{position:fixed;z-index:100030;width:min(260px,calc(100vw - 20px));padding:16px;background:#fff;border:1px solid #e9dfe5;border-radius:14px;box-shadow:0 8px 28px #55435126}
+#lesson .lesson-ink-settings[hidden]{display:none}
+#lesson .lesson-ink-settings .lesson-color-presets{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin:12px 0}
+#lesson .lesson-ink-settings .lesson-color-presets button{width:26px;height:26px;min-width:26px;min-height:26px;padding:0;border-radius:50%;background:var(--swatch);border:1px solid #bcaeb6}
+#lesson .lesson-ink-settings button[aria-pressed="true"]{outline:2px solid #f00087;outline-offset:2px}
+#lesson .lesson-ink-colors-label{display:block;margin-top:12px;font-weight:600}
+#lesson .lesson-color-presets button[hidden]{display:none}
+#lesson .lesson-ink-settings[data-tool="marker"] .lesson-color-presets{grid-template-columns:repeat(5,1fr)}
+#lesson .lesson-ink-preview{display:block;width:100%;height:48px}
+#lesson .lesson-ink-settings .lesson-width-label{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;margin-top:10px}
+#lesson .lesson-ink-settings input[type=range]{width:100%}
+
 </style></head><body><div class="app">
 <div class="lab-topbar">
   <div class="lab-brand">ЕГЭ БЛИЗКО</div>
@@ -1747,20 +1762,16 @@ body.lesson-board-fullscreen{overflow:hidden!important}
       <div class="lesson-ink-strip">
       <div class="lesson-primary-ink" role="group" aria-label="Инструмент письма">
         
-        <button id="lessonToolPen" type="button" aria-pressed="true"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.5-1L20 7.5 16.5 4 5 15.5 4 20Zm10-13 3.5 3.5M5 15.5 8.5 19"/></svg><span>Ручка</span></button>
-         <button id="lessonToolMarker" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 14 8-10 7 6-8 9-7-5Zm3 3-4 3h7M10 8l7 6"/></svg><span>Маркер</span></button>
+        <div class="lesson-tool-split"><button id="lessonToolPen" type="button" aria-pressed="true"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.5-1L20 7.5 16.5 4 5 15.5 4 20Zm10-13 3.5 3.5M5 15.5 8.5 19"/></svg><span>Ручка</span></button><button id="lessonToolPenSettings" data-ink-settings="pen" type="button" class="lesson-tool-arrow" aria-label="Цвет и толщина ручки" aria-expanded="false" aria-controls="lessonInkSettings">⌄</button></div>
+         <div class="lesson-tool-split"><button id="lessonToolMarker" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 14 8-10 7 6-8 9-7-5Zm3 3-4 3h7M10 8l7 6"/></svg><span>Маркер</span></button><button id="lessonToolMarkerSettings" data-ink-settings="marker" type="button" class="lesson-tool-arrow" aria-label="Цвет и толщина маркера" aria-expanded="false" aria-controls="lessonInkSettings">⌄</button></div>
         <button id="lessonStraightLine" type="button" aria-pressed="false" title="Прямая линия выбранной ручкой или выделителем"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 19 14-14"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/></svg><span>Линия</span></button>
         <button id="lessonToolEraser" type="button" aria-label="Ластик" title="Ластик — стереть штрих" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 14 9-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3L12 22H8l-4-4a3 3 0 0 1 0-4Zm5-5 8 8M12 22h10"/></svg><span>Ластик</span></button>
       <button type="button" id="lessonUndo" title="Отменить последний штрих"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6-5 5 5 5M4 11h10a6 6 0 0 1 6 6"/></svg><span>Отменить</span></button>
       </div>
-      <div id="lessonQuickColors" class="lesson-quick-colors" role="group" aria-label="Быстрый выбор цвета ручки или выделителя"></div>
       <details class="lesson-extra-menu">
         <summary aria-label="Цвет, толщина и настройки письма"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--lesson-control-bg,#fff)"/><circle cx="15" cy="17" r="3" fill="var(--lesson-control-bg,#fff)"/></svg><span>Настройки</span></summary>
         <div class="lesson-extra-items">
-          <b style="font-size:12px;font-weight:600">Цвета</b>
-          <input id="lessonPenColor" type="color" value="#f00087" hidden>
-          <div class="lesson-color-presets" id="lessonColorPresets" aria-label="Цвета ручки"></div>
-          <label class="lesson-width-label">Толщина <input id="lessonPenWidth" type="range" min="1" max="10" value="3"></label>
+
           
           <label class="lesson-width-label" title="Стабилизировать ручку во время письма и сглаживать штрих после отрыва пера; без замены букв и формул"><input id="lessonBeautify" type="checkbox" checked> Красивое письмо</label>
           <small>Для новых штрихов ручки · без замены букв</small>
@@ -1778,9 +1789,17 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 
       </div>
     </div>
-    <div id="lessonBoardBar" class="lesson-board-bar" hidden>
-      <button id="lessonBoardPen" type="button" aria-pressed="true"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.5-1L20 7.5 16.5 4 5 15.5 4 20Zm10-13 3.5 3.5M5 15.5 8.5 19"/></svg><span>Ручка</span></button>
-      <button id="lessonBoardMarker" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 14 8-10 7 6-8 9-7-5Zm3 3-4 3h7M10 8l7 6"/></svg><span>Маркер</span></button>
+    <div id="lessonInkSettings" class="lesson-ink-settings" role="dialog" aria-labelledby="lessonInkSettingsTitle" hidden>
+ <b id="lessonInkSettingsTitle">Ручка</b>
+ <span class="lesson-ink-colors-label">Цвета</span>
+ <div class="lesson-color-presets" id="lessonColorPresets" aria-label="Цвет инструмента"></div>
+ <input id="lessonPenColor" type="color" value="#f00087" hidden>
+ <svg class="lesson-ink-preview" viewBox="0 0 220 48" aria-label="Образец линии"><path id="lessonInkPreviewPath" d="M12 30 Q55 5 105 25 T208 20" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+ <label class="lesson-width-label">Толщина <output id="lessonInkWidthValue">3</output><input id="lessonPenWidth" type="range" min="1" max="10" value="3"></label>
+</div>
+<div id="lessonBoardBar" class="lesson-board-bar" hidden>
+      <div class="lesson-tool-split"><button id="lessonBoardPen" type="button" aria-pressed="true"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.5-1L20 7.5 16.5 4 5 15.5 4 20Zm10-13 3.5 3.5M5 15.5 8.5 19"/></svg><span>Ручка</span></button><button id="lessonBoardPenSettings" data-ink-settings="pen" type="button" class="lesson-tool-arrow" aria-label="Цвет и толщина ручки" aria-expanded="false" aria-controls="lessonInkSettings">⌄</button></div>
+      <div class="lesson-tool-split"><button id="lessonBoardMarker" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 14 8-10 7 6-8 9-7-5Zm3 3-4 3h7M10 8l7 6"/></svg><span>Маркер</span></button><button id="lessonBoardMarkerSettings" data-ink-settings="marker" type="button" class="lesson-tool-arrow" aria-label="Цвет и толщина маркера" aria-expanded="false" aria-controls="lessonInkSettings">⌄</button></div>
       <button id="lessonBoardEraser" type="button" aria-pressed="false" title="Стереть штрих на доске"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 14 9-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3L12 22H8l-4-4a3 3 0 0 1 0-4Zm5-5 8 8M12 22h10"/></svg><span>Ластик</span></button>
       <button id="lessonBoardLine" type="button" aria-pressed="false" title="Прямая линия"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m5 19 14-14"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/></svg><span>Линия</span></button>
       <button id="lessonBoardPan" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 12V6a2 2 0 0 1 4 0v6-8a2 2 0 0 1 4 0v8-6a2 2 0 0 1 4 0v10c0 4-3 6-7 6h-1c-2 0-3-1-4-3l-4-6c-1-2 1-4 3-2l1 1Z"/></svg><span>Двигать доску</span></button>
@@ -3772,21 +3791,52 @@ function lessonRestoreInkTools(){
  document.getElementById("lessonPenWidth").value=lessonPenWidthValue;
  document.getElementById("lessonBeautify").checked=lessonBeautify;
 }
+function lessonCloseInkSettings(){
+ document.getElementById("lessonInkSettings").hidden=true;
+ document.querySelectorAll("[data-ink-settings]").forEach(button=>button.setAttribute("aria-expanded","false"));
+}
+function lessonRefreshInkPreview(){
+ const marker=lessonTool==="marker";
+ const panel=document.getElementById("lessonInkSettings");panel.dataset.tool=marker?"marker":"pen";
+ const markerColors=["#ffce00","#2bdc30","#86d9f6","#f00087","#f02b3b"];
+ for(const button of document.querySelectorAll("#lessonColorPresets button")){
+  button.hidden=marker&&!markerColors.includes(button.dataset.ink)&&button.dataset.ink!==lessonMarkerColorValue;
+ }
+ const width=Number(document.getElementById("lessonPenWidth").value)||3;
+ const path=document.getElementById("lessonInkPreviewPath");
+ path.setAttribute("stroke",marker?lessonMarkerColorValue:lessonPenColorValue);
+ path.setAttribute("stroke-width",String(marker?Math.max(12,width*4):width));
+ path.setAttribute("opacity",marker?".32":"1");
+ document.getElementById("lessonInkWidthValue").value=String(width);
+}
+function lessonOpenInkSettings(button){
+ const panel=document.getElementById("lessonInkSettings");
+ const wasOpen=!panel.hidden&&button.getAttribute("aria-expanded")==="true";
+ lessonSetTool(button.dataset.inkSettings);
+ if(wasOpen)return;
+ document.getElementById("lessonInkSettingsTitle").textContent=lessonTool==="marker"?"Маркер":"Ручка";
+ panel.hidden=false;button.setAttribute("aria-expanded","true");
+ const rect=button.getBoundingClientRect();
+ panel.style.left=Math.max(10,Math.min(rect.left,window.innerWidth-panel.offsetWidth-10))+"px";
+ panel.style.top=Math.max(10,Math.min(rect.bottom+8,window.innerHeight-panel.offsetHeight-10))+"px";
+ lessonRefreshInkPreview();
+}
 function lessonSyncInkTools(){
  const color=lessonTool==="marker"?lessonMarkerColorValue:lessonPenColorValue;
  document.getElementById("lessonPenColor").value=color;
- document.querySelectorAll("#lessonColorPresets button,#lessonQuickColors button").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.ink===color)));
+ document.querySelectorAll("#lessonColorPresets button").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.ink===color)));
  for(const [id,tool] of [["lessonToolPen","pen"],["lessonToolMarker","marker"],["lessonToolEraser","erase"]])document.getElementById(id).setAttribute("aria-pressed",String(lessonTool===tool&&(tool==="erase"||!lessonLineMode)));
  for(const id of ["lessonToolPen","lessonBoardPen"])document.getElementById(id).style.setProperty("--tool-ink",lessonPenColorValue);
  for(const id of ["lessonToolMarker","lessonBoardMarker"])document.getElementById(id).style.setProperty("--tool-ink",lessonMarkerColorValue);
  document.getElementById("lessonInkCanvas").classList.toggle("eraser",lessonTool==="erase");
+ lessonRefreshInkPreview();
  if(lessonBoardMode)lessonBoardSetTool("pen");
 }
 function lessonSetTool(which){
  const width=document.getElementById("lessonPenWidth");
  if(lessonTool==="pen")lessonPenWidthValue=Number(width.value);
  if(lessonTool==="marker")lessonMarkerWidthValue=Number(width.value);
- lessonTool=which;document.querySelector("#lesson .lesson-extra-menu").open=false;lessonLineMode=false;document.getElementById("lessonStraightLine").setAttribute("aria-pressed","false");
+ lessonCloseInkSettings();lessonTool=which;document.querySelector("#lesson .lesson-extra-menu").open=false;lessonLineMode=false;document.getElementById("lessonStraightLine").setAttribute("aria-pressed","false");
  if(which==="pen"||which==="marker"){
   lessonLastInkTool=which;width.value=which==="pen"?lessonPenWidthValue:lessonMarkerWidthValue;
  }
@@ -4957,6 +5007,12 @@ function lessonSetup(){
   page=Math.max(1,Math.min(lessonPageCount,page));
   if(page!==lessonPage){lessonPage=page;lessonRenderPage();}
  });
+ document.querySelectorAll("[data-ink-settings]").forEach(button=>button.onclick=()=>lessonOpenInkSettings(button));
+ document.addEventListener("pointerdown",event=>{
+  if(!event.target.closest("#lessonInkSettings")&&!event.target.closest("[data-ink-settings]"))lessonCloseInkSettings();
+ });
+ document.addEventListener("keydown",event=>{if(event.key==="Escape")lessonCloseInkSettings();});
+ window.addEventListener("resize",lessonCloseInkSettings);
  document.getElementById("lessonToolPen").onclick=()=>lessonSetTool("pen");
   document.getElementById("lessonToolMarker").onclick=()=>lessonSetTool("marker");
  document.getElementById("lessonStraightLine").onclick=()=>{
@@ -4971,7 +5027,6 @@ function lessonSetup(){
   "#ee72e6","#ffc07c","#fff49d","#8eedaa","#86d9f6","#c1b9ff"
  ];
  const palette=document.getElementById("lessonColorPresets");
- const quickPalette=document.getElementById("lessonQuickColors");
  const picker=document.getElementById("lessonPenColor");
  const menu=document.querySelector("#lesson .lesson-extra-menu");
  const applyInkColor=(color,selected)=>{
@@ -4979,7 +5034,7 @@ function lessonSetup(){
   picker.value=color;
   if(lessonTool==="marker")lessonMarkerColorValue=color;
   else lessonPenColorValue=color;
-  for(const button of document.querySelectorAll("#lessonColorPresets button,#lessonQuickColors button")){
+  for(const button of document.querySelectorAll("#lessonColorPresets button")){
    button.setAttribute("aria-pressed",String(button.dataset.ink===color));
   }
   lessonSyncInkTools();lessonSaveInkTools();
@@ -4992,21 +5047,12 @@ function lessonSetup(){
   btn.onclick=()=>applyInkColor(color,true);
   palette.appendChild(btn);
  });
- ["#171719","#ffffff","#f00087","#f02b3b","#ffce00","#2078db","#86c767"].forEach(color=>{
-  const btn=document.createElement("button");btn.type="button";btn.dataset.ink=color;
-  btn.style.setProperty("--swatch",color);
-  btn.setAttribute("aria-label","Выбрать цвет "+color);
-  btn.setAttribute("aria-pressed",String(color===picker.value));
-  btn.onclick=()=>applyInkColor(color,false);
-  quickPalette.appendChild(btn);
- });
  picker.oninput=()=>applyInkColor(picker.value,false);
  document.getElementById("lessonPenWidth").addEventListener("input",()=>{
   if(lessonTool==="marker")lessonMarkerWidthValue=Number(document.getElementById("lessonPenWidth").value);
   else lessonPenWidthValue=Number(document.getElementById("lessonPenWidth").value);
-  lessonSaveInkTools();
+  lessonSaveInkTools();lessonRefreshInkPreview();
  });
- document.getElementById("lessonPenWidth").addEventListener("change",()=>{menu.open=false;});
  document.getElementById("lessonToolEraser").onclick=()=>lessonSetTool("erase");
  document.getElementById("lessonUndo").onclick=()=>{if(lessonBoardMode){document.getElementById("lessonBoardUndo").click();return;}lessonCurrentStrokes().pop();lessonRedrawInk();lessonSaveLocal();};
  document.getElementById("lessonClearPage").onclick=()=>{

@@ -114,10 +114,13 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.locator('#lessonToolPen').click();
    assert.equal(await page.locator('.lesson-extra-menu').evaluate(e=>e.open),false);
    // Each tool keeps its own colour and width, including after erase and reload.
-   await page.locator('#lessonQuickColors [data-ink="#171719"]').click();
+   await page.locator('#lessonToolPenSettings').click();
+   assert.ok(await page.locator('#lessonInkSettings').isVisible());
+   await page.locator('#lessonColorPresets [data-ink="#171719"]').click();
    await page.evaluate(()=>{const width=document.getElementById('lessonPenWidth');width.value='2';width.dispatchEvent(new Event('input'))});
-   await page.locator('#lessonToolMarker').click();
-   await page.locator('#lessonQuickColors [data-ink="#ffce00"]').click();
+   await page.locator('#lessonToolMarkerSettings').click();
+   assert.match(await page.locator('#lessonInkSettingsTitle').innerText(),/Маркер/);
+   await page.locator('#lessonColorPresets [data-ink="#ffce00"]').click();
    await page.evaluate(()=>{const width=document.getElementById('lessonPenWidth');width.value='6';width.dispatchEvent(new Event('input'))});
    await page.locator('#lessonToolPen').click();
    assert.equal(await page.locator('#lessonPenColor').inputValue(),'#171719');
@@ -128,8 +131,8 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.evaluate(()=>{lessonPenColorValue='#ffffff';lessonMarkerColorValue='#ffffff';lessonTool='pen';lessonRestoreInkTools();lessonSetTool('pen')});
    assert.equal(await page.evaluate(()=>lessonPenColorValue),'#171719');
    assert.equal(await page.evaluate(()=>lessonMarkerColorValue),'#ffce00');
-   for(const selector of ['#lessonToolPen','#lessonToolMarker','#lessonToolEraser','#lessonQuickColors button']){
-    const target=await page.locator(selector).first().boundingBox();assert.ok(target.width>=32&&target.height>=32,selector+JSON.stringify(target));
+   for(const selector of ['#lessonToolPen','#lessonToolMarker','#lessonToolEraser','#lessonToolPenSettings']){
+    const target=await page.locator(selector).first().boundingBox();assert.ok(target.width>=(selector.endsWith('Settings')?24:32)&&target.height>=32,selector+JSON.stringify(target));
    }
    const sampleQuality=await page.evaluate(()=>{
     const stroke={points:[{x:0,y:0}]};lessonBeautify=false;
