@@ -23,3 +23,9 @@ jobs:
       - run: npm install --no-save --no-package-lock playwright@1.56.1 pdf-lib@1.17.1 pdfjs-dist@4.10.38
       - run: npx playwright install --with-deps chromium
       - run: python tests/run_lab_sandbox_browser.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: isolated-lab-layout
+          path: lab-visual-preview/*.png
+          if-no-files-found: ignore

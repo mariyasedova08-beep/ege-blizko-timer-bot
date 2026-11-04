@@ -26,6 +26,19 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    });
    await page.goto(url);
    await page.waitForFunction(()=>lessonReady);
+   const brandTheme=await page.evaluate(()=>({
+    background:getComputedStyle(document.body).backgroundColor,
+    accent:getComputedStyle(document.documentElement).getPropertyValue('--pink').trim().toLowerCase(),
+    leaf:getComputedStyle(document.querySelector('.lab-brand'),'::before').content,
+    filter:getComputedStyle(document.querySelector('.reagent-filter.on')).backgroundColor,
+    stand:getComputedStyle(document.querySelector('#free .rack-board')).backgroundImage,
+    title:getComputedStyle(document.querySelector('.lab-title-wrap h1')).fontFamily
+   }));
+   assert.equal(brandTheme.accent,'#f00087');assert.equal(brandTheme.background,'rgb(248, 245, 242)');
+   assert.equal(brandTheme.filter,'rgb(240, 0, 135)');assert.ok(!brandTheme.leaf.includes('🍂'));
+   await page.screenshot({path:'lab-visual-preview/brand-free-'+size.width+'.png'});
+   assert.ok(!brandTheme.stand.includes('127, 102, 83'));assert.ok(!brandTheme.title.includes('Georgia'));
+
    if(process.env.LAB_SANDBOX_URL){
     const ink=await page.evaluate(()=>{
      function replay(scale,origin,kind='pen'){
@@ -497,6 +510,20 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.locator('#lessonBoardToggle').click();
    assert.equal(await page.evaluate(()=>lessonBoardMode),true);
    assert.equal(await page.locator('#lessonPresentationTab').getAttribute('aria-pressed'),'false');
+   const boardLayout=await page.locator('#lessonBoardBar').evaluate(bar=>{
+    const rows=[...bar.querySelectorAll('.lesson-board-row')];
+    return {height:bar.getBoundingClientRect().height,overflow:bar.scrollWidth-bar.clientWidth,
+     rows:rows.map(row=>({width:row.clientWidth,overflow:row.scrollWidth-row.clientWidth})),
+     tools:bar.querySelector('.lesson-board-tools').getBoundingClientRect().top,
+     view:bar.querySelector('.lesson-board-view').getBoundingClientRect().top};
+   });
+   await page.screenshot({path:'lab-visual-preview/board-panel-'+size.width+'.png'});
+   assert.equal(boardLayout.rows.length,2);assert.ok(boardLayout.overflow<=1);
+   assert.ok(boardLayout.rows.every(row=>row.overflow<=1));
+   assert.ok(boardLayout.view>boardLayout.tools);assert.ok(boardLayout.height<170);
+   await page.locator('.lesson-board-help summary').click();
+   assert.ok(await page.locator('.lesson-board-help-content').isVisible());
+   await page.locator('.lesson-board-help summary').click();
    await page.locator('#lessonBoardLine').click();
    assert.equal(await page.locator('#lessonBoardLine').getAttribute('aria-pressed'),'true');
    await page.locator('#lessonBoardMarker').click();
@@ -584,8 +611,9 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    download=page.waitForEvent('download');await page.locator('#lessonBoardMore summary').click();await page.locator('#lessonBoardExport').click();await page.locator('#lessonBoardMore').evaluate(e=>e.open=false);
    file=await download;assert.equal((await PDFDocument.load(fs.readFileSync(await file.path()))).getPageCount(),1);
    assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),2);
-   // Board eraser remains directly accessible when the main toolbar is collapsed.
-   await page.locator('#lessonToolbarToggle').click();
+   // Board owns its tools; no empty presentation settings row or misleading toggle.
+   assert.ok(await page.locator('#lessonToolbarToggle').isHidden());
+   assert.ok(await page.locator('.lesson-lesson-tools').isHidden());
    assert.ok(await page.locator('#lessonBoardEraser').isVisible());
    assert.ok(await page.locator('#lessonPresentationTab').isVisible());
    assert.ok(await page.locator('#lessonBoardToggle').isVisible());
@@ -595,7 +623,6 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    await page.locator('#lessonBoardPen').click();
    assert.equal(await page.evaluate(()=>lessonTool),'pen');
    assert.equal(await page.locator('#lessonBoardEraser').getAttribute('aria-pressed'),'false');
-   await page.locator('#lessonToolbarToggle').click();
    // Eraser removes a stroke, undo restores it.
    await page.evaluate(()=>{lessonBoardSnapshot();lessonBoardErase(lessonBoardStrokes[1].points[1]);lessonBoardDraw()});
    assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),1);

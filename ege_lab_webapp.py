@@ -746,115 +746,115 @@ h1{margin:5px 0 6px}h2{margin:4px 0 9px}p{line-height:1.35}
  .logo{font-size:11px;width:auto;height:auto;padding:7px 9px;border-radius:999px}
 }
 
-/* Autumn student-app visual system */
+/* EGE BLIZKO shared laboratory visual system */
 :root{
-  --pink:#C86F4A;
-  --soft:#F6E5DC;
-  --milk:#FBF6F0;
-  --ink:#211916;
-  --rose-deep:#A7463F;
-  --terracotta:#C86F4A;
-  --latte:#EAD5C2;
-  --line-autumn:#E8D2C6;
-  --paper-autumn:#FFFDFC;
-  --muted-autumn:#81736D;
+  --pink:#F00087;
+  --soft:#F4D9E6;
+  --milk:#F8F5F2;
+  --ink:#171719;
+  --rose-deep:#B22C76;
+  --terracotta:#F00087;
+  --latte:#F4D9E6;
+  --line-autumn:#E8D5E1;
+  --paper-autumn:#FFFFFF;
+  --muted-autumn:#827780;
 }
 body{
-  background:
-    radial-gradient(circle at 100% 0%,rgba(200,111,74,.10),transparent 22%),
-    radial-gradient(circle at 0% 55%,rgba(234,213,194,.28),transparent 28%),
-    linear-gradient(180deg,#FCF8F3 0%,#F8F1E9 100%);
-  color:var(--ink);
+  background:var(--milk);color:var(--ink);
   font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
   font-weight:400
 }
 .app{max-width:1240px;padding:18px 16px 34px}
 .lab-topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
 .lab-brand{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:650;color:var(--rose-deep);letter-spacing:.02em}
-.lab-brand:before{content:"🍂";font-size:15px}
+.lab-brand:before{content:"⌬";font-size:22px;color:var(--pink)}
 .lab-nav{display:flex;gap:8px;flex-wrap:wrap}
 .lab-nav a,.lab-nav button{
   display:inline-flex;align-items:center;justify-content:center;gap:6px;
   min-height:38px;padding:8px 12px;border-radius:999px;
   border:1px solid var(--line-autumn);background:rgba(255,253,252,.86);
-  color:#6E4A3E;text-decoration:none;font-size:12px;font-weight:550;
-  box-shadow:0 5px 16px rgba(92,61,47,.05)
+  color:#715E6B;text-decoration:none;font-size:12px;font-weight:550;
+  box-shadow:0 5px 16px rgba(79,36,77,.04)
 }
-.lab-nav a:hover,.lab-nav button:hover{background:#FFF7F2;border-color:#DDBBA9}
+.lab-nav a:hover,.lab-nav button:hover{background:#FFF4FA;border-color:#DBB7CB}
 .lab-title-wrap{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin:6px 2px 8px}
 .lab-title-wrap h1{
-  margin:0;font-family:Georgia,"Times New Roman",serif;
-  font-size:32px;font-weight:500;letter-spacing:-.02em;color:#211916
+  margin:0;font-family:inherit;
+  font-size:30px;font-weight:700;letter-spacing:-.02em;color:#171719
 }
 .lab-title-note{font-size:11px;color:var(--muted-autumn);padding-bottom:5px}
 .logo{
   color:var(--rose-deep);font-weight:650;letter-spacing:.02em;
   width:max-content;padding:7px 10px;border-radius:999px;
-  background:rgba(255,253,252,.72);border:1px solid #E9D2C5
+  background:rgba(255,253,252,.72);border:1px solid #E8D5E1
 }
 .tabs{gap:9px;margin:13px 0 15px}
 .tabs button{
-  background:rgba(255,253,252,.9);border:1px solid #E7CFC1;
-  color:#3B302C;border-radius:16px;padding:12px 10px;
-  font-size:12px;font-weight:550;box-shadow:0 5px 15px rgba(92,61,47,.035)
+  background:rgba(255,253,252,.9);border:1px solid #E8D5E1;
+  color:#171719;border-radius:16px;padding:12px 10px;
+  font-size:12px;font-weight:550;box-shadow:0 5px 15px rgba(79,36,77,.03)
 }
 button.on,button.primary,.tabs button.on{
-  background:linear-gradient(145deg,#B95C49,#C87857);
-  border-color:#B95C49;color:#fff;box-shadow:0 7px 18px rgba(167,70,63,.14)
+  background:linear-gradient(145deg,#F00087,#E52A91);
+  border-color:#F00087;color:#fff;box-shadow:0 7px 18px rgba(240,0,135,.12)
 }
-button{font-weight:550;border-color:#E5CFC3;color:#3B302C;background:#FFFDFC}
+button{font-weight:550;border-color:#E8D5E1;color:#171719;background:#FFFFFF}
 .lab-shell{grid-template-columns:250px minmax(0,1fr) 220px;gap:14px}
 .lab-side,.lab-controls,.card{
-  background:linear-gradient(155deg,rgba(255,253,252,.98),rgba(250,242,237,.94));
-  border:1px solid #E8D4C8;box-shadow:0 10px 28px rgba(92,61,47,.055)
+  background:linear-gradient(155deg,rgba(255,255,255,.98),rgba(250,246,249,.94));
+  border:1px solid #E8D5E1;box-shadow:0 10px 28px rgba(79,36,77,.04)
 }
 .lab-side,.lab-controls{border-radius:24px;padding:14px}
-.lab-side h2,.lab-controls h2,.bench-head h2{font-size:16px;font-weight:600;color:#2B211D}
+.lab-side h2,.lab-controls h2,.bench-head h2{font-size:16px;font-weight:600;color:#171719}
 .mode-note,.bench-hint,.reagent-search-hint,.rcat{color:var(--muted-autumn);font-weight:400}
 .reagent-search input{
-  border-color:#E4CEC2;background:#FFFDFC;color:#2B211D;
+  border-color:#E8D5E1;background:#FFFFFF;color:#171719;
   font-weight:500;box-shadow:none
 }
-.reagent-search input:focus{border-color:#C77A5B;box-shadow:0 0 0 2px rgba(200,111,74,.10)}
-.reagent-search button{background:#FFFDFC;border-color:#E4CEC2}
+.reagent-search input:focus{border-color:#C44988;box-shadow:0 0 0 2px rgba(240,0,135,.10)}
+.reagent-search button{background:#FFFFFF;border-color:#E8D5E1}
 .reagent-filter{
-  border-color:#E5CEC2;background:#FFF9F5;color:#5C4941;
+  border-color:#E8D5E1;background:#FFFBFD;color:#715E6B;
   font-size:11px;font-weight:550
 }
-.reagent-filter.on{background:#B95C49;color:#fff;border-color:#B95C49}
+.reagent-filter.on{background:#F00087;color:#fff;border-color:#F00087}
 .reagent-group-title{
-  font-size:11px;font-weight:600;color:#5C443A;background:#F4E3D9;
-  border:1px solid #E8D2C6
+  font-size:11px;font-weight:600;color:#715E6B;background:#F4D9E6;
+  border:1px solid #E8D5E1
 }
 .reagent-item{
-  border-color:#EBDED6;background:rgba(255,253,252,.94);border-radius:15px
+  border-color:#E8DFE5;background:rgba(255,253,252,.94);border-radius:15px
 }
-.reagent-item:hover,.reagent-item:active{background:#FFF5EF;border-color:#DDBAA8}
+.reagent-item:hover,.reagent-item:active{background:#FFF1F8;border-color:#DBB7CB}
 .rformula{font-weight:600}
 .lab-bench{
   background:
-    linear-gradient(180deg,#FFFDFC 0 68%,#F4ECE6 68% 73%,#D9BEA8 73% 100%);
-  border-color:#E7D5CB;border-radius:25px;
+    linear-gradient(180deg,#FFFFFF 0 68%,#F4EFF2 68% 73%,#F4D9E6 73% 100%);
+  border-color:#E8D5E1;border-radius:25px;
   box-shadow:0 12px 32px rgba(92,61,47,.06)
 }
-.bench-head .logo{font-size:10px;background:#FFF8F3}
+.bench-head .logo{font-size:10px;background:#FFFBFD}
 .selected-card,.lab-result{
-  background:rgba(255,249,245,.9);border-color:#E4CFC3
+  background:rgba(255,248,252,.9);border-color:#E8D5E1
 }
 .selected-card b{font-weight:600}.selected-card span{color:var(--muted-autumn)}
-.lab-controls button{border-radius:15px;background:#FFFDFC;border-color:#E4CEC2}
-.lab-controls button:hover{background:#FFF5EF}
+.lab-controls button{border-radius:15px;background:#FFFFFF;border-color:#E8D5E1}
+.lab-controls button:hover{background:#FFF1F8}
 .reaction-card{
-  border-color:#C66E54;background:linear-gradient(145deg,#FFFDFC,#F5DED2);
-  box-shadow:0 10px 24px rgba(166,81,59,.13)
+  border-color:#C44988;background:linear-gradient(145deg,#FFFFFF,#F4D9E6);
+  box-shadow:0 10px 24px rgba(79,36,77,.08)
 }
-.reaction-status{background:#B95C49;font-weight:600}
-.reaction-sign{font-weight:600;color:#211916}
-.reaction-equation{font-weight:550;border-color:rgba(184,92,73,.22)}
-.tube-callout .reaction-card{box-shadow:0 14px 34px rgba(166,81,59,.16)}
-.tube-callout:after{background:#F5DED2;border-right-color:#C66E54;border-bottom-color:#C66E54}
-.mobile-tube-picker button.on{background:#B95C49;border-color:#B95C49}
-.tube.on{border-color:#C66E54;box-shadow:inset 5px 0 8px rgba(255,255,255,.75),inset -5px 0 7px rgba(109,122,140,.12),0 0 0 2px rgba(198,110,84,.12),0 5px 12px rgba(54,42,51,.10)}
+.reaction-status{background:#F00087;font-weight:600}
+.reaction-sign{font-weight:600;color:#171719}
+.reaction-equation{font-weight:550;border-color:rgba(196,73,136,.22)}
+.tube-callout .reaction-card{box-shadow:0 14px 34px rgba(79,36,77,.10)}
+.tube-callout:after{background:#F4D9E6;border-right-color:#C44988;border-bottom-color:#C44988}
+.mobile-tube-picker button.on{background:#F00087;border-color:#F00087}
+.tube.on{border-color:#C44988;box-shadow:inset 5px 0 8px rgba(255,255,255,.75),inset -5px 0 7px rgba(109,122,140,.12),0 0 0 2px rgba(240,0,135,.12),0 5px 12px rgba(54,42,51,.10)}
+/* Neutral stand and rose-tinted work surface; reagent colours are untouched. */
+#free .rack-board{background:linear-gradient(#9D919B,#6C606B);box-shadow:0 6px 12px #4F244D21}
+#free .rack-board:before,#free .rack-board:after{background:linear-gradient(90deg,#91848F,#655A64)}
+
 .task6-text,.task6-select-card,.task6-demo-card,.oge-task,.ege-task{
   border-color:#E7D2C6;background:#FFFDFC
 }
@@ -1441,7 +1441,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
  #lesson .lesson-toolbar-actions{margin-right:115px}
  #lesson .lesson-toolbar-actions button{font-size:10px;padding:4px 5px}
 }
-/* EGE BLIZKO lesson-specific pink theme; free laboratory retains autumn theme. */
+/* EGE BLIZKO lesson-specific pink controls. */
 #lesson{--lesson-pencil-cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M4 20l4.8-1.3L20 7.5 16.5 4 5.3 15.2z' fill='%23F4D9E6' stroke='%23C44988' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M4 20l4.8-1.3-3.5-3.5z' fill='%23C44988'/%3E%3Cpath d='M14.6 5.9l3.5 3.5' stroke='%23C44988' stroke-width='1.3'/%3E%3C/svg%3E") 4 20,auto}
 #lesson .lesson-tube-frame .tube.on{
  border-color:#D78CB2;
@@ -1626,6 +1626,34 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 #lesson .lesson-ink-settings .lesson-width-label{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;margin-top:10px}
 #lesson .lesson-ink-settings input[type=range]{width:100%}
 
+/* Board has two intentional rows: drawing/files, then camera/pages. */
+#lesson .lesson-board-active .lesson-lesson-tools,#lesson .lesson-board-active #lessonToolbarToggle{display:none!important}
+#lesson .lesson-board-active .lesson-pane-head{padding:6px 10px;min-height:0}
+#lesson .lesson-board-bar{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:8px 10px;background:#FFFCFD}
+#lesson .lesson-board-row{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+#lesson .lesson-board-tools,#lesson .lesson-board-actions{display:flex;align-items:center;gap:3px;flex-wrap:nowrap;min-width:0}
+#lesson .lesson-board-tools{padding:3px;background:#F5F0F3;border-radius:10px;max-width:100%;overflow-x:auto}
+#lesson .lesson-board-actions{margin-left:auto;flex-shrink:0}
+#lesson .lesson-board-bar button,#lesson .lesson-board-more summary{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:32px;min-height:34px;padding:5px 7px;border:1px solid transparent;border-radius:7px;background:transparent;color:#715E6B;font-size:11px;line-height:18px;white-space:nowrap;box-sizing:border-box;flex-shrink:0}
+#lesson .lesson-board-bar button[aria-pressed="true"]{background:#fff;color:#963367;border-color:#E7D3DF;box-shadow:0 1px 3px #4F244D0B}
+#lesson .lesson-board-bar .lesson-tool-split>button:first-child{border-radius:7px 0 0 7px}
+#lesson .lesson-board-bar .lesson-tool-arrow{min-width:25px;padding:5px 3px;border-radius:0 7px 7px 0;border-left:1px solid #E8DFE5}
+#lesson .lesson-board-tools #lessonBoardUndo{margin-left:3px;border-left-color:#DFD3DB}
+#lesson .lesson-board-actions>button,#lesson .lesson-board-more summary{border-color:#E8DFE5;background:#fff}
+#lesson .lesson-board-actions #lessonBoardSaveProject{color:#983568;background:#F7E5EF;border-color:#EED0E0}
+#lesson .lesson-board-navigation{flex-wrap:nowrap;gap:1px;padding:2px;border:0;background:#F5F0F3;border-radius:8px;min-width:0;max-width:100%;overflow-x:auto}
+#lesson .lesson-board-navigation button{min-width:30px;min-height:30px;padding:4px 6px;font-size:10px}
+#lesson #lessonBoardDocumentName{max-width:150px;padding:0 6px;font-size:11px}
+#lesson #lessonBoardPageCounter{min-width:40px;font-size:11px}
+#lesson .lesson-board-more{margin-left:0}
+#lesson .lesson-board-view{justify-content:space-between;gap:5px}
+#lesson .lesson-board-help{position:relative;margin-left:auto}
+#lesson .lesson-board-help summary{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #E8DFE5;border-radius:50%;color:#8B7282;cursor:pointer;list-style:none;font-size:12px}
+#lesson .lesson-board-help-content{position:absolute;right:0;top:calc(100% + 7px);z-index:90;width:min(320px,70vw);padding:12px;border:1px solid #E8DFE5;border-radius:12px;background:#fff;box-shadow:0 10px 30px #4F244D17;color:#715E6B;font-size:12px;line-height:1.6}
+#lesson .lesson-board-help summary::-webkit-details-marker{display:none}
+@media(max-width:650px){#lesson .lesson-board-actions{margin-left:0}#lesson .lesson-board-row{gap:5px}#lesson .lesson-board-bar{padding:6px;gap:5px}#lesson #lessonBoardDocumentName{max-width:100px}}
+@media(pointer:coarse){#lesson .lesson-board-bar button,#lesson .lesson-board-more summary,#lesson .lesson-board-help summary{min-width:44px;min-height:44px}#lesson .lesson-board-bar .lesson-tool-arrow{min-width:32px}}
+
 </style></head><body><div class="app">
 <div class="lab-topbar">
   <div class="lab-brand">ЕГЭ БЛИЗКО</div>
@@ -1798,11 +1826,34 @@ body.lesson-board-fullscreen{overflow:hidden!important}
  <label class="lesson-width-label">Толщина <output id="lessonInkWidthValue">3</output><input id="lessonPenWidth" type="range" min="1" max="10" value="3"></label>
 </div>
 <div id="lessonBoardBar" class="lesson-board-bar" hidden>
+ <div class="lesson-board-row lesson-board-primary">
+  <div class="lesson-board-tools" role="group" aria-label="Рисование и редактирование доски">
       <div class="lesson-tool-split"><button id="lessonBoardPen" type="button" aria-pressed="true"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 20 4.5-1L20 7.5 16.5 4 5 15.5 4 20Zm10-13 3.5 3.5M5 15.5 8.5 19"/></svg><span>Ручка</span></button><button id="lessonBoardPenSettings" data-ink-settings="pen" type="button" class="lesson-tool-arrow" aria-label="Цвет и толщина ручки" aria-expanded="false" aria-controls="lessonInkSettings">⌄</button></div>
       <div class="lesson-tool-split"><button id="lessonBoardMarker" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 14 8-10 7 6-8 9-7-5Zm3 3-4 3h7M10 8l7 6"/></svg><span>Маркер</span></button><button id="lessonBoardMarkerSettings" data-ink-settings="marker" type="button" class="lesson-tool-arrow" aria-label="Цвет и толщина маркера" aria-expanded="false" aria-controls="lessonInkSettings">⌄</button></div>
       <button id="lessonBoardEraser" type="button" aria-pressed="false" title="Стереть штрих на доске"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 14 9-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3L12 22H8l-4-4a3 3 0 0 1 0-4Zm5-5 8 8M12 22h10"/></svg><span>Ластик</span></button>
       <button id="lessonBoardLine" type="button" aria-pressed="false" title="Прямая линия"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m5 19 14-14"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/></svg><span>Линия</span></button>
       <button id="lessonBoardPan" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 12V6a2 2 0 0 1 4 0v6-8a2 2 0 0 1 4 0v8-6a2 2 0 0 1 4 0v10c0 4-3 6-7 6h-1c-2 0-3-1-4-3l-4-6c-1-2 1-4 3-2l1 1Z"/></svg><span>Двигать доску</span></button>
+      <button id="lessonBoardMove" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M3 12h18M8 7l4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg><span>Выбрать объект</span></button>
+      <button id="lessonBoardUndo" type="button"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6-5 5 5 5M4 11h10a6 6 0 0 1 6 6"/></svg><span>Отменить</span></button>
+  </div>
+  <div class="lesson-board-actions" role="group" aria-label="Материалы и сохранение доски">
+      <details id="lessonBoardMore" class="lesson-board-more">
+        <summary><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Материалы</span></summary>
+        <div class="lesson-board-more-items">      <select id="lessonBoardPages" aria-label="Лист доски" title="Выбрать лист доски"></select>
+      <button id="lessonBoardAddPage" type="button">＋ Лист</button>
+      <button id="lessonBoardRenamePage" type="button">Переименовать</button>
+      <label for="lessonBoardImageInput">＋ Изображение</label><input id="lessonBoardImageInput" type="file" accept="image/png,image/jpeg,image/webp">
+      <label for="lessonBoardPDFInput">＋ PDF на доску</label><input id="lessonBoardPDFInput" type="file" accept="application/pdf,.pdf">
+      <label title="Меняет размер выбранной картинки. Для увеличения PDF используй кнопки масштаба.">Размер картинки <input id="lessonBoardImageSize" type="range" min="100" max="1300" value="480" aria-label="Ширина выбранного изображения"></label>
+      <label for="lessonBoardOpenProject">↑ Открыть проект</label><input id="lessonBoardOpenProject" type="file" accept=".json,application/json">
+      <button id="lessonBoardExport" type="button">↓ Доска в PDF</button>
+</div>
+      </details>
+      <button id="lessonBoardSaveProject" type="button"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><span>Сохранить проект</span></button>
+      <button id="lessonBoardFullscreen" type="button" aria-pressed="false" title="Развернуть доску на весь экран или вернуться к лаборатории">⛶ На весь экран</button>
+  </div>
+ </div>
+ <div class="lesson-board-row lesson-board-view">
       <div class="lesson-board-navigation" role="group" aria-label="Масштаб и обзор доски">
         <button id="lessonBoardZoomOut" type="button" aria-label="Уменьшить масштаб доски"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
         <button id="lessonBoardZoom" type="button" title="Вернуть масштаб 100%">100%</button>
@@ -1817,24 +1868,10 @@ body.lesson-board-fullscreen{overflow:hidden!important}
         <span id="lessonBoardPageCounter" aria-live="polite">1 / 1</span>
         <button id="lessonBoardNext" type="button" aria-label="Следующая страница на доске"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button>
       </div>
-      <button id="lessonBoardMove" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M3 12h18M8 7l4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg><span>Выбрать объект</span></button>
-      <button id="lessonBoardUndo" type="button"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6-5 5 5 5M4 11h10a6 6 0 0 1 6 6"/></svg><span>Отменить</span></button>
-      <button id="lessonBoardFullscreen" type="button" aria-pressed="false" title="Развернуть доску на весь экран или вернуться к лаборатории">⛶ На весь экран</button>
-      <button id="lessonBoardSaveProject" type="button"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><span>Сохранить проект</span></button>
-      <details id="lessonBoardMore" class="lesson-board-more">
-        <summary><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Материалы</span></summary>
-        <div class="lesson-board-more-items">      <select id="lessonBoardPages" aria-label="Лист доски" title="Выбрать лист доски"></select>
-      <button id="lessonBoardAddPage" type="button">＋ Лист</button>
-      <button id="lessonBoardRenamePage" type="button">Переименовать</button>
-      <label for="lessonBoardImageInput">＋ Изображение</label><input id="lessonBoardImageInput" type="file" accept="image/png,image/jpeg,image/webp">
-      <label for="lessonBoardPDFInput">＋ PDF на доску</label><input id="lessonBoardPDFInput" type="file" accept="application/pdf,.pdf">
-      <label title="Меняет размер выбранной картинки. Для увеличения PDF используй кнопки масштаба.">Размер картинки <input id="lessonBoardImageSize" type="range" min="100" max="1300" value="480" aria-label="Ширина выбранного изображения"></label>
-      <label for="lessonBoardOpenProject">↑ Открыть проект</label><input id="lessonBoardOpenProject" type="file" accept=".json,application/json">
-      <button id="lessonBoardExport" type="button">↓ Доска в PDF</button>
+ <details class="lesson-board-help"><summary aria-label="Как работать с доской" title="Как работать с доской">?</summary>
+      <div class="lesson-board-help-content">Вставить скриншот: ⌘V / Ctrl+V. Масштаб: + / − или два пальца. Один палец пишет; «Перемещать доску» двигает обзор. PDF листается стрелками и закреплён под записями.</div> </details>
+ </div>
 </div>
-      </details>
-      <small>Вставить скриншот: ⌘V / Ctrl+V. Масштаб: + / − или два пальца. Один палец пишет; «Перемещать доску» двигает обзор. PDF листается стрелками и закреплён под записями.</small>
-    </div>
     <div id="lessonPaperSpace" class="lesson-paper-space">
       <div id="lessonCanvasWrap"><canvas id="lessonPdfCanvas"></canvas><canvas id="lessonInkCanvas" aria-label="Писать стилусом по странице"></canvas></div>
     </div>
