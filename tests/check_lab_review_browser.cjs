@@ -26,6 +26,47 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    });
    await page.goto(url);
    await page.waitForFunction(()=>lessonReady);
+   if(process.env.LAB_SANDBOX_URL){
+    const ink=await page.evaluate(()=>{
+     function replay(scale,origin,kind='pen'){
+      const stroke={color:'#171719',width:3,opacity:1,points:[{x:origin,y:origin}]};
+      const canvas={clientWidth:scale,clientHeight:scale};
+      lessonBeginAtramentStroke(stroke,{pointerType:kind,pressure:.01},canvas);
+      for(let i=1;i<=40;i++){
+       const sample={type:'pointermove',pointerType:kind,pressure:i/45,x:origin+i*3/scale,y:origin+Math.sin(i/5)*15/scale};
+       sample.getCoalescedEvents=()=>[sample];
+       lessonAddStrokeSamples(stroke,sample,e=>({x:e.x,y:e.y}),canvas);
+      }
+      const before=JSON.stringify(stroke.points);
+      const last={type:'pointerup',pointerType:kind,pressure:0,x:origin+120/scale,y:origin+Math.sin(8)*15/scale};
+      lessonAddStrokeSamples(stroke,last,e=>({x:e.x,y:e.y}),canvas);
+      // No artificial endpoint dot from lifting the tablet pen.
+      const count=stroke.points.length;lessonFinishStroke(stroke,scale,scale);
+      return {stroke,before,count};
+     }
+     const board=replay(1,0),pdf=replay(800,0),mouse=replay(1,-50,'mouse');
+     const points=board.stroke.points;
+     const canvas=document.createElement('canvas');canvas.width=160;canvas.height=60;
+     const ctx=canvas.getContext('2d');ctx.translate(10,25);lessonBoardPaintStroke(ctx,board.stroke);
+     const rgba=ctx.getImageData(0,0,160,60).data;
+     window.atramentTestStroke=board.stroke;
+     return {board,pdf,mouse,painted:rgba.some((v,i)=>i%4===3&&v>0),
+      lowWidth:points[0].w,highWidth:points.at(-1).w,
+      checkboxHidden:document.getElementById('lessonBeautify').hidden};
+    });
+    assert.equal(ink.board.stroke.renderVersion,3);assert.equal(ink.pdf.stroke.renderVersion,3);
+    assert.equal(ink.mouse.stroke.renderVersion,3);assert.ok(ink.painted&&ink.checkboxHidden);
+    assert.equal(ink.board.count,41,'Coalesced samples must not be duplicated');
+    assert.ok(ink.lowWidth>0&&ink.highWidth>ink.lowWidth,'Light pressure starts a visible stroke');
+    assert.equal(ink.board.before,JSON.stringify(ink.board.stroke.points),'No second smoothing after release');
+    for(let i=0;i<ink.board.stroke.points.length;i++){
+     const a=ink.board.stroke.points[i],b=ink.pdf.stroke.points[i];
+     assert.ok(Number.isFinite(a.w)&&a.w>0);
+     assert.ok(Math.abs(a.x-b.x*800)<1e-6&&Math.abs(a.y-b.y*800)<1e-6);
+     assert.ok(Math.abs(a.w-b.w)<1e-6,'Board and PDF use the same screen-space pen');
+    }
+   }
+
    const markerPixels=await page.evaluate(()=>{
     const canvas=document.createElement('canvas');canvas.width=320;canvas.height=160;
     const ctx=canvas.getContext('2d');
@@ -404,6 +445,27 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    assert.ok(await page.evaluate(()=>lessonCurrentStrokes().at(-1).points.length>=10));
    assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),0);
    await pen.detach();
+   if(process.env.LAB_SANDBOX_URL){
+    const penPdf=await page.evaluate(async()=>{
+     const saved=lessonNotes,download=lessonDownload;let bytes;
+     try{
+      const points=window.atramentTestStroke.points.map(p=>({...p,x:.1+p.x/200,y:.3+p.y/200}));
+      lessonNotes={'1':[{...window.atramentTestStroke,points}]};
+      lessonSaveLocal();const expected=JSON.stringify(lessonNotes);lessonNotes={};lessonRestoreLocal();
+      if(JSON.stringify(lessonNotes)!==expected)throw Error('Atrament PDF ink recovery changed geometry');
+      lessonDownload=data=>{bytes=data};await lessonExportPDF();
+      const reader=await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs');
+      const doc=await reader.getDocument({data:new Uint8Array(bytes),isEvalSupported:false}).promise;
+      const sheet=await doc.getPage(1),viewport=sheet.getViewport({scale:1});
+      const canvas=document.createElement('canvas');canvas.width=viewport.width;canvas.height=viewport.height;
+      const ctx=canvas.getContext('2d');await sheet.render({canvasContext:ctx,viewport}).promise;
+      const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+      const dark=pixels.reduce((n,v,i)=>n+(i%4===0&&v<100&&pixels[i+1]<100&&pixels[i+2]<100?1:0),0);
+      await doc.destroy();return dark;
+     }finally{lessonNotes=saved;lessonDownload=download;lessonSaveLocal();lessonRedrawInk();}
+    });
+    assert.ok(penPdf>100,'Variable-width pen must survive PDF export');
+   }
    await page.evaluate(()=>{lessonNotes['1']=[{color:'#171719',width:3,opacity:1,points:[{x:.1,y:.1},{x:.2,y:.2}]}];lessonRedrawInk()});
    const markerPDF=await page.evaluate(async()=>{
     const savedNotes=lessonNotes,originalDownload=lessonDownload;let bytes;
@@ -505,6 +567,11 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    const parsed=JSON.parse(project);assert.equal(parsed.version,2);assert.equal(parsed.pages[0].strokes.length,2);
    await page.evaluate(async content=>{await lessonBoardOpenProject(new File([content],'board.json'))},project.toString());
    assert.equal(await page.evaluate(()=>lessonBoardStrokes.length),2);
+   if(process.env.LAB_SANDBOX_URL){
+    assert.ok(parsed.pages[0].strokes.every(s=>s.renderVersion===3&&s.points.every(p=>p.w>0)));
+    const restored=JSON.parse(await page.evaluate(()=>lessonBoardSerializeProject()));
+    assert.deepEqual(restored.pages[0].strokes,parsed.pages[0].strokes);
+   }
    const before=await page.evaluate(()=>JSON.stringify(lessonBoardStrokes,(key,value)=>key==='straight'?undefined:value));
    await page.evaluate(async()=>{await lessonBoardOpenProject(new File(['{"format":"wrong"}'],'bad.json'))});
    assert.equal(await page.evaluate(()=>JSON.stringify(lessonBoardStrokes,(key,value)=>key==='straight'?undefined:value)),before);

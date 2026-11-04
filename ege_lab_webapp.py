@@ -3525,6 +3525,7 @@ function lessonSmoothPoints(points){
 // time. Centripetal interpolation avoids sharp joins without cutting loops.
 function lessonStrokePoints(stroke,sx=1,sy=1){
  const points=stroke.points||[];
+ if(stroke.renderVersion===3)return points;
  // Roll back interpolating pen curves: they amplify tablet micro-jitter.
  // Keep the new marker path, but restore the previous pen geometry.
  if(stroke.renderVersion!==2||!(stroke.opacity<1))return lessonSmoothPoints(points);
@@ -3550,6 +3551,7 @@ function lessonStrokePoints(stroke,sx=1,sy=1){
 // Finish-only spatial smoothing: resampling by arc length makes the result
 // independent of tablet event frequency. No delayed cursor or text recognition.
 function lessonFinishStroke(stroke,sx=1,sy=1){
+ if(stroke?.renderVersion===3)return;
  if(!lessonBeautify||!stroke||stroke.straight||stroke.opacity<1||stroke.points.length<4)return;
  const raw=stroke.points.map(p=>({x:p.x*sx,y:p.y*sy}));
  const lengths=[0];for(let i=1;i<raw.length;i++)lengths.push(lengths[i-1]+Math.hypot(raw[i].x-raw[i-1].x,raw[i].y-raw[i-1].y));
@@ -3577,7 +3579,38 @@ function lessonFinishStroke(stroke,sx=1,sy=1){
 }
 // Keep transient input state outside saved strokes/projects.
 const lessonStrokeFilters=new WeakMap();
+const lessonAtramentStates=new WeakMap();
+function lessonBeginAtramentStroke(stroke,event,canvas){
+ if(stroke.opacity<1||stroke.straight||!window.LessonAtrament)return;
+ const virtual=document.createElement("canvas");virtual.width=virtual.height=1;
+ Object.defineProperty(virtual,"offsetWidth",{value:1});
+ Object.defineProperty(virtual,"offsetHeight",{value:1});
+ const engine=new window.LessonAtrament(virtual,{weight:stroke.width,bindPointerEvents:false});
+ const sx=canvas.clientWidth||1,sy=canvas.clientHeight||1;
+ const first=stroke.points[0],x=first.x*sx,y=first.y*sy;
+ engine.beginStroke(x,y);
+ const pressure=Number.isFinite(event.pressure)&&event.pointerType==="pen"?event.pressure:.5;
+ const sample=engine.drawSample(x,y,x,y,pressure);
+ stroke.renderVersion=3;first.w=Math.max(.01,sample.width/stroke.width);
+ lessonAtramentStates.set(stroke,{engine,x:sample.x,y:sample.y,rawX:x,rawY:y,pressure});
+}
+function lessonAddAtramentSamples(stroke,event,converter,canvas){
+ const state=lessonAtramentStates.get(stroke);if(!state)return;
+ const coalesced=typeof event.getCoalescedEvents==="function"?event.getCoalescedEvents():[];
+ const samples=event.type==="pointerup"?[event]:(coalesced.length?coalesced:[event]);
+ const sx=canvas.clientWidth||1,sy=canvas.clientHeight||1;
+ for(const sample of samples){
+  const point=converter(sample),x=point.x*sx,y=point.y*sy;
+  const pressure=event.type==="pointerup"?state.pressure:
+   (event.pointerType==="pen"&&Number.isFinite(sample.pressure)?sample.pressure:.5);
+  if(x===state.rawX&&y===state.rawY&&pressure===state.pressure)continue;
+  const rendered=state.engine.drawSample(x,y,state.x,state.y,pressure);
+  stroke.points.push({x:rendered.x/sx,y:rendered.y/sy,w:Math.max(.01,rendered.width/stroke.width)});
+  Object.assign(state,{x:rendered.x,y:rendered.y,rawX:x,rawY:y,pressure});
+ }
+}
 function lessonAddStrokeSamples(stroke,event,converter,canvas){
+ if(stroke.renderVersion===3){lessonAddAtramentSamples(stroke,event,converter,canvas);return;}
  const samples=typeof event.getCoalescedEvents==="function"?event.getCoalescedEvents():[];
  const sx=canvas.clientWidth||1,sy=canvas.clientHeight||1;
  for(const sample of [...samples,event]){
@@ -3742,11 +3775,21 @@ function lessonPaintInkPath(ctx,points,color,width,opacity){
  target.save();target.globalAlpha=1;
  target.strokeStyle=color;target.fillStyle=color;
  target.lineWidth=width;target.lineCap="round";target.lineJoin="round";
+ if(points.some(point=>Number.isFinite(point.w))){
+  for(let i=0;i<points.length;i++){
+   const point=points[i],previous=points[Math.max(0,i-1)];
+   target.lineWidth=Math.max(.01,width*(point.w??1));
+   target.beginPath();target.moveTo(previous.x,previous.y);target.lineTo(point.x,point.y);
+   if(i===0){target.arc(point.x,point.y,target.lineWidth/2,0,2*Math.PI);target.fill();}
+   else target.stroke();
+  }
+ }else{
  target.beginPath();target.moveTo(points[0].x,points[0].y);
  for(let i=1;i<points.length;i++)target.lineTo(points[i].x,points[i].y);
  if(points.length===1){
   target.arc(points[0].x,points[0].y,width/2,0,2*Math.PI);target.fill();
  }else target.stroke();
+ }
  target.restore();
  if(alpha<1){
   ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=alpha;
@@ -3756,7 +3799,7 @@ function lessonPaintInkPath(ctx,points,color,width,opacity){
 function lessonPaintPdfStroke(ctx,stroke,canvas,ratio){
  if(!stroke||!Array.isArray(stroke.points)||!stroke.points.length)return;
  const points=lessonStrokePoints(stroke,canvas.width,canvas.height)
-  .map(p=>({x:p.x*canvas.width,y:p.y*canvas.height}));
+  .map(p=>({...p,x:p.x*canvas.width,y:p.y*canvas.height}));
  lessonPaintInkPath(ctx,points,stroke.color||"#f00087",
   Math.max(1,Number(stroke.width)||3)*ratio,stroke.opacity);
 }
@@ -4003,6 +4046,15 @@ async function lessonExportPDF(){
     const rgb=lessonColorToPDF(stroke.color);
     const color=lib.rgb(rgb[0],rgb[1],rgb[2]);
     const thickness=Math.max(.6,Number(stroke.width||3)*w/Math.max(1,logical));
+    if(stroke.renderVersion===3){
+     for(let k=0;k<pts.length;k++){
+      const point=pts[k],previous=pts[Math.max(0,k-1)],size=Math.max(.01,thickness*(point.w??1));
+      if(k===0)sheet.drawCircle({x:point.x*w,y:(1-point.y)*h,size:size/2,color});
+      else sheet.drawLine({start:{x:previous.x*w,y:(1-previous.y)*h},
+       end:{x:point.x*w,y:(1-point.y)*h},thickness:size,color,lineCap:lib.LineCapStyle.Round});
+     }
+     continue;
+    }
     if(pts.length>1){
      const path=pts.map((p,k)=>(k?"L":"M")+(p.x*w)+" "+(p.y*h)).join(" ");
      sheet.pushOperators(lib.setLineJoin(lib.LineJoinStyle.Round));
@@ -4428,7 +4480,7 @@ function lessonBoardValidNumber(value,min,max){
 function lessonBoardSerializeProject(){
  lessonBoardStoreCurrent();
  const pages=lessonBoardPages.map(page=>({name:page.name,view:page.view,document:page.document,
-  strokes:page.strokes.map(stroke=>({...((stroke.renderVersion===2)?{renderVersion:2}:{}),color:stroke.color,width:stroke.width,opacity:stroke.opacity,points:stroke.points.map(p=>({x:p.x,y:p.y}))})),
+  strokes:page.strokes.map(stroke=>({...([2,3].includes(stroke.renderVersion)?{renderVersion:stroke.renderVersion}:{}),color:stroke.color,width:stroke.width,opacity:stroke.opacity,points:stroke.points.map(p=>({x:p.x,y:p.y,...(stroke.renderVersion===3?{w:p.w??1}:{})}))})),
   items:page.items.map(item=>({x:item.x,y:item.y,w:item.w,h:item.h,locked:item.locked===true,image:lessonBoardImageData(item.image)}))}));
  return JSON.stringify({format:"ege-blizko-board",version:2,width:2400,height:1600,activePage:lessonBoardPageIndex,pages});
 }
@@ -4462,9 +4514,10 @@ async function lessonBoardOpenProject(file){
     pointCount+=stroke.points.length;if(pointCount>500000)throw Error("too-many-points");
     const points=stroke.points.map(p=>{
      if(!lessonBoardValidNumber(p.x,-10000000,10000000)||!lessonBoardValidNumber(p.y,-10000000,10000000))throw Error("bad-point");
-     return {x:p.x,y:p.y};
+     if(stroke.renderVersion===3&&!lessonBoardValidNumber(p.w,.001,64))throw Error("bad-ink-width");
+     return {x:p.x,y:p.y,...(stroke.renderVersion===3?{w:p.w}:{})};
     });
-    return {...((stroke.renderVersion===2)?{renderVersion:2}:{}),color:stroke.color,width:stroke.width,opacity:stroke.opacity,points};
+    return {...([2,3].includes(stroke.renderVersion)?{renderVersion:stroke.renderVersion}:{}),color:stroke.color,width:stroke.width,opacity:stroke.opacity,points};
    });
    const view=page.view||{x:0,y:0,zoom:1};
    if(!lessonBoardValidNumber(view.x,-10000000,10000000)||!lessonBoardValidNumber(view.y,-10000000,10000000)||!lessonBoardValidNumber(view.zoom,.1,4))throw Error("bad-view");
@@ -4830,6 +4883,7 @@ function lessonBoardSetup(){
    }
    const marker=lessonTool==="marker",width=Number(document.getElementById("lessonPenWidth").value)||3;
    const stroke={renderVersion:2,color:marker?lessonMarkerColorValue:lessonPenColorValue,width:marker?width*4:width,opacity:marker?.32:1,points:lessonLineMode?[p,p]:[p],straight:lessonLineMode};
+   lessonBeginAtramentStroke(stroke,event,{clientWidth:lessonBoardView.zoom,clientHeight:lessonBoardView.zoom});
    lessonBoardStrokes.push(stroke);lessonBoardPointer={kind:"draw",stroke};
   }
   if(lessonBoardPointer){lessonBoardPointer.pointerType=event.pointerType;lessonBoardPointer.pointerId=event.pointerId;}
@@ -5131,6 +5185,7 @@ function lessonSetup(){
    tool:lessonTool,opacity:lessonTool==="marker"?.32:1,
    width:lessonTool==="marker"?Math.max(12,Number(document.getElementById("lessonPenWidth").value)*4):Number(document.getElementById("lessonPenWidth").value),
    points:lessonLineMode?[point,point]:[point],straight:lessonLineMode};
+  lessonBeginAtramentStroke(lessonDrawing,event,canvas);
   lessonCurrentStrokes().push(lessonDrawing);lessonSchedulePdfInk();
  };
  canvas.onpointermove=event=>{

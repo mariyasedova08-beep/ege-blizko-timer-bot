@@ -19,6 +19,13 @@ def build():
         '<script src="https://telegram.org/js/telegram-web-app.js"></script>',
         '<script>window.Telegram={WebApp:{initData:"",initDataUnsafe:{},ready(){},expand(){}}};</script>')
     html = html.replace('<body>', '<body><div style="padding:6px 12px;background:#F4D9E6;color:#171719;font:12px sans-serif">Тестовая лаборатория · Статистика бота не сохраняется</div>', 1)
+    atrament = (ROOT/'vendor/atrament/index.cjs').read_text()
+    atrament_license = (ROOT/'vendor/atrament/LICENSE.md').read_text()
+    atrament_script = '<script>/*\n'+atrament_license+'\n*/\nwindow.LessonAtrament=(()=>{const exports={};\n'+atrament+'\nreturn exports.default;})();</script>'
+    html = html.replace('</head>', atrament_script+'</head>', 1)
+    # Atrament owns smoothing; do not expose the unrelated legacy finish filter.
+    html = re.sub(r'<label[^>]*><input id="lessonBeautify"[^>]*>.*?</label>',
+                  '<input id="lessonBeautify" type="checkbox" checked hidden>', html, count=1)
     # Teacher pilot exposes only the two lesson workflows.
     html = re.sub(r'<button(?: class="on")? data-page="(?:work|oge|ege|exam|stats)">.*?</button>\n?', '', html)
     html = re.sub(r'<div class="lab-nav">.*?</div>', '', html, count=1, flags=re.S)
@@ -48,7 +55,8 @@ def build():
     names = ['ege_lab_webapp.py','ege_lab_substances.py','ege_lab_inorganic_reactions.py',
              'ege_lab_exchange_matrix.py','ege_lab_mn_cr_pdf_import.py','ege_task6_reactions.py',
              'deploy/build_lab_sandbox.py','preview/pen-comparison.html',
-             'vendor/perfect-freehand/index.cjs','vendor/perfect-freehand/LICENSE']
+             'vendor/perfect-freehand/index.cjs','vendor/perfect-freehand/LICENSE',
+             'vendor/atrament/index.cjs','vendor/atrament/LICENSE.md']
     hashes = {name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in names}
     runtime_id = hashlib.sha256(json.dumps(hashes,sort_keys=True).encode()).hexdigest()[:16]
     html_bytes = html.encode()

@@ -1,0 +1,13 @@
+{
+  "package": "atrament",
+  "version": "5.1.0",
+  "license": "MIT",
+  "url": "https://registry.npmjs.org/atrament/-/atrament-5.1.0.tgz",
+  "integrity": "sha512-HCwK0o6pqtMN8yjBr3gUiOQKDsPomaz99HhUrWp2r+Lhb8j3uAklbbWlkYkKNiBW5S2OL0ohapWeiEddSG5Beg==",
+  "upstream_cjs_sha256": "28960312aa22518b8d40ffd53895e66942130f6fd754a673c62ae0b7492496be",
+  "changes": [
+    "Optional manual sample binding for existing lab pointer capture",
+    "drawSample exposes rendered width and advances pressure history",
+    "Zero-valued previous coordinates use nullish fallback"
+  ]
+}
