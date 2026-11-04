@@ -6,6 +6,7 @@ import http.client
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -49,6 +50,13 @@ class SandboxRuntime(unittest.TestCase):
         self.assertEqual(self.health['coverage'],{'substances':219,'reactions':1434,'medium_reactions':96})
         self.assertIn('Тестовая лаборатория'.encode(),self.html)
         self.assertNotIn(b'https://telegram.org/js/telegram-web-app.js',self.html)
+
+    def test_teacher_pilot_has_only_two_navigation_modes(self):
+        html = self.html.decode()
+        tabs = re.search(r'<div class="tabs">(.*?)</div>', html, re.S).group(1)
+        self.assertEqual(re.findall(r'data-page="([^"]+)"', tabs), ['free', 'lesson'])
+        self.assertNotIn('href="/lab-solubility"', html)
+        self.assertNotIn('id="labBackCabinet"', html)
 
     def test_real_http_html_load_and_health_match_package(self):
         status,body=self.request('GET','/lab-app');self.assertEqual(status,200);self.assertEqual(body,self.html)

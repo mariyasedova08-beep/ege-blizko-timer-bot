@@ -3,6 +3,7 @@ import base64
 import gzip
 import hashlib
 import json
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -18,6 +19,14 @@ def build():
         '<script src="https://telegram.org/js/telegram-web-app.js"></script>',
         '<script>window.Telegram={WebApp:{initData:"",initDataUnsafe:{},ready(){},expand(){}}};</script>')
     html = html.replace('<body>', '<body><div style="padding:6px 12px;background:#F4D9E6;color:#171719;font:12px sans-serif">Тестовая лаборатория · Статистика бота не сохраняется</div>', 1)
+    # Teacher pilot exposes only the two lesson workflows.
+    html = re.sub(r'<button(?: class="on")? data-page="(?:work|oge|ege|exam|stats)">.*?</button>\n?', '', html)
+    html = re.sub(r'<div class="lab-nav">.*?</div>', '', html, count=1, flags=re.S)
+    html = html.replace('Опыты, тренажёры и экзаменационная практика',
+                        'Свободный опыт и режим урока')
+    for page in ('work', 'oge', 'ege', 'exam', 'stats'):
+        html = html.replace(f'<section id="{page}" class="page">',
+                            f'<section id="{page}" class="page" hidden>')
     # This comparison screen exists only in the isolated bundle, never in the bot.
     pen_test = (ROOT/'preview/pen-comparison.html').read_text()
     vendor = (ROOT/'vendor/perfect-freehand/index.cjs').read_text()

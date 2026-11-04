@@ -1310,8 +1310,8 @@ body:has(#lesson.page.on) .app{max-width:none}
 .lesson-tube-choice.on>span:first-child{color:#574351!important}
 .lesson-tube-choice .lesson-tube-frame{display:block;width:100%;height:auto;padding:5px 0 10px;container-type:inline-size}
 .lesson-tube-choice .lesson-tube-frame .tube{
-  --tube-width:min(74px,86%);
-  width:var(--tube-width);height:auto;aspect-ratio:74 / 175;margin:auto;
+  --tube-width:74px;
+  width:var(--tube-width);max-width:86%;height:calc(var(--tube-width) * 175 / 74);margin:auto;
 }
 @supports(width:1cqi){
   .lesson-tube-choice .lesson-tube-frame .tube{--tube-width:min(86cqi,clamp(74px,32cqi,110px))}
@@ -2280,7 +2280,9 @@ function tubeMotionFor(state,history,reaction,sources=history){
  if(history.length<previous.length||(previous.length&&history[0]!==previous[0])){
   for(const key of Object.keys(state))delete state[key];
  }
- const amount=Math.max(state.level||0,tubeLiquidLevel(history.filter(tubeIsLiquid).length+(state.extraPours||0)));
+ const chromateSolution=reaction&&/→[^\n]*(?:Na₂CrO₄|K₂CrO₄)/.test(reaction.eq||"")&&!/сплав|расплав/i.test(reaction.c||"");
+ const portions=history.filter(tubeIsLiquid).length+(state.extraPours||0);
+ const amount=Math.max(state.level||0,tubeLiquidLevel(Math.max(portions,chromateSolution?1:0)));
  if(amount>(state.level||0)){
   state.from=state.level||0;state.pourAt=now;state.pourColor=reagent(history.filter(tubeIsLiquid).at(-1))[2];
  }
