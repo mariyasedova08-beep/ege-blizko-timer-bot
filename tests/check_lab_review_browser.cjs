@@ -363,6 +363,20 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
     assert.ok(Math.abs(restoredSlide.width-slideBeforeBoard.width)<=2);
     assert.ok(Math.abs(restoredSlide.height-slideBeforeBoard.height)<=2);
    }
+   // A growing slide must not reprocess completed strokes on every pen frame.
+   const cachedInk=await page.evaluate(()=>{
+    const saved=lessonNotes,draw=lessonDrawing,paint=lessonPaintPdfStroke;
+    const completed={color:'#171719',width:2,points:[{x:.1,y:.1},{x:.2,y:.2}]};
+    const active={color:'#171719',width:2,points:[{x:.3,y:.3},{x:.4,y:.4}]};
+    let completedPaints=0;
+    try{
+     lessonNotes={[String(lessonPage)]:[completed,active]};lessonDrawing=active;lessonPdfInkCache=null;
+     lessonPaintPdfStroke=(ctx,stroke,...args)=>{if(stroke===completed)completedPaints++;return paint(ctx,stroke,...args)};
+     lessonRedrawInk();active.points.push({x:.5,y:.5});lessonRedrawInk();lessonRedrawInk();
+     return completedPaints;
+    }finally{lessonNotes=saved;lessonDrawing=draw;lessonPaintPdfStroke=paint;lessonPdfInkCache=null;lessonRedrawInk();}
+   });
+   assert.equal(cachedInk,1);
    // Presentation expands independently and always provides an exit.
    const labBeforeFull=await page.evaluate(()=>JSON.stringify(lessonTubeStates));
    assert.ok(await page.locator('#lessonPresentationFullscreen').evaluate(e=>e.clientWidth>=32&&e.scrollWidth<=e.clientWidth));

@@ -3753,18 +3753,36 @@ function lessonPaintInkPath(ctx,points,color,width,opacity){
   ctx.drawImage(lessonMarkerLayer,0,0);ctx.restore();
  }
 }
+function lessonPaintPdfStroke(ctx,stroke,canvas,ratio){
+ if(!stroke||!Array.isArray(stroke.points)||!stroke.points.length)return;
+ const points=lessonStrokePoints(stroke,canvas.width,canvas.height)
+  .map(p=>({x:p.x*canvas.width,y:p.y*canvas.height}));
+ lessonPaintInkPath(ctx,points,stroke.color||"#f00087",
+  Math.max(1,Number(stroke.width)||3)*ratio,stroke.opacity);
+}
+let lessonPdfInkCache=null;
 function lessonRedrawInk(){
  const canvas=document.getElementById("lessonInkCanvas");
  const ctx=canvas.getContext("2d");
- ctx.clearRect(0,0,canvas.width,canvas.height);
+ const strokes=lessonCurrentStrokes();
+ const active=lessonDrawing&&strokes.includes(lessonDrawing)?lessonDrawing:null;
  const rect=canvas.getBoundingClientRect();
  const ratio=canvas.width/Math.max(1,rect.width);
- for(const stroke of lessonCurrentStrokes()){
-  if(!stroke||!Array.isArray(stroke.points)||!stroke.points.length)continue;
-  const points=lessonStrokePoints(stroke,canvas.width,canvas.height)
-   .map(p=>({x:p.x*canvas.width,y:p.y*canvas.height}));
-  lessonPaintInkPath(ctx,points,stroke.color||"#f00087",
-   Math.max(1,Number(stroke.width)||3)*ratio,stroke.opacity);
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ if(active){
+  const key=[lessonPage,canvas.width,canvas.height,ratio,strokes.length].join(":");
+  if(!lessonPdfInkCache||lessonPdfInkCache.stroke!==active||lessonPdfInkCache.key!==key||lessonPdfInkCache.strokes!==strokes){
+   const bitmap=document.createElement("canvas");
+   bitmap.width=canvas.width;bitmap.height=canvas.height;
+   const background=bitmap.getContext("2d");
+   for(const stroke of strokes)if(stroke!==active)lessonPaintPdfStroke(background,stroke,canvas,ratio);
+   lessonPdfInkCache={bitmap,stroke:active,strokes,key};
+  }
+  ctx.drawImage(lessonPdfInkCache.bitmap,0,0);
+  lessonPaintPdfStroke(ctx,active,canvas,ratio);
+ }else{
+  lessonPdfInkCache=null;
+  for(const stroke of strokes)lessonPaintPdfStroke(ctx,stroke,canvas,ratio);
  }
 }
 function lessonEraseAt(point){
