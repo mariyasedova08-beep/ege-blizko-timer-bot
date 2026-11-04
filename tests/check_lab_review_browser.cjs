@@ -29,7 +29,7 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    const markerPixels=await page.evaluate(()=>{
     const canvas=document.createElement('canvas');canvas.width=320;canvas.height=160;
     const ctx=canvas.getContext('2d');
-    const stroke={color:'#f00087',width:20,opacity:.35,straight:true,
+    const stroke={renderVersion:2,color:'#f00087',width:20,opacity:.35,straight:true,
      points:[{x:30,y:80},{x:160,y:80},{x:160,y:30},{x:160,y:80},{x:290,y:80}]};
     lessonBoardPaintStroke(ctx,stroke);
     const alpha=ctx.getImageData(0,0,320,160).data.filter((_,i)=>i%4===3);
