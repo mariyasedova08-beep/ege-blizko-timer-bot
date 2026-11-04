@@ -2284,7 +2284,7 @@ function tubeMotionFor(state,history,reaction,sources=history){
  const portions=history.filter(tubeIsLiquid).length+(state.extraPours||0);
  const amount=Math.max(state.level||0,tubeLiquidLevel(Math.max(portions,chromateSolution?1:0)));
  if(amount>(state.level||0)){
-  state.from=state.level||0;state.pourAt=now;state.pourColor=reagent(history.filter(tubeIsLiquid).at(-1))[2];
+  state.from=state.level||0;state.pourAt=now;state.pourColor=reagent(history.filter(tubeIsLiquid).at(-1))?.[2]||reaction?.sol||"#d8eaf4";
  }
  state.level=amount;state.history=history.slice();
  const key=reaction&&reaction.t!=="z"?reaction.eq+"|"+history.join(","):"";
