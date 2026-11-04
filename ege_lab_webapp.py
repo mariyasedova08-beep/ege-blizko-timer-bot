@@ -1629,11 +1629,11 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 /* Board has two intentional rows: drawing/files, then camera/pages. */
 #lesson .lesson-board-active .lesson-lesson-tools,#lesson .lesson-board-active #lessonToolbarToggle{display:none!important}
 #lesson .lesson-board-active .lesson-pane-head{padding:6px 10px;min-height:0}
-#lesson .lesson-board-bar{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:8px 10px;background:#FFFCFD}
-#lesson .lesson-board-row{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+#lesson .lesson-board-bar{width:100%;max-width:100%;min-width:0;box-sizing:border-box;display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:8px 10px;background:#FFFCFD}
+#lesson .lesson-board-row{width:100%;max-width:100%;box-sizing:border-box;display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
 #lesson .lesson-board-tools,#lesson .lesson-board-actions{display:flex;align-items:center;gap:3px;flex-wrap:nowrap;min-width:0}
-#lesson .lesson-board-tools{padding:3px;background:#F5F0F3;border-radius:10px;max-width:100%;overflow-x:auto}
-#lesson .lesson-board-actions{margin-left:auto;flex-shrink:0}
+#lesson .lesson-board-tools{flex:0 1 auto;padding:3px;background:#F5F0F3;border-radius:10px;max-width:100%;overflow-x:auto}
+#lesson .lesson-board-actions{margin-left:auto;max-width:100%;flex-wrap:wrap;flex-shrink:1}
 #lesson .lesson-board-bar button,#lesson .lesson-board-more summary{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-width:32px;min-height:34px;padding:5px 7px;border:1px solid transparent;border-radius:7px;background:transparent;color:#715E6B;font-size:11px;line-height:18px;white-space:nowrap;box-sizing:border-box;flex-shrink:0}
 #lesson .lesson-board-bar button[aria-pressed="true"]{background:#fff;color:#963367;border-color:#E7D3DF;box-shadow:0 1px 3px #4F244D0B}
 #lesson .lesson-board-bar .lesson-tool-split>button:first-child{border-radius:7px 0 0 7px}
@@ -1646,7 +1646,10 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 #lesson #lessonBoardDocumentName{max-width:150px;padding:0 6px;font-size:11px}
 #lesson #lessonBoardPageCounter{min-width:40px;font-size:11px}
 #lesson .lesson-board-more{margin-left:0}
-#lesson .lesson-board-view{justify-content:space-between;gap:5px}
+#lesson .lesson-board-view{justify-content:flex-start;gap:6px}
+#lesson #lessonBoardFullscreen span{display:none}
+#lesson #lessonBoardFullscreen{width:34px;padding:5px}
+#lesson .lesson-board-view .lesson-board-navigation{flex-shrink:1}
 #lesson .lesson-board-help{position:relative;margin-left:auto}
 #lesson .lesson-board-help summary{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid #E8DFE5;border-radius:50%;color:#8B7282;cursor:pointer;list-style:none;font-size:12px}
 #lesson .lesson-board-help-content{position:absolute;right:0;top:calc(100% + 7px);z-index:90;width:min(320px,70vw);padding:12px;border:1px solid #E8DFE5;border-radius:12px;background:#fff;box-shadow:0 10px 30px #4F244D17;color:#715E6B;font-size:12px;line-height:1.6}
@@ -1836,22 +1839,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
       <button id="lessonBoardMove" type="button" aria-pressed="false"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M3 12h18M8 7l4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg><span>Выбрать объект</span></button>
       <button id="lessonBoardUndo" type="button"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6-5 5 5 5M4 11h10a6 6 0 0 1 6 6"/></svg><span>Отменить</span></button>
   </div>
-  <div class="lesson-board-actions" role="group" aria-label="Материалы и сохранение доски">
-      <details id="lessonBoardMore" class="lesson-board-more">
-        <summary><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Материалы</span></summary>
-        <div class="lesson-board-more-items">      <select id="lessonBoardPages" aria-label="Лист доски" title="Выбрать лист доски"></select>
-      <button id="lessonBoardAddPage" type="button">＋ Лист</button>
-      <button id="lessonBoardRenamePage" type="button">Переименовать</button>
-      <label for="lessonBoardImageInput">＋ Изображение</label><input id="lessonBoardImageInput" type="file" accept="image/png,image/jpeg,image/webp">
-      <label for="lessonBoardPDFInput">＋ PDF на доску</label><input id="lessonBoardPDFInput" type="file" accept="application/pdf,.pdf">
-      <label title="Меняет размер выбранной картинки. Для увеличения PDF используй кнопки масштаба.">Размер картинки <input id="lessonBoardImageSize" type="range" min="100" max="1300" value="480" aria-label="Ширина выбранного изображения"></label>
-      <label for="lessonBoardOpenProject">↑ Открыть проект</label><input id="lessonBoardOpenProject" type="file" accept=".json,application/json">
-      <button id="lessonBoardExport" type="button">↓ Доска в PDF</button>
-</div>
-      </details>
-      <button id="lessonBoardSaveProject" type="button"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><span>Сохранить проект</span></button>
-      <button id="lessonBoardFullscreen" type="button" aria-pressed="false" title="Развернуть доску на весь экран или вернуться к лаборатории">⛶ На весь экран</button>
-  </div>
+
  </div>
  <div class="lesson-board-row lesson-board-view">
       <div class="lesson-board-navigation" role="group" aria-label="Масштаб и обзор доски">
@@ -1868,8 +1856,24 @@ body.lesson-board-fullscreen{overflow:hidden!important}
         <span id="lessonBoardPageCounter" aria-live="polite">1 / 1</span>
         <button id="lessonBoardNext" type="button" aria-label="Следующая страница на доске"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button>
       </div>
+  <div class="lesson-board-actions" role="group" aria-label="Материалы и сохранение доски">
+      <details id="lessonBoardMore" class="lesson-board-more">
+        <summary><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Материалы</span></summary>
+        <div class="lesson-board-more-items">      <select id="lessonBoardPages" aria-label="Лист доски" title="Выбрать лист доски"></select>
+      <button id="lessonBoardAddPage" type="button">＋ Лист</button>
+      <button id="lessonBoardRenamePage" type="button">Переименовать</button>
+      <label for="lessonBoardImageInput">＋ Изображение</label><input id="lessonBoardImageInput" type="file" accept="image/png,image/jpeg,image/webp">
+      <label for="lessonBoardPDFInput">＋ PDF на доску</label><input id="lessonBoardPDFInput" type="file" accept="application/pdf,.pdf">
+      <label title="Меняет размер выбранной картинки. Для увеличения PDF используй кнопки масштаба.">Размер картинки <input id="lessonBoardImageSize" type="range" min="100" max="1300" value="480" aria-label="Ширина выбранного изображения"></label>
+      <label for="lessonBoardOpenProject">↑ Открыть проект</label><input id="lessonBoardOpenProject" type="file" accept=".json,application/json">
+      <button id="lessonBoardExport" type="button">↓ Доска в PDF</button>
+</div>
+      </details>
+      <button id="lessonBoardSaveProject" type="button"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/></svg><span>Сохранить проект</span></button>
+      <button id="lessonBoardFullscreen" type="button" aria-pressed="false" title="Развернуть доску на весь экран или вернуться к лаборатории"><svg class="lesson-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6"/></svg><span>На весь экран</span></button>
+  </div>
  <details class="lesson-board-help"><summary aria-label="Как работать с доской" title="Как работать с доской">?</summary>
-      <div class="lesson-board-help-content">Вставить скриншот: ⌘V / Ctrl+V. Масштаб: + / − или два пальца. Один палец пишет; «Перемещать доску» двигает обзор. PDF листается стрелками и закреплён под записями.</div> </details>
+      <div class="lesson-board-help-content">Вставить скриншот: ⌘V / Ctrl+V. Масштаб: + / − или два пальца. Один палец пишет; «Двигать доску» двигает обзор. PDF листается стрелками и закреплён под записями.</div> </details>
  </div>
 </div>
     <div id="lessonPaperSpace" class="lesson-paper-space">
