@@ -202,7 +202,7 @@ class LaboratoryReleaseChecks(unittest.TestCase):
         self.assertIn('const lessonStrokeFilters=new WeakMap()', self.html)
         self.assertIn('event.getCoalescedEvents()', self.html)
         self.assertIn('lessonStrokePoints(stroke,w,h).forEach', self.html)
-        self.assertIn('lessonStrokePoints(stroke,canvas.width,canvas.height).entries()', self.html)
+        self.assertIn('lessonStrokePoints(stroke,canvas.width,canvas.height)', self.html)
         self.assertIn('const pts=lessonStrokePoints(stroke,w,h)', self.html)
         self.assertIn('lessonAddStrokeSamples(lessonDrawing,event,lessonGetPoint,canvas)', self.html)
 

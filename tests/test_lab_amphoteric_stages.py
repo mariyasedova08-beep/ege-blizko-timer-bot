@@ -54,7 +54,8 @@ class AmphotericStages(unittest.TestCase):
         self.assertIn('id="lessonToolMarker"', SOURCE)
         self.assertIn('id="lessonColorPresets"', SOURCE)
         self.assertIn('lessonTool==="marker"?.32:1', SOURCE)
-        self.assertIn('ctx.globalAlpha=Math.max(.1', SOURCE)
+        self.assertIn('ctx.globalAlpha=alpha', SOURCE)
+        self.assertIn('ctx.drawImage(lessonMarkerLayer,0,0)', SOURCE)
         self.assertIn('Number(stroke.opacity??1)', SOURCE)
 
     def test_both_alkalis_are_exposed_and_visual_stage_is_shared(self):

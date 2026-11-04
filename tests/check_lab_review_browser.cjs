@@ -26,6 +26,21 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
    });
    await page.goto(url);
    await page.waitForFunction(()=>lessonReady);
+   const markerPixels=await page.evaluate(()=>{
+    const canvas=document.createElement('canvas');canvas.width=320;canvas.height=160;
+    const ctx=canvas.getContext('2d');
+    const stroke={color:'#f00087',width:20,opacity:.35,straight:true,
+     points:[{x:30,y:80},{x:160,y:80},{x:160,y:30},{x:160,y:80},{x:290,y:80}]};
+    lessonBoardPaintStroke(ctx,stroke);
+    const alpha=ctx.getImageData(0,0,320,160).data.filter((_,i)=>i%4===3);
+    const center=ctx.getImageData(160,80,1,1).data[3];
+    lessonBoardPaintStroke(ctx,stroke);
+    return {max:Math.max(...alpha),center,overlap:ctx.getImageData(160,80,1,1).data[3]};
+   });
+   assert.ok(markerPixels.max<=90, 'Single marker stroke must have uniform opacity at joins');
+   assert.ok(markerPixels.center>=88);
+   assert.ok(markerPixels.overlap>markerPixels.center, 'Separate marker strokes still overlap');
+
    await page.evaluate(()=>{tubes[0]=['mno2','hcl'];selectedTube=0;renderTubes()});
    assert.ok(await page.locator('#heatHint').isVisible());
    assert.equal(await page.locator('#heat').getAttribute('aria-describedby'),'heatHint');

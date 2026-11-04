@@ -3704,6 +3704,36 @@ function lessonGetPoint(event){
  return {x:Math.max(0,Math.min(1,(event.clientX-box.left)/box.width)),
          y:Math.max(0,Math.min(1,(event.clientY-box.top)/box.height))};
 }
+// Composite a translucent stroke once so rounded joins and crossings stay even.
+let lessonMarkerLayer=null;
+function lessonPaintInkPath(ctx,points,color,width,opacity){
+ if(!points.length)return;
+ const alpha=Math.max(.1,Math.min(1,Number(opacity??1)));
+ let target=ctx;
+ if(alpha<1){
+  if(!lessonMarkerLayer)lessonMarkerLayer=document.createElement("canvas");
+  const layer=lessonMarkerLayer;
+  if(layer.width!==ctx.canvas.width)layer.width=ctx.canvas.width;
+  if(layer.height!==ctx.canvas.height)layer.height=ctx.canvas.height;
+  target=layer.getContext("2d");
+  target.setTransform(1,0,0,1,0,0);
+  target.clearRect(0,0,layer.width,layer.height);
+  target.setTransform(ctx.getTransform());
+ }
+ target.save();target.globalAlpha=1;
+ target.strokeStyle=color;target.fillStyle=color;
+ target.lineWidth=width;target.lineCap="round";target.lineJoin="round";
+ target.beginPath();target.moveTo(points[0].x,points[0].y);
+ for(let i=1;i<points.length;i++)target.lineTo(points[i].x,points[i].y);
+ if(points.length===1){
+  target.arc(points[0].x,points[0].y,width/2,0,2*Math.PI);target.fill();
+ }else target.stroke();
+ target.restore();
+ if(alpha<1){
+  ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=alpha;
+  ctx.drawImage(lessonMarkerLayer,0,0);ctx.restore();
+ }
+}
 function lessonRedrawInk(){
  const canvas=document.getElementById("lessonInkCanvas");
  const ctx=canvas.getContext("2d");
@@ -3712,22 +3742,11 @@ function lessonRedrawInk(){
  const ratio=canvas.width/Math.max(1,rect.width);
  for(const stroke of lessonCurrentStrokes()){
   if(!stroke||!Array.isArray(stroke.points)||!stroke.points.length)continue;
-  ctx.lineCap="round";ctx.lineJoin="round";
-  ctx.globalAlpha=Math.max(.1,Math.min(1,Number(stroke.opacity??1)));
-   ctx.strokeStyle=stroke.color||"#f00087";
-  ctx.fillStyle=stroke.color||"#f00087";
-  ctx.lineWidth=Math.max(1,Number(stroke.width)||3)*ratio;
-  ctx.beginPath();
-  for(const [i,p] of lessonStrokePoints(stroke,canvas.width,canvas.height).entries()){
-   const px=p.x*canvas.width,py=p.y*canvas.height;
-   if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
-  }
-  if(stroke.points.length===1){
-   const p=stroke.points[0];ctx.beginPath();
-   ctx.arc(p.x*canvas.width,p.y*canvas.height,ctx.lineWidth/2,0,Math.PI*2);ctx.fill();
-  }else ctx.stroke();
+  const points=lessonStrokePoints(stroke,canvas.width,canvas.height)
+   .map(p=>({x:p.x*canvas.width,y:p.y*canvas.height}));
+  lessonPaintInkPath(ctx,points,stroke.color||"#f00087",
+   Math.max(1,Number(stroke.width)||3)*ratio,stroke.opacity);
  }
- ctx.globalAlpha=1;
 }
 function lessonEraseAt(point){
  const arr=lessonCurrentStrokes();
@@ -4395,13 +4414,7 @@ function lessonBoardPaint(ctx,width,height,view,selection=true,scene={items:less
  ctx.restore();
 }
 function lessonBoardPaintStroke(ctx,stroke){
-  const pts=lessonStrokePoints(stroke);if(!pts.length)return;
-  ctx.beginPath();ctx.lineWidth=stroke.width;ctx.lineCap="round";ctx.lineJoin="round";
-  ctx.strokeStyle=stroke.color;ctx.globalAlpha=stroke.opacity;
-  ctx.moveTo(pts[0].x,pts[0].y);
-  for(const p of pts.slice(1))ctx.lineTo(p.x,p.y);
-  if(pts.length===1)ctx.lineTo(pts[0].x+.01,pts[0].y+.01);
-  ctx.stroke();ctx.globalAlpha=1;
+ lessonPaintInkPath(ctx,lessonStrokePoints(stroke),stroke.color,stroke.width,stroke.opacity);
 }
 let lessonBoardInkCache=null;
 function lessonBoardDraw(){

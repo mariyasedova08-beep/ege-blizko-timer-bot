@@ -4,8 +4,8 @@ import json
 import urllib.request
 
 URL='https://lab-test.77-233-212-200.sslip.io'
-EXPECTED_BUNDLE = '8bc9ce9410a91dff680a95ce1e447a133f8a8553da11f79d2e217d8d537949e0'
-EXPECTED_HTML = '0163d55384e00da99750572d026fa3a54bfe0d1f230532a8adbd1569010a0165'
+EXPECTED_BUNDLE = '1b60a7fd6fae0d537909df9d7546007cd8b54728898803af2757c4246ae01fd5'
+EXPECTED_HTML = '2914927ca96a90d09b1e37cb42f0ef72d0e29277d8eee005e0f9566471cd1497'
 
 def get(path,body=None):
     request=urllib.request.Request(URL+path,data=body,headers={'Content-Type':'application/json'})
