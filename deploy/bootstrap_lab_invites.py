@@ -13,10 +13,10 @@ import urllib.error
 import urllib.request
 
 REPOSITORY='mariyasedova08-beep/ege-blizko-timer-bot'
-RUNTIME_COMMIT='051130b4ce5cbb0802a98717677a2fea3c6363c9'
+RUNTIME_COMMIT='ad10c74535fb5fec3c73dec94da652ad93780517'
 PINS={
     'lab_sandbox_server.py':'159cedc443855f01a71179f46f43c9cbbeb350c811174700cf2ac008cbd4f444',
-    'lab_pilot_access.py':'4a149b99be7c3f26de4bfa2219683fcd1b7b4872abb27aab260515c24e9a1dbe',
+    'lab_pilot_access.py':'d1f4263b511c0c1cd268fd2952d228332de9c49502ccbd7eb8791db75dd4089a',
 }
 BASE=Path('/var/lib/ege-lab-sandbox')
 OLD_USERS=BASE/'access/users.json'
