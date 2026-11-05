@@ -151,7 +151,7 @@ def _write_access_config(access_file, config):
     path=Path(access_file);fd,name=tempfile.mkstemp(prefix='.pilot-users-',dir=path.parent)
     try:
         with os.fdopen(fd,'w') as stream: json.dump(config,stream);stream.flush();os.fsync(stream.fileno())
-        os.chmod(name,0o600);os.replace(name,path)
+        os.chmod(name,0o644);os.replace(name,path)
     finally:
         if os.path.exists(name): os.unlink(name)
 
