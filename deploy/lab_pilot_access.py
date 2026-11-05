@@ -49,6 +49,16 @@ def update(path, username, revoke=False, days=14, password=None):
         users[username]={'salt':salt,'digest':access_password(password,salt),'expires':time.time()+days*86400,'revoked':False}
     write_config(path,data)
 
+def reset_password(path, username, days=30):
+    if not re.fullmatch(r'[a-zA-Z0-9_-]{1,48}',username): raise ValueError('Invalid username')
+    if not 1<=days<=90: raise ValueError('Expiry must be 1–90 days')
+    data=read_config(path);user=data['users'].get(username)
+    if not isinstance(user,dict):raise ValueError('User does not exist')
+    password=secrets.token_urlsafe(24);salt=secrets.token_hex(16)
+    user.update({'salt':salt,'digest':access_password(password,salt),'expires':time.time()+days*86400,'revoked':False})
+    write_config(path,data)
+    return password
+
 def create_invite(path, days=7):
     if not 1<=days<=14: raise ValueError('Invitation expiry must be 1–14 days')
     token=secrets.token_urlsafe(32);digest=hashlib.sha256(token.encode()).hexdigest()
@@ -76,7 +86,7 @@ def activation(args):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=['add','revoke','invite'])
+    parser.add_argument('action',choices=['add','revoke','invite','reset-password'])
     parser.add_argument('username',nargs='?')
     parser.add_argument('--file',type=Path,default=DEFAULT_FILE)
     parser.add_argument('--days',type=int,default=14)
@@ -87,6 +97,10 @@ def main():
         if args.username: parser.error('invite does not take a username')
         token=create_invite(args.file,args.days)
         print('INVITE_URL:',args.base_url.rstrip('/')+'/invite/'+token)
+    elif args.action=='reset-password':
+        if not args.username: parser.error('reset-password requires a username')
+        password=reset_password(args.file,args.username,args.days)
+        print('USERNAME:',args.username);print('PASSWORD_SHOW_ONCE:',password)
     else:
         if not args.username: parser.error('add/revoke requires a username')
         password=secrets.token_urlsafe(24) if args.action=='add' else None
