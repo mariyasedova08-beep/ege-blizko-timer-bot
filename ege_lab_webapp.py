@@ -3629,7 +3629,16 @@ function lessonBeginAtramentStroke(stroke,event,canvas){
  const virtual=document.createElement("canvas");virtual.width=virtual.height=1;
  Object.defineProperty(virtual,"offsetWidth",{value:1});
  Object.defineProperty(virtual,"offsetHeight",{value:1});
- const engine=new window.LessonAtrament(virtual,{weight:stroke.width,bindPointerEvents:false});
+ // Atrament defaults to 0.85 smoothing, which follows only a small fraction
+ // of each tablet sample and makes the stylus feel delayed. Keep a light,
+ // adjustable stabilizer while preserving every coalesced point and pressure.
+ const engine=new window.LessonAtrament(virtual,{
+  weight:stroke.width,
+  smoothing:lessonBeautify?.28:.08,
+  pressureSmoothing:lessonBeautify?.22:.08,
+  adaptiveStroke:false,
+  bindPointerEvents:false
+ });
  const sx=canvas.clientWidth||1,sy=canvas.clientHeight||1;
  const first=stroke.points[0],x=first.x*sx,y=first.y*sy;
  engine.beginStroke(x,y);
