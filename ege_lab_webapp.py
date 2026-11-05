@@ -1390,6 +1390,8 @@ body.lesson-board-fullscreen{overflow:hidden!important}
 .lesson-extra-items label{font-size:11px}
 .lesson-extra-items button{width:100%}
 .lesson-message{color:#806575;font-size:11px;max-width:100%;overflow-wrap:anywhere}
+#lessonDownloadFallback{display:inline-flex;align-items:center;margin:0 10px 8px;color:#983568;font-size:12px;font-weight:650;text-decoration:underline;text-underline-offset:2px}
+#lessonDownloadFallback[hidden]{display:none!important}
 @media(max-width:760px){.lesson-studio{grid-template-columns:minmax(0,1fr);height:auto;min-height:0}.lesson-lab-pane{min-height:465px}.lesson-pdf-pane{min-height:500px}.lesson-pane-head{flex-wrap:wrap}.lesson-paper-space{min-height:350px}}
 @media(max-width:760px){#lesson .lesson-studio{grid-template-columns:minmax(0,1fr)}#lessonPanelDivider{display:none}}
 /* Floating Markup-style controls: short two-row pill, with an expanded
@@ -1883,6 +1885,7 @@ body.lesson-board-fullscreen{overflow:hidden!important}
     <div class="lesson-pdf-foot">
       <span id="lessonFileName">Загрузи свой PDF или пиши на пустой доске.</span>
       <span id="lessonStatus" class="lesson-message" role="status">Пометки сохраняются только в браузере до выгрузки PDF.</span>
+      <a id="lessonDownloadFallback" hidden></a>
     </div>
   </section>
 </div>
@@ -4029,10 +4032,18 @@ function lessonColorToPDF(hex){
 function lessonDownload(bytes,name,type){
  const blob=new Blob([bytes],{type:type});
  const url=URL.createObjectURL(blob);
+ const fallback=document.getElementById("lessonDownloadFallback");
+ if(fallback){
+  const previous=fallback.dataset.objectUrl;
+  if(previous)URL.revokeObjectURL(previous);
+  fallback.href=url;fallback.download=name;fallback.dataset.objectUrl=url;
+  fallback.textContent="Если файл не скачался, нажми здесь";fallback.hidden=false;
+ }
  const link=document.createElement("a");link.href=url;link.download=name;
  document.body.appendChild(link);link.click();link.remove();
- // Edge may still be opening the downloaded PDF when the click returns.
- setTimeout(()=>URL.revokeObjectURL(url),60000);
+ // Keep a real user-clickable link alive: Safari can ignore a synthetic
+ // download click after the asynchronous PDF assembly has finished.
+ if(!fallback)setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 let lessonPdfExportBusy=false;
 const lessonPdfExportCache={document:null,pages:new Map(),bytes:0};

@@ -503,6 +503,13 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
     }finally{lessonDownload=originalDownload;lessonNotes=savedNotes;lessonRedrawInk();}
    });
    markerPDF.forEach(pixel=>{assert.equal(pixel[0],255);assert.ok(Math.abs(pixel[1]-173)<3,JSON.stringify(markerPDF));assert.ok(Math.abs(pixel[2]-173)<3)});
+   // Safari may reject an automatic download after asynchronous PDF assembly.
+   // Keep a direct user-clickable blob link and verify that it downloads too.
+   let pdfDownload=page.waitForEvent('download');await page.locator('#lessonExport').click();await pdfDownload;
+   const fallback=page.locator('#lessonDownloadFallback');await fallback.waitFor({state:'visible'});
+   assert.match(await fallback.getAttribute('href'),/^blob:/);
+   assert.match(await fallback.getAttribute('download'),/с_записями\.pdf$/);
+   pdfDownload=page.waitForEvent('download');await fallback.click();await pdfDownload;
    assert.equal(await page.locator('#lessonPresentationTab').innerText(),'Презентация');
    await page.locator('#lessonPresentationTab').click();
    assert.equal(await page.evaluate(()=>lessonBoardMode),false);
