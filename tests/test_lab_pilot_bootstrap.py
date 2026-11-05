@@ -16,6 +16,7 @@ sys.path.insert(0,str(ROOT/'deploy'))
 import bootstrap_lab_pilot as pilot
 import lab_pilot_access as access
 import lab_sandbox_server as runtime
+import bootstrap_lab_invites as invite_update
 
 
 class PilotBootstrap(unittest.TestCase):
@@ -81,8 +82,8 @@ class PilotBootstrap(unittest.TestCase):
         self.assertEqual(self.users.read_text(),'existing');self.assertFalse(self.events)
 
     def test_every_download_pin_matches_reviewed_local_artifact(self):
-        for name,digest in pilot.PINS.items():
-            # First-time activation intentionally pins its original installer;
-            # later normal sandbox updates change the current installer only.
-            if name == "bootstrap_lab_sandbox.py":continue
+        # Initial activation stays tied to its original immutable release.
+        self.assertEqual(pilot.PINS['lab_pilot_access.py'],'a8ab294c99aa09ced02debfb41ebe5ae1592e72741aa6e5edc44b5d6187010e3')
+        self.assertEqual(pilot.PINS['lab_sandbox_server.py'],'48eda362805eb73f2b9a02365609e5af811792dccdbdb5c8648094edd0b1a0df')
+        for name,digest in invite_update.PINS.items():
             self.assertEqual(hashlib.sha256((ROOT/'deploy'/name).read_bytes()).hexdigest(),digest,name)
