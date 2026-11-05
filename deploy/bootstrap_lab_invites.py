@@ -13,22 +13,29 @@ import urllib.error
 import urllib.request
 
 REPOSITORY='mariyasedova08-beep/ege-blizko-timer-bot'
-RUNTIME_COMMIT='76e3c2f4b6007218cdbfb96fe791a91221535cbd'
+RUNTIME_COMMIT='051130b4ce5cbb0802a98717677a2fea3c6363c9'
 PINS={
-    'lab_sandbox_server.py':'0241b3db862a4f40febcb03a92798815a2b25624f9cca5aa8e40ac16b904fd40',
-    'lab_pilot_access.py':'dc262147a0b64b255cbe9d3065efd43e2ec2aee17e78de0de430f11fe4f799c7',
+    'lab_sandbox_server.py':'159cedc443855f01a71179f46f43c9cbbeb350c811174700cf2ac008cbd4f444',
+    'lab_pilot_access.py':'4a149b99be7c3f26de4bfa2219683fcd1b7b4872abb27aab260515c24e9a1dbe',
 }
 BASE=Path('/var/lib/ege-lab-sandbox')
-USERS=BASE/'access/users.json'
+OLD_USERS=BASE/'access/users.json'
+STATE=Path('/var/lib/ege-lab-sandbox-access')
+PRIVATE_STATE=Path('/var/lib/private/ege-lab-sandbox-access')
+USERS=STATE/'users.json'
 CURRENT=BASE/'current/server.py'
 ADMIN=BASE/'admin'
 UNIT='ege-lab-sandbox-preview.service'
 URL='https://lab-test.77-233-212-200.sslip.io'
 GATE=Path('/etc/systemd/system/ege-lab-sandbox-preview.service.d/30-pilot-access.conf')
-EXPECTED_GATE=('# EGE_LAB_PILOT_ACCESS_V1\n[Service]\nExecStart=\n'
+OLD_GATE=('# EGE_LAB_PILOT_ACCESS_V1\n[Service]\nExecStart=\n'
  'ExecStart=/usr/bin/python3 -I /var/lib/ege-lab-sandbox/current/server.py '
  '--bundle /var/lib/ege-lab-sandbox/current/bundle.json --port 8768 '
  '--access-file /var/lib/ege-lab-sandbox/access/users.json\n')
+EXPECTED_GATE=('# EGE_LAB_PILOT_ACCESS_V1\n[Service]\nStateDirectory=ege-lab-sandbox-access\nStateDirectoryMode=0700\nExecStart=\n'
+ 'ExecStart=/usr/bin/python3 -I /var/lib/ege-lab-sandbox/current/server.py '
+ '--bundle /var/lib/ege-lab-sandbox/current/bundle.json --port 8768 '
+ '--access-file /var/lib/ege-lab-sandbox-access/users.json\n')
 
 def download(name):
     url=f'https://raw.githubusercontent.com/{REPOSITORY}/{RUNTIME_COMMIT}/deploy/{name}'
@@ -73,12 +80,11 @@ def verify():
 
 def main():
     if os.geteuid()!=0:raise SystemExit('ROOT_CONSOLE_REQUIRED')
-    if not USERS.is_file() or USERS.is_symlink():raise SystemExit('PILOT_USERS_FILE_NOT_FOUND_OR_UNSAFE')
-    os.chmod(USERS,0o600)
-    if not GATE.is_file() or GATE.is_symlink() or GATE.read_text()!=EXPECTED_GATE:
+    if not OLD_USERS.is_file() or OLD_USERS.is_symlink():raise SystemExit('PILOT_USERS_FILE_NOT_FOUND_OR_UNSAFE')
+    if not GATE.is_file() or GATE.is_symlink() or GATE.read_text()!=OLD_GATE:
         raise SystemExit('PILOT_GATE_MISMATCH_REFUSING_TO_TOUCH_SERVICE')
     unit_path=Path('/etc/systemd/system')/(UNIT)
-    if not unit_path.is_file() or unit_path.is_symlink() or '127.0.0.1:8768' not in unit_path.read_text():
+    if not unit_path.is_file() or unit_path.is_symlink() or '# EGE_LAB_SANDBOX_MANAGED_V1' not in unit_path.read_text() or '/var/lib/ege-lab-sandbox/current/server.py' not in unit_path.read_text():
         raise SystemExit('UNKNOWN_SANDBOX_UNIT')
     current_dir=CURRENT.parent.resolve()
     if not current_dir.is_dir() or BASE.resolve() not in current_dir.parents:
@@ -88,21 +94,35 @@ def main():
     for name in PINS:
         target=ADMIN/name
         if not target.is_file() or target.is_symlink():raise SystemExit('PILOT_ADMIN_FILE_MISSING: '+name)
+    if STATE.exists() or STATE.is_symlink() or PRIVATE_STATE.exists() or PRIVATE_STATE.is_symlink():
+        raise SystemExit('INVITE_STATE_DIRECTORY_ALREADY_EXISTS_REFUSING_MIGRATION')
+    try:
+        old_config=json.loads(OLD_USERS.read_bytes())
+        if not isinstance(old_config,dict) or old_config.get('version')!=1 or not isinstance(old_config.get('users'),dict):raise ValueError('invalid users file')
+    except (OSError,ValueError,TypeError) as error:
+        raise SystemExit('PILOT_USERS_FILE_INVALID') from error
     artifacts={name:download(name) for name in PINS}
-    paths={CURRENT:CURRENT.read_bytes(),**{ADMIN/name:(ADMIN/name).read_bytes() for name in PINS}}
+    paths={CURRENT:CURRENT.read_bytes(),GATE:GATE.read_bytes(),OLD_USERS:OLD_USERS.read_bytes(),**{ADMIN/name:(ADMIN/name).read_bytes() for name in PINS}}
     stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     backup=BASE/'backups'/f'{stamp}-invite-login'
     backup.mkdir(mode=0o700,parents=True,exist_ok=False)
     for path,data in paths.items():
         relative=Path('current/server.py') if path==CURRENT else Path('admin')/path.name
+        if path==GATE:relative=Path('systemd/30-pilot-access.conf')
+        if path==OLD_USERS:relative=Path('access/users.json')
         (backup/relative).parent.mkdir(mode=0o700,parents=True,exist_ok=True)
         (backup/relative).write_bytes(data)
     print('INVITE_UPDATE_BACKUP:',backup,flush=True)
     changed=[]
+    state_created=False
     try:
+        PRIVATE_STATE.mkdir(mode=0o700,parents=True,exist_ok=False);state_created=True
+        atomic(PRIVATE_STATE/'users.json',paths[OLD_USERS],0o644)
+        atomic(GATE,EXPECTED_GATE.encode(),0o644);changed.append(GATE)
         atomic(CURRENT,artifacts['lab_sandbox_server.py'],0o644);changed.append(CURRENT)
         for name in PINS:
             target=ADMIN/name;atomic(target,artifacts[name],0o755 if name=='lab_pilot_access.py' else 0o644);changed.append(target)
+        run('systemctl','daemon-reload')
         run('systemctl','restart',UNIT)
         last=None
         for attempt in range(5):
@@ -119,8 +139,15 @@ def main():
         run('systemctl','stop',UNIT,check=False)
         for path in reversed(changed):
             relative=Path('current/server.py') if path==CURRENT else Path('admin')/path.name
+            if path==GATE:relative=Path('systemd/30-pilot-access.conf')
             atomic(path,(backup/relative).read_bytes(),0o755 if path.name=='lab_pilot_access.py' else 0o644)
+        run('systemctl','daemon-reload',check=False)
         run('systemctl','restart',UNIT,check=False)
+        if state_created:
+            state_file=PRIVATE_STATE/'users.json'
+            if state_file.is_file() and state_file.read_bytes()==paths[OLD_USERS]:state_file.unlink()
+            if PRIVATE_STATE.exists() and not any(PRIVATE_STATE.iterdir()):PRIVATE_STATE.rmdir()
+            if STATE.is_symlink() and STATE.resolve()==PRIVATE_STATE.resolve():STATE.unlink()
         print('INVITE_UPDATE_ROLLED_BACK_FROM_BACKUP')
         raise
 
