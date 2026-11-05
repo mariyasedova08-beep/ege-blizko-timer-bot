@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: ['release/lab-two-modes-20261025-reviewed']
 permissions:
-  contents: read
+  contents: write
 jobs:
   review:
     runs-on: ubuntu-latest
@@ -18,7 +18,49 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: python deploy/build_lab_sandbox.py
+      - name: Build deterministic isolated bundle
+        run: python deploy/build_lab_sandbox.py
+      - name: Commit generated isolated bundle
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add preview/lab-sandbox/bundle.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Build isolated lab sandbox bundle"
+            git push
+          fi
+      - name: Pin installer to generated bundle
+        if: github.event_name == 'push'
+        run: |
+          python - <<'PY'
+          import hashlib, json, re, subprocess
+          from pathlib import Path
+          bundle_path = Path("preview/lab-sandbox/bundle.json")
+          bundle_bytes = bundle_path.read_bytes()
+          bundle = json.loads(bundle_bytes)
+          package_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          values = {
+              "PACKAGE_COMMIT": package_commit,
+              "BUNDLE_SHA256": hashlib.sha256(bundle_bytes).hexdigest(),
+              "EXPECTED_BUILD": bundle["build"],
+              "EXPECTED_HTML": bundle["html_sha256"],
+              "EXPECTED_PAYLOAD": bundle["payload_sha256"],
+          }
+          path = Path("deploy/bootstrap_lab_sandbox.py")
+          source = path.read_text()
+          for key, value in values.items():
+              pattern = rf"^{key} = '[^']*'$"
+              source, count = re.subn(pattern, f"{key} = '{value}'", source, count=1, flags=re.M)
+              if count != 1:
+                  raise SystemExit(f"could not pin {key}")
+          path.write_text(source)
+          PY
+          git add deploy/bootstrap_lab_sandbox.py
+          if ! git diff --cached --quiet; then
+            git commit -m "Pin sandbox installer to generated bundle"
+            git push
+          fi
       - run: python -m unittest discover -s tests -p 'test_lab*.py' -v
       - run: python tests/prepare_lab_review_fixture.py
       - run: npm install --no-save --no-package-lock playwright@1.56.1 pdf-lib@1.17.1 pdfjs-dist@4.10.38
