@@ -11,7 +11,7 @@ import tempfile
 import time
 from lab_sandbox_server import access_password
 
-DEFAULT_FILE=Path('/var/lib/ege-lab-sandbox/access/users.json')
+DEFAULT_FILE=Path('/var/lib/ege-lab-sandbox-access/users.json')
 DEFAULT_URL='https://lab-test.77-233-212-200.sslip.io'
 
 def read_config(path):
@@ -31,7 +31,7 @@ def write_config(path,data):
     try:
         with os.fdopen(fd,'w') as stream:
             json.dump(data,stream);stream.flush();os.fsync(stream.fileno())
-        os.chmod(name,0o600)
+        os.chmod(name,0o644)
         os.replace(name,path)
     finally:
         if os.path.exists(name): os.unlink(name)
@@ -61,7 +61,7 @@ def activation(args):
     if args.file!=expected or os.geteuid()!=0: raise ValueError('Activation requires root and the fixed isolated sandbox path')
     expected.parent.chmod(0o755)
     target=Path('/etc/systemd/system/ege-lab-sandbox-preview.service.d/30-pilot-access.conf')
-    content=('# EGE_LAB_PILOT_ACCESS_V1\n[Service]\nExecStart=\n'
+    content=('# EGE_LAB_PILOT_ACCESS_V1\n[Service]\nStateDirectory=ege-lab-sandbox-access\nStateDirectoryMode=0700\nExecStart=\n'
       'ExecStart=/usr/bin/python3 -I /var/lib/ege-lab-sandbox/current/server.py '
       '--bundle /var/lib/ege-lab-sandbox/current/bundle.json --port 8768 '
       '--access-file '+str(expected)+'\n')
