@@ -18,6 +18,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: python deploy/build_lab_sandbox.py
       - run: python -m unittest discover -s tests -p 'test_lab*.py' -v
       - run: python tests/prepare_lab_review_fixture.py
       - run: npm install --no-save --no-package-lock playwright@1.56.1 pdf-lib@1.17.1 pdfjs-dist@4.10.38
@@ -27,5 +28,7 @@ jobs:
         if: always()
         with:
           name: isolated-lab-layout
-          path: lab-visual-preview/*.png
+          path: |
+            lab-visual-preview/*.png
+            preview/lab-sandbox/bundle.json
           if-no-files-found: ignore
