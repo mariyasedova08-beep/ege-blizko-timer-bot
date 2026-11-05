@@ -4498,13 +4498,13 @@ async function lessonBoardImportPDF(file){
   const reader=await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");
   reader.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
   pdf=await reader.getDocument({data:new Uint8Array(await file.arrayBuffer()),isEvalSupported:false}).promise;
-  if(pdf.numPages>20||lessonBoardPages.length+pdf.numPages>40){
-   lessonStatus("Можно добавить не более 20 слайдов за раз и максимум 40 листов на доску.");return;
-  }
+  if(pdf.numPages>40){lessonStatus("В один раз можно добавить до 40 страниц PDF.");return;}
+  if(lessonBoardPages.length+pdf.numPages>40){lessonStatus("На доске помещается до 40 листов. Сначала убери лишние листы или начни новый проект.");return;}
   // Render everything before modifying the current project, so a bad PDF
   // cannot leave the user's board half-imported.
   const newPages=[],documentId="pdf-"+Date.now()+"-"+Math.random().toString(36).slice(2);
   for(let index=1;index<=pdf.numPages;index++){
+   lessonStatus("Добавляю страницу PDF на доску: "+index+" из "+pdf.numPages+"…");
    const page=await pdf.getPage(index),natural=page.getViewport({scale:1});
    const viewport=page.getViewport({scale:Math.min(2,1650/natural.width,1350/natural.height)});
    const bitmap=document.createElement("canvas");

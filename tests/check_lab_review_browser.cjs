@@ -726,6 +726,16 @@ const url=process.env.LAB_SANDBOX_URL||'https://isolated-lab.invalid/lab-app';
     lessonBoardRecoveryDirty=true;await lessonBoardFlushRecovery();return document.getElementById('lessonBoardSaveState').textContent;
    });
    assert.match(conflict,/другой вкладке/);
+   // The user's 23-slide lesson fits the board's 40-page project limit.
+   if(size.width===1440){
+    const longPdf=await PDFDocument.create();for(let i=0;i<23;i++)longPdf.addPage([600,400]);
+    const longBuffer=Buffer.from(await longPdf.save());
+    await page.locator('#lessonBoardPDFInput').setInputFiles({name:'long-lesson.pdf',mimeType:'application/pdf',buffer:longBuffer});
+    await page.waitForFunction(()=>lessonBoardPages.length===26);
+    assert.equal(await page.locator('#lessonBoardPageCounter').innerText(),'1 / 23');
+    assert.equal(await page.locator('#lessonBoardDocumentName').innerText(),'long-lesson.pdf');
+    await page.evaluate(()=>{lessonBoardSwitchPage(0);lessonBoardPages.splice(3);lessonBoardRefreshPages();lessonBoardDraw();});
+   }
    // The comparison screen is isolated from lesson ink, board and selected tools.
    const lessonBeforeBench=await page.evaluate(()=>JSON.stringify({notes:lessonNotes,board:lessonBoardSerializeProject(),tool:lessonTool,pen:lessonPenColorValue,marker:lessonMarkerColorValue}));
    await page.locator('#penCompareOpen').click();await page.locator('#penCompare').waitFor({state:'visible'});
