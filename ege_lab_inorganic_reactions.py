@@ -9,6 +9,7 @@ these when the learner explicitly marks the last added reagent as excess.
 """
 
 EXTRA_REACTIONS = [
+    ("kmno4","hcl","2KMnO₄ + 16HCl → 2MnCl₂ + 5Cl₂↑ + 2KCl + 8H₂O","g","фиолетовая окраска исчезает, выделяется жёлто-зелёный хлор; HCl — реагент и источник кислой среды","#f8fbff","","Cl₂",0),
     # Simple substances: water and non-oxidising acids
     ("na","h2o","2Na + 2H₂O → 2NaOH + H₂↑","g","бурное выделение H₂, металл быстро исчезает","#f8fbff","","H₂",0),
     ("k","h2o","2K + 2H₂O → 2KOH + H₂↑","g","очень бурное выделение H₂, металл быстро исчезает","#f8fbff","","H₂",0),
@@ -67,6 +68,20 @@ EXTRA_REACTIONS = [
     ("al","h2so4_conc","2Al + 6H₂SO₄(конц.) —t°→ Al₂(SO₄)₃ + 3SO₂↑ + 6H₂O","g","при нагревании алюминий растворяется, выделяется SO₂","#f8fbff","","SO₂",1),
     ("fe","h2so4_conc","2Fe + 6H₂SO₄(конц.) —t°→ Fe₂(SO₄)₃ + 3SO₂↑ + 6H₂O","x","при нагревании железо растворяется, выделяется SO₂, раствор желтеет","#e1b562","","SO₂",1),
     ("cr","h2so4_conc","2Cr + 6H₂SO₄(конц.) —t°→ Cr₂(SO₄)₃ + 3SO₂↑ + 6H₂O","x","при нагревании хром растворяется, выделяется SO₂, раствор становится зелёным","#6e966f","","SO₂",1),
+
+    # Oxidising acids: Cu(I) and mixed-valence Fe(II,III) oxides.
+    # Hot concentrated H2SO4 differs from aqueous dilute H2SO4 (IChO 2016, 2.3).
+    ("cu2o","h2so4_conc","Cu₂O + 3H₂SO₄(конц.) —t°→ 2CuSO₄ + SO₂↑ + 3H₂O","x","красный Cu₂O растворяется; образуется голубой раствор, выделяется бесцветный SO₂","#42baf5","","SO₂",1),
+    ("cu2o","hno3_conc","Cu₂O + 6HNO₃(конц.) → 2Cu(NO₃)₂ + 2NO₂↑ + 3H₂O","x","красный Cu₂O растворяется; образуется голубой раствор, выделяется бурый NO₂","#42baf5","","NO₂",0),
+    ("cu2o","hno3","3Cu₂O + 14HNO₃(разб.) → 6Cu(NO₃)₂ + 2NO↑ + 7H₂O","x","красный Cu₂O растворяется; образуется голубой раствор, выделяется бесцветный NO, буреющий на воздухе","#42baf5","","NO",0),
+    ("cu2o","h2so4","Cu₂O + H₂SO₄(разб.) → CuSO₄ + Cu↓ + H₂O","x","красный Cu₂O растворяется с образованием голубого раствора и красно-бурой металлической меди; газа нет","#42baf5","#b96f4a","",0),
+    ("fe3o4","hno3","3Fe₃O₄ + 28HNO₃(разб.) → 9Fe(NO₃)₃ + NO↑ + 14H₂O","x","чёрный Fe₃O₄ растворяется; Fe(II) окисляется до Fe(III), раствор желтеет, выделяется бесцветный NO","#e2b35e","","NO",0),
+    ("fe3o4","hno3_conc","Fe₃O₄ + 10HNO₃(конц.) → 3Fe(NO₃)₃ + NO₂↑ + 5H₂O","x","чёрный Fe₃O₄ растворяется; раствор желтеет, выделяется бурый NO₂","#e2b35e","","NO₂",0),
+    ("fe3o4","h2so4_conc","2Fe₃O₄ + 10H₂SO₄(конц.) —t°→ 3Fe₂(SO₄)₃ + SO₂↑ + 10H₂O","x","при нагревании чёрный Fe₃O₄ растворяется; Fe(II) окисляется до Fe(III), раствор желтеет, выделяется бесцветный SO₂","#e2b35e","","SO₂",1),
+    # Standard dilute nitric acid / NO examples, not very dilute acid / NH4NO3.
+    ("fe","hno3","Fe + 4HNO₃(разб.) → Fe(NO₃)₃ + NO↑ + 2H₂O","x","железо растворяется; раствор желтеет, выделяется бесцветный NO, буреющий на воздухе","#e2b35e","","NO",0),
+    ("al","hno3","Al + 4HNO₃(разб.) → Al(NO₃)₃ + NO↑ + 2H₂O","g","алюминий растворяется; выделяется бесцветный NO, буреющий на воздухе","#f8fbff","","NO",0),
+    ("cr","hno3","Cr + 4HNO₃(разб.) → Cr(NO₃)₃ + NO↑ + 2H₂O","x","хром растворяется; образуется зелёный раствор Cr(III), выделяется бесцветный NO","#6e966f","","NO",0),
 
     # Concentrated oxidising acids with Fe(II) compounds
     ("feo","hno3","3FeO + 10HNO₃(разб.) → 3Fe(NO₃)₃ + NO↑ + 5H₂O","x","чёрный FeO растворяется, Fe(II) окисляется до Fe(III), выделяется NO","#e2b35e","","NO",0),
@@ -833,6 +848,35 @@ MEDIUM_REACTIONS = json.loads(r'''[
 from ege_lab_mn_cr_pdf_import import PDF_MEDIUM_REACTIONS, PDF_EXTRA_REACTIONS
 EXTRA_REACTIONS.extend(PDF_EXTRA_REACTIONS)
 MEDIUM_REACTIONS.extend(PDF_MEDIUM_REACTIONS)
+
+
+# Manganate(VI), not permanganate(VII). Neutral K/K example: CKE 2026,
+# MCHP-R0-100-2605, task 8. Acid analogue follows imported MN-46.
+# Alkaline outcome is complete reduction with sufficient sulfite, not a claim
+# about all concentrations/intermediate Mn(V) species.
+for _cation, _manganate, _sulfite in (("K", "k2mno4", "k2so3"),
+                                      ("Na", "na2mno4", "na2so3")):
+    for _medium in ("acid", "neutral", "weak_alkaline", "alkaline"):
+        if any(r["a"] == _manganate and r["b"] == _sulfite and
+               r["medium"] == _medium for r in MEDIUM_REACTIONS):
+            continue
+        _acid = _medium == "acid"
+        MEDIUM_REACTIONS.append({
+            "a": _manganate, "b": _sulfite, "medium": _medium,
+            "eq": (f"{_cation}₂MnO₄ + 2{_cation}₂SO₃ + 2H₂SO₄ → MnSO₄ + 3{_cation}₂SO₄ + 2H₂O"
+                   if _acid else f"{_cation}₂MnO₄ + {_cation}₂SO₃ + H₂O → MnO₂↓ + {_cation}₂SO₄ + 2{_cation}OH"),
+            "t": "c" if _acid else "p",
+            "sign": ("Зелёная окраска манганата исчезает; Mn(VI) → Mn(II)."
+                     if _acid else "Зелёная окраска исчезает, выпадает бурый MnO₂; Mn(VI) → Mn(IV)."),
+            "sol": "#f8fbff", "ppt": "" if _acid else "#69432e", "gas": "",
+            "condition": ("Разбавленная H₂SO₄; достаточное количество сульфита"
+                          if _acid else "Водный раствор; достаточное количество сульфита; конечный продукт восстановления — MnO₂"),
+            "heat": False,
+        })
+# MN-46 had a generic permanganate caption although its reagent is manganate.
+for _row in MEDIUM_REACTIONS:
+    if _row["a"] == "na2mno4" and _row["b"] == "na2so3" and _row["medium"] == "acid":
+        _row["sign"] = "Зелёная окраска манганата исчезает; Mn(VI) → Mn(II)."
 
 def validate_reactions(known_ids):
     for row in EXTRA_REACTIONS:

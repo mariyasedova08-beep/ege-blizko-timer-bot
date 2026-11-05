@@ -1,0 +1,1 @@
+Protected pilot installed 2026-11-03; build 3a854f9ba4a48fb0. Verify trusted TLS, HTML/API 401 for anonymous requests and exact hashes. No deployment.

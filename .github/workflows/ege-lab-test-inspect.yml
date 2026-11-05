@@ -1,0 +1,58 @@
+name: Test laboratory — read-only connection
+on:
+  push:
+    branches: ['feature/lab-review-board-20261101']
+    paths: ['.github/workflows/ege-lab-test-inspect.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    environment: lab-test
+    steps:
+      - name: Read test laboratory status without deployment
+        shell: bash
+        env:
+          INSPECT_KEY: ${{ secrets.LAB_TEST_SSH_KEY }}
+          PINNED_HOST: ${{ secrets.LAB_TEST_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$INSPECT_KEY" && test -n "$PINNED_HOST"
+          umask 077
+          key_file=$(mktemp)
+          hosts_file=$(mktemp)
+          report_file=$(mktemp)
+          trap 'rm -f "$key_file" "$hosts_file" "$report_file"' EXIT
+          printf '%s\n' "$INSPECT_KEY" | tr -d '\r' > "$key_file"
+          printf '%s\n' "$PINNED_HOST" | tr -d '\r' | awk 'NF {print $0}' > "$hosts_file"
+          ssh-keygen -y -P '' -f "$key_file" >/dev/null
+          printf 'PRIVATE_KEY_FORMAT_OK\n'
+          if ! awk 'NF != 3 || $1 != "77.233.212.200" || $2 != "ssh-ed25519" {bad=1} END {exit bad || NR != 1}' "$hosts_file"; then
+            printf 'LAB_TEST_KNOWN_HOSTS_FORMAT_INVALID: expected one host-key line, without console prompt or command text\n' >&2
+            exit 1
+          fi
+          ssh-keygen -lf "$hosts_file" >/dev/null
+          printf 'PINNED_HOST_KEY_FORMAT_OK\n'
+          ssh -T -F /dev/null -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$hosts_file" \
+            -o PasswordAuthentication=no -o ConnectTimeout=10 \
+            -i "$key_file" ege-lab-inspect@77.233.212.200 lab-test-status-v1 > "$report_file"
+          python3 - "$report_file" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1]))
+          sandbox = report.get('sandbox_8768', {})
+          expected = {
+              'build': '3a854f9ba4a48fb0',
+              'bundle_sha256': '0187cd4f68a1a20657c24df1ca9cc299261e5d061986517793ee1c2840cfa728',
+              'html_sha256': '384675f5466f6d67faf59def36aa7c3999221e3efc56e384056a351bffa0fc52',
+              'payload_sha256': 'b2d25ff52edc29aadc5dddbad502cd45717150da14c3e506b95135d78eb164a4',
+          }
+          if sandbox.get('ok') is not True or sandbox.get('sandbox') is not True:
+              raise SystemExit('SANDBOX_NOT_READY')
+          for key, value in expected.items():
+              if sandbox.get(key) != value:
+                  raise SystemExit('SANDBOX_BUILD_MISMATCH: ' + key)
+          print('SANDBOX_REMOTE_HASHES_VERIFIED')
+          print(json.dumps({'build': sandbox['build'], 'coverage': sandbox.get('coverage')}, sort_keys=True))
+          PY

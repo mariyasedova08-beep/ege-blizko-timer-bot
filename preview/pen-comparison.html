@@ -1,0 +1,175 @@
+<style>
+#penCompare{width:min(1420px,98vw);height:94vh;max-width:none;max-height:none;padding:16px;border:1px solid #ead5e1;border-radius:18px;background:#f8f5f2;color:#171719;font:14px system-ui;overflow:auto}
+#penCompare[open]{display:flex;flex-direction:column;gap:10px}#penCompare::backdrop{background:#17171988}
+#penCompare header,#penCompare .pc-tools,#penCompare .pc-profiles{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#penCompare h2{font-size:19px;margin:0}#penCompare p{margin:0;line-height:1.4}#penCompareClose{margin-left:auto}
+#penCompare button{min-height:40px;padding:8px 12px;border:1px solid #e7ccd9;border-radius:10px;background:#fff;color:#684d5d;font:600 13px system-ui}
+#penCompare button:focus-visible,#penCompare select:focus-visible{outline:3px solid #f00087;outline-offset:2px}
+#penCompare [data-pc-profile][aria-pressed="true"]{background:#f00087;color:#fff;border-color:#f00087}
+#penCompare .pc-paper{position:relative;flex:1;min-height:230px;border:1px solid #e8dae2;border-radius:12px;background:#fff;overflow:hidden}
+#penCompareCanvas{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none;cursor:crosshair;user-select:none;-webkit-user-select:none}
+#penCompareHint{position:absolute;inset:24px;pointer-events:none;color:#b5a8b0;font-size:17px}
+#penCompare .pc-tools label{display:flex;gap:6px;align-items:center}#penCompare input[type=range]{width:110px}
+#penComparePreviews{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}#penComparePreviews[hidden]{display:none}
+#penComparePreviews figure{margin:0;background:#fff;border:1px solid #e8dae2;border-radius:10px;overflow:hidden}#penComparePreviews figcaption{padding:6px 9px;font-size:12px;font-weight:600}#penComparePreviews canvas{display:block;width:100%;height:120px}
+#penCompare details{font-size:12px;color:#796774}#penCompareStatus{font-size:12px;color:#796774}#penCompare .pc-note{font-size:12px;color:#796774}
+@media(max-width:650px){#penCompare{padding:10px}#penComparePreviews{grid-template-columns:1fr}#penComparePreviews canvas{height:110px}#penCompare button{min-height:44px}}
+</style>
+<dialog id="penCompare" aria-labelledby="penCompareTitle" data-stroke-count="0" data-profile="current" data-engine-version="1.2.3">
+ <header><h2 id="penCompareTitle">Подберём удобную ручку</h2><button id="penCompareClose" type="button">Вернуться к уроку</button></header>
+ <p>Напиши имя, формулу и несколько петель. Переключай варианты — одни и те же движения будут показаны разными ручками.</p>
+ <div class="pc-profiles" role="group" aria-label="Вариант ручки">
+  <button type="button" data-pc-profile="current" aria-pressed="true">1 · Текущая</button>
+  <button type="button" data-pc-profile="smooth" aria-pressed="false">2 · Плавная, ровная толщина</button>
+  <button type="button" data-pc-profile="natural" aria-pressed="false">3 · Плавная, с нажимом</button>
+ </div>
+ <div class="pc-tools">
+  <label>Толщина <input id="penCompareWidth" type="range" min="1" max="6" step="0.5" value="2"><output id="penCompareWidthValue">2</output></label>
+  <label>Цвет <input id="penCompareColor" type="color" value="#171719"></label>
+  <button id="penCompareUndo" type="button">Отменить штрих</button><button id="penCompareClear" type="button">Очистить пробу</button>
+  <button id="penCompareSideBySide" type="button" aria-expanded="false">Сравнить рядом</button>
+  <button id="penCompareChoose" type="button">Этот вариант удобнее</button>
+ </div>
+ <div class="pc-paper"><canvas id="penCompareCanvas" aria-label="Поле для проверки пера"></canvas><div id="penCompareHint">Седова Мария Александровна<br>H₂SO₄ + 2NaOH → Na₂SO₄ + 2H₂O</div></div>
+ <div id="penComparePreviews" hidden>
+  <figure><figcaption>1 · Текущая</figcaption><canvas data-pc-preview="current"></canvas></figure>
+  <figure><figcaption>2 · Плавная, ровная толщина</figcaption><canvas data-pc-preview="smooth"></canvas></figure>
+  <figure><figcaption>3 · Плавная, с нажимом</figcaption><canvas data-pc-preview="natural"></canvas></figure>
+ </div>
+ <div id="penCompareStatus" role="status">Выбор действует только в этой пробе. В уроке ручка остаётся прежней.</div>
+ <details><summary>Что получает браузер от пера</summary><p id="penCompareDiagnostics">Проведи несколько штрихов.</p><p>Ожидание кадра — время внутри браузера, а не полная задержка планшета. Вариант с нажимом использует доступные данные пера; при их отсутствии имитирует нажим по движению.</p></details>
+ <div class="pc-tools"><button id="penCompareExport" type="button">Скачать пробу для диагностики</button><span class="pc-note">Файл содержит пробные штрихи и технические данные. Автоматической отправки нет.</span></div>
+ <p class="pc-note">Пробы хранятся до обновления страницы. Переключение и закрытие этого окна их не стирают. Записи урока и доски не меняются. Движок: perfect-freehand 1.2.3, MIT.</p>
+</dialog>
+<script>
+/* perfect-freehand 1.2.3. Copyright Steve Ruiz. MIT license, embedded below. */
+__PFH_LICENSE_COMMENT__
+window.LabPenFreehand=(()=>{const module={exports:{}};((module,exports)=>{
+__PFH_VENDOR__
+})(module,module.exports);return module.exports;})();
+</script>
+<script>
+(()=>{
+ const dialog=document.getElementById('penCompare'),canvas=document.getElementById('penCompareCanvas');
+ const names={current:'Текущая',smooth:'Плавная, ровная толщина',natural:'Плавная, с нажимом'};
+ const state={profile:'current',choice:null,strokes:[],active:null,frame:0,world:null,scale:1,offset:{x:0,y:0},lastInput:0,frameWaits:[],count:0};
+ const status=text=>document.getElementById('penCompareStatus').textContent=text;
+ const rawSamples=e=>[...(typeof e.getCoalescedEvents==='function'?e.getCoalescedEvents():[]),e];
+ const pressureUsed=stroke=>stroke.pointerType==='pen'&&stroke.raw.some(p=>p.pressure!==null&&p.pressure>0&&Math.abs(p.pressure-.5)>.001);
+ const midpoint=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
+ function outlinePath(ctx,outline){
+  if(!outline.length)return;
+  const first=midpoint(outline[0],outline.at(-1));ctx.moveTo(...first);
+  for(let i=0;i<outline.length;i++){const next=midpoint(outline[i],outline[(i+1)%outline.length]);ctx.quadraticCurveTo(...outline[i],...next);}
+  ctx.closePath();
+ }
+ function paintStroke(ctx,stroke,profile){
+  ctx.fillStyle=ctx.strokeStyle=stroke.color;
+  if(profile==='current'){
+   const points=lessonStrokePoints(stroke.baseline);if(!points.length)return;
+   ctx.lineWidth=stroke.width;ctx.lineCap=ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);
+   for(const p of points.slice(1))ctx.lineTo(p.x,p.y);
+   if(points.length===1){ctx.arc(points[0].x,points[0].y,stroke.width/2,0,Math.PI*2);ctx.fill();}else ctx.stroke();
+  }else{
+   const natural=profile==='natural',real=natural&&pressureUsed(stroke);
+   const points=stroke.raw.map(p=>[p.x,p.y,p.pressure??.5]);
+   const outline=LabPenFreehand.getStroke(points,{size:stroke.width,thinning:natural?.35:0,smoothing:natural?.65:.7,streamline:natural?.45:.55,simulatePressure:!real,last:stroke.complete,start:{cap:true,taper:0},end:{cap:true,taper:0}});
+   ctx.beginPath();outlinePath(ctx,outline);ctx.fill();
+  }
+ }
+ function measureDiagnostics(){
+  const samples=state.strokes.flatMap(s=>s.raw),pressures=samples.map(p=>p.pressure).filter(p=>p!==null);
+  const kinds=[...new Set(state.strokes.map(s=>s.pointerType))];
+  const lo=pressures.length?Math.min(...pressures):0,hi=pressures.length?Math.max(...pressures):0;
+  const variations=new Set(pressures.map(p=>Math.round(p*1000))).size;
+  const waits=state.frameWaits.slice().sort((a,b)=>a-b),wait=waits.length?waits[Math.floor(waits.length/2)]:0;
+  return {pointerTypes:kinds,pressure:{min:lo,max:hi,distinctValues:variations},samples:samples.length,coalesced:state.strokes.reduce((n,s)=>n+s.coalesced,0),duplicatesRemoved:state.strokes.reduce((n,s)=>n+(s.duplicates||0),0),medianFrameWaitMs:Math.round(wait*10)/10,pressureSource:state.strokes.at(-1)&&pressureUsed(state.strokes.at(-1))?'pen':'simulated'};
+ }
+ function refreshDiagnostics(){
+  const d=measureDiagnostics();
+  document.getElementById('penCompareDiagnostics').textContent='Ввод: '+(d.pointerTypes.join(', ')||'нет штрихов')+'. Нажим: '+d.pressure.min.toFixed(3)+'–'+d.pressure.max.toFixed(3)+' ('+d.pressure.distinctValues+' значений). Точек: '+d.samples+', объединённых: '+d.coalesced+', повторов исключено: '+d.duplicatesRemoved+'. Ожидание кадра: '+d.medianFrameWaitMs+' мс.';
+  dialog.dataset.strokeCount=String(state.strokes.length);dialog.dataset.pressureSource=d.pressureSource;
+  document.getElementById('penCompareHint').hidden=state.strokes.length>0;
+ }
+ function resize(){
+  const box=canvas.getBoundingClientRect(),w=Math.max(1,box.width),h=Math.max(1,box.height),dpr=Math.min(devicePixelRatio||1,2);
+  canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+  if(!state.world)state.world={width:w,height:h};
+  state.scale=Math.min(w/state.world.width,h/state.world.height);state.offset={x:(w-state.world.width*state.scale)/2,y:(h-state.world.height*state.scale)/2};
+ }
+ function paint(){
+  state.frame=0;if(!dialog.open)return;
+  if(state.lastInput){state.frameWaits.push(Math.max(0,performance.now()-state.lastInput));if(state.frameWaits.length>300)state.frameWaits.shift();state.lastInput=0;}
+  resize();const ctx=canvas.getContext('2d'),dpr=canvas.width/Math.max(1,canvas.getBoundingClientRect().width);
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.translate(state.offset.x,state.offset.y);ctx.scale(state.scale,state.scale);
+  for(const stroke of state.strokes)paintStroke(ctx,stroke,state.profile);
+  if(!document.getElementById('penComparePreviews').hidden){
+   const points=state.strokes.flatMap(s=>s.raw),xs=points.map(p=>p.x),ys=points.map(p=>p.y);
+   const bounds=points.length?{x:Math.min(...xs)-12,y:Math.min(...ys)-12,w:Math.max(...xs)-Math.min(...xs)+24,h:Math.max(...ys)-Math.min(...ys)+24}:{x:0,y:0,w:state.world.width,h:state.world.height};
+   dialog.querySelectorAll('[data-pc-preview]').forEach(c=>{
+    const box=c.getBoundingClientRect();c.width=Math.max(1,Math.round(box.width*dpr));c.height=Math.max(1,Math.round(box.height*dpr));
+    const context=c.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,c.width,c.height);
+    const scale=Math.min((c.width-16)/bounds.w,(c.height-16)/bounds.h);
+    context.translate((c.width-bounds.w*scale)/2,(c.height-bounds.h*scale)/2);context.scale(scale,scale);context.translate(-bounds.x,-bounds.y);
+    for(const stroke of state.strokes)paintStroke(context,stroke,c.dataset.pcPreview);
+   });
+  }
+  refreshDiagnostics();
+ }
+ function schedule(){if(!state.frame)state.frame=requestAnimationFrame(paint);}
+ function point(e){const box=canvas.getBoundingClientRect();return {x:(e.clientX-box.left-state.offset.x)/state.scale,y:(e.clientY-box.top-state.offset.y)/state.scale};}
+ function record(e){
+  const stroke=state.active;if(!stroke)return;
+  const samples=rawSamples(e);stroke.dispatches++;stroke.coalesced+=samples.length-1;
+  for(const sample of samples){
+   if(state.count>=60000){status('Достигнут предел пробы. Скачайте её или очистите поле.');break;}
+   const p=point(sample),time=Number.isFinite(sample.timeStamp)?sample.timeStamp:performance.now();
+   const pressure=Number.isFinite(sample.pressure)?sample.pressure:null,t=Math.max(0,time-stroke.start),last=stroke.raw.at(-1);
+   const duplicate=last&&last.x===p.x&&last.y===p.y&&last.t===t&&last.pressure===pressure;
+   if(duplicate)stroke.duplicates++;
+   else{stroke.raw.push({...p,pressure,t});state.count++;}
+   // Safari can repeat the final coalesced sample as the parent event.
+   // Keep later stationary/pressure-only samples; preserve the pen-up endpoint.
+   if(!duplicate||(sample===e&&e.type==='pointerup')){
+    const proxy={type:sample===e?e.type:'pointermove',timeStamp:time};
+    lessonAddStrokeSamples(stroke.baseline,proxy,()=>p,{clientWidth:state.scale,clientHeight:state.scale});
+   }
+  }
+  state.lastInput=performance.now();schedule();
+ }
+ function finish(e){
+  const stroke=state.active;if(!stroke||e&&e.pointerId!==stroke.pointerId)return;
+  if(e&&e.type==='pointerup')record(e);
+  stroke.complete=true;lessonFinishStroke(stroke.baseline,state.scale,state.scale);
+  state.active=null;schedule();
+ }
+ canvas.addEventListener('pointerdown',e=>{
+  if(state.active||e.button!==0||state.strokes.length>=100||state.count>=60000)return;
+  e.preventDefault();resize();const p=point(e),width=Number(document.getElementById('penCompareWidth').value)/state.scale,color=document.getElementById('penCompareColor').value;
+  const stroke={pointerId:e.pointerId,pointerType:e.pointerType||'unknown',start:e.timeStamp,width,color,raw:[{...p,pressure:Number.isFinite(e.pressure)?e.pressure:null,t:0}],baseline:{renderVersion:2,color,width,opacity:1,points:[p]},complete:false,coalesced:0,duplicates:0,dispatches:1};
+  state.strokes.push(stroke);state.count++;state.active=stroke;canvas.setPointerCapture(e.pointerId);state.lastInput=performance.now();schedule();
+ });
+ canvas.addEventListener('pointermove',e=>{if(state.active&&state.active.pointerId===e.pointerId){e.preventDefault();record(e);}});
+ for(const name of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(name,finish);
+ dialog.addEventListener('keydown',e=>{e.stopPropagation();if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();document.getElementById('penCompareUndo').click();}});
+ document.getElementById('penCompareOpen').onclick=()=>{dialog.showModal();schedule();document.getElementById('penCompareClose').focus();};
+ document.getElementById('penCompareClose').onclick=()=>{finish();dialog.close();};
+ dialog.addEventListener('close',()=>finish());
+ dialog.querySelectorAll('[data-pc-profile]').forEach(button=>button.onclick=()=>{
+  finish();state.profile=button.dataset.pcProfile;dialog.dataset.profile=state.profile;
+  dialog.querySelectorAll('[data-pc-profile]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+  status(names[state.profile]+'. Все пробные штрихи показаны этим вариантом.');schedule();
+ });
+ document.getElementById('penCompareWidth').oninput=e=>document.getElementById('penCompareWidthValue').value=e.target.value;
+ document.getElementById('penCompareUndo').onclick=()=>{finish();const removed=state.strokes.pop();if(removed)state.count-=removed.raw.length;schedule();};
+ document.getElementById('penCompareClear').onclick=()=>{finish();state.strokes=[];state.count=0;state.frameWaits=[];schedule();};
+ document.getElementById('penCompareSideBySide').onclick=e=>{const previews=document.getElementById('penComparePreviews');previews.hidden=!previews.hidden;e.currentTarget.setAttribute('aria-expanded',String(!previews.hidden));schedule();};
+ document.getElementById('penCompareChoose').onclick=()=>{state.choice=state.profile;status('Для отчёта выбран вариант «'+names[state.choice]+'». Ручка урока не изменена.');};
+ document.getElementById('penCompareExport').onclick=()=>{
+  finish();const report={format:'ege-blizko-pen-comparison',version:1,engine:{name:'perfect-freehand',version:'1.2.3'},selected:state.profile,preferred:state.choice,beautify:lessonBeautify,browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight,pixelRatio:devicePixelRatio},paper:state.world,view:{scale:state.scale,offset:state.offset},diagnostics:measureDiagnostics(),strokes:state.strokes.map(s=>({pointerType:s.pointerType,color:s.color,width:s.width,raw:s.raw}))};
+  lessonDownload(JSON.stringify(report),'ЕГЭ_БЛИЗКО_проба_ручки.json','application/json');status('Проба скачана. При желании прикрепите файл в сообщении Марии.');
+ };
+ if(window.ResizeObserver)new ResizeObserver(()=>{if(dialog.open){finish();schedule();}}).observe(canvas.parentElement);
+})();
+</script>

@@ -84,8 +84,8 @@ class LaboratoryReleaseChecks(unittest.TestCase):
         self.assertIn('.tube-slot:has(.pptLayer):before{content:none}', self.html)
         self.assertNotIn('.tube-slot:has(.pptLayer.bright-ppt):before', self.html)
         self.assertIn('.tube:has(.pptLayer){', self.html)
-        self.assertIn('box-shadow:0 1px 2px rgba(68,78,88,.30);animation-name:settleLight', self.html)
-        self.assertIn('light&&cls==="fine"?110', self.html)
+        self.assertIn('animation-name:settleLight', self.html)
+        self.assertIn('light&&cls==="fine"?145', self.html)
         self.assertIn('animation-name:gelBedGrowLight', self.html)
         self.assertIn('animation-name:gelCloudSettleLight', self.html)
         self.assertIn('@keyframes gelCloudSettleLight', self.html)
@@ -129,6 +129,7 @@ class LaboratoryReleaseChecks(unittest.TestCase):
             "const tubeChain=[{available:['cuoh2','na2so4'],steps:[{reaction:{eq:'CuSO₄ + 2NaOH → Cu(OH)₂↓ + Na₂SO₄'}}]}];",
             "let renders=0;function renderTubes(){renders++}",
             "function normalizeReagentSearch(s){return String(s).toLowerCase().replace(/[₀₁₂₃₄₅₆₇₈₉]/g,x=>'0123456789'['₀₁₂₃₄₅₆₇₈₉'.indexOf(x)]).replace(/[\\s·.]/g,'')}",
+            "const tubeHeat=[false]; function tubeHasMedium(){return false} function task6Esc(s){return s}",
             chain_code,
             "for(const rx of " + json.dumps(entries, ensure_ascii=False) + "){const k=key(rx.a,rx.b);reactionMap.set(k,[rx])}",
             "if(chainCandidates(0,'hcl').length!==1)throw Error('CuOH2 HCl candidate missing');",
@@ -156,6 +157,7 @@ class LaboratoryReleaseChecks(unittest.TestCase):
             "const tubeChain=[null];",
             "function renderTubes(){}",
             "function normalizeReagentSearch(s){return String(s).toLowerCase().replace(/[₀₁₂₃₄₅₆₇₈₉]/g,x=>'0123456789'['₀₁₂₃₄₅₆₇₈₉'.indexOf(x)]).replace(/[\\s·.]/g,'')}",
+            "const tubeHeat=[false]; function tubeHasMedium(){return false} function task6Esc(s){return s}",
             chain_code,
             "const first={eq:'2FeCl₃ + 3Na₂CO₃ + 3H₂O → 2Fe(OH)₃↓ + 3CO₂↑ + 6NaCl'};",
             "const products=chainProductIds(first);",
@@ -197,11 +199,11 @@ class LaboratoryReleaseChecks(unittest.TestCase):
 
     def test_stylus_smoothing_is_shared_by_canvas_and_pdf_export(self):
         self.assertIn('function lessonSmoothPoints(points)', self.html)
-        self.assertIn('function lessonPointerSamples(event,converter)', self.html)
+        self.assertIn('const lessonStrokeFilters=new WeakMap()', self.html)
         self.assertIn('event.getCoalescedEvents()', self.html)
-        self.assertIn('lessonSmoothPoints(stroke.points).forEach', self.html)
-        self.assertIn('lessonSmoothPoints(stroke.points).entries()', self.html)
-        self.assertIn('const pts=lessonSmoothPoints(stroke.points||[])', self.html)
+        self.assertIn('lessonStrokePoints(stroke,w,h).forEach', self.html)
+        self.assertIn('lessonStrokePoints(stroke,canvas.width,canvas.height)', self.html)
+        self.assertIn('const pts=lessonStrokePoints(stroke,w,h)', self.html)
         self.assertIn('lessonAddStrokeSamples(lessonDrawing,event,lessonGetPoint,canvas)', self.html)
 
     def test_mobile_comparison_bench_and_white_precipitates_are_visible(self):
@@ -213,9 +215,9 @@ class LaboratoryReleaseChecks(unittest.TestCase):
 
     def test_lesson_pdf_export_rebuilds_pages_and_validates_output(self):
         self.assertIn('await sourcePage.render({canvasContext:context,viewport}).promise', self.html)
-        self.assertIn('sheet.drawImage(embedded,{x:0,y:0,width:base.width,height:base.height})', self.html)
+        self.assertIn('sheet.drawImage(embedded,{x:0,y:0,width:cached.width,height:cached.height})', self.html)
         self.assertNotIn('await pdf.copyPages(source,source.getPageIndices())', self.html)
-        self.assertIn('const sheet=pdf.addPage([base.width,base.height])', self.html)
+        self.assertIn('const sheet=pdf.addPage([cached.width,cached.height])', self.html)
         self.assertIn('trailer.includes("%%EOF")', self.html)
         self.assertIn('setTimeout(()=>URL.revokeObjectURL(url),60000)', self.html)
 
@@ -256,6 +258,7 @@ class LaboratoryReleaseChecks(unittest.TestCase):
             "const cases=" + json.dumps(cases, ensure_ascii=False) + ";",
             "const reagents=" + json.dumps(self.reagents, ensure_ascii=False) + ";",
             "function reagent(id){return reagents[id];}",
+            js[js.index("function oxideSulfateTurbidity("):js.index("const PRECIPITATE_STYLES=")],
             precipitate_rules,
             solid_rules,
             """const results=cases.map(c=>{
@@ -303,6 +306,7 @@ class LaboratoryReleaseChecks(unittest.TestCase):
         source = "\n".join((
             "const reagents=" + json.dumps(self.reagents, ensure_ascii=False) + ";",
             "function reagent(id){return reagents[id];}",
+            js[js.index("function oxideSulfateTurbidity("):js.index("const PRECIPITATE_STYLES=")],
             rules,
             """const solid=['cuo','hcl'], metal=['zn','hcl'], noReaction=['cu','hcl'];
             const reactive={t:'c',sign:'чёрный CuO растворяется'};

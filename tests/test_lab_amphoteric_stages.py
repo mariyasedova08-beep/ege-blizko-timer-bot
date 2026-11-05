@@ -39,7 +39,9 @@ class AmphotericStages(unittest.TestCase):
 
     def test_lesson_and_main_lab_share_excess_variants(self):
         self.assertIn('id="lessonExcess"', SOURCE)
-        self.assertIn('findReaction(a,b,heated,lessonExcess)', SOURCE)
+        self.assertIn('excess=lessonExcess', SOURCE)
+        self.assertIn('findReaction(a,b,heated,excess)', SOURCE)
+        self.assertIn('lessonSelectedReaction(pair.a,pair.b,state.heated,state.medium||"",state.excess)', SOURCE)
         self.assertIn('reactionVariants(a,b).find(x=>x.excess===alkali)', SOURCE)
         self.assertIn('lessonDissolving', SOURCE)
         self.assertIn('overrideReaction=undefined', SOURCE)
@@ -52,7 +54,8 @@ class AmphotericStages(unittest.TestCase):
         self.assertIn('id="lessonToolMarker"', SOURCE)
         self.assertIn('id="lessonColorPresets"', SOURCE)
         self.assertIn('lessonTool==="marker"?.32:1', SOURCE)
-        self.assertIn('ctx.globalAlpha=Math.max(.1', SOURCE)
+        self.assertIn('ctx.globalAlpha=alpha', SOURCE)
+        self.assertIn('ctx.drawImage(lessonMarkerLayer,0,0)', SOURCE)
         self.assertIn('Number(stroke.opacity??1)', SOURCE)
 
     def test_both_alkalis_are_exposed_and_visual_stage_is_shared(self):

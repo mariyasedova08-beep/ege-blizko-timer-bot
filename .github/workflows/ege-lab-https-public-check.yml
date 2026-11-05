@@ -1,0 +1,20 @@
+name: Protected public pilot HTTPS — no deployment
+on:
+  push:
+    branches: ['feature/lab-review-board-20261101']
+    paths: ['deploy/https-probes/lab-test-ready.txt']
+permissions:
+  contents: read
+jobs:
+  verify-public-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify trusted TLS, anonymous access denial and exact deployed build
+        run: python tests/check_lab_pilot_public.py
+# Authenticated desktop/tablet browser coverage runs with disposable credentials
+# in ege-lab-review-isolated.yml. No owner's password is stored in Actions.
