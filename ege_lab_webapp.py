@@ -4574,7 +4574,7 @@ async function lessonBoardOpenProject(file){
    const view=page.view||{x:0,y:0,zoom:1};
    if(!lessonBoardValidNumber(view.x,-10000000,10000000)||!lessonBoardValidNumber(view.y,-10000000,10000000)||!lessonBoardValidNumber(view.zoom,.1,4))throw Error("bad-view");
    const doc=page.document;
-   if(doc&&(typeof doc.id!=="string"||doc.id.length>128||typeof doc.title!=="string"||doc.title.length>80||!Number.isInteger(doc.page)||!Number.isInteger(doc.total)||doc.page<1||doc.page>doc.total||doc.total>20))throw Error("bad-document");
+   if(doc&&(typeof doc.id!=="string"||doc.id.length>128||typeof doc.title!=="string"||doc.title.length>80||!Number.isInteger(doc.page)||!Number.isInteger(doc.total)||doc.page<1||doc.page>doc.total||doc.total>40))throw Error("bad-document");
    pages.push({name:page.name||"Без названия",items,strokes,view,document:doc?{id:doc.id,title:doc.title,page:doc.page,total:doc.total}:undefined});
   }
   // Only replace the current board after the entire file has been validated.
@@ -4747,8 +4747,10 @@ function lessonBoardRecoveryRead(){return new Promise((resolve,reject)=>{
  request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
 });}
 function lessonBoardQueueRecovery(){
+ // Keep edits made while IndexedDB is still opening; setup will flush them once ready.
+ lessonBoardRecoveryDirty=true;
  if(!lessonBoardRecoveryDB||lessonBoardRecoveryPending)return;
- lessonBoardRecoveryDirty=true;clearTimeout(lessonBoardRecoveryTimer);
+ clearTimeout(lessonBoardRecoveryTimer);
  lessonBoardRecoveryTimer=setTimeout(lessonBoardFlushRecovery,650);
 }
 async function lessonBoardFlushRecovery(){
@@ -4804,7 +4806,10 @@ async function lessonBoardSetupRecovery(){
     if(!window.confirm("Заменить локальную копию текущей доской? Старую копию после этого восстановить нельзя."))return;
     lessonBoardRecoveryPending=false;recover.hidden=fresh.hidden=true;lessonBoardQueueRecovery();
    };
-  }else{lessonBoardRecoveryStatus("Доска: локальная копия будет сохранена после изменения");}
+  }else{
+   lessonBoardRecoveryStatus("Доска: локальная копия будет сохранена после изменения");
+   if(lessonBoardRecoveryDirty)lessonBoardQueueRecovery();
+  }
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")lessonBoardFlushRecovery();});
   window.addEventListener("pagehide",()=>lessonBoardFlushRecovery());
  }catch(err){lessonBoardRecoveryStatus("Локальная копия доски недоступна — скачивайте проект");}
