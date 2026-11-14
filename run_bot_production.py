@@ -62,6 +62,10 @@ def main():
     import decomposition_trainer
     decomposition_trainer.install()
 
+    # Telegram inline-button trainer for ion tests and qualitative reactions.
+    import qualitative_reactions_trainer
+    qualitative_reactions_trainer.install()
+
     # Personal launch campaigns at 16:00 Moscow.
     import oxide_properties_campaign  # noqa: F401
     import hydroxides_campaign  # noqa: F401
