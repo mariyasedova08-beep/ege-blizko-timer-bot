@@ -1,0 +1,23 @@
+name: Probnik publication isolated tests
+on:
+  pull_request:
+    paths:
+      - 'probnik_result_notify.py'
+      - 'run_bot_live10.py'
+      - 'google_sheets_probnik_sync.gs'
+      - 'tests/test_probnik_result_notify.py'
+      - '.github/workflows/probnik-publication-tests.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Isolated publication queue tests
+        run: python -m unittest discover -s tests -p test_probnik_result_notify.py -v
+      - name: Validate Python source
+        run: python -m py_compile probnik_result_notify.py run_bot_live10.py run_bot_live24.py
